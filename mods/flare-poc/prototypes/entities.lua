@@ -9,6 +9,7 @@ local util = require("util")
 local C = require("scripts.config")
 
 local function watts(w) return string.format("%dW", math.floor(w)) end
+local function joules(j) return string.format("%dJ", math.floor(j)) end
 
 -- The flare solar panel: a high-output panel we can track and degrade. Its
 -- actual output = PANEL_NOMINAL_W * solar_factor * surface.solar_power_multiplier,
@@ -29,10 +30,10 @@ capacitor.minable = nil
 capacitor.next_upgrade = nil
 capacitor.energy_source = {
   type = "electric",
-  buffer_capacity = C.CAPACITOR_BUFFER,
+  buffer_capacity = joules(C.CAPACITOR_BUFFER_J),
   usage_priority = "tertiary",
-  input_flow_limit = C.CAPACITOR_FLOW,
-  output_flow_limit = C.CAPACITOR_FLOW,
+  input_flow_limit = watts(C.CAPACITOR_FLOW_W),
+  output_flow_limit = watts(C.CAPACITOR_FLOW_W),
 }
 
 -- Molten-salt battery: bulk, slow. Huge buffer, small flow -> soaks the
@@ -44,10 +45,10 @@ battery.minable = nil
 battery.next_upgrade = nil
 battery.energy_source = {
   type = "electric",
-  buffer_capacity = C.BATTERY_BUFFER,
+  buffer_capacity = joules(C.BATTERY_BUFFER_J),
   usage_priority = "tertiary",
-  input_flow_limit = C.BATTERY_FLOW,
-  output_flow_limit = C.BATTERY_FLOW,
+  input_flow_limit = watts(C.BATTERY_FLOW_W),
+  output_flow_limit = watts(C.BATTERY_FLOW_W),
 }
 
 -- Dissipator: infinite safe waste, rate-limited per building. A pure consumer
@@ -80,4 +81,18 @@ local dissipator = {
   },
 }
 
-data:extend({ panel, capacitor, battery, dissipator })
+-- Test measurement rig: absorbs a panel's full output unthrottled so a test can
+-- read real engine solar output (see scripts/config.lua C.MEASURE_SINK).
+local measure = util.table.deepcopy(data.raw["accumulator"]["accumulator"])
+measure.name = C.MEASURE_SINK
+measure.minable = nil
+measure.next_upgrade = nil
+measure.energy_source = {
+  type = "electric",
+  buffer_capacity = joules(C.MEASURE_BUFFER_J),
+  usage_priority = "tertiary",
+  input_flow_limit = watts(C.MEASURE_FLOW_W),
+  output_flow_limit = watts(C.MEASURE_FLOW_W),
+}
+
+data:extend({ panel, capacitor, battery, dissipator, measure })

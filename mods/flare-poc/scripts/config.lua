@@ -58,6 +58,10 @@ C.HP_PER_MW_DEFICIT = 4.0
 -- Recovery when disposal is sufficient: over-budget panels ran "hot" but recover
 -- if you add disposal. Regen per safe sweep, so degradation is reversible.
 C.RECOVERY_HP_PER_SWEEP = 6.0
+-- Degrade-before-death: a panel can lose at most this much health per sweep, so
+-- a panel always runs "hot" (reduced efficiency) for several sweeps before it
+-- can die. Deaths only happen under a SUSTAINED deficit (spec: "die if sustained").
+C.MAX_HP_LOSS_PER_SWEEP = 20.0
 -- How often the damage/recovery sweep runs.
 C.DAMAGE_INTERVAL = 20
 -- Cadence of the flare-driver tick (distinct N from DAMAGE_INTERVAL, since
@@ -71,17 +75,25 @@ C.DISSIPATOR = "flare-dissipator"
 C.DISSIPATOR_DRAW_W = 20e6 -- 20 MW per building
 -- Capacitor: fast, small. Catches the sharp leading edge of the flare.
 C.CAPACITOR = "flare-capacitor"
-C.CAPACITOR_BUFFER = "5MJ"
-C.CAPACITOR_FLOW = "5MW"
+C.CAPACITOR_BUFFER_J = 5e6  -- 5 MJ
+C.CAPACITOR_FLOW_W = 5e6    -- 5 MW
 -- Molten-salt battery: bulk, slow. Soaks the sustained plateau. Must stay hot or
 -- it self-discharges (heat upkeep), modelled as a slow scripted drain.
 C.BATTERY = "flare-molten-salt-battery"
-C.BATTERY_BUFFER = "200MJ"
-C.BATTERY_FLOW = "2MW"
+C.BATTERY_BUFFER_J = 200e6 -- 200 MJ
+C.BATTERY_FLOW_W = 2e6     -- 2 MW
 -- Heat upkeep: fraction of the battery's *capacity* lost per driver tick when
 -- idle-cold. Small, but present, so the battery is itself a mild power sink and
 -- thrives here / is awkward elsewhere (spec sec.12 item 6).
 C.BATTERY_UPKEEP_FRACTION = 0.0005
+
+-- Test-only measurement rig: an accumulator with flow far above the flare peak,
+-- so it absorbs a panel's full output WITHOUT throttling. Reading its energy
+-- delta over a window measures real, unthrottled engine solar output (used to
+-- prove the ~100x peak against the engine, not just the canonical model).
+C.MEASURE_SINK = "flare-measurement-sink"
+C.MEASURE_FLOW_W = 500e6
+C.MEASURE_BUFFER_J = 5e9
 
 -- Baseline factory consumption on the grid (W). Baseline solar runs the factory
 -- between flares (spec: storage is NOT life-support); default equals one panel's
