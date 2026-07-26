@@ -27,10 +27,21 @@ describe("cindra planet", function()
     end
     assert.is_true(unlocks_cindra, "the discovery tech must unlock the cindra space location")
 
+    -- Under any-planet-start (Cindra start), APS hides planet-discovery-cindra
+    -- and STRIPS its prerequisites (remove_tech sets technology.prerequisites =
+    -- nil): the tech becomes a root, because you already start on Cindra so
+    -- there is nothing to gate it behind. The canonical base 4-mod run keeps the
+    -- Vulcanus gate (§6). Guard so both configs stay green (matches the
+    -- config-aware guard test_mass_driver uses for the same trap).
     local prereqs = {}
     for _, p in pairs(tech.prerequisites) do prereqs[p.name] = true end
-    assert.is_true(prereqs["planet-discovery-vulcanus"],
-      "Cindra is gated after Vulcanus (§6): its discovery must require planet-discovery-vulcanus")
+    if script.active_mods["cindra-start"] then
+      assert.is_nil(prereqs["planet-discovery-vulcanus"],
+        "under APS the Vulcanus discovery prereq is stripped (tech becomes a root)")
+    else
+      assert.is_true(prereqs["planet-discovery-vulcanus"],
+        "Cindra is gated after Vulcanus (§6): its discovery must require planet-discovery-vulcanus")
+    end
   end)
 
   it("loads with its (v1 vanilla) star-map sprite and icon", function()
