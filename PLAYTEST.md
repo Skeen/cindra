@@ -111,3 +111,18 @@ this list is the last resort when no test path exists.
   Cindra sprites/icons (`graphics/ART-MANIFEST.md`, ci-pru): single static frames,
   no charge-lamp/working animation. Expected in v1 — bespoke animated art is a
   later pass. Do not file as a bug.
+
+- [ ] **Environmental scanner reads well as a circuit hub (ci-3o3).** The
+  standalone `env-scanner` mod adds a buildable **Environmental scanner** (a
+  renamed constant combinator) that outputs surface signals (`env-daytime`,
+  `env-daylight`, `env-solar`, `env-tick-of-day`, and, when a `cindra-flare`
+  remote interface is present, `env-flare-countdown/phase/intensity`). Signal
+  behaviour, recipe shape, and the flare-forecast path are integration-tested
+  (`tests/test_scanner.lua`) and the pure maths unit-tested
+  (`unit-tests/test_readings.lua`); only the *visual/UX read* is a playtest.
+  *Look for:* the seven virtual signals appear in the signal picker under a
+  clustered subgroup and read sensibly (icons are placeholder base icons -- a
+  renamed combinator body and reused base signal icons; bespoke art is a
+  follow-up bead, do not file as a bug); wiring the scanner's `env-daylight` /
+  `env-flare-countdown` to a lamp or combinator visibly tracks the day and, on a
+  Cindra save with the flare system loaded, counts down to the next flare.

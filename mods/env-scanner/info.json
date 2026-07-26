@@ -1,0 +1,14 @@
+{
+  "name": "env-scanner",
+  "version": "0.1.0",
+  "title": "Environmental Scanner",
+  "author": "cindra",
+  "factorio_version": "2.1",
+  "description": "Standalone circuit-network hub: a buildable Environmental Scanner that reads its surface and outputs day/night position, daylight fraction, tick-of-day, and solar output as circuit signals on ANY planet. Situational, not strictly-better than a clock; native/chemistry-free recipe. Optionally emits a Cindra solar-flare forecast (next-flare countdown + phase + intensity) when the Cindra flare system is present, via a documented remote interface; degrades gracefully when absent.",
+  "dependencies": [
+    "base >= 2.1",
+    "? space-age",
+    "? cindra",
+    "? factorio-test"
+  ]
+}
