@@ -56,6 +56,16 @@ this list is the last resort when no test path exists.
   vanilla `huge-rock`; the volatiles item reuses the vanilla ice icon. Expected in
   v1 — bespoke Cindra resource art is a later pass. Do not file as a bug.
 
+- [ ] **Discovery lore reads well in the tech GUI (ci-11b).** The
+  `planet-discovery-cindra` technology now carries the full §3 planet-discovery
+  entry as its description. *Repro:* open the technology screen and hover/select
+  the Cindra discovery tech. *Look for:* the longer lore paragraph fits the
+  tooltip/description panel and reads cleanly (no awkward truncation). The five
+  standalone codex blurbs (`cindra-lore.discovery/ribbon/flare/nightside/alloy`)
+  are keyed for a future discovery-codex / tips-and-tricks reader and are not yet
+  surfaced in-game; their *presence and shape* are unit-tested
+  (`unit-tests/test_locale.lua`), so this playtest is only the tech-tooltip read.
+
 - [ ] **Nightside cold damage vs Aquilo freeze (feel).** Unheated machines past
   the cold threshold take ticking cold damage (the spec's "take cold damage"
   option) rather than a reversible Aquilo-style freeze. Confirm the pace (default
