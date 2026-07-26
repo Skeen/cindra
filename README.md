@@ -57,6 +57,37 @@ tests run without Factorio:
 cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_ribbon.lua
 ```
 
+### Companion mods (Any-Planet-Start chain)
+
+The default run above loads only `mods/cindra`. To verify the companion mods
+(`cindra-start` + `cindra-dev-default`) wire Cindra into Any-Planet-Start and
+that the full set loads clean headless with the picker defaulting to Cindra,
+enable the APS chain and run the `test_aps_start` suite. The extra mods must be
+visible in the data dir first:
+
+```sh
+for m in any-planet-start:vendor/any-planet-start \
+         cindra-start:mods/cindra-start \
+         cindra-dev-default:mods/cindra-dev-default; do
+  ln -sfn "../../${m#*:}" "factorio-test-data-dir/mods/${m%%:*}"
+done
+# fresh mod-settings so the picker regenerates its default (cindra-dev-default -> "cindra")
+rm -f factorio-test-data-dir/mods/mod-settings.dat factorio-test-data-dir/mod-settings.dat
+
+nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
+  --factorio-path ./factorio/bin/x64/factorio \
+  --data-directory ./factorio-test-data-dir \
+  --mod-path ./mods/cindra \
+  --mods space-age quality elevated-rails recycler \
+         any-planet-start cindra-start cindra-dev-default \
+  -- "cindra APS start chain"
+```
+
+That mod set rewrites Cindra's discovery tech (APS treats it as the start
+planet), so it is deliberately kept out of the default run; the `test_aps_start`
+suite only registers when `cindra-start` is active. The actual in-game start
+(cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
+
 See [`AGENTS.md`](AGENTS.md) for development conventions and the test-first
 workflow.
 
