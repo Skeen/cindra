@@ -58,10 +58,6 @@ C.HP_PER_MW_DEFICIT = 4.0
 -- Recovery when disposal is sufficient: over-budget panels ran "hot" but recover
 -- if you add disposal. Regen per safe sweep, so degradation is reversible.
 C.RECOVERY_HP_PER_SWEEP = 6.0
--- Degrade-before-death: a panel can lose at most this much health per sweep, so
--- a panel always runs "hot" (reduced efficiency) for several sweeps before it
--- can die. Deaths only happen under a SUSTAINED deficit (spec: "die if sustained").
-C.MAX_HP_LOSS_PER_SWEEP = 20.0
 -- How often the damage/recovery sweep runs.
 C.DAMAGE_INTERVAL = 20
 -- Cadence of the flare-driver tick (distinct N from DAMAGE_INTERVAL, since

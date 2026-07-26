@@ -6,17 +6,17 @@
 -- Properties this module guarantees, each locked by a test:
 --   * Damage budget scales with the DEFICIT (W with nowhere to go), never with
 --     panel count.
---   * Degrade before death: capped per-sweep loss, so panels run "hot" (reduced
---     efficiency) and only die under a SUSTAINED deficit. Recoverable when
---     disposal is added.
---   * Self-correcting negative feedback: a degraded/dead panel produces less, so
---     potential falls toward capture. Fewer/weaker panels -> smaller surge. It
---     converges to "panels <= disposal", it does NOT death-spiral.
---   * Edge-biased: the most-sunward panels degrade first, so regrowth has a
---     front and placement matters (spec option).
+--   * Degrade before death: a mild deficit spends less than a panel's health, so
+--     panels run "hot" (a recoverable condition drop) and only DIE under a
+--     sustained/severe deficit. Health regenerates when disposal is added.
+--   * Self-correcting negative feedback: damage kills panels sunward-first, which
+--     shrinks the array, which lowers both the potential and the flare peak. It
+--     converges to "alive panels <= disposal capacity" and then stops - it does
+--     NOT death-spiral to zero (a dead panel removes the cause of the overload).
+--   * Edge-biased: the most-sunward panels take the deficit first, so die-off has
+--     a front and placement matters (spec option).
 --   * Dissipator is the fuse: its capacity is counted in `capture` before any
---     panel is touched (see scripts/sinks.lua), so disposal-first scaling means
---     zero panel loss.
+--     panel is touched (scripts/sinks.lua), so disposal-first scaling = zero loss.
 --
 -- Per-grid, scoped by electric_network_id, and per-surface: a saturated grid
 -- only damages its own panels; other grids and other planets are untouched.
@@ -26,13 +26,6 @@ local flare = require("scripts.flare")
 local sinks = require("scripts.sinks")
 
 local M = {}
-
--- Efficiency of a panel = its current health fraction. A degraded panel runs
--- "hot" and produces proportionally less, which is what makes the feedback
--- self-correcting.
-local function efficiency(panel)
-  return panel.health / panel.max_health
-end
 
 -- Every flare panel on the surface (optionally one network), sunward-first
 -- (descending x) so damage is edge-biased and deterministic.
@@ -50,12 +43,14 @@ function M.panels(surface, network_id)
   return list
 end
 
--- Potential solar power (W) the panels WOULD deliver at `intensity`, discounted
--- by each panel's efficiency. This is the "output looking for somewhere to go".
+-- Potential solar power (W) the alive panels deliver at `intensity`. An alive
+-- panel produces its full output regardless of condition; the feedback that
+-- shrinks potential is panels DYING (array size), not efficiency, which keeps
+-- the loop stable and terminating (see module note).
 function M.potential(panels, intensity)
   local total = 0
   for _, p in ipairs(panels) do
-    total = total + C.PANEL_NOMINAL_W * intensity * efficiency(p)
+    if p.valid then total = total + C.PANEL_NOMINAL_W * intensity end
   end
   return total
 end
@@ -77,32 +72,32 @@ function M.deficit(surface, network_id, intensity)
   }
 end
 
--- Apply damage for a single network's deficit, edge-biased and capped per sweep.
--- Returns hp dealt and panels destroyed. Only panels whose output overflowed
--- (the sunward end) are touched, proportional to the deficit.
+-- Apply damage for one network's deficit, edge-biased. The HP budget scales with
+-- the deficit and is spent sunward-first: a small budget only dents the sunmost
+-- panels (degrade), a large sustained budget consumes their health and kills
+-- them (death), then spills to the next panel inward. Returns hp dealt + deaths.
 local function damage_network(info)
   local budget = (info.deficit / 1e6) * C.HP_PER_MW_DEFICIT
   local dealt, destroyed = 0, 0
   for _, p in ipairs(info.panels) do
     if budget <= 0 then break end
     if p.valid then
-      local hit = math.min(budget, C.MAX_HP_LOSS_PER_SWEEP, p.health)
-      local new_health = p.health - hit
+      local hit = math.min(budget, p.health)
       dealt = dealt + hit
       budget = budget - hit
-      if new_health <= 0 then
+      if hit >= p.health then
         p.destroy()
         destroyed = destroyed + 1
       else
-        p.health = new_health
+        p.health = p.health - hit
       end
     end
   end
   return dealt, destroyed
 end
 
--- Recovery when disposal is sufficient: degraded panels heal back toward full,
--- so a deficit's efficiency drop is reversible once you add disposal.
+-- Recovery when disposal is sufficient: degraded panels heal back toward full, so
+-- a deficit's condition drop is reversible once you add disposal.
 local function recover(panels)
   for _, p in ipairs(panels) do
     if p.valid and p.health < p.max_health then
@@ -118,14 +113,10 @@ function M.sweep(surface, intensity)
   if surface.name ~= C.SURFACE then return {} end
   intensity = intensity or flare.current_intensity()
 
-  -- Group panels by network id.
   local by_net = {}
   for _, p in pairs(M.panels(surface)) do
     local id = p.electric_network_id
-    if id then
-      by_net[id] = by_net[id] or {}
-      by_net[id][#by_net[id] + 1] = p
-    end
+    if id then by_net[id] = true end
   end
 
   local summary = {}
