@@ -15,6 +15,7 @@
 
 local util = require("util")
 local C = require("scripts.flare-config")
+local panel_solar = require("scripts.panel-solar")
 
 local function watts(w) return string.format("%dW", math.floor(w)) end
 
@@ -100,4 +101,31 @@ local technology = {
   },
 }
 
+-- Position-scaled output variants (§ ci-9ht). Each reduced band is a clone of the
+-- base panel with a smaller fixed `production`; scripts/panels.lua morphs a placed
+-- panel to the variant matching its sunward Y. Variants have NO item/recipe of
+-- their own -- the player only ever crafts/holds the base panel (C.PANEL), which
+-- morphs in place -- so mining any variant returns the base item and a blueprint /
+-- pipette maps back to it. The engine's daylight/flare curve multiplies each
+-- variant's production natively, so position scaling composes with the flare for
+-- free (no per-tick power scripting). Only new prototypes are added; the shared
+-- vanilla solar panel is untouched (never-mutate-other-planets invariant).
+local variants = {}
+for _, factor in ipairs(panel_solar.BANDS) do
+  if factor < 1.0 then
+    local v = util.table.deepcopy(panel)
+    v.name = panel_solar.name_for_band(factor)
+    v.production = watts(C.PANEL_NOMINAL_W * factor)
+    v.minable = { mining_time = 0.5, result = C.PANEL }
+    v.placeable_by = { item = C.PANEL, count = 1 }
+    v.next_upgrade = nil
+    -- Present as "the same panel" in-game: identical name/description/icon, so a
+    -- band is a silent output difference, not a different building to the player.
+    v.localised_name = { "entity-name." .. C.PANEL }
+    v.localised_description = { "entity-description." .. C.PANEL }
+    variants[#variants + 1] = v
+  end
+end
+
 data:extend({ panel, item, recipe, technology })
+data:extend(variants)

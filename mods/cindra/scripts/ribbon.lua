@@ -43,6 +43,17 @@ M.DEFAULTS = {
   -- (and, later, unshielded buildings). Survivable BRIEFLY with gear so the
   -- best edge resources are reachable at a cost (§4 edge-pushing).
   max_dps = 200,
+
+  -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht). Solar
+  -- panels only REALLY work on the sunny (sunward, +Y) part of the ribbon: a
+  -- panel's output fraction ramps from `solar_floor` (nightward) up to 1.0
+  -- (deep sunward), so placement is a real decision (build sunward, toward the
+  -- heat/danger, for power). Anchored to the SAME axis as everything else so
+  -- when the axis orientation becomes configurable (worldgen-v2, ci-i8a) this
+  -- follows automatically. (tune) -- balance pass is §15-14.
+  solar_full_at = 96,  -- y >= this (the sunward lethal margin): full output.
+  solar_zero_at = -24, -- y <= this (the nightward safe edge): floor output.
+  solar_floor   = 0.0, -- output fraction on the far nightward side (~nothing).
 }
 
 -- Clamp helper (kept local so the module has zero external deps).
@@ -135,6 +146,26 @@ function M.damage_per_second(y, cfg)
   end
   local damage_type = (y > 0) and "heat" or "cold"
   return dps, damage_type
+end
+
+-- Solar output FRACTION (0..1) a panel earns at ribbon coordinate `y` (§ ci-9ht).
+-- This is the "how sunny is it here" curve, the spatial companion to the flare's
+-- temporal curve: the two MULTIPLY (a panel's real output = nominal * intensity
+-- * sunward_factor(y)), they don't replace each other.
+--   y >= solar_full_at   -> 1.0        (deep sunward: full sun, the reward for
+--                                        building toward the heat/danger)
+--   y <= solar_zero_at    -> solar_floor (nightward: ~nothing; a panel here is
+--                                        near-useless, so placement matters)
+--   between               -> linear ramp solar_floor -> 1.0
+-- Same +Y-sunward convention as temperature()/zone(): this reads the ONE axis,
+-- so it never re-derives the hot-cold orientation.
+function M.sunward_factor(y, cfg)
+  cfg = M.resolve(cfg)
+  local full, zero, floor = cfg.solar_full_at, cfg.solar_zero_at, cfg.solar_floor
+  if y >= full then return 1.0 end
+  if y <= zero then return floor end
+  local t = (y - zero) / (full - zero)
+  return floor + (1 - floor) * t
 end
 
 return M

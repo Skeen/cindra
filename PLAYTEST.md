@@ -126,3 +126,17 @@ this list is the last resort when no test path exists.
   follow-up bead, do not file as a bug); wiring the scanner's `env-daylight` /
   `env-flare-countdown` to a lamp or combinator visibly tracks the day and, on a
   Cindra save with the flare system loaded, counts down to the next flare.
+
+- [ ] **Sunward-position solar output has no visual band cue (ci-9ht).** Solar
+  panels only really work on the sunny (sunward, +Y) part of the ribbon: a placed
+  panel silently morphs to a reduced-output variant matching its Y, so nightward
+  panels produce ~nothing and sunward panels produce full. *Repro:* build a row of
+  `cindra-solar-panel` spanning from deep nightward to deep sunward, then compare
+  their contribution during a flare (e.g. watch a power graph, or the panels'
+  tooltips). *Look for:* the sunward end carries the array and the nightward end is
+  near-dead — placement toward the heat/danger is rewarded. All bands share ONE
+  sprite, so there is currently NO in-game visual indicator of a panel's output
+  band (a tint/lamp per band is a possible follow-up art/UX pass). The output
+  gradient itself, the morph, flare composition, and the damage-model tie are all
+  integration-tested (`tests/test_panel_solar.lua`); only the "which band am I in"
+  visual read and overall balance *feel* are the playtest.

@@ -92,5 +92,41 @@ test("partial config override falls back to defaults for unset keys", function()
   assert_eq("hot_lethal", ribbon.zone(96, cfg))
 end)
 
+-- === Solar output falloff (§ ci-9ht) ======================================
+
+test("solar output is full deep sunward, ~nothing nightward", function()
+  assert_eq(1.0, ribbon.sunward_factor(96), "at the sunward saturation: full sun")
+  assert_eq(1.0, ribbon.sunward_factor(200), "beyond it: held at full")
+  assert_eq(0.0, ribbon.sunward_factor(-24), "at the nightward floor: ~nothing")
+  assert_eq(0.0, ribbon.sunward_factor(-200), "far nightward: held at the floor")
+end)
+
+test("solar output rises monotonically sunward", function()
+  local prev = -1
+  for _, y in ipairs({ -24, -10, 0, 24, 48, 72, 96 }) do
+    local f = ribbon.sunward_factor(y)
+    assert_true(f >= prev, "y=" .. y .. " must not drop below a nightward point")
+    prev = f
+  end
+end)
+
+test("solar falloff makes sunward materially beat nightward", function()
+  -- The whole point: a sunward panel must out-produce a nightward one, so
+  -- placement (build toward the heat) is a real decision.
+  assert_true(ribbon.sunward_factor(48) > 4 * ribbon.sunward_factor(-24) + 0.1,
+    "mid-sunward output dwarfs the nightward floor")
+  assert_true(ribbon.sunward_factor(0) > ribbon.sunward_factor(-12),
+    "the terminator centre still beats a nightward point")
+end)
+
+test("solar falloff respects a config override (tunable, still clamped)", function()
+  local cfg = { solar_full_at = 48, solar_zero_at = 0, solar_floor = 0.1 }
+  assert_eq(1.0, ribbon.sunward_factor(48, cfg), "custom full point saturates")
+  assert_eq(0.1, ribbon.sunward_factor(0, cfg), "custom zero point holds the floor")
+  assert_eq(0.1, ribbon.sunward_factor(-10, cfg), "below the zero point: floor")
+  local mid = ribbon.sunward_factor(24, cfg)
+  assert_true(mid > 0.1 and mid < 1.0, "halfway ramps between floor and full")
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)
