@@ -1,0 +1,14 @@
+{
+  "modPath": "mods/cindra",
+  "mods": [
+    "space-age",
+    "quality",
+    "elevated-rails",
+    "recycler"
+  ],
+  "test": {
+    "log_passed_tests": true,
+    "log_skipped_tests": true,
+    "default_timeout": 18000
+  }
+}

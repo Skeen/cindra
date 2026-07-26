@@ -1,0 +1,140 @@
+-- The ribbon temperature axis (§4, §15 item 1) — the geometric heart of Cindra.
+--
+-- Cindra's map is a 1D RIBBON: long east-west along the terminator (the X axis),
+-- shallow north-south perpendicular to it (the Y axis = the sunward-nightward
+-- axis). The whole planet's identity is "hot vs cold," and that tension is a
+-- function of ONE coordinate: how far a point sits from the terminator centre
+-- along Y.
+--
+--   +Y  ->  SUNWARD   (ENERGY / heat)  : temperature RISES, lethal by heat
+--    0      TERMINATOR (temperate)      : the survivable ribbon, no damage
+--   -Y  ->  NIGHTWARD  (MATTER / cold)  : temperature FALLS, lethal by cold
+--
+-- This module is DELIBERATELY PURE: no `game.*` / `prototypes.*` access. It maps
+-- a Y coordinate to a temperature and a damage profile, nothing more. That keeps
+-- the axis maths fast, deterministic, and testable in plain Lua (unit-tests/),
+-- and lets every downstream system (lethal-edge damage §15-2, nightside heat,
+-- resource placement, edge-pushing rewards) read the SAME single source of truth
+-- for "where am I on the hot-cold axis."
+--
+-- Runtime application (ticking the player for damage, freezing nightside
+-- machines) lives in scripts that consume this module; see TODO.md §15 item 2.
+
+local M = {}
+
+-- Tuning defaults (§16). Distances are in TILES from the ribbon centre (Y = 0);
+-- temperatures are flavour/scaling values in degrees Celsius. All (tune).
+--
+-- The band layout, from centre outward on EACH side:
+--   [0 .. safe_half_width]            temperate, no damage           (the ribbon)
+--   (safe_half_width .. lethal_at]    damage ramp 0 -> max            (the margin)
+--   (lethal_at .. wall_at]            full lethal damage              (the deep edge)
+--   beyond wall_at                    hard wall backstop (§15-2)      (off the map)
+M.DEFAULTS = {
+  safe_half_width = 24, -- |Y| <= 24: guaranteed-safe temperate band
+  lethal_at       = 96, -- |Y| >= 96: damage has ramped to its maximum
+  wall_at         = 128, -- |Y| >= 128: hard-wall backstop (never walk into instant death)
+
+  temp_center  = 25, -- terminator centre: room temperature
+  temp_hot_max = 1500, -- sunward saturation: manufactured-lava hot
+  temp_cold_min = -270, -- nightward saturation: near absolute zero (volatiles freeze out)
+
+  -- Damage-per-second at the lethal saturation point, applied to the player
+  -- (and, later, unshielded buildings). Survivable BRIEFLY with gear so the
+  -- best edge resources are reachable at a cost (§4 edge-pushing).
+  max_dps = 200,
+}
+
+-- Clamp helper (kept local so the module has zero external deps).
+local function clamp(x, lo, hi)
+  if x < lo then return lo end
+  if x > hi then return hi end
+  return x
+end
+
+-- Linear interpolation.
+local function lerp(a, b, t)
+  return a + (b - a) * t
+end
+
+-- Fill in any missing config keys from DEFAULTS, so callers can pass a partial
+-- override table (or nil) and still get a complete, valid config.
+function M.resolve(cfg)
+  cfg = cfg or {}
+  local out = {}
+  for k, v in pairs(M.DEFAULTS) do
+    local override = cfg[k]
+    out[k] = (override ~= nil) and override or v
+  end
+  return out
+end
+
+-- Temperature (°C) at ribbon coordinate `y`.
+--   y = 0            -> temp_center
+--   y -> +wall_at    -> temp_hot_max  (sunward)
+--   y -> -wall_at    -> temp_cold_min (nightward)
+-- Interpolated linearly from the centre to each saturation edge, then held flat
+-- beyond it. Symmetric geometry, asymmetric endpoints (fire one way, ice the
+-- other) — the planet's whole thesis in one curve.
+function M.temperature(y, cfg)
+  cfg = M.resolve(cfg)
+  local edge = cfg.wall_at
+  if y >= 0 then
+    local t = clamp(y / edge, 0, 1)
+    return lerp(cfg.temp_center, cfg.temp_hot_max, t)
+  else
+    local t = clamp(-y / edge, 0, 1)
+    return lerp(cfg.temp_center, cfg.temp_cold_min, t)
+  end
+end
+
+-- Zone classification at coordinate `y`. One of:
+--   "safe"        temperate ribbon, no damage
+--   "hot_warn"    sunward margin: ticking heat damage, survivable briefly
+--   "hot_lethal"  sunward deep edge: full heat damage
+--   "cold_warn"   nightward margin: ticking cold damage, survivable briefly
+--   "cold_lethal" nightward deep edge: full cold damage
+function M.zone(y, cfg)
+  cfg = M.resolve(cfg)
+  local d = math.abs(y)
+  if d <= cfg.safe_half_width then return "safe" end
+  local sunward = y > 0
+  if d >= cfg.lethal_at then
+    return sunward and "hot_lethal" or "cold_lethal"
+  end
+  return sunward and "hot_warn" or "cold_warn"
+end
+
+-- True once past the hard-wall backstop (§15-2): the extreme edge where tiles
+-- become impassable so the player can never walk off the usable map into instant
+-- death. The damage ramp does the teaching; this is the bulletproof floor.
+function M.past_wall(y, cfg)
+  cfg = M.resolve(cfg)
+  return math.abs(y) >= cfg.wall_at
+end
+
+-- Damage-per-second the environment inflicts at coordinate `y`.
+--   |y| <= safe_half_width         -> 0                    (the ribbon is safe)
+--   safe_half_width < |y| < lethal -> ramps 0 -> max_dps    (the survivable margin)
+--   |y| >= lethal_at               -> max_dps               (the lethal deep edge)
+-- The ramp is what makes edge-pushing a graded risk rather than a cliff: the
+-- best resources sit just inside the lethal band, reachable with mitigation.
+-- `damage_type` is "heat" sunward, "cold" nightward (callers pick the matching
+-- Factorio damage prototype).
+function M.damage_per_second(y, cfg)
+  cfg = M.resolve(cfg)
+  local d = math.abs(y)
+  local dps
+  if d <= cfg.safe_half_width then
+    dps = 0
+  elseif d >= cfg.lethal_at then
+    dps = cfg.max_dps
+  else
+    local t = (d - cfg.safe_half_width) / (cfg.lethal_at - cfg.safe_half_width)
+    dps = cfg.max_dps * t
+  end
+  local damage_type = (y > 0) and "heat" or "cold"
+  return dps, damage_type
+end
+
+return M

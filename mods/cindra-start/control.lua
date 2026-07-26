@@ -1,0 +1,20 @@
+-- Runtime hook for the Cindra start. APS handles the surface swap; this file
+-- will deliver the pre-researched techs + the starting kit so the opening on
+-- Cindra is playable from tick zero.
+--
+-- Skeleton: no kit is delivered yet (the resource + lava economy doesn't exist).
+-- When Cindra is built out (§15 items 3-6), implement the delivery here. The APS
+-- kit-delivery pattern (kept as a reference sketch):
+--
+--   * is_cindra_start()   -> settings.startup["aps-planet"].value == "cindra"
+--   * PRE_RESEARCHED list  -> force.technologies[name].researched = true
+--     (Cindra is gated after Vulcanus, so a from-scratch start pre-researches the
+--     foundry / lava-processing prerequisites §6 assumes the player arrives with)
+--   * give_starting_kit(player) on on_player_created, with a poll on
+--     on_nth_tick(30, ...) to retry until player.character exists (APS spawns the
+--     player into a cargo-pod cutscene where character is briefly nil).
+--   * seed_ship_items() on on_init via the "freeplay" remote to stock the wreck.
+--
+-- Design a Cindra-appropriate kit (land near the terminator; power-bring-up +
+-- ice/lava bootstrap tools, not combat) when the planet is ready. Until then
+-- this mod is a no-op.

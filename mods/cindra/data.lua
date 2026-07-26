@@ -1,0 +1,20 @@
+-- Cindra data-stage entry point.
+--
+-- v1 foundation (§15 item 1): the planet + surface + ribbon/temperature-axis
+-- framing. As Cindra is built out, add prototype files under prototypes/ and
+-- require them here, following the §15 implementation order, e.g.
+--
+--   require("prototypes.ice-processing")  -- §15-4  ice -> water (+ calcite)
+--   require("prototypes.lava")            -- §15-5  1 stone + power -> 5 lava
+--   require("prototypes.cryo-alloy")      -- §15-6  two-temperature quench
+--   require("prototypes.flare")           -- §15-7  solar + flare event
+--   require("prototypes.storage")         -- §15-9  capacitor + molten-salt battery
+--   require("prototypes.electric-heater") -- §15-10
+--   require("prototypes.mass-driver")     -- §15-11
+--   require("prototypes.science")         -- §15-12 Cindra science pack + tech tree
+--
+-- See DESIGN.md for the authoritative design and TODO.md for the backlog.
+
+-- The Cindra planet: tidally-locked ribbon world, surface + reachability + the
+-- temperature-axis framing.
+require("prototypes.planet")

@@ -1,0 +1,221 @@
+---------------------------------------------------------------------------------------------------
+Version: 1.2.2
+Date: 2026-07-02
+  Bugfixes:
+    - Fixed recycling results not showing up in selection lists
+---------------------------------------------------------------------------------------------------
+Version: 1.2.1
+Date: 2026-07-02
+  Bugfixes:
+    - Fixed nauvis tech not unlocking traveling to space
+---------------------------------------------------------------------------------------------------
+Version: 1.2.0
+Date: 2026-06-23
+  Features:
+    - Updated to 2.1
+---------------------------------------------------------------------------------------------------
+Version: 1.1.30
+Date: 2026-03-24
+  Bugfixes:
+    - [Vulcanus] Fixed early unlock of low density structure
+---------------------------------------------------------------------------------------------------
+Version: 1.1.29
+Date: 2026-03-24
+  Bugfixes:
+    - Fixed tree seed default import location
+---------------------------------------------------------------------------------------------------
+Version: 1.1.28
+Date: 2026-01-25
+  Features:
+    - Added set_disable_crashsite remote call
+    - Added set_skip_intro remote call
+---------------------------------------------------------------------------------------------------
+Version: 1.1.27
+Date: 2025-12-19
+  Bugfixes:
+    - Fixed unresearching techs causing an incorrect space map
+    - Fixed planet setting changed message showing up in cases where the planet setting wasn't changed
+---------------------------------------------------------------------------------------------------
+Version: 1.1.26
+Date: 2025-12-10
+  Features:
+    - Added remote interface to get the starting planet
+---------------------------------------------------------------------------------------------------
+Version: 1.1.25
+Date: 2025-12-10
+  Bugfixes:
+    - Fixed freeze at game start when attempting to find non-colliding position on a planet without a suitable position
+---------------------------------------------------------------------------------------------------
+Version: 1.1.24
+Date: 2025-11-16
+  Compatibility:
+    - Gives SetDefaultImportPlanet higher priority
+---------------------------------------------------------------------------------------------------
+Version: 1.1.23
+Date: 2025-11-13
+  Changes:
+    - Changed default import location of most items to the starting planet
+---------------------------------------------------------------------------------------------------
+Version: 1.1.22
+Date: 2025-10-22
+  Features:
+    - Added setting to disable safe orbit
+---------------------------------------------------------------------------------------------------
+Version: 1.1.21
+Date: 2025-08-31
+  Bugfixes:
+    - Fixed error on world creation when "None" is selected
+---------------------------------------------------------------------------------------------------
+Version: 1.1.20
+Date: 2025-08-31
+  Modding:
+    - Added an optional `fixes_filename` field to the planet data that will run in data-final-fixes
+---------------------------------------------------------------------------------------------------
+Version: 1.1.19
+Date: 2025-08-02
+  Features:
+    - Added setting to enable a Vulcanus-Fulgora space connection when starting on either planet
+---------------------------------------------------------------------------------------------------
+Version: 1.1.18
+Date: 2025-06-01
+  Features:
+    - Added Vulcanus rock resource multiplier setting
+  Changes:
+    - Changed recipe unlocks from overwriting to removing and setting internally for better compatibility
+---------------------------------------------------------------------------------------------------
+Version: 1.1.17
+Date: 2025-05-01
+  Balancing:
+    - [Gleba] Moved small and medium strafers/stompers further back in the evolution graph
+    - [Gleba] Moved grenade unlock back from military science to military 2
+---------------------------------------------------------------------------------------------------
+Version: 1.1.16
+Date: 2025-04-30
+  Bugfixes:
+    - Fixed saves from very old versions of the mod not migrating properly
+    - Fixed spectating space platform as it gets destroyed teleporting the player to the starting planet
+---------------------------------------------------------------------------------------------------
+Version: 1.1.15
+Date: 2025-04-25
+  Bugfixes:
+    - Fixed incomplete error message
+---------------------------------------------------------------------------------------------------
+Version: 1.1.14
+Date: 2025-04-25
+  Changes:
+    - Moved planet tech hiding to data-final-fixes for better compatibility
+---------------------------------------------------------------------------------------------------
+Version: 1.1.13
+Date: 2025-04-24
+  Bugfixes:
+    - Fixed player respawning on nauvis when dying on a space platform
+---------------------------------------------------------------------------------------------------
+Version: 1.1.12
+Date: 2025-01-29
+  Bugfixes:
+    - Fixed error when tech effects are reset
+---------------------------------------------------------------------------------------------------
+Version: 1.1.11
+Date: 2025-01-29
+  Bugfixes:
+    - Fixed error when "None" selected
+---------------------------------------------------------------------------------------------------
+Version: 1.1.10
+Date: 2025-01-29
+  Bugfixes:
+    - Fixed error on loading existing game
+---------------------------------------------------------------------------------------------------
+Version: 1.1.9
+Date: 2025-01-29
+  Scripting:
+    - Added remote interface for overriding the starting planet at runtime
+---------------------------------------------------------------------------------------------------
+Version: 1.1.8
+Date: 2025-01-22
+  Bugfixes:
+    - Fixed error when attempting to start the Sandbox scenario
+    - Fixed error with space connections that don't have asteroid spawn definitions
+  Modding:
+    - APS.add_prerequisites no longer adds prerequisite if it already exists
+---------------------------------------------------------------------------------------------------
+Version: 1.1.7
+Date: 2025-01-17
+  Modding:
+    - Added APS.set_default_choice to the settings library
+---------------------------------------------------------------------------------------------------
+Version: 1.1.6
+Date: 2025-01-17
+  Changes:
+    - [Vulcanus] Made technologies up to foundry ignore tech cost multiplier
+  Modding:
+    - Added APS.remove_choice to the settings library
+    - Added descriptions to all utils functions
+---------------------------------------------------------------------------------------------------
+Version: 1.1.5
+Date: 2024-12-31
+  Bugfixes:
+    - Fixed compatibility issue with SLP - Dyson Sphere
+---------------------------------------------------------------------------------------------------
+Version: 1.1.4
+Date: 2024-12-29
+  Bugfixes:
+    - Fixed custom planet technologies accidentally being required
+    - Fixed calling add_choice() after set_fixed_choice() unintentionally still working
+---------------------------------------------------------------------------------------------------
+Version: 1.1.3
+Date: 2024-12-29
+  Bugfixes:
+    - Fixed dumb dumb idiot error on startup (I didn't test it)
+---------------------------------------------------------------------------------------------------
+Version: 1.1.2
+Date: 2024-12-29
+  Features:
+    - Added aps-post-init event for mods to use after this mod's init has ran
+  Bugfixes:
+    - Fixed APS.set_fixed_choice() erroring
+---------------------------------------------------------------------------------------------------
+Version: 1.1.1
+Date: 2024-12-28
+  Bugfixes:
+    - Fixed asteroids.lua running for custom planets (temporary while I work on making it work for everything)
+---------------------------------------------------------------------------------------------------
+Version: 1.1.0
+Date: 2024-12-28
+  Features:
+    - Added support for custom planet starts
+    - Removed hard coded dependency on the freeplay scenario
+  Bugfixes:
+    - Fixed missing intro text if starting cutscene was disabled
+    - Fixed mod incompatibilities caused by hiding techs without properly removing them from the tech tree
+    - [Gleba] Added missing engine prerequisite to chemical science pack technology
+---------------------------------------------------------------------------------------------------
+Version: 1.0.5
+Date: 2024-11-14
+  Bugfixes:
+    - [Vulcanus] Added missing engine prerequisite to chemical science pack technology
+---------------------------------------------------------------------------------------------------
+Version: 1.0.4
+Date: 2024-10-28
+  Bugfixes:
+    - Fixed Nauvis getting cleared every time a new player joined the server
+---------------------------------------------------------------------------------------------------
+Version: 1.0.3
+Date: 2024-10-19
+  Bugfixes:
+    - Fixed available planets resetting when updating mods (for real this time)
+---------------------------------------------------------------------------------------------------
+Version: 1.0.2
+Date: 2024-10-19
+  Bugfixes:
+    - Fixed available planets resetting when updating mods
+---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 2024-10-18
+  Changes:
+    - [Fulgora] Added space science as a prerequisite to military science
+    - [Fulgora] Moved coal synthesis from rocket turret to military science pack
+---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: 2024-10-18
+  Features:
+    - Initial release
