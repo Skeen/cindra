@@ -1,0 +1,12 @@
+{
+  "name": "quench-poc",
+  "version": "0.1.0",
+  "title": "Cryo-quench PoC",
+  "author": "cindra",
+  "factorio_version": "2.1",
+  "description": "Self-contained proof-of-concept for Cindra's signature two-temperature recipe: a quench building that consumes a HOT molten fluid AND a COLD coolant item in the same craft to make cryo-hardened alloy. Stub inputs only; no lava/foundry chain. See DESIGN.md for the modeling recommendation (item+fluid with temperature gating).",
+  "dependencies": [
+    "base >= 2.1",
+    "? factorio-test"
+  ]
+}
