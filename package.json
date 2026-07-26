@@ -5,7 +5,7 @@
   "scripts": {
     "test:integration": "factorio-test run -p .",
     "test:integration:graphics": "factorio-test run -p . -g",
-    "test:unit": "cd mods/cindra && lua unit-tests/test_ribbon.lua",
+    "test:unit": "cd mods/cindra && for f in unit-tests/test_*.lua; do echo \"# $f\" && lua \"$f\" || exit 1; done",
     "test": "npm run test:unit && npm run test:integration"
   },
   "devDependencies": {
