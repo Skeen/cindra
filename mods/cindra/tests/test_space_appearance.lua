@@ -91,6 +91,18 @@ describe("cindra space appearance (art wiring, ci-94v)", function()
       .hero_cloud_texture_1.frame_count, "24-frame flare spritesheet")
   end)
 
+  -- The redesign (ci-hmc) fixes a BLACK presented middle. The sandy ribbon
+  -- carries its own emission in the map, but that only reaches the orbital view
+  -- if the backdrop shows emission regardless of the shadow side. Guard that
+  -- wiring: the self-glow must NOT be gated on shadow and the scalar is positive.
+  it("shows emission self-glow across the disc so the sandy middle is never black", function()
+    local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+    assert.is_false(b.emission_scales_with_shadow,
+      "dayside + sandy-seam self-glow must show across the disc, not only where lit")
+    assert.is_true(b.emission_scalar ~= nil and b.emission_scalar > 0,
+      "positive emission scalar so the molten/sandy glow reads")
+  end)
+
   -- THE cross-planet invariant: build_render_parameters must deep-copy the passed
   -- nauvis params and override only Cindra's backdrop, never mutating the shared
   -- nauvis table. This runs under Factorio's REAL util.table.deepcopy.

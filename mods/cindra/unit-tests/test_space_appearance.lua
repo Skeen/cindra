@@ -118,6 +118,16 @@ test("flares/clouds animate in place while the globe stays frozen", function()
   assert_eq(true, b.hero_clouds_are_emissive, "flares glow")
 end)
 
+-- The redesign (ci-hmc) fixes a BLACK presented middle. The sandy ribbon carries
+-- its own emission in the map, but that only reaches the orbital view if the
+-- backdrop shows emission regardless of the shadow side. Guard that wiring: the
+-- self-glow must NOT be gated on shadow, and the emission scalar must be positive.
+test("emission self-glow always shows -> the sandy middle is never black in orbit", function()
+  local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+  assert_eq(false, b.emission_scales_with_shadow, "dayside+sandy-seam glow must show across the disc, not only in light")
+  assert_true(b.emission_scalar and b.emission_scalar > 0, "positive emission scalar so the glow reads")
+end)
+
 test("REGRESSION: build_render_parameters never mutates the passed nauvis params", function()
   local input = fake_nauvis_params()
   local before = snapshot(input)

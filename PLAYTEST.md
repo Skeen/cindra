@@ -26,11 +26,19 @@ this list is the last resort when no test path exists.
   Bespoke art (pipe stubs) is a later art pass, not a v1 bug. (Functionality —
   ice → water production and both recipes — is integration-tested.)
 
-- [ ] **v1 art is placeholder (vanilla Vulcanus).** *Look for:* the star-map icon
-  and orbital approach currently show Vulcanus art. This is expected in v1.
-  Replace with bespoke Cindra ribbon/terminator art in a later pass (baked
-  star-map + orbital-backdrop maps, terminator terrain tint). Until then, do not
-  file this as a bug.
+- [ ] **Redesigned globe reads FIERY → SANDY → ICY in orbit (ci-hmc).** The
+  planet globe was re-themed to the ribbon world: a radiant molten dayside, the
+  DARKEST icy-blue nightside, and a warm SANDY terminator seam down the middle
+  (fixing the old black centre). The baked star-map sprite is verified off-game
+  (`unit-tests/test_planet_maps.py` asserts the fiery/sandy/icy split and that the
+  sandy seam carries its own emission so the middle is never black; sampled centre
+  ≈ RGB [139,108,61] sandy, fire limb ≈ [244,168,137], ice limb ≈ [40,57,77]).
+  *Repro:* `./play.sh`, open the star-map / navigate the orbital approach to
+  Cindra. *Look for:* the LIVE orbital backdrop (which `factorio-test` cannot
+  render) shows the same split — luminous lava on the left limb, a clearly lit
+  sandy band across the centre (NOT black), and a dark blue-shimmer nightside on
+  the right; the globe does NOT rotate (tidally locked) while the terminator
+  steam band and the solar flares off the fire limb animate in place.
 
 - [ ] **Electric heater reads as electric, not a furnace (§15-10).** The building
   reuses vanilla heating-tower art with the burner fire-glow removed. *Repro:*

@@ -14,6 +14,9 @@ factorio/
 factorio
 node_modules
 fbsr-renderer/
+# Python bytecode cache (from the importable art pipeline + its pixel test).
+__pycache__/
+
 # Gas Town / agent runtime state (local only).
 .beads/
 .claude/
