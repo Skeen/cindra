@@ -208,13 +208,15 @@ local shell_recipe = {
   results = { { type = "item", name = M.SHELL, amount = 1 } },
 }
 
--- === Technology: gate the launch chain in the Cindra tech tree ================
--- Branches off Cindra's own planet-discovery tech, so the launch infrastructure
--- is Cindra's signature capability rather than a generic upgrade. This is the
--- mass driver's own unlock, distinct from the full Cindra science tree (ci-3or);
--- fold it in there once that lands. Under any-planet-start (Cindra start), APS
--- hides planet-discovery-cindra and strips it from every dependent's prerequisite
--- list, so this tech simply becomes a root -- no dangling reference.
+-- === Technology: an ADVANCED unlock in the folded Cindra science tree =========
+-- FOLDED INTO THE CINDRA TREE (ci-3or, §15-12): orbital launch is an advanced
+-- capability, so it now (a) branches off `cindra-science` -- you must master the
+-- headline science before you can export -- and (b) is RESEARCHED WITH the Cindra
+-- science pack, making the pack's downstream unlocks real. The `planet-discovery-
+-- cindra` prereq is kept so the tech still reads as Cindra's own signature
+-- infrastructure and stays a valid root under any-planet-start (APS hides
+-- planet-discovery-cindra and strips it from every dependent's prerequisite list,
+-- so this tech simply becomes rooted at cindra-science -- no dangling reference).
 local technology = {
   type = "technology",
   name = M.TECH,
@@ -227,13 +229,15 @@ local technology = {
     { type = "unlock-recipe", recipe = M.CATCHER },
     { type = "unlock-recipe", recipe = M.SHELL },
   },
-  prerequisites = { "planet-discovery-cindra" },
+  prerequisites = { "planet-discovery-cindra", "cindra-science" },
   unit = {
     count = 200,
     ingredients = {
       { "automation-science-pack", 1 },
       { "logistic-science-pack", 1 },
       { "chemical-science-pack", 1 },
+      -- The fold made real: exporting off Cindra costs Cindra's headline science.
+      { "cindra-science-pack", 1 },
     },
     time = 30,
   },

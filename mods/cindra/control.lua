@@ -57,6 +57,9 @@ if script.active_mods["factorio-test"] then
     "tests/test_storage",
     "tests/test_catchability",
     "tests/test_power_prototypes",
+    -- §15-12 the headline Cindra science pack + power-hungry starforge + the
+    -- folded tech tree (petrochemical-free, native inputs, a real power sink).
+    "tests/test_science",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the
