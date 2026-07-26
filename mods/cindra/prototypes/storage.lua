@@ -76,6 +76,13 @@ set_icon(capacitor_item, "capacitor")
 capacitor_item.localised_name = { "item-name." .. C.CAPACITOR }
 capacitor_item.localised_description = { "item-description." .. C.CAPACITOR }
 
+-- Capacitor plates are aluminium (ci-txh): the textbook material for an
+-- electrolytic capacitor, and the demand hook for Cindra's ruinous-power metal --
+-- the power-metal builds the thing that stores the power. This is a deliberate
+-- coupling to the aluminium chain (prototypes/aluminium.lua). It does NOT gate
+-- flare survival on aluminium: the dissipator (not the capacitor) is the
+-- panel-damage safety floor, so a player can weather flares before ever refining
+-- aluminium; the capacitor is optional recoverable storage. No soft-lock.
 local capacitor_recipe = {
   type = "recipe",
   name = C.CAPACITOR,
@@ -83,6 +90,7 @@ local capacitor_recipe = {
   energy_required = 8,
   ingredients = {
     { type = "item", name = "steel-plate", amount = 5 },
+    { type = "item", name = "cindra-aluminium", amount = 5 },
     { type = "item", name = "battery", amount = 10 },
     { type = "item", name = "electronic-circuit", amount = 10 },
   },
