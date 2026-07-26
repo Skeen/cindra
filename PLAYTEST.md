@@ -128,6 +128,16 @@ this list is the last resort when no test path exists.
   once disposal is added. Panels currently have no bespoke "overheating" visual
   (just the health bar); an emissive damage cue is a follow-up art pass.
 
+- [ ] **Aluminium chain uses placeholder art (ci-txh).** The alumina item (calcite
+  icon tinted white), the aluminium item (steel-plate icon tinted cool silver), and
+  the electrolysis cell (reused vanilla electric-furnace sprite + icon) are v1
+  placeholders. The chain itself (native stone+calcite → alumina → ruinous-power
+  electrolysis → aluminium, the cell out-drawing the foundry, capacitor demand,
+  gating, and a powered cell actually smelting) is fully integration-tested
+  (`test_aluminium`). *Look for:* the two tinted icons read as distinct materials
+  and the cell reads as its own building, not a stray electric furnace. Bespoke art
+  is a filed follow-up, not a v1 bug.
+
 - [ ] **Power buildings reuse vanilla-derived art (§15-9).** The solar panel,
   capacitor, molten-salt battery, and dissipator use the delivered first-pass
   Cindra sprites/icons (`graphics/ART-MANIFEST.md`, ci-pru): single static frames,

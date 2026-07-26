@@ -35,6 +35,13 @@ require("prototypes.lava")
 -- Impossible off-world; gated behind BOTH the lava and ice-processing techs.
 require("prototypes.cryo-alloy")
 
+-- Manufactured aluminium (ci-txh): the ruinous-power material. Native
+-- Hall-Heroult chain (stone + calcite -> alumina -> [huge power] -> aluminium) in
+-- a dedicated high-draw electrolysis cell -- another flare-timed power sink.
+-- Consumed by the flare capacitor (see storage.lua) and exportable via the mass
+-- driver. Required BEFORE storage.lua, which reads aluminium as a capacitor input.
+require("prototypes.aluminium")
+
 -- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
