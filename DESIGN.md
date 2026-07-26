@@ -6,7 +6,7 @@ narrative brief this is derived from lives at `planet_design.md` in the parent
 workspace (referenced by the originating issue `ci-m1n`); this file is the
 in-repo condensation plus the concrete decisions taken during implementation.
 
-> **Status: foundation + worldgen + ice processing.** §15 items 1–4 are
+> **Status: foundation + worldgen + ice processing + headline science.** §15 items 1–4 are
 > implemented and tested: the planet + surface + ribbon temperature axis (item 1),
 > the lethal edges — gradient damage, hard-wall backstop, nightside building-heat
 > (item 2), the world resources — stone / ice / volatiles / bootstrap rocks
@@ -177,6 +177,41 @@ draw) is the flare sink + water boil-off + nightside warmth. Goods leave by
 
 Exportable buildings (capacitor, molten-salt battery, electric heater) must be
 **situational-better, never strictly better** than vanilla (§12 guardrail).
+
+### 5b. Cindra science + tech tree — IMPLEMENTED (item 12)
+
+The headline science (§2 checklist). `prototypes/science.lua` adds the
+**`cindra-science-pack`** and the machine + tech tree around it, expressing the
+planet thesis (§1) in the player's largest standing activity: **research is a
+power sink.**
+
+- **Petrochemical-free, native inputs only.** The recipe consumes the signature
+  `cindra-cryo-hardened-alloy` (fire quenched by ice), deep-nightside
+  `cindra-volatiles`, and ice-chain `calcite` — no oil/coal/plastic/sulfur
+  anywhere. You cannot make Cindra science without already commanding both lethal
+  edges. This is the §2 "petrochemical-free headline science" requirement, locked
+  by a blacklist **and** a native-only allowlist in tests.
+- **A significant power sink.** Two honest levers: a long craft
+  (`energy_required`) run in a dedicated **`cindra-starforge`** (a clone of
+  assembling-machine-3 with a ~10 MW active draw, far above a normal assembler).
+  One pack costs on the order of the flare's own scale in energy, so science
+  throughput scales with captured flare / baseline power (ties to §15-7/§15-9 and
+  the balance pass §15-14). A private `cindra-science` recipe category keeps the
+  recipe off vanilla assemblers and vice versa.
+- **A real science pack.** It is a `science-pack`-subgroup item appended to the
+  shared labs' `inputs` — purely additive, changing no other planet's gameplay
+  (no other planet can make or needs it), which is the only way a new pack can be
+  researched at all (research is force-wide; there is no per-surface lab-inputs
+  API). Tested behaviourally: a lab accepts the Cindra pack and refuses a non-pack.
+- **The folded tech tree.** `cindra-science` (the pack-unlock) is gated behind the
+  signature **cryo-quench** (which itself needs both lava and ice) and is
+  researched with the **brought** vanilla packs — paying for the pack-unlock with
+  the pack itself would be a soft-lock (§15-13). Every DEEPER unlock then costs the
+  Cindra pack: **orbital launch (§15-11)** is folded in as the first, now branching
+  off `cindra-science` and researched with the Cindra pack.
+
+Tested end-to-end in `tests/test_science.lua`, including a powered starforge that
+only makes crafting progress when it has power.
 
 ### 5a. Ice processing — IMPLEMENTED (item 4)
 

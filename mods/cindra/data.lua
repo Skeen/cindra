@@ -57,3 +57,11 @@ require("prototypes.resources")
 -- prototypes. Shared tuning lives in scripts/flare-config.lua.
 require("prototypes.flare")
 require("prototypes.storage")
+
+-- §15-12 Cindra science: the HEADLINE science pack (petrochemical-free, native
+-- inputs only) crafted in a dedicated power-hungry "starforge" -- the largest
+-- continuous activity is another flare-timed power sink. Its tech is gated behind
+-- the signature cryo-quench (which needs both lava and ice), and it folds the
+-- launch tech into the Cindra tree so the pack has real downstream unlocks.
+-- Consumes the cryo-hardened alloy (prototypes/cryo-alloy.lua), so it loads after.
+require("prototypes.science")

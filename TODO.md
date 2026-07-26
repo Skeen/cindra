@@ -132,9 +132,22 @@ merge queue.
     proto/runtime drift, full cross-surface launch loop + preconditions).
   - TODO(ci-gd4): swap the shell recipe input to cryo-hardened-alloy once it
     lands (currently steel-plate stand-in, still zero-chemistry).
-  - TODO(ci-3or): fold `cindra-orbital-launch` into the real Cindra science tree.
-- [ ] **§15-12 — Cindra science pack + tech tree.** `ci-3or` — petrochemical-free
-  recipe (native inputs only); the unlocks for items 3–11.
+  - DONE(ci-3or): folded into the Cindra science tree — `cindra-orbital-launch`
+    now branches off `cindra-science` and is researched WITH the Cindra science
+    pack (an advanced, headline-gated export capability).
+- [x] **§15-12 — Cindra science pack + tech tree.** `ci-3or` — the HEADLINE
+  science, `prototypes/science.lua`: a petrochemical-free `cindra-science-pack`
+  (native inputs only — the signature cryo-hardened alloy + deep-nightside
+  volatiles + ice-chain calcite) crafted in a dedicated power-hungry `cindra-
+  starforge` (~10 MW draw, long craft), so the largest continuous activity is
+  another flare-timed power sink (ties to ci-9k6 / ci-63d). Gated behind the
+  signature cryo-quench (`cindra-science` tech, researched with brought packs to
+  avoid a soft-lock), and it FOLDS orbital launch into the tree as the first
+  downstream unlock. Pack appended to the labs' inputs (additive, safe). Tested:
+  `tests/test_science.lua` (petrochemical-free/native-only, high energy cost,
+  electric high-draw machine that only crafts when powered, private category, tech
+  gating + fold, a lab actually accepts the pack). Balance of amounts/draw is
+  `(tune)` → §15-14.
 - [ ] **§15-13 — Bootstrap traversal check.** `ci-uex` — verify landing → first
   foundry is traversable: no chicken-and-egg, no soft-lock; bootstrap-rock output
   is a one-time/durable cost only. *Needs 5.*

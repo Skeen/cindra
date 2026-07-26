@@ -69,6 +69,20 @@ this list is the last resort when no test path exists.
   vanilla `huge-rock`; the volatiles item reuses the vanilla ice icon. Expected in
   v1 — bespoke Cindra resource art is a later pass. Do not file as a bug.
 
+- [ ] **Cindra science art is placeholder (§15-12).** The `cindra-science-pack`
+  reuses the vanilla automation-science-pack icon tinted a hot amber, and the
+  `cindra-starforge` reuses the vanilla assembling-machine-3 sprite/icon. *Repro:*
+  research `cindra-science`, build a starforge, craft a pack. *Look for:* the pack
+  reads as a distinct Cindra pack in the lab/tech GUI and the starforge reads as a
+  special (not just another assembler) building. Bespoke art is a later pass, not
+  a v1 bug — functionality is fully test-covered (`tests/test_science.lua`).
+
+- [ ] **Starforge power draw feels like a real sink (§15-12, feel).** The starforge
+  draws ~10 MW active (a `(tune)` value, §15-14). *Look for:* running an array of
+  them visibly leans on the grid / flare capture the way the design intends
+  ("research is a power sink"), without being so punishing that early science
+  stalls. Balance against the flare numbers (ci-9k6) and the balance pass (ci-63d).
+
 - [ ] **Discovery lore reads well in the tech GUI (ci-11b).** The
   `planet-discovery-cindra` technology now carries the full §3 planet-discovery
   entry as its description. *Repro:* open the technology screen and hover/select
