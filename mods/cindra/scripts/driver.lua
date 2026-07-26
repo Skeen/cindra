@@ -1,20 +1,26 @@
--- Cindra worldgen runtime driver (§15 items 2-3).
+-- Cindra runtime driver (§15 items 2-3 worldgen + items 7-9 power).
 --
--- Hooks the worldgen-track mechanics to the live game: the lethal-edge damage
--- sweep, the nightside building-heat freeze, and per-chunk world generation
--- (hard-wall backstop + resource placement). Everything here is scoped to
--- surfaces named "cindra" (the individual modules re-check), so no other planet
--- is ever touched.
+-- Hooks every Cindra periodic system to the live game:
+--   * worldgen track: lethal-edge damage sweep, nightside building-heat freeze,
+--     per-chunk world generation (hard-wall backstop + resource placement).
+--   * power system (integrated flare-poc, ci-zg3): the solar-flare cycle (drives
+--     daytime + multiplier along the telegraph/ramp/plateau/decay curve and
+--     applies battery heat upkeep) and the panel disposal-deficit damage sweep.
+-- Everything here is scoped to surfaces named "cindra" (the individual modules
+-- re-check), so no other planet is ever touched.
 --
 -- 🚨 on_nth_tick / on_init / on_chunk_generated are REPLACE-not-add. Each
--- periodic system uses a DISTINCT N, and the single on_init / event
--- registrations live here (control.lua calls M.register once). The mechanics
--- track (recipes/power) registers its own runtime elsewhere; keep the two sets
--- of handlers disjoint to avoid clobbering.
+-- periodic system uses a DISTINCT N (edge-damage 20, building-heat 47, flare 23,
+-- panel-damage 29), and the single on_init / event registrations live here
+-- (control.lua calls M.register once).
 
 local edge_damage = require("scripts.edge-damage")
 local building_heat = require("scripts.building-heat")
 local worldgen = require("scripts.worldgen")
+local flare = require("scripts.flare")
+local panels = require("scripts.panels")
+local sinks = require("scripts.sinks")
+local flare_config = require("scripts.flare-config")
 
 local M = {}
 
@@ -40,9 +46,27 @@ local function on_building_heat_tick()
   for_each_cindra(function(s) building_heat.sweep(s) end)
 end
 
+-- Advance the flare (daytime + multiplier along the curve) and bleed the
+-- molten-salt batteries' idle heat upkeep.
+local function on_flare_tick(event)
+  if not driver_enabled() then return end
+  for_each_cindra(function(s)
+    flare.apply(s, event.tick)
+    sinks.apply_battery_upkeep(s)
+  end)
+end
+
+-- Run the panel disposal-deficit damage / recovery sweep.
+local function on_panel_damage_tick()
+  if not driver_enabled() then return end
+  for_each_cindra(function(s) panels.sweep(s) end)
+end
+
 function M.register()
   script.on_nth_tick(edge_damage.DAMAGE_INTERVAL, on_edge_damage_tick)
   script.on_nth_tick(building_heat.FREEZE_INTERVAL, on_building_heat_tick)
+  script.on_nth_tick(flare_config.FLARE_INTERVAL, on_flare_tick)
+  script.on_nth_tick(flare_config.PANEL_DAMAGE_INTERVAL, on_panel_damage_tick)
   script.on_event(defines.events.on_chunk_generated, function(event)
     if not driver_enabled() then return end
     worldgen.on_chunk_generated(event)

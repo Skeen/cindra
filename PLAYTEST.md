@@ -85,3 +85,29 @@ this list is the last resort when no test path exists.
   20 dps) gives enough time to run a heat umbilical out before a machine dies, and
   that it reads as "drag heat with you," not "instant loss." If the reversible
   freeze feels better, that is a future refinement, not a v1 bug.
+
+- [ ] **Flare reads as a telegraphed surge (§15-7).** The flare cycle drives the
+  frozen daylight curve calm → warning → fast ramp → plateau → fast decay, ~100×
+  peak over a dim night floor. The schedule, ~100× swing, and non-100%-catchability
+  are integration- + unit-tested (`test_flare`, `unit-tests/test_flare`,
+  `test_catchability`); only the *sky read* is a playtest. *Look for:* the sky
+  visibly dims between flares and blazes at the peak; there is no engine
+  telegraph/alarm/countdown UI yet (the `warning` phase is exposed in
+  `flare.state` but not surfaced to the player). A sky-brightening cue + a
+  countdown alarm are a follow-up art/UI pass. Cadence magnitudes are (tune)
+  (§15-14): the test-scale period is a flare every ~22 s; real play scales it up.
+
+- [ ] **Panel damage reads as degrade-before-death (§15-8).** Undisposed flare
+  surplus degrades the most-sunward panels first (recoverable), then destroys them
+  under a sustained deficit; adding a dissipator/storage heals them. The rule,
+  edge-bias, self-correction, and dissipator-as-fuse are integration-tested
+  (`test_panel_damage`, `test_disposal`). *Look for:* the visual/health read of a
+  panel array cooking sunward-first during an over-built flare, and recovering
+  once disposal is added. Panels currently have no bespoke "overheating" visual
+  (just the health bar); an emissive damage cue is a follow-up art pass.
+
+- [ ] **Power buildings reuse vanilla-derived art (§15-9).** The solar panel,
+  capacitor, molten-salt battery, and dissipator use the delivered first-pass
+  Cindra sprites/icons (`graphics/ART-MANIFEST.md`, ci-pru): single static frames,
+  no charge-lamp/working animation. Expected in v1 — bespoke animated art is a
+  later pass. Do not file as a bug.

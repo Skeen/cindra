@@ -70,20 +70,21 @@ data:extend({
     subgroup = "planets",
     map_gen_settings = cindra_map_gen(),
     pollutant_type = nil,
-    -- Orbits perilously close to the star -> enormous raw solar intensity. This
-    -- is a PLACEHOLDER baseline; §15 item 7 (solar + flare) sets the real
-    -- ~10000%-of-Nauvis surface multiplier + dark-weighted daylight curve that
-    -- makes the flare mechanic work. Kept generous here so the "star gives too
-    -- much" identity is already legible.
+    -- Orbits perilously close to the star -> enormous raw solar intensity.
     solar_power_in_space = 2000,
     surface_properties = {
-      -- Short day-night cycle: §15 item 7 drives the flare along this axis. The
-      -- functional rhythm of the planet IS this cycle (dim baseline -> flare peak).
+      -- Day-night cycle: the flare driver (§15-7, scripts/flare.lua) FREEZES
+      -- daytime and drives it along the telegraph/ramp/plateau/decay curve, so
+      -- this value is a fallback rhythm only (used if the driver is disabled).
       ["day-night-cycle"] = 5 * minute,
       ["magnetic-field"] = 25,
-      -- Baseline solar. §15 item 7 raises this to the flare-driving multiplier;
-      -- 400 (Nauvis-grade) is the placeholder "runs the factory" baseline.
-      ["solar-power"] = 400,
+      -- §15-7 solar: the real ~10000%-of-Nauvis surface multiplier (100x). Nauvis
+      -- reads 100 here; 10000 = 100x, the fixed high multiplier the flare swings
+      -- across via the daylight curve. scripts/flare.lua re-affirms the matching
+      -- surface.solar_power_multiplier at runtime as it drives the curve, and the
+      -- dim between-flare floor still delivers ~one Nauvis-full-day (runs the
+      -- factory). (tune) §15-14 validates this against the lava recipe's cost.
+      ["solar-power"] = 10000,
       -- No atmosphere to speak of ("the air itself would boil, were there any"):
       -- a thin envelope over molten rock.
       pressure = 500,
