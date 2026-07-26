@@ -1,0 +1,157 @@
+-- PROOF: solar output scales with sunward position (§ ci-9ht). Panels only REALLY
+-- work on the sunny (sunward, +Y) part of the ribbon: a panel's REAL engine
+-- output scales with how far sunward it sits and drops toward ~nothing nightward,
+-- so panel PLACEMENT is a real decision (build sunward, toward the heat/danger).
+--
+-- Mechanism (scripts/panel-solar.lua + scripts/panels.lua reconcile): a placed
+-- panel morphs to the reduced-output VARIANT matching its Y. Each variant is a
+-- real solar panel, so the engine's daylight/flare curve multiplies its band
+-- output natively -- position scaling composes with the flare for free. The pure
+-- band maths is exhausted in unit-tests/test_panel_solar.lua + the sunward_factor
+-- cases in unit-tests/test_ribbon.lua; here we prove it drives the real engine.
+
+local H = require("tests.helpers")
+local C = require("scripts.flare-config")
+local panels = require("scripts.panels")
+local panel_solar = require("scripts.panel-solar")
+local flare = require("scripts.flare")
+
+local PEAK_TICK = C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS + 10 -- a plateau tick
+
+-- The sunmost / nightmost panel on a surface (panels.panels is sunward-first).
+local function sunward_and_nightward(s)
+  local list = panels.panels(s)
+  return list[1], list[#list]
+end
+
+describe("position-scaled solar - morph", function()
+  it("morphs a placed panel to the output band matching its sunward Y", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    local sun = H.panel(s, { 6, 40 })    -- sunward
+    local night = H.panel(s, { 6, -40 }) -- nightward
+    assert.are.equal(C.PANEL, sun.name, "freshly placed panels start as the base item")
+    assert.are.equal(C.PANEL, night.name)
+
+    local morphed = panels.reconcile_variants(s)
+    assert.is_true(morphed >= 1, "at least the nightward panel must morph to a reduced band")
+
+    -- (3x3 panels center on tile+0.5, so the exact Y is ~40.5 / ~-39.5.)
+    local sunward, nightward = sunward_and_nightward(s)
+    assert.is_true(sunward.position.y > 0, "sunmost panel is the +Y one")
+    assert.is_true(nightward.position.y < 0, "nightmost panel is the -Y one")
+    assert.is_true(
+      panel_solar.nominal_w(sunward.name) > panel_solar.nominal_w(nightward.name),
+      "sunward panel's band output must beat the nightward panel's: "
+        .. panel_solar.nominal_w(sunward.name) .. " vs " .. panel_solar.nominal_w(nightward.name))
+    assert.are_not.equal(C.PANEL, nightward.name, "the nightward panel is a reduced variant")
+  end)
+
+  it("is idempotent and never re-morphs (or heals) a settled panel", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.panel(s, { 6, -40 })
+    panels.reconcile_variants(s)
+
+    local before = #panels.panels(s)
+    local again = panels.reconcile_variants(s)
+    assert.are.equal(0, again, "a settled panel must not morph a second time")
+    assert.are.equal(before, #panels.panels(s), "the panel count is unchanged")
+
+    -- A settled, DEGRADED panel must survive reconcile with its health intact:
+    -- morph-on-reconcile must never silently reset the disposal-deficit damage.
+    local p = panels.panels(s)[1]
+    p.health = 50
+    panels.reconcile_variants(s)
+    assert.is_true(p.valid, "a settled panel is not destroyed by reconcile")
+    assert.are.equal(50, p.health, "reconcile must not heal a degraded panel")
+  end)
+end)
+
+describe("position-scaled solar - real engine output", function()
+  it("delivers materially more power sunward than nightward", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+
+    -- Two isolated grids (60 tiles apart in x, beyond substation wire reach), so
+    -- each measurement sink only ever sees its own panel's output.
+    H.grid(s, 30, 42, -30)
+    H.panel(s, { -30, 40 })              -- sunward panel
+    local sun_sink = H.measure_sink(s, { -30, 30 })
+
+    H.grid(s, -42, -30, 30)
+    H.panel(s, { 30, -40 })              -- nightward panel
+    local night_sink = H.measure_sink(s, { 30, -30 })
+
+    panels.reconcile_variants(s) -- morph both to their position bands
+
+    -- Same flare (peak) for both; freeze_daytime holds output constant so the
+    -- energy each sink gains over the window is a clean measure of real output.
+    flare.apply(s, PEAK_TICK)
+    sun_sink.energy = 0
+    night_sink.energy = 0
+    async(300)
+    after_ticks(120, function()
+      local sun_e = sun_sink.energy
+      local night_e = night_sink.energy
+      assert.is_true(sun_e > 0, "the sunward panel must actually produce power")
+      assert.is_true(sun_e > 3 * night_e,
+        "sunward output must dwarf nightward (placement matters): "
+          .. string.format("%.0f", sun_e) .. " vs " .. string.format("%.0f", night_e))
+      done()
+    end)
+  end)
+
+  it("composes with the flare: a placed panel still swings ~100x baseline", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.grid(s, 30, 42, 0)
+    H.panel(s, { 0, 40 }) -- a sunward (reduced-band) panel
+    local sink = H.measure_sink(s, { 0, 30 })
+    panels.reconcile_variants(s)
+
+    -- Baseline (calm) window.
+    flare.apply(s, 10)
+    sink.energy = 0
+    async(600)
+    after_ticks(120, function()
+      local base_e = sink.energy
+      assert.is_true(base_e > 0, "the night floor still runs a sunward panel")
+
+      -- Peak (plateau) window on the SAME morphed panel.
+      sink.energy = 0
+      flare.apply(s, PEAK_TICK)
+      after_ticks(120, function()
+        local ratio = sink.energy / base_e
+        assert.is_true(ratio > 50 and ratio < 150,
+          "position scaling multiplies the flare, it does not flatten it; got "
+            .. string.format("%.1f", ratio))
+        done()
+      end)
+    end)
+  end)
+end)
+
+describe("position-scaled solar - damage model", function()
+  it("sizes a panel's disposal surplus by its position band", function()
+    -- A sunward array dumps far more surplus than an equal-count nightward array,
+    -- so the disposal-deficit damage rule (scripts/panels.lua) reads the real,
+    -- position-scaled output -- a nightward panel produces ~nothing, so it adds
+    -- ~no surplus and earns ~no damage.
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.panel_col(s, 4, 30) -- sunward column (y = 30..42)
+    panels.reconcile_variants(s)
+    local sunward_potential = panels.potential(panels.panels(s), C.PEAK_INTENSITY)
+
+    local s2 = H.cindra_surface() -- fresh surface wipes the first
+    H.panel_col(s2, 4, -42)       -- SAME count, nightward (y = -42..-30)
+    panels.reconcile_variants(s2)
+    local nightward_potential = panels.potential(panels.panels(s2), C.PEAK_INTENSITY)
+
+    assert.is_true(sunward_potential > 3 * nightward_potential,
+      "equal panel counts, but sunward surplus dwarfs nightward: "
+        .. string.format("%.0f", sunward_potential) .. " vs "
+        .. string.format("%.0f", nightward_potential))
+  end)
+end)

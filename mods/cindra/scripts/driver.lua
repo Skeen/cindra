@@ -56,10 +56,16 @@ local function on_flare_tick(event)
   end)
 end
 
--- Run the panel disposal-deficit damage / recovery sweep.
+-- Morph freshly placed panels to their sunward-position output band (§ ci-9ht),
+-- then run the panel disposal-deficit damage / recovery sweep on the settled
+-- variants. Reconcile-then-sweep keeps the damage model reading each panel's real
+-- position-scaled output.
 local function on_panel_damage_tick()
   if not driver_enabled() then return end
-  for_each_cindra(function(s) panels.sweep(s) end)
+  for_each_cindra(function(s)
+    panels.reconcile_variants(s)
+    panels.sweep(s)
+  end)
 end
 
 function M.register()
