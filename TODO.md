@@ -59,9 +59,16 @@ merge queue.
     balance pass's, flagged in `lava.lua`.
 
 ## Backlog (§15 order)
-- [ ] **§15-4 — Ice processing.** `ci-rgv` — crusher building; `ice → water` and
-  `ice → water + calcite` (asteroid-crushing model, player picks the ratio).
-  *Needs 3.*
+- [x] **§15-4 — Ice processing.** `ci-rgv` — `prototypes/ice-processing.lua`: a
+  ground-standing `cindra-ice-crusher` (clone of the space crusher; drops the
+  zero-gravity gate + space-platform heating draw, gains a water output fluid box)
+  plus two recipes the player picks between — `cindra-ice-crushing` (ice → water)
+  and `cindra-ice-crushing-calcite` (ice → water + calcite, trading water for
+  calcite). A private `cindra-ice-crushing` recipe category keeps the recipes off
+  vanilla space crushers (and vice versa); gated behind the `cindra-ice-processing`
+  tech. Tested: `tests/test_ice_processing.lua` (category isolation, water fluid
+  box, ground-placeability, recipe shapes/ratio, no vanilla-crusher leak, tech
+  gating, and an end-to-end powered crush of ice → water on Cindra).
 - [ ] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — two-temperature quench building
   (hot molten input + cold cryo-coolant input in one craft). The signature.
   *Needs 4 + 5.*

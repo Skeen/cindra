@@ -16,6 +16,16 @@ this list is the last resort when no test path exists.
   surface generates; this entry is only for the interactive "it feels like a
   place you can stand" confirmation.
 
+- [ ] **Ice crusher fluid-pipe visuals (§15-4).** *Repro:* build a
+  `cindra-ice-crusher`, run `Ice crushing (water)`, and connect a pipe to its
+  south face. *Look for:* the water output connects and drains cleanly. The
+  crusher reuses the vanilla space-crusher art, which has no built-in pipe-covers
+  sprite for the added output box, so the connection point may look bare (no
+  pipe-cover graphic) even though it functions. Confirm the two south-edge output
+  connections line up with pipes and that the building still reads as a crusher.
+  Bespoke art (pipe stubs) is a later art pass, not a v1 bug. (Functionality —
+  ice → water production and both recipes — is integration-tested.)
+
 - [ ] **v1 art is placeholder (vanilla Vulcanus).** *Look for:* the star-map icon
   and orbital approach currently show Vulcanus art. This is expected in v1.
   Replace with bespoke Cindra ribbon/terminator art in a later pass (baked
