@@ -27,3 +27,12 @@ this list is the last resort when no test path exists.
   feels long east–west and constrained north–south, and that walking sunward
   heats / nightward chills as the axis predicts. (The axis *value* is unit-tested;
   the *felt geometry* is a playtest.)
+
+- [ ] **Electric heater reads as electric, not a furnace (§15-10).** The building
+  reuses vanilla heating-tower art with the burner fire-glow removed. *Repro:*
+  research `cindra-electric-heating`, build a `cindra-electric-heater`, wire it to
+  power and a heat-pipe network. *Look for:* it draws power and warms the heat
+  network to ~600°C (no higher), shows no combustion flame, and reads as an
+  electric heater rather than a fuel-burning tower. (Prototype fields + runtime
+  placement are tested in `tests/test_heater.lua`; only the *visual read* is a
+  playtest, pending bespoke art.)
