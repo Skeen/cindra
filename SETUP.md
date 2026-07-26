@@ -71,6 +71,10 @@ nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
   --mods space-age quality elevated-rails recycler
 ```
 
+To also verify the Any-Planet-Start companion chain (`cindra-start` +
+`cindra-dev-default`) loads clean headless with Cindra as the default start, see
+the "Companion mods" block in [`README.md`](README.md#companion-mods-any-planet-start-chain).
+
 ## Regenerated automatically — do NOT add these manually
 
 - `factorio-test-data-dir/` — created/refreshed by the test CLI each run (except

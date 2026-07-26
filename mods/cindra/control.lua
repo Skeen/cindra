@@ -17,11 +17,20 @@
 -- factorio-test mod is present. Keep the test list in sync with tests/.
 
 if script.active_mods["factorio-test"] then
-  require("__factorio-test__/init")({
+  local test_files = {
     "tests/test_example",
     "tests/test_planet",
     "tests/test_ribbon",
-  }, {
+  }
+  -- The APS-start suite asserts prototype/setting state that only exists when
+  -- the companion mods are loaded (any-planet-start + cindra-start +
+  -- cindra-dev-default, picker defaulting to Cindra). That mod set rewrites
+  -- Cindra's discovery tech, so it is NOT enabled in the default `mods/cindra`
+  -- run; the suite is registered only when cindra-start is actually present.
+  if script.active_mods["cindra-start"] then
+    test_files[#test_files + 1] = "tests/test_aps_start"
+  end
+  require("__factorio-test__/init")(test_files, {
     load_luassert = true,
   })
 end
