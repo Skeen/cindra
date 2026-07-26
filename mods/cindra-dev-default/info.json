@@ -7,6 +7,6 @@
   "description": "DEV-ONLY: forces Any Planet Start's planet picker to default to Cindra. Disable this for shipping. Only useful when iterating on the Cindra opening so ./play.sh + New Game lands on Cindra without picker clicks. Optional; safe to disable any time.",
   "dependencies": [
     "cindra-start",
-    "any-planet-start >= 1.1"
+    "? any-planet-start >= 1.1"
   ]
 }

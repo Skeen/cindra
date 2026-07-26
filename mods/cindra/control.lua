@@ -57,13 +57,21 @@ if script.active_mods["factorio-test"] then
     "tests/test_catchability",
     "tests/test_power_prototypes",
   }
-  -- The APS-start suite asserts prototype/setting state that only exists when
-  -- the companion mods are loaded (any-planet-start + cindra-start +
-  -- cindra-dev-default, picker defaulting to Cindra). That mod set rewrites
-  -- Cindra's discovery tech, so it is NOT enabled in the default `mods/cindra`
-  -- run; the suite is registered only when cindra-start is actually present.
+  -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
+  -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the
+  -- suite that matches the loaded set:
+  --   * WITH APS  -> test_aps_start: asserts APS registration took effect
+  --     (add_choice/add_default/add_planet). That set rewrites Cindra's
+  --     discovery tech, so it is never enabled in the default `mods/cindra` run.
+  --   * WITHOUT APS -> test_aps_absent: asserts the companion mods load clean and
+  --     register NOTHING (the guarded APS calls were skipped, no error).
+  -- The default run enables neither companion mod, so neither suite registers.
   if script.active_mods["cindra-start"] then
-    test_files[#test_files + 1] = "tests/test_aps_start"
+    if script.active_mods["any-planet-start"] then
+      test_files[#test_files + 1] = "tests/test_aps_start"
+    else
+      test_files[#test_files + 1] = "tests/test_aps_absent"
+    end
   end
   require("__factorio-test__/init")(test_files, {
     load_luassert = true,

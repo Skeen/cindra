@@ -10,4 +10,10 @@
 -- APS.set_default_choice() respects APS.fixed_choice — if another mod has called
 -- APS.set_fixed_choice() (locking the planet), our default is silently ignored.
 -- That's the intended behaviour.
-APS.set_default_choice("cindra")
+--
+-- APS is an OPTIONAL dependency (`? any-planet-start`): the `APS` global is nil
+-- when it is not installed. Guard on the `mods` table (present in the settings
+-- stage) so this dev mod loads clean even without APS.
+if mods["any-planet-start"] then
+  APS.set_default_choice("cindra")
+end

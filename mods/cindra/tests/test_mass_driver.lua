@@ -104,7 +104,11 @@ describe("cindra mass driver (prototype shape)", function()
     -- it from every dependent's prerequisites, so this tech becomes a root instead.
     -- Either way there is no dangling reference (the tech stays valid) -- that is
     -- the property the prereq choice must guarantee.
-    if script.active_mods["cindra-start"] then
+    --
+    -- Gate on `any-planet-start`, NOT `cindra-start`: APS is now an OPTIONAL
+    -- dependency of cindra-start, and the prereq-stripping only runs when APS
+    -- itself is present (its data-final-fixes).
+    if script.active_mods["any-planet-start"] then
       assert.is_nil(tech.prerequisites["planet-discovery-cindra"],
         "under APS the discovery prereq is stripped (tech becomes a root), not dangling")
     else

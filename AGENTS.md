@@ -57,10 +57,11 @@ mods/
     tests/               factorio-test integration tests
     unit-tests/          plain-Lua tests for pure logic
     graphics/ locale/    assets (v1 reuses vanilla art)
-  cindra-start/          sibling: any-planet-start integration (Cindra as a start)
+  cindra-start/          sibling: any-planet-start integration (Cindra as a start; APS optional)
   cindra-dev-default/    sibling: dev-only planet-picker default
 
-vendor/                  any-planet-start, factorio-test (self-contained)
+vendor/                  factorio-test (self-contained). any-planet-start is an
+                         optional external dep, NOT vendored.
 scripts/                 tooling (patchelf-factorio.sh, render-*.sh)
 factorio/                Factorio install (gitignored — see SETUP.md)
 ```
@@ -122,8 +123,11 @@ processing), **accumulators** (bulk storage baseline). New content is the
 signature stuff: the cryo-quench, the flare/panel-damage power system, the
 storage tier, the electric heater, the mass driver, the science pack.
 
-- **`any-planet-start`** (vendored) — startable-planet picker. `mods/cindra-start`
-  registers Cindra as a game-start option.
+- **`any-planet-start`** (optional external dep, NOT vendored) — startable-planet
+  picker. `mods/cindra-start` declares it as `? any-planet-start` and registers
+  Cindra as a game-start option ONLY when APS is installed (guarded on
+  `mods["any-planet-start"]`); without it the companion mods load clean and
+  register nothing. Install it from the mod portal to use the Cindra start chain.
 - **`factorio-test`** (vendored, 3.1.1) — the integration-test framework.
 
 ## Conventions

@@ -21,14 +21,17 @@ rm -rf "$MODS"   # wipe stale symlinks from earlier runs
 mkdir -p "$MODS"
 ln -sfn ../mods/cindra "$MODS/cindra"
 
-# Wire any-planet-start (vendored under vendor/any-planet-start/) so cindra-start
-# can register Cindra as a startable planet, and cindra-dev-default can default
-# the planet-picker to Cindra — saves a click on `New Game`. The dev-default mod
-# is strictly opt-in for shipping; toggling it in mod-list.json disables the
-# default-override without affecting any real Cindra mechanics.
+# Wire any-planet-start so cindra-start can register Cindra as a startable planet
+# and cindra-dev-default can default the planet-picker to Cindra — saves a click
+# on `New Game`. APS is no longer vendored: it is an OPTIONAL external dependency.
+# Point APS_PATH at a local any-planet-start checkout (e.g. from the mod portal)
+# to enable the Cindra start chain; without it play.sh launches the cindra mod
+# alone (the companion mods stay disabled). The dev-default mod is strictly
+# opt-in for shipping; toggling it in mod-list.json disables the default-override
+# without affecting any real Cindra mechanics.
 HAS_APS=0
-if [ -d vendor/any-planet-start ]; then
-  ln -sfn ../vendor/any-planet-start "$MODS/any-planet-start"
+if [ -n "${APS_PATH:-}" ] && [ -d "${APS_PATH:-}" ]; then
+  ln -sfn "$(realpath "$APS_PATH")" "$MODS/any-planet-start"
   ln -sfn ../mods/cindra-start "$MODS/cindra-start"
   ln -sfn ../mods/cindra-dev-default "$MODS/cindra-dev-default"
   HAS_APS=1

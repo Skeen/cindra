@@ -71,9 +71,12 @@ nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
   --mods space-age quality elevated-rails recycler
 ```
 
-To also verify the Any-Planet-Start companion chain (`cindra-start` +
-`cindra-dev-default`) loads clean headless with Cindra as the default start, see
-the "Companion mods" block in [`README.md`](README.md#companion-mods-any-planet-start-chain).
+To verify the Any-Planet-Start companion chain (`cindra-start` +
+`cindra-dev-default`) loads clean both WITH and WITHOUT Any Planet Start, see the
+"Companion mods" block in [`README.md`](README.md#companion-mods-any-planet-start-chain).
+Any Planet Start is an optional dependency and is no longer vendored; the
+with-APS suite needs a local checkout (from the mod portal) pointed at by
+`APS_PATH`, while the without-APS suite needs no external mod.
 
 ## Regenerated automatically — do NOT add these manually
 

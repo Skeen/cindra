@@ -4,11 +4,11 @@
   "factorio_version": "2.1",
   "title": "Cindra Start",
   "author": "you",
-  "description": "Adds Cindra to the Any Planet Start dropdown so you can start a new game directly on the planet, no Nauvis bootstrap needed. Requires the cindra mod and Any Planet Start.",
+  "description": "Adds Cindra to the Any Planet Start dropdown so you can start a new game directly on the planet, no Nauvis bootstrap needed. Requires the cindra mod. Any Planet Start is optional: install it to enable the Cindra start choice; without it this mod loads clean and simply registers nothing.",
   "dependencies": [
     "base >= 2.1",
     "space-age >= 2.1",
     "cindra",
-    "any-planet-start >= 1.1"
+    "? any-planet-start >= 1.1"
   ]
 }

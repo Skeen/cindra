@@ -23,10 +23,12 @@ or safe waste before it burns your own solar farm down.
 
 - `mods/cindra/` — the main mod.
 - `mods/cindra-start/` — sibling: integrates with
-  [`any-planet-start`](https://mods.factorio.com/mod/any-planet-start) to let you
-  start a new game directly on Cindra.
+  [`any-planet-start`](https://mods.factorio.com/mod/any-planet-start) (an
+  optional dependency) to let you start a new game directly on Cindra when it is
+  installed.
 - `mods/cindra-dev-default/` — dev-only: defaults the planet-picker to Cindra.
-- `vendor/` — bundled dependencies (`any-planet-start`, `factorio-test`).
+- `vendor/` — bundled dependencies (`factorio-test`). `any-planet-start` is NOT
+  vendored; install it from the mod portal to use the Cindra start chain.
 - `scripts/` — project tooling.
 - `factorio/` — local Factorio 2.1.9 install (gitignored).
 
@@ -59,17 +61,41 @@ cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_ribbon.lua
 
 ### Companion mods (Any-Planet-Start chain)
 
-The default run above loads only `mods/cindra`. To verify the companion mods
-(`cindra-start` + `cindra-dev-default`) wire Cindra into Any-Planet-Start and
-that the full set loads clean headless with the picker defaulting to Cindra,
-enable the APS chain and run the `test_aps_start` suite. The extra mods must be
-visible in the data dir first:
+`any-planet-start` (APS) is an **optional** dependency (`? any-planet-start`), so
+the companion mods (`cindra-start` + `cindra-dev-default`) must load clean both
+with and without it. There are two suites, and control.lua registers exactly one
+based on whether APS is active:
+
+**Without APS — `test_aps_absent` (no external mod needed).** Proves the
+companion mods load clean and register nothing when APS is absent (the guarded
+APS calls are skipped, no data-stage error). Symlink only the in-repo companion
+mods:
 
 ```sh
-for m in any-planet-start:vendor/any-planet-start \
-         cindra-start:mods/cindra-start \
-         cindra-dev-default:mods/cindra-dev-default; do
-  ln -sfn "../../${m#*:}" "factorio-test-data-dir/mods/${m%%:*}"
+for m in cindra-start cindra-dev-default; do
+  ln -sfn "../../mods/$m" "factorio-test-data-dir/mods/$m"
+done
+
+nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
+  --factorio-path ./factorio/bin/x64/factorio \
+  --data-directory ./factorio-test-data-dir \
+  --mod-path ./mods/cindra \
+  --mods space-age quality elevated-rails recycler \
+         cindra-start cindra-dev-default \
+  -- "cindra companion mods without any-planet-start"
+```
+
+**With APS — `test_aps_start`.** Proves the companion mods wire Cindra into APS
+end-to-end (add_choice / set_default_choice / add_planet) and the full set loads
+clean headless with the picker defaulting to Cindra. APS is no longer vendored:
+install it from the [mod portal](https://mods.factorio.com/mod/any-planet-start)
+and point `APS_PATH` at that checkout so it can be linked into the data dir:
+
+```sh
+: "${APS_PATH:?set APS_PATH to a local any-planet-start checkout}"
+ln -sfn "$(realpath "$APS_PATH")" factorio-test-data-dir/mods/any-planet-start
+for m in cindra-start cindra-dev-default; do
+  ln -sfn "../../mods/$m" "factorio-test-data-dir/mods/$m"
 done
 # fresh mod-settings so the picker regenerates its default (cindra-dev-default -> "cindra")
 rm -f factorio-test-data-dir/mods/mod-settings.dat factorio-test-data-dir/mod-settings.dat
@@ -84,9 +110,8 @@ nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
 ```
 
 That mod set rewrites Cindra's discovery tech (APS treats it as the start
-planet), so it is deliberately kept out of the default run; the `test_aps_start`
-suite only registers when `cindra-start` is active. The actual in-game start
-(cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
+planet), so it is deliberately kept out of the default run. The actual in-game
+start (cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
 
 See [`AGENTS.md`](AGENTS.md) for development conventions and the test-first
 workflow.

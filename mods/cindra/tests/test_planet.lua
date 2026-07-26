@@ -33,9 +33,13 @@ describe("cindra planet", function()
     -- there is nothing to gate it behind. The canonical base 4-mod run keeps the
     -- Vulcanus gate (§6). Guard so both configs stay green (matches the
     -- config-aware guard test_mass_driver uses for the same trap).
+    --
+    -- Gate on `any-planet-start`, NOT `cindra-start`: APS is now an OPTIONAL
+    -- dependency, so cindra-start can be active without it. The prereq-stripping
+    -- is APS's data-final-fixes, so it only happens when APS itself is present.
     local prereqs = {}
     for _, p in pairs(tech.prerequisites) do prereqs[p.name] = true end
-    if script.active_mods["cindra-start"] then
+    if script.active_mods["any-planet-start"] then
       assert.is_nil(prereqs["planet-discovery-vulcanus"],
         "under APS the Vulcanus discovery prereq is stripped (tech becomes a root)")
     else
