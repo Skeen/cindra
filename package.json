@@ -1,0 +1,14 @@
+{
+  "name": "cindra-mod",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test:integration": "factorio-test run -p .",
+    "test:integration:graphics": "factorio-test run -p . -g",
+    "test:unit": "cd mods/cindra && lua unit-tests/test_ribbon.lua",
+    "test": "npm run test:unit && npm run test:integration"
+  },
+  "devDependencies": {
+    "factorio-test-cli": "^3.0.0"
+  }
+}

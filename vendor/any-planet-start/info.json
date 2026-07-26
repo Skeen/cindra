@@ -1,0 +1,14 @@
+{
+    "name": "any-planet-start",
+    "version": "1.2.2",
+    "title": "Any Planet Start",
+    "author": "_CodeGreen",
+    "contact": "https://discord.gg/xNpBP6gzgK",
+    "description": "Start on any of the first three planets: Vulcanus, Gleba, or Fulgora.\nChoose your planet in the startup mod settings before starting a new game.\nCompatible with many modded planets!",
+    "factorio_version": "2.1",
+    "expansion_required": true,
+    "dependencies": [
+        "space-age",
+        "(?) SetDefaultImportPlanet"
+    ]
+}

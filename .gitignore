@@ -1,0 +1,21 @@
+node_modules/
+*.zip
+*.tar.xz
+.factorio/
+.factorio-test/
+factorio-test-data-dir/
+factorio-test-output.json
+package-lock.json
+mods-bundle/
+# Local Factorio install (./play.sh + test runner). The DLCs + binary live
+# here; nothing in this directory should be committed. Ignored both as a real
+# directory and as a local symlink to an out-of-repo install.
+factorio/
+factorio
+node_modules
+fbsr-renderer/
+# Gas Town / agent runtime state (local only).
+.beads/
+.claude/
+.runtime/
+CLAUDE.md

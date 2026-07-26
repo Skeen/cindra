@@ -1,0 +1,13 @@
+{
+  "name": "cindra",
+  "version": "0.1.0",
+  "title": "Cindra — The Ribbon World",
+  "author": "you",
+  "factorio_version": "2.1",
+  "description": "A tidally-locked planet orbiting perilously close to its star. A molten dayside, a frozen nightside, and a narrow survivable ribbon at the terminator where the factory lives. No oil, no biology: it runs on rock, ice, metal, and dangerous starlight. Survival is routing the star's surplus between fire and ice.",
+  "dependencies": [
+    "base >= 2.1",
+    "space-age >= 2.1",
+    "? factorio-test"
+  ]
+}

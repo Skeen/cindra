@@ -1,0 +1,10 @@
+-- Data-updates that only apply when Cindra is the chosen start planet. APS
+-- handles the surface swap; this file tunes prototypes for the Cindra-start
+-- scenario (e.g. softening spawn hazards for a from-tick-zero start).
+--
+-- Skeleton: nothing to tune yet. The bootstrap-traversal guarantees (§6, §15
+-- item 13) — land near the terminator, hand-gather bootstrap rocks, reach the
+-- first foundry with no chicken-and-egg — are designed once the resource and
+-- lava chains exist (§15 items 3-5). The starting kit + any pre-researched techs
+-- are delivered at runtime in control.lua (per-force state is not a data-stage
+-- concern). Fill this in once those systems land.

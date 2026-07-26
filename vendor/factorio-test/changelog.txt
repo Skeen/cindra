@@ -1,0 +1,68 @@
+---------------------------------------------------------------------------------------------------
+Version: 3.1.1
+Date: ????
+  Changes:
+---------------------------------------------------------------------------------------------------
+Version: 3.1.0
+Date: 2026-06-24
+  Changes:
+    - Updated for Factorio 2.1
+---------------------------------------------------------------------------------------------------
+Version: 3.0.1
+Date: 2026-01-25
+  Features:
+    - Warn when duplicate test or describe names are detected at registration time.
+    - Improved error logging when reload tests fail due to structure mismatches.
+---------------------------------------------------------------------------------------------------
+Version: 3.0.0
+Date: 2026-01-25
+  Features:
+    - Cancel button in GUI for early test termination.
+    - Jest-like template syntax for `.each()` test names: `$property`, `%#`, `%p`, `%d`, `%s`.
+    - `reorder_failed_first` config option to run previously failed tests first.
+  Changes:
+    - luassert library is now disabled by default. Enable with `load_luassert: true` in config.
+    - If using cli, requires factorio-test-cli v3.0.
+  UI:
+    - Simplified GUI with summary line and always-enabled close button.
+    - Show "(.only)" indicator in GUI title when focused tests are present.
+---------------------------------------------------------------------------------------------------
+Version: 2.0.1
+Date: 2024-11-29
+  Changes:
+    - Removed "scroll_to_bottom" from test gui.
+---------------------------------------------------------------------------------------------------
+Version: 2.0.0
+Date: 2024-11-29
+  Changes:
+    - Updated to Factorio 2.0!
+    - Renamed `after_script_reload` and to `after_reload_script`, and `after_mod_reload` to `after_reload_mods`
+      to match the corresponding functions on `game`.
+    - Added "rerun tests" button to bottom of in-game test gui.
+    - Improved gui text display.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.4
+Date: 2024-04-13
+  Changes:
+    - Made including the "luassert" library optional via the "load_luassert" setting, defaulting to true.
+  Bugfixes:
+    - Fixed compatibility with latest version of debugadapter.
+    - Fixed compatibility with factorio v1.1.107
+---------------------------------------------------------------------------------------------------
+Version: 1.0.3
+Date: 2023-12-27
+  Changes:
+    - Added better word wrapping to test output.
+  Bugfixes:
+    - Now works better with newest version of factorio debugadapter.
+    - In debugadapter output, describe blocks now show the correct source file and line number.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 2023-04-23
+  Changes:
+    - Made Test scenario more empty
+---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: Date: 2023-04-21
+  Features:
+    - Initial release
