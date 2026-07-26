@@ -41,14 +41,27 @@ merge queue.
   - Tested: `tests/test_worldgen.lua`, `unit-tests/test_resource_field.lua`.
   - *Unblocks 4, 5* — the mechanics track consumes `stone` / `ice` /
     `cindra-volatiles` (recipes are theirs to add).
+- [x] **§15-5 — Lava + metal.** `ci-8mw` (mechanics track).
+  - `prototypes/lava.lua`: recipe `cindra-lava` — `1 stone + [ruinous power] → 5
+    lava` (fluid), metallurgy category so the brought-not-re-unlocked Vulcanus
+    foundry crafts it. Power is the only cost lever (single-stone input,
+    productivity off, cost carried by `energy_required`); gated behind a
+    dedicated `cindra-lava` tech (prereqs foundry + `planet-discovery-cindra`).
+  - Foundry integration is *brought, not re-unlocked*: the Vulcanus
+    `molten-iron/copper-from-lava` recipes are left untouched and simply consume
+    this lava fluid. Their stone byproduct (10/15) is the stone loop-back.
+  - Tested: `tests/test_lava.lua` (ratio, power lever, gating, foundry-category
+    fit, unmodified molten recipes + byproduct, never-mutate guard, live foundry
+    accepts the recipe on Cindra).
+  - **Balance note (§15-14):** the "net slightly consuming" target is not
+    reachable with the fixed 1:5 ratio + the shared (uneditable) Vulcanus
+    byproduct; reconciling it (batch scaling / a Cindra casting tier) is the
+    balance pass's, flagged in `lava.lua`.
 
 ## Backlog (§15 order)
 - [ ] **§15-4 — Ice processing.** `ci-rgv` — crusher building; `ice → water` and
   `ice → water + calcite` (asteroid-crushing model, player picks the ratio).
   *Needs 3.*
-- [ ] **§15-5 — Lava + metal.** `ci-8mw` — `1 stone + [ruinous power] → 5 lava`
-  (fluid); Vulcanus foundry integration (brought, not re-unlocked); stone
-  loop-back kept slightly net-consuming. *Needs 3.*
 - [ ] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — two-temperature quench building
   (hot molten input + cold cryo-coolant input in one craft). The signature.
   *Needs 4 + 5.*

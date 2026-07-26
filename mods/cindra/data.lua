@@ -19,6 +19,11 @@
 -- temperature-axis framing.
 require("prototypes.planet")
 
+-- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 5
+-- lava` (crafted in the brought-not-re-unlocked Vulcanus foundry), feeding the
+-- foundry's molten iron/copper chain with its stone byproduct looping back.
+require("prototypes.lava")
+
 -- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
