@@ -70,9 +70,19 @@ merge queue.
     tower §12, gated recipe/tech, runtime placement on Cindra).
   - TODO(ci-gd4): swap the vanilla recipe ingredients for the native cryo-alloy
     once it lands, to make the "clumsy off-world" import gate real.
-- [ ] **§15-11 — Mass driver.** `ci-r10` — launch = power (bursty, flare-timed) +
+- [x] **§15-11 — Mass driver.** `ci-r10` — launch = power (bursty, flare-timed) +
   platform-side catcher; optional native projectile shell (A) vs pure-electric
   pods (B). Removes launch chemistry entirely.
+  - Landed: `prototypes/mass-driver.lua` (driver container + hidden accumulator
+    charger + orbital catcher + native shell item; delivered art wired) and
+    `scripts/mass-driver.lua` (charge→fire→deliver loop, fire tick N=31, distinct
+    from edge-damage/building-heat). Recipes gated behind a dedicated
+    `cindra-orbital-launch` tech (option A, native shell). Tested:
+    `tests/test_mass_driver.lua` (prototype shape, gating, chemistry-free,
+    proto/runtime drift, full cross-surface launch loop + preconditions).
+  - TODO(ci-gd4): swap the shell recipe input to cryo-hardened-alloy once it
+    lands (currently steel-plate stand-in, still zero-chemistry).
+  - TODO(ci-3or): fold `cindra-orbital-launch` into the real Cindra science tree.
 - [ ] **§15-12 — Cindra science pack + tech tree.** `ci-3or` — petrochemical-free
   recipe (native inputs only); the unlocks for items 3–11.
 - [ ] **§15-13 — Bootstrap traversal check.** `ci-uex` — verify landing → first

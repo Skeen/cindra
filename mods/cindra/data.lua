@@ -23,6 +23,11 @@ require("prototypes.planet")
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
 
+-- §15-11 mass driver: electric launch-to-orbit (driver + hidden charger + orbital
+-- catcher + native shell), gated behind the cindra-orbital-launch tech. Removes
+-- launch chemistry entirely. Runtime loop in scripts/mass-driver.lua.
+require("prototypes.mass-driver")
+
 -- Worldgen track (§15 items 2-3): the two lethal-edge damage types, and the
 -- ribbon's world resources (stone / ice / volatiles / bootstrap rocks). Placed
 -- at runtime by scripts/worldgen.lua; see DESIGN.md file-ownership map.

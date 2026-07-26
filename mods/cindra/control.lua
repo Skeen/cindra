@@ -17,8 +17,19 @@
 
 local driver = require("scripts.driver")
 driver.register()
-script.on_init(driver.init)
-script.on_configuration_changed(driver.init)
+
+-- §15-11 mass-driver launch loop. Its own track: build/remove events + a distinct
+-- fire tick (N=31), disjoint from the worldgen driver's handlers. Registered here
+-- alongside the worldgen driver; the single on_init below fans out to both.
+local mass_driver = require("scripts.mass-driver")
+mass_driver.register()
+
+local function on_init()
+  driver.init()
+  mass_driver.init()
+end
+script.on_init(on_init)
+script.on_configuration_changed(on_init)
 
 -- The factorio-test bootstrap below runs the integration suite when the
 -- factorio-test mod is present. Keep the test list in sync with tests/.
@@ -32,6 +43,7 @@ if script.active_mods["factorio-test"] then
     "tests/test_edge_damage",
     "tests/test_worldgen",
     "tests/test_building_heat",
+    "tests/test_mass_driver",
   }
   -- The APS-start suite asserts prototype/setting state that only exists when
   -- the companion mods are loaded (any-planet-start + cindra-start +
