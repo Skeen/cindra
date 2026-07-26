@@ -70,4 +70,17 @@ describe("flare cycle - engine embodiment", function()
       end)
     end)
   end)
+
+  it("apply records the live intensity for the damage sweep to read", function()
+    -- current_intensity() is what the driver hands panels.sweep each tick when no
+    -- intensity is passed; it must reflect the last-applied flare state.
+    local s = H.cindra_surface()
+    H.power_reset()
+    flare.apply(s, 10) -- calm
+    assert.are.equal(C.BASELINE_INTENSITY, flare.current_intensity(),
+      "current intensity is the baseline between flares")
+    flare.apply(s, C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS + 10) -- plateau
+    assert.are.equal(C.PEAK_INTENSITY, flare.current_intensity(),
+      "current intensity tracks the flare peak while it is applied")
+  end)
 end)
