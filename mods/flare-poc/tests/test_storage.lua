@@ -6,6 +6,7 @@
 local H = require("tests.helpers")
 local C = require("scripts.config")
 local flare = require("scripts.flare")
+local sinks = require("scripts.sinks")
 
 local PEAK_TICK = C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS + 10
 local CALM_TICK = 10
@@ -47,5 +48,22 @@ describe("storage", function()
         done()
       end)
     end)
+  end)
+
+  it("molten-salt battery self-discharges from heat upkeep; capacitor does not", function()
+    local s = H.surface()
+    H.reset()
+    H.grid(s, 0, 0)
+    local cap = H.capacitor(s, { 0, -6 })
+    local bat = H.battery(s, { 4, -6 })
+    cap.energy = cap.electric_buffer_size
+    bat.energy = bat.electric_buffer_size
+    local bat0 = bat.energy
+
+    sinks.apply_battery_upkeep(s)
+
+    assert.is_true(bat.energy < bat0, "battery must bleed energy to heat upkeep when idle")
+    assert.are.equal(cap.electric_buffer_size, cap.energy,
+      "capacitor has no heat upkeep and must not self-discharge")
   end)
 end)
