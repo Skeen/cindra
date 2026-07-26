@@ -22,12 +22,6 @@ this list is the last resort when no test path exists.
   star-map + orbital-backdrop maps, terminator terrain tint). Until then, do not
   file this as a bug.
 
-- [ ] **Ribbon reads as a ribbon (once §15-2 lands).** When the lethal-edge damage
-  + hard-wall geometry is implemented, confirm in-game that the playable band
-  feels long east–west and constrained north–south, and that walking sunward
-  heats / nightward chills as the axis predicts. (The axis *value* is unit-tested;
-  the *felt geometry* is a playtest.)
-
 - [ ] **Electric heater reads as electric, not a furnace (§15-10).** The building
   reuses vanilla heating-tower art with the burner fire-glow removed. *Repro:*
   research `cindra-electric-heating`, build a `cindra-electric-heater`, wire it to
@@ -36,3 +30,25 @@ this list is the last resort when no test path exists.
   electric heater rather than a fuel-burning tower. (Prototype fields + runtime
   placement are tested in `tests/test_heater.lua`; only the *visual read* is a
   playtest, pending bespoke art.)
+
+- [ ] **Ribbon reads as a ribbon (§15-2/3 landed).** The lethal-edge damage,
+  hard-wall backstop, and resource bands are implemented and integration-tested
+  (`test_edge_damage`, `test_worldgen`, `test_building_heat`). Confirm in-game the
+  *feel*: the playable band reads long east–west and constrained north–south; the
+  `out-of-map` void beyond the wall reads as a clean boundary (not a jarring
+  cliff); walking sunward visibly cooks and nightward visibly chills the
+  character HP; and pushing to the lethal margins for the richest stone/ice/
+  volatiles feels like a deliberate, survivable-with-gear risk. (The axis *values*
+  and *placement* are tested; the *felt geometry* is a playtest.)
+
+- [ ] **Resource art is placeholder.** Stone/ice/volatiles resources are cloned
+  from vanilla `stone` (recoloured via `map_color`) and bootstrap rocks from the
+  vanilla `huge-rock`; the volatiles item reuses the vanilla ice icon. Expected in
+  v1 — bespoke Cindra resource art is a later pass. Do not file as a bug.
+
+- [ ] **Nightside cold damage vs Aquilo freeze (feel).** Unheated machines past
+  the cold threshold take ticking cold damage (the spec's "take cold damage"
+  option) rather than a reversible Aquilo-style freeze. Confirm the pace (default
+  20 dps) gives enough time to run a heat umbilical out before a machine dies, and
+  that it reads as "drag heat with you," not "instant loss." If the reversible
+  freeze feels better, that is a future refinement, not a v1 bug.

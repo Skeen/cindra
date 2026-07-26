@@ -22,3 +22,9 @@ require("prototypes.planet")
 -- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
+
+-- Worldgen track (§15 items 2-3): the two lethal-edge damage types, and the
+-- ribbon's world resources (stone / ice / volatiles / bootstrap rocks). Placed
+-- at runtime by scripts/worldgen.lua; see DESIGN.md file-ownership map.
+require("prototypes.damage-types")
+require("prototypes.resources")

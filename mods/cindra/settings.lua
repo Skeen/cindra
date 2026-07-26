@@ -50,4 +50,16 @@ data:extend({
     maximum_value = 10000,
     order = "d-max-dps",
   },
+  -- Axis temperature (°C) at/below which unheated nightside machines freeze
+  -- (§15-2 building-heat). Tuned so the freeze zone begins around the nightward
+  -- edge of the safe band; the temperate ribbon never freezes.
+  {
+    type = "double-setting",
+    name = "cindra-nightside-freeze-temp",
+    setting_type = "startup",
+    default_value = -30,
+    minimum_value = -270,
+    maximum_value = 25,
+    order = "e-freeze-temp",
+  },
 })

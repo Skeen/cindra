@@ -6,10 +6,12 @@ narrative brief this is derived from lives at `planet_design.md` in the parent
 workspace (referenced by the originating issue `ci-m1n`); this file is the
 in-repo condensation plus the concrete decisions taken during implementation.
 
-> **Status: foundation.** §15 item 1 (planet + surface + ribbon temperature
-> axis) is implemented and tested. The remaining §15 items (2–14) are the
-> backlog in [`TODO.md`](TODO.md), each tracked by a follow-up bead (prefix
-> `ci-`).
+> **Status: foundation + worldgen.** §15 items 1–3 are implemented and tested:
+> the planet + surface + ribbon temperature axis (item 1), the lethal edges —
+> gradient damage, hard-wall backstop, nightside building-heat (item 2), and the
+> world resources — stone / ice / volatiles / bootstrap rocks (item 3). The
+> remaining §15 items (4–14) are the backlog in [`TODO.md`](TODO.md), each tracked
+> by a follow-up bead (prefix `ci-`).
 
 ## 1. Core design thesis (the tie-breaker for every decision)
 
@@ -66,9 +68,26 @@ settings so they're editable without touching Lua):
 
 **Chosen edge model:** Implementation **A** (gradient ticking damage) as the
 teacher, plus **B** (hard wall) as the extreme-edge backstop, per the spec's
-recommendation. The damage *application* (ticking the player, freezing nightside
-machines) and the physical wall geometry are **§15 item 2** — this foundation
-supplies the axis value they consume, unit-tested end to end.
+recommendation — both **IMPLEMENTED (item 2)**:
+
+- **Player damage** — `scripts/edge-damage.lua` reads `ribbon.damage_per_second`
+  each sweep and applies it to every character on the Cindra surface as
+  `cindra-heat` (sunward) or `cindra-cold` (nightward). Base ships no heat/cold
+  damage type, so both are new prototypes in `prototypes/damage-types.lua`;
+  `ribbon.lua` stays pure and returns the *semantic* kind, mapped to the concrete
+  prototype at application time. Character resistances (gear) mitigate, never
+  zero, the geography — that is edge-pushing.
+- **Hard wall** — `scripts/worldgen.lua` voids every tile at/beyond `wall_at`
+  (`out-of-map`) as chunks generate, so the playable map is a finite-width ribbon:
+  constrained on the Y axis, infinite east–west. The damage ramp teaches; the void
+  is the bulletproof floor.
+- **Nightside building-heat** — `scripts/building-heat.lua` ticks `cindra-cold`
+  damage on unheated machines past the cold threshold (axis temperature <
+  `freeze_temp`, default −30 °C). A heat source (heat pipe / reactor / heat
+  interface, or the future electric heater, which registers by name) within range
+  spares the machine. This is the "drag a heat umbilical nightward" pressure;
+  cold *damage* is used rather than toggling `active` (read-only for crafting
+  machines) and matches the spec's "take cold damage" option.
 
 ## 4. Planet prototype decisions — IMPLEMENTED (item 1)
 
@@ -77,9 +96,8 @@ supplies the axis value they consume, unit-tested end to end.
   `planet-discovery-vulcanus` prerequisite. (Any-Planet-Start removes the tech
   when you start *on* Cindra.)
 - **Map gen:** Nauvis base (working water + buildable land), stripped of all
-  vanilla ores, enemies, trees, rocks, cliffs. Cindra's real resources (stone,
-  ice, bootstrap rocks) are added deliberately in **§15 item 3**, not via vanilla
-  autoplace.
+  vanilla ores, enemies, trees, rocks, cliffs. Cindra's real resources are added
+  deliberately at runtime (see §4a), not via vanilla autoplace.
 - **Surface properties:** heavy gravity (20), thin atmosphere (pressure 500), no
   biology. `solar-power` = 400 is a **placeholder baseline**; §15 item 7 sets the
   real ~10000%-of-Nauvis surface multiplier + dark-weighted daylight curve that
@@ -87,6 +105,54 @@ supplies the axis value they consume, unit-tested end to end.
 - **Art:** v1 reuses vanilla Vulcanus icons (a hot sunward world reads
   correctly). Bespoke ribbon/terminator art is a later pass — see
   [`PLAYTEST.md`](PLAYTEST.md). Gameplay does not depend on it.
+
+## 4a. Resources & runtime worldgen — IMPLEMENTED (item 3)
+
+The planet strips vanilla autoplace, so Cindra's resources are placed at runtime
+by `scripts/worldgen.lua` (`on_chunk_generated`), keyed to the ribbon Y axis. The
+*pure* band geometry lives in `scripts/resource-field.lua` (no `game.*`), so the
+placement is deterministic and unit-testable; placement uses a coordinate hash
+(never `math.random`) so it is reproducible and multiplayer-safe.
+
+| Resource (`cindra-*`) | Band on the axis | Richness | Yields |
+|---|---|---|---|
+| stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
+| ice | nightside (`Y < −safe`) | richer deeper (colder) | `ice` |
+| volatiles | deep cold-lethal (`Y ≤ −lethal_at`) | richest deepest | `cindra-volatiles` |
+| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `tungsten-ore` |
+
+The best of everything sits at the lethal margins (edge-pushing reward). Every
+resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
+`huge-rock`); the shared vanilla prototypes are **never mutated**. Bootstrap rocks
+are mined simple-entities (destroyed on mining → inherently finite, never a
+per-craft supply, per the §6 no-soft-lock rule); tungsten (Vulcanus-legacy) is the
+spec-endorsed landing metal. **Role only lives here** — the recipes that *consume*
+these (ice processing §15-4, lava §15-5, chemistry §11) belong to the mechanics
+track.
+
+## 4b. File-ownership map (parallel tracks — avoid conflicts)
+
+The post-foundation work runs as parallel beads. To keep merges clean, each track
+owns a disjoint set of files. **Coordinate via `gt mail` before editing another
+track's files or a shared file.**
+
+- **Worldgen track (`ci-9nj`, this work):** `prototypes/damage-types.lua`,
+  `prototypes/resources.lua`, `scripts/edge-damage.lua`,
+  `scripts/building-heat.lua`, `scripts/worldgen.lua`,
+  `scripts/resource-field.lua`, `scripts/driver.lua`, and their tests. Reads (does
+  not own) `scripts/ribbon.lua`.
+- **Mechanics/economy track (`ci-4xj`):** the recipe / building / tech / power
+  files — e.g. `prototypes/ice-processing.lua`, `prototypes/lava.lua`,
+  `prototypes/cryo-alloy.lua`, `prototypes/flare.lua`, `prototypes/storage.lua`,
+  `prototypes/electric-heater.lua`, `prototypes/mass-driver.lua`,
+  `prototypes/science.lua`, and their runtime. Consumes the worldgen resources
+  (`stone` / `ice` / `cindra-volatiles`) and registers heat sources by adding
+  their name to `building-heat.HEAT_SOURCE_NAMES`.
+- **Companion mods (`ci-27s`):** `mods/cindra-start`, `mods/cindra-dev-default`.
+- **Foundation-owned, shared (edit minimally, additively):** `data.lua`,
+  `control.lua`, `settings.lua`, `prototypes/planet.lua`. Each track appends its
+  own `require` / handler registration; the base planet prototype stays the
+  foundation's.
 
 ## 5. Systems still to build (summary; detail in TODO.md)
 

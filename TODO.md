@@ -22,15 +22,27 @@ merge queue.
     (dev picker default). Full APS chain loads headless.
   - Scaffold: vendored deps, test harness, `play.sh`, docs.
 
-## Backlog (§15 order)
+- [x] **§15-2 — Lethal edges.** `ci-318` (worldgen track `ci-9nj`).
+  - Gradient ticking damage: `scripts/edge-damage.lua` consumes
+    `ribbon.damage_per_second` and cooks (heat) / chills (cold) characters on the
+    Cindra surface; custom `cindra-heat` / `cindra-cold` damage types
+    (`prototypes/damage-types.lua`).
+  - Hard-wall backstop: `scripts/worldgen.lua` voids tiles at/beyond `wall_at`
+    (`out-of-map`), making the map a finite-width ribbon.
+  - Nightside building-heat: `scripts/building-heat.lua` ticks cold damage on
+    unheated machines past the cold threshold; a nearby heat source spares them.
+  - Tested: `tests/test_edge_damage.lua`, `tests/test_worldgen.lua`,
+    `tests/test_building_heat.lua`.
+- [x] **§15-3 — Resources.** `ci-l72` (worldgen track `ci-9nj`).
+  - `prototypes/resources.lua` + `scripts/resource-field.lua` (pure band geometry)
+    + runtime placement in `scripts/worldgen.lua`: stone (ribbon), ice
+    (nightside), scattered finite bootstrap rocks near the terminator, deep
+    volatiles; best nodes at the lethal margins (edge-pushing).
+  - Tested: `tests/test_worldgen.lua`, `unit-tests/test_resource_field.lua`.
+  - *Unblocks 4, 5* — the mechanics track consumes `stone` / `ice` /
+    `cindra-volatiles` (recipes are theirs to add).
 
-- [ ] **§15-2 — Lethal edges.** `ci-318` — gradient ticking damage (heat sunward /
-  cold nightward) consuming `ribbon.damage_per_second`; hard-wall backstop
-  geometry at `wall_at`; Aquilo-style nightside building-heat requirement. This
-  is where the axis value becomes *felt*.
-- [ ] **§15-3 — Resources.** `ci-l72` — stone (ribbon, mineable), ice (nightside),
-  scattered bootstrap rocks near the terminator (hand-gatherable, finite, NOT a
-  patch), optional deep-nightside volatiles. *Blocks 4, 5.*
+## Backlog (§15 order)
 - [ ] **§15-4 — Ice processing.** `ci-rgv` — crusher building; `ice → water` and
   `ice → water + calcite` (asteroid-crushing model, player picks the ratio).
   *Needs 3.*
