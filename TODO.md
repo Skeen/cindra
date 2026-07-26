@@ -48,9 +48,16 @@ merge queue.
   death, self-correcting (negative feedback), dissipator-as-fuse. *Needs 7.*
 - [ ] **§15-9 — Storage.** `ci-tii` — capacitor (fast spike) + molten-salt battery
   (bulk plateau, heat-upkeep or it "freezes") + dedicated dissipator.
-- [ ] **§15-10 — Electric heater.** `ci-f5l` — capped heat (600°) / uncapped power
+- [~] **§15-10 — Electric heater.** `ci-f5l` — capped heat (600°) / uncapped power
   draw; roles: nightside warmth, flare sink, water boil-off, safe dissipation;
   built from a native ingredient (import-gated / clumsy elsewhere).
+  - Building landed: `prototypes/electric-heater.lua` (heating-tower clone →
+    electric source, 600° heat cap), item + recipe + `cindra-electric-heating`
+    tech (variant of the heating-tower tech). Tested: `tests/test_heater.lua`
+    (heat cap, electric-not-burner, situational-not-strictly-better vs heating
+    tower §12, gated recipe/tech, runtime placement on Cindra).
+  - TODO(ci-gd4): swap the vanilla recipe ingredients for the native cryo-alloy
+    once it lands, to make the "clumsy off-world" import gate real.
 - [ ] **§15-11 — Mass driver.** `ci-r10` — launch = power (bursty, flare-timed) +
   platform-side catcher; optional native projectile shell (A) vs pure-electric
   pods (B). Removes launch chemistry entirely.

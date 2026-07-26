@@ -21,6 +21,7 @@ if script.active_mods["factorio-test"] then
     "tests/test_example",
     "tests/test_planet",
     "tests/test_ribbon",
+    "tests/test_heater",
   }
   -- The APS-start suite asserts prototype/setting state that only exists when
   -- the companion mods are loaded (any-planet-start + cindra-start +

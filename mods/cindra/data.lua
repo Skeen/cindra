@@ -18,3 +18,7 @@
 -- The Cindra planet: tidally-locked ribbon world, surface + reachability + the
 -- temperature-axis framing.
 require("prototypes.planet")
+
+-- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
+-- (flare sink, nightside warmth, water boil-off, safe dissipation).
+require("prototypes.electric-heater")
