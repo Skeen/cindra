@@ -91,14 +91,23 @@ merge queue.
     import gate real. Left out of this bead: routing the heater/shell through the
     full quench chain is a progression/bootstrap decision (soft-lock risk, ci-uex)
     and a balance-pass call (ci-63d), not part of shipping the signature building.
-- [ ] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
+- [x] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
   dark-weighted daylight curve; telegraph / fast-ramp / plateau / fast-decay;
-  regular cadence; ~100× peak. Replaces the placeholder baseline in
-  `prototypes/planet.lua`. *Blocks 8.*
-- [ ] **§15-8 — Panel damage.** `ci-9ay` — disposal-deficit rule, degrade-before-
-  death, self-correcting (negative feedback), dissipator-as-fuse. *Needs 7.*
-- [ ] **§15-9 — Storage.** `ci-tii` — capacitor (fast spike) + molten-salt battery
+  regular cadence; ~100× peak. Replaced the placeholder baseline in
+  `prototypes/planet.lua` (`solar-power` = 10000, the ~100× surface multiplier;
+  the flare swing is the frozen daylight curve, `scripts/flare.lua`). Integrated
+  from the proven flare-poc (ci-zg3). Tested: `tests/test_flare.lua` +
+  `unit-tests/test_flare.lua` (pure schedule) + `tests/test_catchability.lua`
+  (never 100%-catchable). Cadence magnitudes are (tune) → §15-14.
+- [x] **§15-8 — Panel damage.** `ci-9ay` — disposal-deficit rule, degrade-before-
+  death, self-correcting (negative feedback), dissipator-as-fuse. `scripts/panels.lua`
+  (edge-bias reads the ribbon sunward axis). Tested: `tests/test_panel_damage.lua`,
+  `tests/test_disposal.lua`. Closed under ci-9k6.
+- [x] **§15-9 — Storage.** `ci-tii` — capacitor (fast spike) + molten-salt battery
   (bulk plateau, heat-upkeep or it "freezes") + dedicated dissipator.
+  `prototypes/storage.lua` + `scripts/sinks.lua`; exportable buildings are
+  situational-not-strictly-better (§12). Tested: `tests/test_storage.lua`,
+  `tests/test_power_prototypes.lua`. Closed under ci-9k6.
 - [~] **§15-10 — Electric heater.** `ci-f5l` — capped heat (600°) / uncapped power
   draw; roles: nightside warmth, flare sink, water boil-off, safe dissipation;
   built from a native ingredient (import-gated / clumsy elsewhere).

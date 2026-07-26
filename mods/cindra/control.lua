@@ -48,6 +48,14 @@ if script.active_mods["factorio-test"] then
     "tests/test_building_heat",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
+    -- Power system (§15 items 7-9), integrated from the flare-poc (ci-zg3):
+    -- flare cycle, disposal-deficit panel damage, storage + dissipator sinks.
+    "tests/test_flare",
+    "tests/test_panel_damage",
+    "tests/test_disposal",
+    "tests/test_storage",
+    "tests/test_catchability",
+    "tests/test_power_prototypes",
   }
   -- The APS-start suite asserts prototype/setting state that only exists when
   -- the companion mods are loaded (any-planet-start + cindra-start +

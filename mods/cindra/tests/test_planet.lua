@@ -76,11 +76,11 @@ describe("cindra planet", function()
   it("has the canonical physical parameters (§2, §16)", function()
     local s = H.cindra_surface()
     -- A dense rocky world hugging the star: heavy gravity, thin/no atmosphere,
-    -- generous baseline solar (placeholder until §15-7 sets the flare curve).
+    -- and the ~10000%-of-Nauvis (100x) surface solar the flare swings across (§15-7).
     assert.are.equal(20, s.get_property("gravity"), "cindra is a heavy rocky world")
     assert.are.equal(500, s.get_property("pressure"), "cindra has a thin atmosphere")
-    assert.are.equal(400, s.get_property("solar-power"),
-      "cindra baseline solar (placeholder; §15-7 sets the flare-driving multiplier)")
+    assert.are.equal(10000, s.get_property("solar-power"),
+      "cindra's flare-driving surface solar multiplier (100x Nauvis; §15-7)")
     assert.are.equal(25, s.get_property("magnetic-field"), "cindra magnetic-field")
   end)
 end)
