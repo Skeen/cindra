@@ -69,9 +69,28 @@ merge queue.
   tech. Tested: `tests/test_ice_processing.lua` (category isolation, water fluid
   box, ground-placeability, recipe shapes/ratio, no vanilla-crusher leak, tech
   gating, and an end-to-end powered crush of ice → water on Cindra).
-- [ ] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — two-temperature quench building
-  (hot molten input + cold cryo-coolant input in one craft). The signature.
-  *Needs 4 + 5.*
+- [x] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — `prototypes/cryo-alloy.lua`: the
+  SIGNATURE two-temperature quench. A `cindra-cryo-quench` building (chemical-plant
+  clone, electric, single hot-fluid input, private `cindra-quenching` category, re-
+  skinned with the delivered signature art) crafts `cindra-cryo-hardened-alloy` from
+  a HOT half + a COLD half in one recipe: `lava` fluid gated with
+  `minimum_temperature` (500 C, so "hot" is engine-enforced, not nominal) + a
+  `cindra-cryo-coolant` consumed item (packed from nightside `ice`). Ships the PoC's
+  recommended model (item + fluid, temperature-gated; ci-o4r). Gated behind the
+  `cindra-cryo-quenching` tech, whose prerequisites are BOTH `cindra-lava` (hot) and
+  `cindra-ice-processing` (cold) — the "needs 4 + 5" mechanic expressed as a tech
+  dependency. Tested: `tests/test_cryo_alloy.lua` (recipe shape + temperature gate,
+  electric fluid-crafter, private-category isolation + no chemical-plant leak, lava
+  fluid unmutated, coolant recipe, gating, tech dual-prereq, and an end-to-end
+  powered craft that produces alloy ONLY when both hot and cold inputs are present).
+  The advanced circulating-coolant variant (a second, max-temperature-gated cold
+  FLUID) is deferred. *Needs 4 + 5.*
+  - Follow-up (unblocked, tracked in-code): the `TODO(ci-gd4)` notes in
+    `prototypes/electric-heater.lua` and `prototypes/mass-driver.lua` want the
+    cryo-hardened alloy folded into their recipes to make the native-ingredient
+    import gate real. Left out of this bead: routing the heater/shell through the
+    full quench chain is a progression/bootstrap decision (soft-lock risk, ci-uex)
+    and a balance-pass call (ci-63d), not part of shipping the signature building.
 - [ ] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
   dark-weighted daylight curve; telegraph / fast-ramp / plateau / fast-decay;
   regular cadence; ~100× peak. Replaces the placeholder baseline in

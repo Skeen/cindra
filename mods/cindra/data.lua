@@ -29,6 +29,12 @@ require("prototypes.ice-processing")
 -- foundry's molten iron/copper chain with its stone byproduct looping back.
 require("prototypes.lava")
 
+-- §15-6 cryo-hardened alloy: the SIGNATURE two-temperature quench. One craft that
+-- needs a HOT input (the manufactured `lava` fluid, temperature-gated) and a COLD
+-- input (cryo-coolant packed from nightside ice) at once -> cryo-hardened alloy.
+-- Impossible off-world; gated behind BOTH the lava and ice-processing techs.
+require("prototypes.cryo-alloy")
+
 -- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")

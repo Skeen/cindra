@@ -41,6 +41,19 @@ this list is the last resort when no test path exists.
   placement are tested in `tests/test_heater.lua`; only the *visual read* is a
   playtest, pending bespoke art.)
 
+- [ ] **Cryo-quench art + hot-pipe read (§15-6).** The quench wears the delivered
+  signature sprite (`graphics/entity/cryo-quench/`, ART-MANIFEST ci-pru), a single
+  static frame with the chemical-plant animation/foam/smoke stripped. *Repro:*
+  research `cindra-cryo-quenching`, build a `cindra-cryo-quench`, pipe `lava` into
+  its input fluid box and belt in `cindra-cryo-coolant`. *Look for:* it reads as a
+  two-temperature forge (not a chemical plant), the hot-fluid input connects and
+  drains, and the alloy comes out on the item side. The manifest defers the
+  animated "quench flash" (a working-visualisation layer over this idle base) to a
+  later art pass, so no craft-time glow is expected in v1 — do not file that as a
+  bug. (Recipe shape, temperature gate, category isolation, and the end-to-end
+  both-inputs-required craft are integration-tested in `tests/test_cryo_alloy.lua`;
+  only the *visual read* and pipe alignment are a playtest.)
+
 - [ ] **Ribbon reads as a ribbon (§15-2/3 landed).** The lethal-edge damage,
   hard-wall backstop, and resource bands are implemented and integration-tested
   (`test_edge_damage`, `test_worldgen`, `test_building_heat`). Confirm in-game the
