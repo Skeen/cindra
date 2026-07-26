@@ -6,12 +6,13 @@ narrative brief this is derived from lives at `planet_design.md` in the parent
 workspace (referenced by the originating issue `ci-m1n`); this file is the
 in-repo condensation plus the concrete decisions taken during implementation.
 
-> **Status: foundation + worldgen.** §15 items 1–3 are implemented and tested:
-> the planet + surface + ribbon temperature axis (item 1), the lethal edges —
-> gradient damage, hard-wall backstop, nightside building-heat (item 2), and the
-> world resources — stone / ice / volatiles / bootstrap rocks (item 3). The
-> remaining §15 items (4–14) are the backlog in [`TODO.md`](TODO.md), each tracked
-> by a follow-up bead (prefix `ci-`).
+> **Status: foundation + worldgen + ice processing.** §15 items 1–4 are
+> implemented and tested: the planet + surface + ribbon temperature axis (item 1),
+> the lethal edges — gradient damage, hard-wall backstop, nightside building-heat
+> (item 2), the world resources — stone / ice / volatiles / bootstrap rocks
+> (item 3), and ice processing — the ground crusher + ice → water (+ calcite)
+> recipes (item 4, §5a). The remaining §15 items (5–14) are the backlog in
+> [`TODO.md`](TODO.md), each tracked by a follow-up bead (prefix `ci-`).
 
 ## 1. Core design thesis (the tie-breaker for every decision)
 
@@ -176,6 +177,34 @@ draw) is the flare sink + water boil-off + nightside warmth. Goods leave by
 
 Exportable buildings (capacitor, molten-salt battery, electric heater) must be
 **situational-better, never strictly better** than vanilla (§12 guardrail).
+
+### 5a. Ice processing — IMPLEMENTED (item 4)
+
+The nightside's matter economy starts here. `prototypes/ice-processing.lua` adds a
+ground-standing crusher and the recipes that turn `ice` into the factory's water.
+It REUSES the Space Age asteroid-crushing model, relocated from orbit to the
+ground:
+
+- **`cindra-ice-crusher`** — a clone of the space-platform `crusher`. Two
+  adaptations make it work on Cindra: the vanilla crusher is gated to zero gravity
+  (`surface_conditions`) and emits only solids, so the clone **drops the space-only
+  surface condition** (and the space-platform heating draw) and **gains a water
+  output fluid box**. Art is the vanilla crusher (v1 reuse); the added pipe has no
+  bespoke connector sprite yet (a [`PLAYTEST.md`](PLAYTEST.md) entry).
+- **Two recipes = the ratio knob.** `cindra-ice-crushing` grinds ice to water
+  only; `cindra-ice-crushing-calcite` grinds the same ice to *less* water plus
+  calcite. Choosing the recipe *is* choosing the water↔calcite ratio, matching the
+  asteroid-crushing "pick your output" model.
+- **A private recipe category** (`cindra-ice-crushing`, not vanilla `"crushing"`)
+  keeps these recipes on the Cindra crusher only — they never appear in vanilla
+  space-platform crushers, and vanilla asteroid recipes never appear in ours
+  (the never-mutate-other-planets invariant, §6). The shared vanilla crusher
+  prototype is deep-copied, never mutated.
+- Gated behind the **`cindra-ice-processing`** tech (prereq: Cindra discovery);
+  the full Cindra tech tree (§15-12) folds this in later.
+
+Tested end-to-end in `tests/test_ice_processing.lua`, including a powered crush of
+ice → water on the Cindra surface.
 
 ## 6. Invariants (locked by tests as they land)
 

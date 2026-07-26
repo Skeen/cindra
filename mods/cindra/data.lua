@@ -19,6 +19,11 @@
 -- temperature-axis framing.
 require("prototypes.planet")
 
+-- §15-4 ice processing: a ground crusher (asteroid-crushing model, relocated)
+-- that grinds nightside ice into water, or water + calcite -- the player picks
+-- the ratio by choosing the recipe.
+require("prototypes.ice-processing")
+
 -- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
