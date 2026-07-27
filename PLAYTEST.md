@@ -41,17 +41,24 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   this entry is only the interactive "it feels like a place you can stand"
   confirmation.
 
-- [ ] **[LANDED] Map view / orbit reads as Cindra (ci-hmc, ci-2sr).** *Repro:* open
+- [ ] **[LANDED] Map view / orbit reads as Cindra (ci-hmc, ci-2sr, ci-bu4).** *Repro:* open
   the star-map / navigate the orbital approach to Cindra. *Look for:* the planet is
   named exactly **Cindra** (no "- The Ribbon World" suffix; the tagline is
   docs-only now, never user-facing, ci-06j) with a real planet description (molten
-  dayside / frozen nightside / thin ribbon / sporadic flares); it sits in a
-  **close** orbit visibly sunward of Vulcanus; `solar_power_in_space` is high
-  (currently **1000**, above Vulcanus's 600); "contains" reads **stone + ice** with
-  distinct icons (the ice patch no longer wears a stone icon, ci-2sr); the
-  Vulcanus->Cindra space route shows the **Cindra** globe (with a small Vulcanus
-  origin badge, not two Vulcanus planets) and a SHORT length (currently **12000**,
-  was 80000). The globe reads FIERY (radiant molten dayside) -> SANDY (a clearly
+  dayside / frozen nightside / thin ribbon / sporadic flares); it sits **clearly in
+  space** at a close orbit sunward of Vulcanus, NOT overlapping the sun disc (ci-bu4
+  pulled it from distance 3, which planted it inside the sun, out to 6);
+  `solar_power_in_space` is high (currently **1000**, above Vulcanus's 600);
+  "contains" reads **stone + ice** with distinct icons (the ice patch no longer
+  wears a stone icon, ci-2sr); the Vulcanus->Cindra space route icon matches the
+  other routes' convention (ci-bu4): little **transfer arrows** (the planet-route
+  base), the **Vulcanus** origin badge top-left and the **Cindra** destination
+  globe bottom-right and **in front**, both badges the SAME size (Cindra is no
+  longer oversized, and it is no longer two Vulcanus planets), and a SHORT length
+  (currently **12000**, was 80000). Travelling the leg, the asteroid field reads as
+  a hot Vulcanus/Gleba-tier route (ci-bu4: sparse Vulcanus/Gleba chunks + medium
+  asteroids), NOT the dense Nauvis-tier field it used to show. The globe reads FIERY
+  (radiant molten dayside) -> SANDY (a clearly
   lit warm terminator band down the middle, NOT black) -> ICY (dark blue-shimmer
   nightside); it does NOT rotate (tidally locked) while the terminator steam band
   and the flares off the fire limb animate in place. The baked star-map sprite

@@ -47,6 +47,45 @@ function M.apply_icons(planet)
   return planet
 end
 
+-- Route icon for the Vulcanus -> Cindra space connection (ci-bu4).
+--
+-- Space Age's own data-updates.lua auto-composites a route icon for every
+-- space-connection that lacks one: a transfer-arrow base (planet-route.png) with
+-- the ORIGIN badge top-left and the DESTINATION badge bottom-right, both at scale
+-- 0.333, the destination drawn LAST so it sits frontmost. Every vanilla route
+-- icon follows that convention.
+--
+-- We cannot just let that loop fill ours in. It runs BEFORE Cindra's own
+-- data-updates swaps the baked icon onto the planet (cindra depends on space-age,
+-- so cindra's data-updates runs later), so it would bake the vanilla Vulcanus
+-- PLACEHOLDER as the Cindra badge -- two Vulcanus globes, no transfer arrows read
+-- as a route. The earlier hand-rolled override then broke the convention the
+-- other way (a full-size Cindra base with a shrunken Vulcanus in FRONT).
+--
+-- Fix: pin the SAME composite by hand, matching the vanilla formula exactly but
+-- with the real baked Cindra icon as the destination:
+--   * planet-route.png transfer arrows as the base,
+--   * Vulcanus (origin) top-left at scale 0.333,
+--   * Cindra  (destination) bottom-right at scale 0.333, LAST -> frontmost.
+M.ROUTE_ARROWS_ICON = "__space-age__/graphics/icons/planet-route.png"
+M.ROUTE_BADGE_SCALE = 0.333 -- vanilla route-badge scale (space-age data-updates)
+
+function M.route_icons()
+  return {
+    { icon = M.ROUTE_ARROWS_ICON },
+    {
+      icon = "__space-age__/graphics/icons/vulcanus.png",
+      icon_size = 64, scale = M.ROUTE_BADGE_SCALE, shift = { -6, -6 },
+    },
+    {
+      icon = M.icon_fields.icon,
+      icon_size = M.icon_fields.icon_size,
+      icon_mipmaps = M.icon_fields.icon_mipmaps,
+      scale = M.ROUTE_BADGE_SCALE, shift = { 6, 6 },
+    },
+  }
+end
+
 local function map(name)
   return { filename = "__cindra__/graphics/space/" .. name, width = 2048, height = 1024 }
 end

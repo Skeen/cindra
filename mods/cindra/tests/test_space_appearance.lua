@@ -62,6 +62,47 @@ describe("cindra space appearance (art wiring, ci-94v)", function()
     end
   end)
 
+  -- Route icon for the Vulcanus -> Cindra connection (ci-bu4). The runtime API
+  -- does NOT expose a space-connection's icons (data-stage-only, like planet.icon
+  -- above), so we assert the composite at its real source: the pure builder that
+  -- planet.lua wires into the connection's `icons` field.
+  describe("route icon (ci-bu4)", function()
+    it("bases the composite on the vanilla transfer-arrow sprite (arrows, like every route)", function()
+      local i = space.route_icons()
+      assert.are.equal("__space-age__/graphics/icons/planet-route.png", i[1].icon,
+        "the base layer is the planet-route transfer-arrow sprite")
+      assert.is_nil(i[1].scale, "the arrow base fills the icon (no shrink/shift)")
+    end)
+
+    it("draws Cindra (destination) in FRONT and Vulcanus (origin) behind", function()
+      local i = space.route_icons()
+      -- Icon layers draw bottom-to-top: layer 2 is behind, the LAST layer is frontmost.
+      local origin, dest = i[2], i[#i]
+      assert.is_not_nil(string.find(origin.icon, "vulcanus", 1, true),
+        "the origin badge (behind) is Vulcanus")
+      assert.are.equal("__cindra__/graphics/icons/cindra.png", dest.icon,
+        "the destination badge drawn LAST (frontmost) is the baked Cindra globe")
+    end)
+
+    it("sizes both badges the same, so Cindra is not oversized vs Vulcanus (ci-bu4)", function()
+      local i = space.route_icons()
+      local origin, dest = i[2], i[#i]
+      assert.are.equal(origin.scale, dest.scale, "origin and destination badges share one scale")
+      assert.are.equal(0.333, dest.scale, "both badges use the vanilla route-badge scale (0.333)")
+      -- Shift convention: origin top-left, destination bottom-right.
+      assert.are.equal(-6, origin.shift[1], "origin sits top-left (x)")
+      assert.are.equal(-6, origin.shift[2], "origin sits top-left (y)")
+      assert.are.equal(6, dest.shift[1], "destination sits bottom-right (x)")
+      assert.are.equal(6, dest.shift[2], "destination sits bottom-right (y)")
+    end)
+
+    it("uses the baked Cindra icon as the destination, never the Vulcanus placeholder", function()
+      local i = space.route_icons()
+      assert.is_nil(string.find(i[#i].icon, "vulcanus", 1, true),
+        "destination must be the baked Cindra icon (guards the two-Vulcanus-globes bug)")
+    end)
+  end)
+
   it("freezes the globe (tidal lock): backdrop rotation_seconds is the huge NO_ROTATION", function()
     local params = space.build_render_parameters(fake_nauvis_params())
     assert.is_not_nil(params.platform_backdrop, "backdrop must be built")

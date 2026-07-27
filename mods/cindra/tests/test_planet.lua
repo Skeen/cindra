@@ -103,12 +103,18 @@ describe("cindra planet", function()
         "must not be always_day (0-cycle) -- that flattens the flare's daylight curve")
     end)
 
-    it("orbits closer to the sun than Vulcanus", function()
+    it("orbits clear of the sun but still sunward of Vulcanus (ci-bu4)", function()
       local loc = prototypes.space_location["cindra"]
-      assert.are.equal(3, loc.distance, "Cindra hugs the star at distance 3")
       local vulc = prototypes.space_location["vulcanus"]
+      -- ci-bu4: distance 3 planted Cindra INSIDE the sun disc at the map centre.
+      -- Pulled back out to a clear orbit that still reads as the innermost world.
+      assert.are.equal(6, loc.distance, "Cindra sits at a clear orbit (distance 6)")
+      -- Regression guard: must be pulled well clear of the star, NOT the in-sun
+      -- overshoot (distance 3 overlapped the sun disc).
+      assert.is_true(loc.distance > 3,
+        "orbit must be clear of the sun, not the distance-3 overshoot; got " .. tostring(loc.distance))
       assert.is_true(loc.distance < vulc.distance,
-        "Cindra must sit sunward (closer) of Vulcanus: " .. tostring(loc.distance)
+        "Cindra must stay sunward (closer) of Vulcanus: " .. tostring(loc.distance)
           .. " < " .. tostring(vulc.distance))
     end)
 
@@ -123,6 +129,30 @@ describe("cindra planet", function()
       assert.is_true(conn.length <= 15000,
         "route must be no longer than the vanilla inter-planet norm; got " .. tostring(conn.length))
       assert.are.equal(12000, conn.length, "the Vulcanus->Cindra hop is short (nearby orbit)")
+    end)
+
+    it("carries a Vulcanus/Gleba-tier asteroid field on the approach, not a Nauvis one (ci-bu4)", function()
+      -- The route icon composite itself is a data-stage field the runtime API does
+      -- not expose (asserted at its source in test_space_appearance.lua). The
+      -- ASTEROID field IS exposed, so assert the reported "looks like a Nauvis
+      -- path" bug here: the Vulcanus->Cindra approach must carry the same
+      -- Vulcanus/Gleba-tier asteroid field vanilla's Vulcanus->Gleba route uses
+      -- (built from the identical asteroid definition), never the Nauvis-tier one.
+      local function sig(conn_name)
+        local conn = prototypes.space_connection[conn_name]
+        assert.is_not_nil(conn, "connection must exist: " .. conn_name)
+        -- Key each definition by its asteroid name so array order can't matter.
+        local by_name = {}
+        for _, d in pairs(conn.asteroid_spawn_definitions) do
+          by_name[d.asteroid] = d
+        end
+        return serpent.line(by_name, { sortkeys = true, comment = false })
+      end
+
+      assert.are.equal(sig("vulcanus-gleba"), sig("vulcanus-cindra"),
+        "the approach must match the Vulcanus/Gleba-tier asteroid field")
+      assert.are_not.equal(sig("nauvis-vulcanus"), sig("vulcanus-cindra"),
+        "the approach must NOT be the Nauvis-tier field (the 'looks like a Nauvis path' bug)")
     end)
   end)
 

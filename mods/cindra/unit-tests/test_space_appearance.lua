@@ -93,6 +93,30 @@ test("apply_icons merges every icon field onto a planet table", function()
   end
 end)
 
+-- Route icon for the Vulcanus -> Cindra connection (ci-bu4). Pure builder, so it
+-- is fully reachable off-game; tests/test_space_appearance.lua asserts the same
+-- shape under the real Factorio runtime. Keep the two in sync.
+test("route_icons: transfer-arrow base + Cindra destination frontmost, same-size badges", function()
+  local i = space.route_icons()
+  -- Base layer = the vanilla transfer-arrow sprite (arrows like every other route).
+  assert_eq("__space-age__/graphics/icons/planet-route.png", i[1].icon, "arrow base layer")
+  assert_nil(i[1].scale, "arrow base fills the icon (no shrink/shift)")
+
+  -- Layers draw bottom-to-top: layer 2 behind (origin), last layer frontmost (destination).
+  local origin, dest = i[2], i[#i]
+  assert_true(string.find(origin.icon, "vulcanus", 1, true) ~= nil, "origin (behind) is Vulcanus")
+  assert_eq("__cindra__/graphics/icons/cindra.png", dest.icon, "destination (frontmost) is the baked Cindra icon")
+  assert_nil(string.find(dest.icon, "vulcanus", 1, true), "destination is NOT a Vulcanus placeholder (two-Vulcanus guard)")
+
+  -- Same scale => Cindra is not oversized; vanilla route-badge scale + shifts.
+  assert_eq(origin.scale, dest.scale, "origin and destination share one scale")
+  assert_eq(0.333, dest.scale, "vanilla route-badge scale")
+  assert_eq(-6, origin.shift[1], "origin top-left x")
+  assert_eq(-6, origin.shift[2], "origin top-left y")
+  assert_eq(6, dest.shift[1], "destination bottom-right x")
+  assert_eq(6, dest.shift[2], "destination bottom-right y")
+end)
+
 test("freezes the globe (tidal lock): rotation_seconds is the huge NO_ROTATION", function()
   local params = space.build_render_parameters(fake_nauvis_params())
   assert_true(params.platform_backdrop ~= nil, "backdrop built")

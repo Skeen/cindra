@@ -22,14 +22,18 @@
 
 local planet_map_gen = require("__base__/prototypes/planet/planet-map-gen")
 local asteroid_util = require("__space-age__.prototypes.planet.asteroid-spawn-definitions")
+local space = require("prototypes.space-appearance")
 
 local minute = 60 * 60
 
 -- Star-map placement + tidal-lock presentation (ci-2sr).
 --
 -- Cindra hugs the star: a small orbital radius so it sits well sunward of
--- Vulcanus (distance 10), close to the sun at the map centre.
-local ORBIT_DISTANCE = 3
+-- Vulcanus (distance 10), the innermost world of the system. ci-bu4: was 3, which
+-- planted the globe INSIDE the sun disc at the map centre. Pull it back out to a
+-- clear orbit that still reads as the closest world to the star (distance 6, the
+-- pre-ci-2sr clear position; the drop to 3 overshot).
+local ORBIT_DISTANCE = 6
 -- Angular position on the orbit ring (RealOrientation: 0 = up, clockwise).
 local ORBIT_ORIENTATION = 0.05
 -- TIDAL LOCK: the fiery dayside must face the star. The star-map icon is a fixed
@@ -175,21 +179,20 @@ data:extend({
     -- other connections are ~15000; Cindra now hugs the star just inside Vulcanus,
     -- so the hop is SHORT. 12000 (a touch under the norm) reads as "next door".
     length = 12000,
-    -- Route icon (ci-2sr): show origin -> destination, not two Vulcanus globes.
-    -- Left unset the engine composited the endpoints while Cindra still wore the
-    -- Vulcanus placeholder icon, so both halves read as Vulcanus. Pin it: the
-    -- baked CINDRA globe (destination) as the base with a small VULCANUS badge
-    -- (origin) in the corner, so the route reads Vulcanus -> Cindra.
-    icons = {
-      { icon = "__cindra__/graphics/icons/cindra.png", icon_size = 64, icon_mipmaps = 4 },
-      {
-        icon = "__space-age__/graphics/icons/vulcanus.png",
-        icon_size = 64, icon_mipmaps = 4, scale = 0.44, shift = { -10, -10 },
-      },
-    },
+    -- Route icon (ci-2sr, reworked ci-bu4): match the vanilla route-icon
+    -- convention exactly -- transfer-arrow base, origin badge top-left,
+    -- destination badge bottom-right and frontmost, both badges the same size.
+    -- See space.route_icons: the vanilla auto-composite would bake the Vulcanus
+    -- placeholder as Cindra (its data-updates runs before ours swaps the icon), so
+    -- we pin the same composite by hand with the real baked Cindra icon.
+    icons = space.route_icons(),
     -- Space-connection form: the helper takes NO density multiplier (that second
     -- arg is for a planet's approach field, and yields a different structure).
-    asteroid_spawn_definitions = asteroid_util.spawn_definitions(asteroid_util.nauvis_vulcanus),
+    -- ci-bu4: was nauvis_vulcanus, which gave the hop a Nauvis-tier asteroid field
+    -- (dense metallic chunks). This leg leaves Vulcanus for a hot inner world, so
+    -- carry the Vulcanus/Gleba-tier field -- the same mix vanilla's Vulcanus->Gleba
+    -- route uses (test_planet.lua compares them byte-for-byte).
+    asteroid_spawn_definitions = asteroid_util.spawn_definitions(asteroid_util.vulcanus_gleba),
   },
   -- Discovery tech: without an unlock-space-location effect Cindra shows up
   -- greyed-out (visible but not travellable) on the star map. Gated behind
