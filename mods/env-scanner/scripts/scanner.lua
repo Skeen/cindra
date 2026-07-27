@@ -6,6 +6,10 @@
 -- scanners are tracked in `storage` so the periodic sweep is O(scanners), not a
 -- whole-map entity scan.
 --
+-- Each placed scanner also gets an animated building overlay
+-- (rendering.draw_animation) drawn on top of its static combinator body, since a
+-- constant-combinator's own sprite cannot frame-animate. See prototypes/scanner.lua.
+--
 -- This mod only ADDS its own entity and reads surface state; it never mutates
 -- another planet's gameplay (the never-mutate-other-planets rule): setting a
 -- constant combinator's own output signals affects nothing but that building's
@@ -22,6 +26,71 @@ local function tracked()
   storage.es = storage.es or {}
   storage.es.scanners = storage.es.scanners or {}
   return storage.es.scanners
+end
+
+-- storage.es.overlays : unit_number -> { body = id, glow = id } (uint64 render
+-- object ids). The animated building overlay drawn on top of each placed scanner
+-- (the constant-combinator body itself is a static Sprite4Way and cannot
+-- animate). We store the numeric ids -- not the LuaRenderObjects -- so `storage`
+-- stays trivially serialisable across save/load, and re-fetch via
+-- rendering.get_object_by_id when we need to touch them.
+local function overlays()
+  storage.es = storage.es or {}
+  storage.es.overlays = storage.es.overlays or {}
+  return storage.es.overlays
+end
+
+-- Resolve a stored render-object id back to a live LuaRenderObject, or nil.
+local function live(id)
+  if not id then return nil end
+  local o = rendering.get_object_by_id(id)
+  if o and o.valid then return o end
+  return nil
+end
+
+-- Draw the animated body + emissive-glow overlays on a placed scanner, tracked
+-- so they can be torn down when it is removed. Idempotent: a scanner that
+-- already carries a live overlay is left alone (so the init/config-change
+-- rescan does not stack duplicates on scanners whose overlays persisted across
+-- the save). The overlays target the entity, so they also follow it and the
+-- engine drops them automatically if the entity ever vanishes without an event.
+function M.ensure_overlay(entity)
+  if not (entity and entity.valid and entity.name == C.SCANNER) then return end
+  local ov = overlays()
+  local un = entity.unit_number
+  local existing = ov[un]
+  if existing and live(existing.body) then return existing end
+
+  local body = rendering.draw_animation({
+    animation = C.BODY_ANIM,
+    surface = entity.surface,
+    target = entity,
+    render_layer = "higher-object-above", -- above the static combinator body
+    animation_speed = C.ANIM_SPEED,
+  })
+  local glow = rendering.draw_animation({
+    animation = C.GLOW_ANIM,
+    surface = entity.surface,
+    target = entity,
+    render_layer = "higher-object-above",
+    animation_speed = C.ANIM_SPEED,
+  })
+  ov[un] = { body = body.id, glow = glow.id }
+  return ov[un]
+end
+
+-- Tear down a scanner's overlay render objects (safe if already gone; the engine
+-- also drops them automatically when their target entity is destroyed).
+function M.remove_overlay(unit_number)
+  local ov = storage.es and storage.es.overlays
+  if not (ov and unit_number) then return end
+  local o = ov[unit_number]
+  if o then
+    local body, glow = live(o.body), live(o.glow)
+    if body then body.destroy() end
+    if glow then glow.destroy() end
+    ov[unit_number] = nil
+  end
 end
 
 -- Compute the full signal table for a surface (generic readings + optional
@@ -84,18 +153,20 @@ function M.update_all()
   end
 end
 
--- Track a newly built scanner (idempotent).
+-- Track a newly built scanner (idempotent) and give it its animated overlay.
 function M.register_entity(entity)
   if entity and entity.valid and entity.name == C.SCANNER then
     tracked()[entity.unit_number] = entity
+    M.ensure_overlay(entity)
   end
 end
 
--- Stop tracking a removed scanner.
+-- Stop tracking a removed scanner and tear down its overlay.
 function M.forget_entity(entity)
   if entity and entity.unit_number then
     local t = storage.es and storage.es.scanners
     if t then t[entity.unit_number] = nil end
+    M.remove_overlay(entity.unit_number)
   end
 end
 
@@ -108,6 +179,7 @@ function M.rescan()
   for _, surface in pairs(game.surfaces) do
     for _, e in pairs(surface.find_entities_filtered({ name = C.SCANNER })) do
       t[e.unit_number] = e
+      M.ensure_overlay(e) -- idempotent: only draws for scanners lacking one
     end
   end
 end
@@ -115,6 +187,7 @@ end
 function M.init()
   storage.es = storage.es or {}
   storage.es.scanners = storage.es.scanners or {}
+  storage.es.overlays = storage.es.overlays or {}
   M.rescan()
 end
 

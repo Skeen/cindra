@@ -343,6 +343,26 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   during calm and only appear (countdown, phase, intensity) once a sporadic flare
   enters its warning window.
 
+- [ ] **[LANDED] Environmental scanner radio-station art looks right (ci-0e8).**
+  The scanner uses the user-supplied Hurricane radio-station art (CC-BY): a
+  static first-frame body is wired into the constant-combinator `sprites` (for
+  ghost/blueprint/factoriopedia previews) and the runtime draws an animated
+  body + emissive-glow overlay on each placed scanner. *Look for:* the built
+  scanner shows the radio-station building (not an invisible/placeholder combinator)
+  and its body visibly **animates** (a gentle ~1.3 s idle loop); the emissive
+  layer **glows at night**; a ground **shadow** casts correctly; the item/entity
+  **icon** is the radio-station icon in the inventory, build preview, and
+  factoriopedia. *Judge the tuning:* `BODY_SCALE` / `BODY_SHIFT` in
+  `mods/env-scanner/prototypes/scanner.lua` place a tall masted building on a 1x1
+  footprint - confirm the base sits on the tile (not floating or buried), the
+  scale is not oversized, and the animated overlay lands exactly on top of the
+  static body with no visible double-image or seam. Also confirm the ghost
+  (build preview) and a blueprint of it still show the building body. The
+  geometry (160x290 frames, 20-frame / 8-wide strip), layer wiring, overlay
+  draw/teardown, and icon are test-covered (`tests/test_scanner.lua`,
+  `unit-tests/test_scanner_graphics.lua`); only the on-screen look/scale/shift
+  and animation feel need eyes.
+
 ## Placeholder art (expected in v1, do NOT file as bugs)
 
 - [ ] **[LANDED] Resource art is placeholder.** Stone/ice/volatiles resources are

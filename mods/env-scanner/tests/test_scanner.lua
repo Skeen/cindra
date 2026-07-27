@@ -113,6 +113,47 @@ describe("environmental scanner (runtime)", function()
       "runtime must track the scanner after build")
   end)
 
+  it("building a scanner draws its animated body + glow overlay", function()
+    -- A constant-combinator body is a static sprite, so the building animates
+    -- via a runtime rendering.draw_animation overlay. The draw only succeeds if
+    -- the body/glow AnimationPrototypes exist and are renderable, so a valid
+    -- render object here is the in-engine proof the animation is wired.
+    local e = build_scanner({ 0, 0 })
+    local ov = storage.es.overlays[e.unit_number]
+    assert.is_not_nil(ov, "runtime must draw an overlay for the placed scanner")
+    local body = rendering.get_object_by_id(ov.body)
+    local glow = rendering.get_object_by_id(ov.glow)
+    assert.is_not_nil(body, "body animation render object must exist")
+    assert.is_true(body.valid, "body animation render object must be valid")
+    assert.is_not_nil(glow, "glow animation render object must exist")
+    assert.is_true(glow.valid, "glow animation render object must be valid")
+  end)
+
+  it("rescanning does not stack duplicate overlays", function()
+    -- init / on_configuration_changed re-discovers scanners; the overlay draw
+    -- must be idempotent so a scanner whose overlay persisted across the save
+    -- does not accumulate a second animation on top of itself.
+    local e = build_scanner({ 0, 0 })
+    local before = storage.es.overlays[e.unit_number]
+    scanner.rescan()
+    local after = storage.es.overlays[e.unit_number]
+    assert.are.equal(before.body, after.body, "rescan must reuse the existing body overlay")
+    assert.are.equal(before.glow, after.glow, "rescan must reuse the existing glow overlay")
+  end)
+
+  it("mining a scanner tears down its overlay", function()
+    local e = build_scanner({ 0, 0 })
+    local un = e.unit_number
+    local ov = storage.es.overlays[un]
+    assert.is_not_nil(ov, "overlay must exist before removal")
+    local body = rendering.get_object_by_id(ov.body)
+    local glow = rendering.get_object_by_id(ov.glow)
+    e.destroy({ raise_destroy = true })
+    assert.is_nil(storage.es.overlays[un], "overlay entry must be cleared on removal")
+    assert.is_false(body.valid, "body render object must be destroyed with the scanner")
+    assert.is_false(glow.valid, "glow render object must be destroyed with the scanner")
+  end)
+
   it("outputs full daylight and solar at noon", function()
     local e = build_scanner({ 0, 0 })
     surface.daytime = 0.0  -- noon

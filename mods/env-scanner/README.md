@@ -127,8 +127,13 @@ ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
 
 ## Notes
 
-* Entity art and signal icons are **placeholder** (a renamed constant combinator;
-  reused base signal icons). Bespoke art is tracked as a follow-up bead.
+* Entity + item art is the user-supplied **radio-station** set by Hurricane
+  (CC-BY; see `graphics/entity/scanner/ATTRIBUTION.md` and `CREDITS.md`). The
+  building keeps a static first-frame `sprites` for ghost/blueprint/factoriopedia
+  previews and the runtime draws animated body + emissive-glow overlays on each
+  placed scanner (a constant-combinator body cannot frame-animate on its own).
+  The **signal icons** remain placeholder (reused base icons); a follow-up bead
+  tracks bespoke signal art.
 * Never mutates another planet: it only adds its own entity and reads surface
   state. Setting a constant combinator's own output affects nothing but that
   building's wires.
