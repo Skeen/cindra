@@ -8,8 +8,17 @@
 --   bootstrap rocks -> scattered near the terminator, hand-gathered, FINITE
 --                 (the landing-tier trickle of metal, §6)
 --
--- All of these are PLACED at runtime by scripts/worldgen.lua keyed to the ribbon
--- Y coordinate (the planet strips vanilla autoplace), so `autoplace = nil` here.
+-- Stone / ice / volatiles are placed by NATIVE Factorio resource autoplace (the
+-- core resource-autoplace / spot-noise library, same as nauvis/vulcanus ores) so
+-- they form irregular NATURAL PATCHES of varying size/richness -- NOT the uniform
+-- script grid of the earlier hand-rolled placement. Each is CONSTRAINED to its
+-- ribbon band by multiplying its autoplace probability/richness by the
+-- perpendicular-axis (Y) mask emitted from scripts/resource-field.lua (the one
+-- band-geometry source of truth). Native autoplace also gives real
+-- Frequency/Size/Richness map-gen sliders for free (via the autoplace-controls
+-- below). Only the finite bootstrap ROCKS stay script-scattered (they are
+-- simple-entities, not an autoplace resource).
+--
 -- Everything is a NEW `cindra-*` prototype cloned from a vanilla base: we never
 -- mutate the shared vanilla `stone`/`huge-rock` prototypes (that would leak onto
 -- Nauvis), only deep-copy them.
@@ -19,6 +28,20 @@
 -- track and are intentionally not defined in this file.
 
 local util = require("util")
+local resource_autoplace = require("resource-autoplace")
+local field = require("scripts.resource-field")
+
+-- The ribbon geometry (startup settings, available at data stage). The band masks
+-- read these so the autoplace bands line up exactly with the damage axis.
+local function ribbon_cfg()
+  local s = settings.startup
+  return {
+    safe_half_width = s["cindra-ribbon-safe-half-width"].value,
+    lethal_at = s["cindra-ribbon-lethal-at"].value,
+    wall_at = s["cindra-ribbon-wall-at"].value,
+  }
+end
+local CFG = ribbon_cfg()
 
 -- The deep-nightside volatiles the player can harvest (frozen gases). A raw
 -- harvestable, parallel to `ice`; the optional local-chemistry recipes that turn
@@ -38,40 +61,114 @@ data:extend({
   },
 })
 
+-- Register the patch sets up front, in a deterministic order (mirrors vanilla
+-- base/prototypes/entity/resources.lua), so patch indices are stable.
+resource_autoplace.initialize_patch_set("cindra-stone", true)
+resource_autoplace.initialize_patch_set("cindra-ice", true)
+resource_autoplace.initialize_patch_set("cindra-volatiles", false)
+
+-- Build a native spot-noise autoplace for `name`, CONSTRAINED to its ribbon band.
+-- `mask_expr` zeroes probability/richness outside the band; `rich_mult_expr` is
+-- the edge-pushing richness gradient (best nodes at the lethal margins). Both come
+-- from scripts/resource-field.lua so this file never re-derives the geometry.
+local function banded_autoplace(name, params, mask_expr, rich_mult_expr)
+  local spec = resource_autoplace.resource_autoplace_settings({
+    name = name,
+    order = params.order,
+    base_density = params.base_density,
+    base_spots_per_km2 = params.base_spots_per_km2,
+    has_starting_area_placement = params.has_starting_area_placement,
+    autoplace_control_name = name,
+  })
+  spec.probability_expression =
+    "(" .. spec.probability_expression .. ") * (" .. mask_expr .. ")"
+  spec.richness_expression =
+    "(" .. spec.richness_expression .. ") * (" .. mask_expr .. ") * (" .. rich_mult_expr .. ")"
+  return spec
+end
+
 -- Clone the vanilla `stone` resource into a Cindra-exclusive resource that yields
--- `item_yield` and is placed by our world-gen (not autoplace). Depleting (a real
--- mining activity), mineable by ordinary drills (default resource category).
-local function cindra_resource(name, item_yield, map_color, order)
+-- `item_yield` and is placed by NATIVE autoplace (spec). Depleting (a real mining
+-- activity), mineable by ordinary drills (default resource category).
+local function cindra_resource(name, item_yield, map_color, order, autoplace)
   local r = util.table.deepcopy(data.raw.resource["stone"])
   r.name = name
   r.order = order
-  r.autoplace = nil            -- placed by scripts/worldgen.lua, not vanilla autoplace
+  r.autoplace = autoplace       -- native spot-noise patches, band-masked
   r.map_color = map_color
   r.minable = r.minable or {}
   r.minable.result = item_yield
-  r.minable.results = nil      -- single-product; drop any inherited multi-result
+  r.minable.results = nil       -- single-product; drop any inherited multi-result
   return r
 end
 
+-- Autoplace-controls: one per resource so the new-game map-gen screen shows real
+-- Frequency / Size / Richness sliders (category "resource"). The band masks read
+-- `var('control:<name>:...')`, so these sliders drive the patches directly.
+data:extend({
+  {
+    type = "autoplace-control",
+    name = "cindra-stone",
+    localised_name = { "", "[entity=cindra-stone] ", { "entity-name.cindra-stone" } },
+    richness = true,
+    order = "a-a",
+    category = "resource",
+  },
+  {
+    type = "autoplace-control",
+    name = "cindra-ice",
+    localised_name = { "", "[entity=cindra-ice] ", { "entity-name.cindra-ice" } },
+    richness = true,
+    order = "a-b",
+    category = "resource",
+  },
+  {
+    type = "autoplace-control",
+    name = "cindra-volatiles",
+    localised_name = { "", "[entity=cindra-volatiles] ", { "entity-name.cindra-volatiles" } },
+    richness = true,
+    order = "a-c",
+    category = "resource",
+  },
+})
+
 data:extend({
   -- Stone: the central ribbon feedstock. Elevated, not throwaway (it feeds every
-  -- lava craft). Warm ochre, like vanilla stone.
-  cindra_resource("cindra-stone", "stone", { 0.690, 0.611, 0.427 }, "a[cindra-stone]"),
-  -- Ice: the nightside's single signature raw. Cold blue.
-  cindra_resource("cindra-ice", "ice", { 0.55, 0.75, 0.95 }, "b[cindra-ice]"),
+  -- lava craft). Warm ochre, like vanilla stone. Patches on the ribbon + hot
+  -- margin, richest toward the hot edge; a starting patch so a from-nothing land
+  -- can smelt its first stone furnaces immediately.
+  cindra_resource("cindra-stone", "stone", { 0.690, 0.611, 0.427 }, "a[cindra-stone]",
+    banded_autoplace("cindra-stone",
+      { order = "a", base_density = 8, base_spots_per_km2 = 2.5, has_starting_area_placement = true },
+      field.stone_mask_expr(CFG), field.stone_richness_mult_expr(CFG))),
+  -- Ice: the nightside's single signature raw. Cold blue. Patches nightward of the
+  -- safe band, richer the deeper (colder) they sit; a starting patch keeps the
+  -- matter economy reachable near the landing terminator.
+  cindra_resource("cindra-ice", "ice", { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
+    banded_autoplace("cindra-ice",
+      { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
+      field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG))),
   -- Volatiles: deep-nightside frozen gases, inside the cold-lethal band. Pale
-  -- violet so it reads as "the deepest, coldest, best node."
-  cindra_resource("cindra-volatiles", "cindra-volatiles", { 0.70, 0.60, 0.85 }, "c[cindra-volatiles]"),
+  -- violet so it reads as "the deepest, coldest, best node." No starting patch:
+  -- an edge-pushing reward you must brave the cold-lethal zone to reach.
+  cindra_resource("cindra-volatiles", "cindra-volatiles", { 0.70, 0.60, 0.85 }, "c[cindra-volatiles]",
+    banded_autoplace("cindra-volatiles",
+      { order = "c", base_density = 6, base_spots_per_km2 = 4, has_starting_area_placement = false },
+      field.volatiles_mask_expr(CFG), field.volatiles_richness_mult_expr(CFG))),
 })
 
 -- Bootstrap rocks: scattered, hand-gatherable, FINITE (a mined simple-entity is
 -- destroyed, so it can never become a per-craft supply of the main loop, per the
 -- §6 no-soft-lock rule). Cloned from the vanilla huge-rock so it reads as a rock
--- pile, but re-mined for CINDRA: NO coal (this planet has none), yielding stone
--- plus a small trickle of tungsten ore (Vulcanus-legacy metal, explicitly
--- accepted for the bootstrap in §5). The exact metal item/amount is a
--- bootstrap-balance decision (§15-13); worldgen only guarantees the rock exists,
--- is finite, and drops a landing-tier material.
+-- pile, but re-mined for CINDRA. Cindra has NO ore/coal patches at all (§6:
+-- bootstrap from nothing), so these finite rocks are the ONLY landing-tier metal:
+-- each yields stone plus a SMALL trickle of iron ore + copper ore + coal (and a
+-- little tungsten, the Vulcanus-legacy metal accepted in §5). That is exactly
+-- enough to hand-craft stone furnaces (from the stone) and smelt a first trickle
+-- of iron/copper plates + fuel -- enough to stand up the first foundry / power /
+-- ice-processing, after which the infinite lava->metal economy takes over. The
+-- amounts are a bootstrap-balance decision (§15-13, coordinate with ci-arw /
+-- ci-uex); kept small and finite so they can never replace the main loop.
 local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
 rock.name = "cindra-bootstrap-rock"
 rock.autoplace = nil            -- scattered by scripts/worldgen.lua near the terminator
@@ -82,6 +179,9 @@ rock.minable = {
   mining_time = 2,
   results = {
     { type = "item", name = "stone", amount_min = 12, amount_max = 24 },
+    { type = "item", name = "iron-ore", amount_min = 3, amount_max = 6 },
+    { type = "item", name = "copper-ore", amount_min = 3, amount_max = 6 },
+    { type = "item", name = "coal", amount_min = 2, amount_max = 4 },
     { type = "item", name = "tungsten-ore", amount_min = 2, amount_max = 5 },
   },
 }

@@ -81,5 +81,35 @@ test("bands honour a partial config override (settings-driven tuning)", function
   assert_true(field.ice_richness(-10, cfg) > 0, "ice exposed closer in")
 end)
 
+-- The native-autoplace band masks (emitted as noise-expression DSL strings) MUST
+-- describe the same boundaries as the numeric richness_* fns above: stone on the
+-- ribbon+hot margin [-safe, lethal], ice nightward (-safe .. -wall), volatiles in
+-- the deep cold-lethal band (-lethal .. -wall). Pinning the exact string catches
+-- any boundary / orientation drift.
+
+test("stone mask spans the ribbon + hot margin on the Y axis", function()
+  assert_eq("(y >= -24) * (y <= 96)", field.stone_mask_expr(), "default stone band")
+  -- Honours a config override (settings-driven tuning).
+  assert_eq("(y >= -4) * (y <= 50)", field.stone_mask_expr({ safe_half_width = 4, lethal_at = 50 }))
+end)
+
+test("ice mask covers the nightside in to the wall", function()
+  assert_eq("(y < -24) * (y > -128)", field.ice_mask_expr(), "default ice band")
+end)
+
+test("volatiles mask covers only the deep cold-lethal band", function()
+  assert_eq("(y <= -96) * (y > -128)", field.volatiles_mask_expr(), "default volatiles band")
+end)
+
+test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins", function()
+  -- Stone richest toward the hot edge; the multiplier's ceiling is peak/base.
+  local mult = field.stone_richness_mult_expr()
+  assert_true(mult:find("lerp%(1, ", 1) ~= nil, "starts at 1x at the near edge")
+  assert_true(mult:find("clamp%(", 1) ~= nil, "clamped to the band fraction")
+  -- Ice / volatiles multipliers reference the negated Y (deeper = colder = richer).
+  assert_true(field.ice_richness_mult_expr():find("%-y", 1) ~= nil, "ice ramps with depth")
+  assert_true(field.volatiles_richness_mult_expr():find("%-y", 1) ~= nil, "volatiles ramp with depth")
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

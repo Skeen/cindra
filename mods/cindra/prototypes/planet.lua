@@ -26,23 +26,56 @@ local asteroid_util = require("__space-age__.prototypes.planet.asteroid-spawn-de
 local minute = 60 * 60
 
 -- Cindra terrain: NAUVIS map gen for its working, buildable land, but with NO
--- vanilla ores, enemies, trees, rocks or cliffs. Cindra has no biology and no
--- native crude; the resource economy (stone on the ribbon, ice on the nightside,
--- scattered bootstrap rocks) is added deliberately in §15 item 3, not via
--- vanilla autoplace. This mirrors the well-trodden "clean-slate planet" pattern.
+-- vanilla ores, enemies, trees, rocks, cliffs -- and, crucially, NO WATER. Cindra
+-- has no biology, no native crude, and no water bodies (its only water comes from
+-- processing nightside ice); a molten dayside and a frozen nightside leave no room
+-- for lakes. The resource economy (stone patches on the ribbon, ice patches on the
+-- nightside, deep-nightside volatiles, scattered bootstrap rocks) is Cindra's own,
+-- via the `cindra-*` autoplace controls below (§15 item 3 / worldgen-v2).
 local function cindra_map_gen()
   local mg = planet_map_gen.nauvis()
 
-  -- Keep only terrain-shaping controls; drop every ore, enemy, tree, rock, cliff.
+  -- Enable ONLY Cindra's own resource controls plus terrain moisture. Note: NO
+  -- "water" control -> the water autoplace is off. Keeping the resource controls
+  -- here is what surfaces their Frequency/Size/Richness sliders on the map-gen
+  -- screen and lets a game actually generate the patches.
   mg.autoplace_controls = {
-    ["water"] = {},
+    ["cindra-stone"] = {},
+    ["cindra-ice"] = {},
+    ["cindra-volatiles"] = {},
     ["starting_area_moisture"] = {},
   }
   mg.default_enable_all_autoplace_controls = false
 
   mg.autoplace_settings = mg.autoplace_settings or {}
-  mg.autoplace_settings.entity = { treat_missing_as_default = false, settings = {} }
+  -- Entities: ONLY the three Cindra resources autoplace (no vanilla ore/enemy/
+  -- rock). The bootstrap rocks are scattered by scripts/worldgen.lua, not here.
+  mg.autoplace_settings.entity = {
+    treat_missing_as_default = false,
+    settings = {
+      ["cindra-stone"] = {},
+      ["cindra-ice"] = {},
+      ["cindra-volatiles"] = {},
+    },
+  }
   mg.autoplace_settings.decorative = { treat_missing_as_default = false, settings = {} }
+
+  -- Tiles: nauvis LAND tiles only. water + deepwater are deliberately OMITTED, so
+  -- no water tile is ever a placement candidate -- Cindra generates NO water and
+  -- NO starting lake at ANY map-gen setting (a water slider cannot conjure a tile
+  -- that is not in the set). This is the same mechanism the no-water vanilla
+  -- planets (e.g. Vulcanus) use.
+  mg.autoplace_settings.tile = {
+    treat_missing_as_default = false,
+    settings = {
+      ["grass-1"] = {}, ["grass-2"] = {}, ["grass-3"] = {}, ["grass-4"] = {},
+      ["dry-dirt"] = {},
+      ["dirt-1"] = {}, ["dirt-2"] = {}, ["dirt-3"] = {}, ["dirt-4"] = {},
+      ["dirt-5"] = {}, ["dirt-6"] = {}, ["dirt-7"] = {},
+      ["sand-1"] = {}, ["sand-2"] = {}, ["sand-3"] = {},
+      ["red-desert-0"] = {}, ["red-desert-1"] = {}, ["red-desert-2"] = {}, ["red-desert-3"] = {},
+    },
+  }
 
   -- No cliffs (push the elevation threshold out of reach).
   mg.cliff_settings = { name = "cliff", cliff_elevation_0 = 1024, cliff_elevation_interval = 1024 }
