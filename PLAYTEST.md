@@ -32,8 +32,8 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 - [ ] **[LANDED] Map view / orbit reads as Cindra (ci-hmc, ci-2sr).** *Repro:* open
   the star-map / navigate the orbital approach to Cindra. *Look for:* the planet is
-  named exactly **Cindra** (no "- The Ribbon World" suffix; that lives in the
-  description + mod title now, ci-2sr) with a real planet description (molten
+  named exactly **Cindra** (no "- The Ribbon World" suffix; the tagline is
+  docs-only now, never user-facing, ci-06j) with a real planet description (molten
   dayside / frozen nightside / thin ribbon / sporadic flares); it sits in a
   **close** orbit visibly sunward of Vulcanus; `solar_power_in_space` is high
   (currently **1000**, above Vulcanus's 600); "contains" reads **stone + ice** with
@@ -47,6 +47,15 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   split is verified off-game (`unit-tests/test_planet_maps.py`: centre ~RGB
   [139,108,61] sandy, fire limb ~[244,168,137], ice limb ~[40,57,77]); only the
   LIVE orbital backdrop is the playtest.
+
+- [ ] **[LANDED] Mod thumbnail reads as Cindra (ci-06j).** *Repro:* open the
+  in-game mod manager (or the mod portal listing) and find **Cindra** by **Vuza**.
+  *Look for:* the mod tile shows a planet-globe thumbnail (the 144x144 downscale of
+  the star-map globe art) rather than the generic no-thumbnail placeholder, and the
+  title reads exactly **Cindra** with no "- The Ribbon World" suffix. *Fallback:*
+  `unit-tests/test_branding.lua` already proves `thumbnail.png` ships at the mod
+  root as a real PNG and the title/author strings are correct; this entry is only
+  the "the globe crop looks good at tile size" visual confirmation.
 
 - [ ] **[LANDED] Star-map icon faces the fiery dayside at the sun (ci-2sr).** As a
   tidally-locked world the fiery dayside must point TOWARD the star. The engine's
