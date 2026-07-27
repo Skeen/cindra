@@ -223,8 +223,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     { r = "cindra-alumina",                  m = "hand" },                 -- stone + calcite -> alumina
     { r = "cindra-electrolysis-cell",        m = "hand" },                 -- build the electrolysis cell
     { r = "cindra-aluminium",                m = "cindra-electrolysis-cell" }, -- alumina + [power] -> aluminium
-    { r = "cindra-starforge",                m = "hand" },                 -- build the starforge
-    { r = "cindra-science-pack",             m = "cindra-starforge" },     -- aluminium + volatiles + calcite -> pack
+    { r = "cindra-science-pack",             m = "hand" },                 -- aluminium + volatiles + calcite -> pack (stock assembler)
   }
 
   -- Fixpoint over PRODUCTIONS. `seed` is a set {name -> true}. Returns the closed
@@ -427,5 +426,63 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
       "with a kitted foundry + starter metal, a lava caster is buildable and stone -> lava turns on")
     assert.is_true(have["molten-iron"] == true,
       "and the metal economy turns on -- the missing pieces for APS are the foundry (keystone) + starter metal (ci-arw)")
+  end)
+end)
+
+-- ===========================================================================
+-- ci-2tz: NO TUNGSTEN on Cindra. The planet ships a bespoke `cindra-field-foundry`
+-- (its own metallurgy answer), so the Vulcanus-legacy tungsten metal is dropped
+-- entirely rather than carried alongside a bespoke foundry -- don't ship both.
+-- This FAILS on main (the bootstrap rock dropped tungsten-ore and the field
+-- foundry consumed tungsten-carbide).
+-- ===========================================================================
+describe("cindra bootstrap: no tungsten (the field foundry is the metallurgy answer, ci-2tz)", function()
+  -- Anything in the tungsten lineage. Cindra must neither yield it (from rocks)
+  -- nor consume it (in any Cindra recipe).
+  local function is_tungsten(name)
+    return name:find("tungsten", 1, true) ~= nil
+  end
+
+  it("the field foundry exists -- the premise for dropping tungsten", function()
+    assert.is_not_nil(prototypes.recipe["cindra-field-foundry"],
+      "the bespoke cindra-field-foundry recipe must exist (why tungsten is off the planet)")
+  end)
+
+  it("the bootstrap rock yields no tungsten", function()
+    local rock = prototypes.entity["cindra-bootstrap-rock"]
+    for _, r in pairs(rock.mineable_properties.products) do
+      assert.is_false(is_tungsten(r.name),
+        "the bootstrap rock must not drop tungsten (`" .. r.name .. "`) -- tungsten is off Cindra (ci-2tz)")
+    end
+  end)
+
+  it("no Cindra recipe consumes or produces tungsten", function()
+    for name, recipe in pairs(prototypes.recipe) do
+      if name:sub(1, 7) == "cindra-" then
+        for _, ing in pairs(recipe.ingredients) do
+          assert.is_false(is_tungsten(ing.name),
+            "recipe '" .. name .. "' still consumes tungsten input '" .. ing.name .. "' (ci-2tz)")
+        end
+        for _, prod in pairs(recipe.products) do
+          assert.is_false(is_tungsten(prod.name),
+            "recipe '" .. name .. "' still produces tungsten '" .. prod.name .. "' (ci-2tz)")
+        end
+      end
+    end
+  end)
+
+  it("the field foundry is still buildable from the local metal loop (no tungsten dependency)", function()
+    -- With tungsten gone, the field foundry must be castable from metals the
+    -- local loop actually makes -- steel/circuits/concrete/lubricant, all
+    -- reachable from the lava->metal spine (proved by the bootstrap chain above).
+    local foundry = prototypes.recipe["cindra-field-foundry"]
+    local has_steel = false
+    for _, ing in pairs(foundry.ingredients) do
+      assert.is_false(is_tungsten(ing.name),
+        "the field foundry must not need tungsten (`" .. ing.name .. "`) -- Cindra ships none (ci-2tz)")
+      if ing.name == "steel-plate" then has_steel = true end
+    end
+    assert.is_true(has_steel,
+      "the field foundry is cast from bulk structural steel now that tungsten is gone")
   end)
 end)

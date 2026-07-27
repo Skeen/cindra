@@ -159,6 +159,47 @@ test("every locale key referenced by a prototype exists in the cfg", function()
   assert_true(#missing == 0, "prototype references with no locale entry: " .. table.concat(missing, ", "))
 end)
 
+-- ci-2tz: Cindra machine + item descriptions must read as PLAYER text, not dev
+-- comments. Blacklist the concrete tells of dev-note phrasing: casual profanity,
+-- code/design meta markers (bead ids, section refs, tuning notes, prototype
+-- jargon), and the balance-justification phrasing that leaked in ("unchanged",
+-- "the point", "instead of a hundred ...", etc.). This FAILS on main, where the
+-- mass-driver item description read "... and a shitton of power."
+local DEV_PHRASING = {
+  -- casual profanity: never in a vanilla-style tooltip
+  "shit", "fuck", "damn", "crap",
+  -- code / design meta markers
+  "(tune)", "todo", "fixme", "xxx", "§", "ci-", "placeholder",
+  "deepcopy", "data.raw", "prototype", "localised", "design.md",
+  -- balance-justification phrasing (design rationale, not in-world flavor)
+  "the point", "unchanged", "instead of a hundred", "same energy per unit",
+  "poor long-term", "disposal floor", "sacrificial fuse",
+}
+
+-- The Cindra description sections that face the player in tooltips / Factoriopedia.
+local DESC_SECTIONS = {
+  "entity-description", "item-description", "recipe-description",
+}
+
+test("no Cindra machine/item description contains dev-comment phrasing (ci-2tz)", function()
+  local offenders = {}
+  for _, section in ipairs(DESC_SECTIONS) do
+    local entries = cfg[section] or {}
+    for key, value in pairs(entries) do
+      if key:sub(1, 7) == "cindra-" then
+        local low = value:lower()
+        for _, bad in ipairs(DEV_PHRASING) do
+          if low:find(bad, 1, true) then
+            offenders[#offenders + 1] = section .. "." .. key .. " contains dev phrasing: '" .. bad .. "'"
+          end
+        end
+      end
+    end
+  end
+  assert_true(#offenders == 0,
+    "player-facing descriptions must not read like dev comments:\n  " .. table.concat(offenders, "\n  "))
+end)
+
 test("every *-description has a sibling *-name (no orphan descriptions)", function()
   local orphans = {}
   for section, entries in pairs(cfg) do

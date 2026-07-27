@@ -141,7 +141,7 @@ placement is deterministic and unit-testable; placement uses a coordinate hash
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
 | ice | nightside (`Y < −safe`) | richer deeper (colder) | `ice` |
 | volatiles | deep cold-lethal (`Y ≤ −lethal_at`) | richest deepest | `cindra-volatiles` |
-| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `iron-ore` + `copper-ore` + `coal` + a little `tungsten-ore` |
+| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `iron-ore` + `copper-ore` + `coal` |
 
 The best of everything sits at the lethal margins (edge-pushing reward). Every
 resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
@@ -149,10 +149,12 @@ resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
 are mined simple-entities (destroyed on mining → inherently finite, never a
 per-craft supply, per the §6 no-soft-lock rule). Cindra has **no ore/coal patches
 at all** (ci-8nh), so these finite rocks are the only landing-tier metal: each drops
-stone plus a small trickle of iron ore + copper ore + coal (and a little tungsten,
-the Vulcanus-legacy metal accepted in §5) — enough to hand-smelt a first trickle of
-plates and to crude-liquefy the lubricant for the first foundry on a start-on-Cindra
-game (the foundry bootstrap, ci-arw, §5b). The coal in particular is the **only coal
+stone plus a small trickle of iron ore + copper ore + coal — enough to hand-smelt a
+first trickle of plates and to crude-liquefy the lubricant for the first foundry on a
+start-on-Cindra game (the foundry bootstrap, ci-arw, §5b). No tungsten: the
+Cindra-buildable field foundry (ci-2tz) is the planet's own metallurgy answer, so
+the Vulcanus-legacy tungsten metal is off Cindra entirely rather than shipped
+alongside a bespoke foundry. The coal in particular is the **only coal
 on the planet** (no mineable coal source), spent once and never scalable. **Role
 only lives here** — the recipes that *consume* these (ice processing §15-4, lava
 §15-5, chemistry §11, the foundry bootstrap `prototypes/lubricant.lua`) belong to the
