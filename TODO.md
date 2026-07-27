@@ -136,21 +136,25 @@ merge queue.
     tower §12, gated recipe/tech, runtime placement on Cindra).
   - TODO(ci-gd4): swap the vanilla recipe ingredients for the native cryo-alloy
     once it lands, to make the "clumsy off-world" import gate real.
-- [x] **§15-11 — Mass driver.** `ci-r10`, `ci-98r` — launch = power (bursty,
-  flare-timed) + optional native projectile shell (A) vs pure-electric pods (B).
-  Removes launch chemistry entirely. NO platform-side catcher (ci-98r): cargo
-  lands in the space platform hub like normal rocket cargo, reusing the vanilla
-  launch-to-platform destination.
-  - Landed: `prototypes/mass-driver.lua` (driver container + hidden accumulator
-    charger + native shell item; delivered art wired) and
-    `scripts/mass-driver.lua` (charge→fire→deliver-to-hub loop, fire tick N=31,
-    distinct from edge-damage/building-heat). Recipes gated behind a dedicated
-    `cindra-orbital-launch` tech (option A, native shell). Tested:
-    `tests/test_mass_driver.lua` (prototype shape, gating, chemistry-free,
-    no-catcher assertion, proto/runtime drift, full launch loop delivering to a
-    real space platform hub + preconditions).
-  - TODO(ci-gd4): swap the shell recipe input to cryo-hardened-alloy once it
-    lands (currently steel-plate stand-in, still zero-chemistry).
+- [x] **§15-11 — Mass driver.** `ci-r10`, `ci-98r`, `ci-o39` — the DEFINITIVE spec:
+  a **reskinned rocket-silo**. Launch + cross-surface delivery are the ENGINE's
+  vanilla behaviour (no runtime loop, no platform-side catcher — cargo lands in the
+  space platform hub like normal rocket cargo). A launch burns an **aluminium can**
+  (cargo container) + **aluminium-powder solid rocket fuel** + a shitton of power,
+  all PETROCHEMICAL-FREE — the recurring cost lands on Cindra metallurgy + power,
+  never oil/coal rocketry.
+  - Landed (ci-o39): `prototypes/mass-driver.lua` — the driver is a full deep-copy of
+    the vanilla `rocket-silo` (keeps `rocket_entity`/cargo pod so delivery is
+    hub-accepted), reskinned with the mass-driver icon, `fixed_recipe` = a private
+    launch-charge that consumes `{ aluminium can + solid rocket fuel }` over a long,
+    high-draw craft. Adds the launch-fuel chain (aluminium → can; aluminium → powder
+    → solid fuel). Item lives in the Space crafting tab. Deleted the old composite
+    (container + hidden charger + `scripts/mass-driver.lua` fire loop + native shell).
+    Recipes gated behind `cindra-orbital-launch`. Tested: `tests/test_mass_driver.lua`
+    (type=rocket-silo, launch cost = can+fuel+huge power, petrochemical-free chain,
+    private-category / never-mutate-vanilla-silo, Space-tab placement, no catcher,
+    builds on Cindra with a vanilla platform hub as its destination). Full visual
+    launch → hub delivery is a PLAYTEST item (rides the vanilla rocket path).
   - DONE(ci-3or): folded into the Cindra science tree — `cindra-orbital-launch`
     now branches off `cindra-science` and is researched WITH the Cindra science
     pack (an advanced, headline-gated export capability).

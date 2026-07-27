@@ -224,6 +224,35 @@ this list is the last resort when no test path exists.
   phase, intensity — once a sporadic flare enters its warning window, since timing
   is no longer predictable by clock.
 
+- [ ] **Mass driver: full launch → hub delivery (ci-o39).** The mass driver is a
+  reskinned `rocket-silo`, so launch + cross-surface delivery are the ENGINE's
+  vanilla rocket path (there is no runtime loop to test). The prototype shape that
+  guarantees that path is fully integration-tested (`tests/test_mass_driver.lua`:
+  type=rocket-silo, cloned vanilla `rocket_entity`/cargo pod, `launch_to_space_
+  platforms`, a can+fuel launch charge, a vanilla platform hub as the destination),
+  but the end-to-end *behaviour* is a playtest. *Repro:* research
+  `cindra-orbital-launch`, build a `cindra-mass-driver`, power it, feed it an
+  aluminium can + solid rocket fuel, and load cargo (or request it from a platform
+  in orbit above Cindra). *Look for:* the silo builds a launch charge (consuming the
+  can + fuel and a large slug of power), the rocket rises, and the cargo lands in the
+  space platform's hub inventory — with NO catcher or bespoke platform-side building.
+  If the cargo pod is rejected by the hub, that is a bug (the clone must keep the
+  vanilla `rocket_entity`).
+
+- [ ] **Mass driver reuses vanilla rocket-silo art (ci-o39).** The driver is a full
+  deep-copy of the vanilla rocket-silo, so in world it currently wears the vanilla
+  silo animation set; only its inventory/tech ICON is the delivered mass-driver art
+  (`graphics/icons/mass-driver.png`). *Look for:* the building reads acceptably as a
+  launcher and its icon reads as the mass driver in the Space crafting tab. A bespoke
+  mass-driver silo reskin (a launcher that looks like a rail-gun / coilgun rather than
+  a NASA rocket silo) is a later art pass, not a v1 bug. Do not file as a bug.
+
+- [ ] **Mass-driver launch chain uses placeholder art (ci-o39).** The aluminium can
+  (steel-plate icon tinted), aluminium powder (calcite icon tinted), and solid rocket
+  fuel (rocket-fuel icon tinted) are v1 placeholders; the recipe chain, gating, and
+  petrochemical-free provenance are integration-tested (`tests/test_mass_driver.lua`).
+  *Look for:* the three icons read as distinct materials. Bespoke art is a later pass.
+
 - [ ] **Sunward-position solar output has no visual band cue (ci-9ht).** Solar
   panels only really work on the sunny (sunward, +Y) part of the ribbon: a placed
   panel silently morphs to a reduced-output variant matching its Y, so nightward
