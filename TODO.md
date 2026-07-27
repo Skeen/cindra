@@ -62,21 +62,23 @@ merge queue.
     balance pass's, flagged in `lava.lua`.
 
 ## Backlog (§15 order)
-- [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or` —
-  `prototypes/ice-processing.lua`: a **two-stage** chain, faithful to the
-  item-only space crusher. Stage 1 `cindra-ice-crusher` (clone of the space
-  crusher; drops the zero-gravity gate + space-platform heating draw, SOLID →
-  SOLID, no fluid) runs the two crush recipes the player picks between —
-  `cindra-ice-crushing` (ice → crushed-ice) and `cindra-ice-crushing-calcite`
-  (ice → crushed-ice + calcite, trading shards for calcite). Stage 2
-  `cindra-ice-melter` (chemical-plant clone) runs `cindra-ice-melting`
-  (crushed-ice → water) — the only step that makes fluid (ci-4or). Private
-  `cindra-ice-crushing` / `cindra-ice-melting` categories keep the recipes off
-  vanilla space crushers + chemical plants (and vice versa); the
-  `cindra-ice-processing` tech unlocks both machines + all three recipes. Tested:
-  `tests/test_ice_processing.lua` (category isolation, crusher has NO fluid output,
-  melter water output box, ground-placeability, recipe shapes/ratio, no vanilla
-  leak, tech gating, and an end-to-end powered crush ice → shards → water on Cindra).
+- [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or`, `ci-3mx` —
+  `prototypes/ice-processing.lua`: **pure vanilla-recipe reuse** (ci-3mx: "ice
+  crushing should just be oxide asteroid crushing", "the existing ice melting in
+  the chemical plant", "stop adding equivalent technologies"). The nightside ice
+  field yields the vanilla `oxide-asteroid-chunk`; the ONE custom prototype is a
+  ground `cindra-ice-crusher` (clone of the space crusher; drops the zero-gravity
+  gate + heating draw) that runs the vanilla `crushing` recipes —
+  `oxide-asteroid-crushing` (chunk → ice) and `advanced-oxide-asteroid-crushing`
+  (chunk → ice + calcite, the ratio knob + the local calcite source). Melting is
+  the vanilla `ice-melting` recipe in the vanilla chemical plant (ice → water); no
+  custom melter/item/recipe/category. No new tech: the crusher build + the three
+  vanilla recipes are unlocked by the existing `planet-discovery-cindra` tech
+  (APS enables them from tick zero on a Cindra start). Tested:
+  `tests/test_ice_processing.lua` (no custom duplicate survives, crusher uses the
+  vanilla crushing category + is ground-placeable, the vanilla recipes are
+  unchanged, discovery unlocks the chain, and an end-to-end powered crush chunk →
+  ice then chemical-plant melt ice → water on Cindra).
 - [x] **§15-6 — Cryo-hardened alloy. DROPPED (superseded by `ci-84s`).** The
   original signature was a two-temperature quench (`prototypes/cryo-alloy.lua`,
   `ci-gd4`): a `cindra-cryo-quench` building crafting `cindra-cryo-hardened-alloy`

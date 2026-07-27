@@ -19,10 +19,12 @@
 -- temperature-axis framing.
 require("prototypes.planet")
 
--- §15-4 ice processing: a two-stage chain (asteroid-crushing model, relocated).
--- A ground crusher grinds nightside ice into crushed-ice shards (solid->solid,
--- or shards + calcite -- the player picks the ratio), then a separate melter
--- turns the shards into water. Only the melt step makes fluid (ci-4or).
+-- §15-4 ice processing: pure vanilla-recipe reuse (ci-3mx). The nightside deposit
+-- yields the vanilla oxide-asteroid-chunk; a ground crusher (the one custom entity,
+-- since the vanilla crusher is zero-gravity-gated) runs the vanilla oxide crushing
+-- recipes -> ice (+ calcite; the two recipes are the ratio knob), and the vanilla
+-- chemical plant runs the vanilla ice-melting recipe -> water. No custom item,
+-- recipe, melter, or tech; the chain hangs off the Cindra discovery tech.
 require("prototypes.ice-processing")
 
 -- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 5

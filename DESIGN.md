@@ -10,8 +10,9 @@ in-repo condensation plus the concrete decisions taken during implementation.
 > implemented and tested: the planet + surface + ribbon temperature axis (item 1),
 > the lethal edges — gradient damage, hard-wall backstop, nightside building-heat
 > (item 2), the world resources — stone / ice / volatiles / bootstrap rocks
-> (item 3), and ice processing — the ground crusher + ice → water (+ calcite)
-> recipes (item 4, §5a). The remaining §15 items (5–14) are the backlog in
+> (item 3), and ice processing — the ground crusher + the vanilla oxide-crushing →
+> `ice` (+ calcite) and chemical-plant `ice-melting` → water recipes (item 4, §5a).
+> The remaining §15 items (5–14) are the backlog in
 > [`TODO.md`](TODO.md), each tracked by a follow-up bead (prefix `ci-`).
 
 ## 1. Core design thesis (the tie-breaker for every decision)
@@ -139,7 +140,7 @@ placement is deterministic and unit-testable; placement uses a coordinate hash
 | Resource (`cindra-*`) | Band on the axis | Richness | Yields |
 |---|---|---|---|
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
-| ice | nightside (`Y < −safe`) | richer deeper (colder) | `ice` |
+| ice field | nightside (`Y < −safe`) | richer deeper (colder) | `oxide-asteroid-chunk` (vanilla; crushed → `ice` + `calcite`, ci-3mx) |
 | volatiles | deep cold-lethal (`Y ≤ −lethal_at`) | richest deepest | `cindra-volatiles` |
 | bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `iron-ore` + `copper-ore` + `coal` |
 
@@ -262,40 +263,48 @@ power sink.**
 Tested end-to-end in `tests/test_science.lua`, including a powered starforge that
 only makes crafting progress when it has power.
 
-### 5a. Ice processing — IMPLEMENTED (item 4)
+### 5a. Ice processing — IMPLEMENTED (item 4; reworked to pure vanilla reuse, ci-3mx)
 
-The nightside's matter economy starts here. `prototypes/ice-processing.lua` adds a
-**two-stage** chain that turns `ice` into the factory's water, faithful to the
-Space Age asteroid model (whose crusher is item-only): the crusher grinds solids;
-the fluid appears only at a later melt step.
+The nightside's matter economy **reuses the vanilla Space Age asteroid recipes
+end-to-end** — no custom ice item, no custom crush/melt recipe, no ice-melter
+machine, no dedicated ice tech (ci-3mx: "ice crushing should just be oxide asteroid
+crushing", "the existing ice melting in the chemical plant", "stop adding
+equivalent technologies"). `prototypes/ice-processing.lua` adds exactly one custom
+prototype — the ground crusher — and nothing else.
 
-- **Stage 1 — `cindra-ice-crusher`** (SOLID → SOLID): a clone of the
-  space-platform `crusher`. The vanilla crusher is gated to zero gravity
-  (`surface_conditions`) and emits only solids, so the clone **drops the space-only
-  surface condition** (and the space-platform heating draw) and stays item-only —
-  it grinds `ice` into `cindra-crushed-ice` shards and emits **no fluid** (a
-  crusher is a grinder, not a boiler — ci-4or). Art is the vanilla crusher (v1
-  reuse).
-- **Two crush recipes = the ratio knob.** `cindra-ice-crushing` grinds ice to
-  shards only; `cindra-ice-crushing-calcite` grinds the same ice to *fewer* shards
-  plus a `calcite` item. Choosing the recipe *is* choosing the water↔calcite ratio
-  (fewer shards ⇒ less downstream water), matching the asteroid-crushing "pick your
-  output" model.
-- **Stage 2 — `cindra-ice-melter`** (SOLID → FLUID): a clone of the
-  `chemical-plant` that runs `cindra-ice-melting` (crushed-ice → `water`). This
-  separate heat/melt step is the **only** place the fluid is born. Art is the
-  vanilla chemical plant (v1 reuse).
-- **Private recipe categories** (`cindra-ice-crushing` and `cindra-ice-melting`,
-  not vanilla `"crushing"`/`"chemistry"`) keep each recipe on its Cindra machine
-  only — they never appear in vanilla space crushers or chemical plants, and
-  vanilla recipes never appear in ours (the never-mutate-other-planets invariant,
-  §6). Both shared vanilla prototypes are deep-copied, never mutated.
-- Gated behind the **`cindra-ice-processing`** tech (prereq: Cindra discovery),
-  which unlocks both machines and all three recipes; the full Cindra tech tree
-  (§15-12) folds this in later.
+- **The deposit yields the vanilla `oxide-asteroid-chunk`.** The nightside ice
+  field (`cindra-ice`, in `resources.lua`) mines the vanilla ice-blue frozen-oxide
+  chunk. The deposit still *reads* as "Ice field" (via locale); only the mined item
+  is the vanilla chunk (we never rename the global vanilla item).
+- **Crush = the vanilla oxide asteroid crushing.** The custom `cindra-ice-crusher`
+  is a clone of the space-platform `crusher` with the zero-gravity
+  `surface_conditions` (and space-platform heating draw) dropped so it stands on
+  Cindra. It runs the vanilla **`crushing`** category, so it uses the *same* vanilla
+  recipes the space crusher does: `oxide-asteroid-crushing` (chunk → `ice`) and
+  `advanced-oxide-asteroid-crushing` (chunk → `ice` + `calcite`). Picking between
+  them *is* the water↔calcite ratio knob (the vanilla model, unchanged). The
+  advanced recipe is the local **calcite** source the aluminium refine + science
+  pack need. Its build item lives in the **production** tab. Art is the vanilla
+  crusher (v1 reuse).
+  - *Why a custom entity at all:* the vanilla crusher is gated to zero gravity and
+    we cannot re-scope it without changing it everywhere (never-mutate-other-planets,
+    §6). Cloning it is the only way to crush on Cindra's ground; it runs the
+    unchanged vanilla recipes.
+- **Melt = the vanilla `ice-melting` in the vanilla chemical plant.** The vanilla
+  `chemical-plant` (category `chemistry`, placeable on any gravity) runs the vanilla
+  `ice-melting` recipe (`ice` → `water`). No custom melter is cloned at all.
+- **No new/equivalent tech.** The whole chain (the crusher build recipe + the three
+  vanilla recipes) is unlocked by the existing **`planet-discovery-cindra`** tech
+  (we append the unlock effects to it). Normal play researches discovery to reach
+  Cindra; on an any-planet-start Cindra run APS removes that tech and *enables* its
+  unlocked recipes from tick zero (`data-final-fixes.lua`), so the chain works on
+  both paths. Unlocking vanilla recipes for the force never mutates the recipe
+  prototypes or any other planet's content (§6).
 
-Tested end-to-end in `tests/test_ice_processing.lua`, including a powered crush of
-ice → shards → water on the Cindra surface, asserting the crusher emits no fluid.
+Tested end-to-end in `tests/test_ice_processing.lua`: a powered crush of
+`oxide-asteroid-chunk` → `ice` on the Cindra crusher, then `ice` → `water` in a
+chemical plant on the Cindra surface, plus guards that no custom ice
+item/recipe/melter/tech survives and the vanilla prototypes are unchanged.
 
 ### 5b. Start-on-Cindra foundry bootstrap — IMPLEMENTED (ci-arw)
 
@@ -319,9 +328,11 @@ recipe it would **soft-lock**. `prototypes/lubricant.lua` adds a native, gated p
 
 All three are locked and unlocked by one tech, **`cindra-improvised-metallurgy`**
 (prereq: Cindra discovery, which itself sits behind Vulcanus in normal play, §6).
-`mods/cindra-start/control.lua` **pre-researches** that tech (plus `foundry`,
-`cindra-lava`, `cindra-ice-processing`) on a Cindra start, so the from-scratch
-opening reaches the lava→metal economy with no soft-lock. The shared vanilla
+`mods/cindra-start/control.lua` **pre-researches** that tech (plus `foundry` and
+`cindra-lava`) on a Cindra start, so the from-scratch opening reaches the lava→metal
+economy with no soft-lock. (The ice chain needs no entry: it hangs off
+`planet-discovery-cindra`, which APS removes on a Cindra start while enabling its
+unlocked recipes from tick zero, ci-3mx.) The shared vanilla
 `foundry` recipe and `lubricant` fluid are **never mutated** — the imported-foundry
 path (normal play) is untouched. Tested in `tests/test_foundry_bootstrap.lua`
 (prototypes + never-mutate + a powered coal→lubricant craft + an on-Cindra lava

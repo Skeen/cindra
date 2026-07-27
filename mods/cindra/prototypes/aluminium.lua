@@ -13,8 +13,8 @@
 --
 --   1. REFINE  `stone + calcite -> alumina`  (a plain assembler craft). Alumina
 --      is the white feedstock. Stone is the ribbon's central raw; calcite comes
---      from the ice chain (cindra-ice-crushing-calcite, ci-rgv), so aluminium
---      pulls demand back onto BOTH sides of the economy -- rock and ice.
+--      from the ice chain (the vanilla advanced-oxide-asteroid-crushing, ci-3mx),
+--      so aluminium pulls demand back onto BOTH sides of the economy -- rock and ice.
 --
 --   2. ELECTROLYSE  `alumina + [RUINOUS electricity] -> aluminium`  in a dedicated
 --      Cindra ELECTROLYSIS CELL. The cell has a large uncapped electric draw and
@@ -188,11 +188,12 @@ local cell_recipe = {
 }
 
 -- === Technology ==============================================================
--- Gated behind BOTH parent chains -- `cindra-lava` (the metal economy + the power
--- to run electrolysis) AND `cindra-ice-processing` (the calcite the refine step
--- needs) -- so aluminium is unreachable until the player commands both rock and
--- ice. As the signature apex (ci-84s) it gates the headline science tech, and the
--- full Cindra tree (ci-3or) folds it in.
+-- Gated behind `cindra-lava` (the metal economy + the power to run electrolysis).
+-- The calcite the refine step needs is unlocked transitively: `cindra-lava`
+-- requires `planet-discovery-cindra`, which unlocks the ground crusher + vanilla
+-- oxide crushing (the calcite source, ci-3mx) -- so aluminium is still unreachable
+-- until the player commands both rock and ice. As the signature apex (ci-84s) it
+-- gates the headline science tech, and the full Cindra tree (ci-3or) folds it in.
 local technology = {
   type = "technology",
   name = TECH,
@@ -204,7 +205,7 @@ local technology = {
     { type = "unlock-recipe", recipe = ALUMINA },
     { type = "unlock-recipe", recipe = ALUMINIUM },
   },
-  prerequisites = { "cindra-lava", "cindra-ice-processing" },
+  prerequisites = { "cindra-lava" },
   unit = {
     count = 200,
     ingredients = {

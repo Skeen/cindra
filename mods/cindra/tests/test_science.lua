@@ -29,7 +29,8 @@ local PETROCHEMICAL = {
 
 -- "Native inputs only": every ingredient is either a Cindra-exclusive item
 -- (cindra-*) or one of the plain materials the planet produces on its own (the
--- ice chain makes water + calcite; the ribbon mines stone/ice). This allowlist is
+-- ice chain crushes nightside chunks into ice + calcite and melts ice to water;
+-- the ribbon mines stone). This allowlist is
 -- deliberately narrow so a future (tune) that swapped in a petrochemical would
 -- fail here even if it slipped the blacklist above.
 local NATIVE_NON_CINDRA = {
@@ -144,7 +145,8 @@ describe("cindra science pack: the tech tree (headline science + folded unlocks)
 
     -- Gated behind the signature apex -> you cannot make Cindra science until you
     -- already command BOTH fire (lava) and ice, via the aluminium tech (which
-    -- itself requires both cindra-lava and cindra-ice-processing).
+    -- requires cindra-lava, and thus transitively the Cindra-discovery-gated ice
+    -- chain that supplies its calcite).
     assert.is_not_nil(tech.prerequisites["cindra-aluminium"],
       "gated behind the signature aluminium (which itself needs both lava and ice)")
 

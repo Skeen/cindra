@@ -1,23 +1,23 @@
--- Proof: Cindra ice processing (§15-4). A TWO-STAGE chain, faithful to the Space
--- Age asteroid model: a ground-standing crusher grinds nightside `ice` into
--- SOLID crushed-ice shards (item-only, like the space-platform crusher -- ci-4or),
--- and a SEPARATE melter turns those shards into `water` (fluid). The player still
--- picks the water<->calcite ratio at the crush step. DESIGN.md §1 (nightward edge
--- = MATTER), §5, §6 (never-mutate-other-planets: private categories, cloned
--- prototypes).
+-- Proof: Cindra ice processing REUSES vanilla recipes end-to-end (ci-3mx). The
+-- user was explicit -- "ice crushing should just be oxide asteroid crushing" and
+-- "the existing ice melting in the chemical plant", and "stop adding equivalent
+-- technologies". So:
+--   * the nightside deposit yields the VANILLA `oxide-asteroid-chunk`,
+--   * a ground-standing custom crusher (the vanilla crusher is zero-gravity-gated,
+--     so it cannot stand on Cindra; DESIGN.md §6 forbids re-scoping vanilla) runs
+--     the SAME vanilla `crushing` recipes -> ice (+ calcite),
+--   * the vanilla CHEMICAL PLANT runs the vanilla `ice-melting` recipe -> water,
+--   * NO custom ice item, crush/melt recipe, ice-melter machine, or ice tech.
+-- The whole chain is unlocked by the existing planet-discovery-cindra tech.
 
 local H = require("tests.helpers")
 
 local CRUSHER = "cindra-ice-crusher"
-local MELTER = "cindra-ice-melter"
-local CRUSH_CATEGORY = "cindra-ice-crushing"
-local MELT_CATEGORY = "cindra-ice-melting"
-local R_CRUSH = "cindra-ice-crushing"
-local R_CRUSH_CALCITE = "cindra-ice-crushing-calcite"
-local R_MELT = "cindra-ice-melting"
-local SHARD = "cindra-crushed-ice"
+local R_OXIDE = "oxide-asteroid-crushing"
+local R_OXIDE_ADV = "advanced-oxide-asteroid-crushing"
+local R_MELT = "ice-melting"
+local CHUNK = "oxide-asteroid-chunk"
 
--- Sum a recipe's product amounts by product name, for shape assertions.
 local function products(recipe)
   local out = {}
   for _, p in pairs(prototypes.recipe[recipe].products) do
@@ -34,14 +34,6 @@ local function ingredients(recipe)
   return out
 end
 
--- True if any of a recipe's products is a fluid.
-local function has_fluid_product(recipe)
-  for _, p in pairs(prototypes.recipe[recipe].products) do
-    if p.type == "fluid" then return true end
-  end
-  return false
-end
-
 -- LuaRecipePrototype.categories is a dictionary {name -> true}; membership test
 -- that also tolerates an array form.
 local function in_category(recipe, category)
@@ -53,35 +45,43 @@ local function in_category(recipe, category)
   return false
 end
 
-describe("cindra ice processing", function()
-  it("crusher crafts only in the private ice-crushing category (never vanilla crushing)", function()
-    local proto = prototypes.entity[CRUSHER]
-    assert.is_not_nil(proto, "cindra-ice-crusher entity must exist")
-    assert.are.equal("assembling-machine", proto.type, "it is a crafting machine (crusher)")
-
-    local cats = proto.crafting_categories
-    assert.is_true(cats[CRUSH_CATEGORY], "the crusher crafts in the private cindra-ice-crushing category")
-    assert.is_nil(cats["crushing"],
-      "the crusher must NOT share the vanilla crushing category (no recipe leak across planets)")
+describe("cindra ice processing: no custom duplicates survive (ci-3mx)", function()
+  it("has NO custom ice-melter entity or item", function()
+    assert.is_nil(prototypes.entity["cindra-ice-melter"], "the custom ice-melter entity must be gone")
+    assert.is_nil(prototypes.item["cindra-ice-melter"], "the custom ice-melter item must be gone")
   end)
 
-  it("crusher is SOLID -> SOLID: it has NO fluid outputs (a grinder, not a boiler -- ci-4or)", function()
-    local proto = prototypes.entity[CRUSHER]
-    local boxes = proto.fluidbox_prototypes
-    -- Either no fluid boxes at all, or none that are outputs. The point: the
-    -- crusher must never emit a fluid; water is born only at the melt step.
-    if boxes then
-      for _, fb in pairs(boxes) do
-        assert.are_not.equal("output", fb.production_type,
-          "the ice crusher must NOT expose an output fluid box -- it emits solids only")
-      end
+  it("has NO custom crush/melt recipes and no crushed-ice intermediate", function()
+    for _, name in ipairs({ "cindra-ice-crushing", "cindra-ice-crushing-calcite", "cindra-ice-melting", "cindra-ice-melter" }) do
+      assert.is_nil(prototypes.recipe[name], name .. " recipe must be gone (reuse vanilla)")
+    end
+    assert.is_nil(prototypes.item["cindra-crushed-ice"], "the custom crushed-ice item must be gone")
+  end)
+
+  it("has NO private ice recipe categories", function()
+    -- The old design isolated crush/melt in private categories; reuse-vanilla drops them.
+    if prototypes.recipe_category then
+      assert.is_nil(prototypes.recipe_category["cindra-ice-crushing"], "no private ice-crushing category")
+      assert.is_nil(prototypes.recipe_category["cindra-ice-melting"], "no private ice-melting category")
     end
   end)
 
+  it("has NO equivalent ice technology (the chain hangs off Cindra discovery)", function()
+    assert.is_nil(prototypes.technology["cindra-ice-processing"],
+      "the equivalent ice-processing tech must be gone (stop adding equivalent technologies)")
+  end)
+end)
+
+describe("cindra ice processing: the crusher reuses the vanilla crushing recipes", function()
+  it("the crusher crafts in the VANILLA crushing category (same recipes as the space crusher)", function()
+    local proto = prototypes.entity[CRUSHER]
+    assert.is_not_nil(proto, "cindra-ice-crusher entity must exist")
+    assert.are.equal("assembling-machine", proto.type, "it is a crafting machine (crusher)")
+    assert.is_true(proto.crafting_categories["crushing"],
+      "the crusher must run the vanilla `crushing` recipes (reuse-vanilla, not a private category)")
+  end)
+
   it("is placeable on Cindra's heavy-gravity ground (the space-only gate is gone)", function()
-    -- The vanilla crusher is gated to zero gravity; Cindra has heavy gravity, so
-    -- the clone must drop that surface condition. Placing it on the Cindra
-    -- surface proves the gate is gone (and that it stands on the ground, not orbit).
     local s = H.cindra_surface()
     local e = s.create_entity({ name = CRUSHER, position = { 0, 0 }, force = "player" })
     assert.is_not_nil(e, "the ice crusher must be placeable on Cindra")
@@ -90,138 +90,104 @@ describe("cindra ice processing", function()
     e.destroy()
   end)
 
-  it("crush recipe: ice -> crushed-ice (SOLID) only, no fluid, gated off by default", function()
-    local recipe = prototypes.recipe[R_CRUSH]
-    assert.is_not_nil(recipe, "cindra-ice-crushing recipe must exist")
-    assert.is_true(in_category(R_CRUSH, CRUSH_CATEGORY), "the crush recipe runs in the private crusher category")
-    assert.is_false(recipe.enabled, "gated: unlocked by research, not free")
+  it("crush = the vanilla oxide asteroid crushing: chunk -> ice, and chunk -> ice + calcite (the ratio knob)", function()
+    local plain = prototypes.recipe[R_OXIDE]
+    local adv = prototypes.recipe[R_OXIDE_ADV]
+    assert.is_not_nil(plain, "vanilla oxide-asteroid-crushing must exist")
+    assert.is_not_nil(adv, "vanilla advanced-oxide-asteroid-crushing must exist")
 
-    assert.is_true((ingredients(R_CRUSH)["ice"] or 0) > 0, "it consumes ice")
-    assert.is_false(has_fluid_product(R_CRUSH), "the crush recipe must produce NO fluid (crusher is solid->solid)")
-    local prods = products(R_CRUSH)
-    assert.is_true((prods[SHARD] or 0) > 0, "it produces crushed-ice shards")
-    assert.is_nil(prods["water"], "the crusher must NOT produce water (ci-4or)")
-    assert.is_nil(prods["calcite"], "the plain crush recipe yields NO calcite (all matter -> shards)")
+    -- Both are vanilla `crushing` recipes and consume the deposit's chunk.
+    assert.is_true(in_category(R_OXIDE, "crushing"), "plain crush is a vanilla crushing recipe")
+    assert.is_true(in_category(R_OXIDE_ADV, "crushing"), "advanced crush is a vanilla crushing recipe")
+    assert.is_true((ingredients(R_OXIDE)[CHUNK] or 0) > 0, "plain crush consumes the oxide chunk")
+    assert.is_true((ingredients(R_OXIDE_ADV)[CHUNK] or 0) > 0, "advanced crush consumes the oxide chunk")
+
+    -- Plain yields ice only; advanced trades some ice for calcite -- the calcite the
+    -- aluminium refine + science pack need, sourced from the ice chain (ci-3mx).
+    assert.is_true((products(R_OXIDE)["ice"] or 0) > 0, "plain crush yields ice")
+    assert.is_nil(products(R_OXIDE)["calcite"], "plain crush yields no calcite (all matter -> ice)")
+    assert.is_true((products(R_OXIDE_ADV)["ice"] or 0) > 0, "advanced crush still yields ice")
+    assert.is_true((products(R_OXIDE_ADV)["calcite"] or 0) > 0, "advanced crush also yields calcite")
+    assert.is_true(products(R_OXIDE_ADV)["ice"] < products(R_OXIDE)["ice"],
+      "advanced yields FEWER ice than plain (matter diverted to calcite) -- the ratio knob")
   end)
+end)
 
-  it("crush+calcite recipe: ice -> crushed-ice + calcite (the ratio knob), still no fluid", function()
-    local recipe = prototypes.recipe[R_CRUSH_CALCITE]
-    assert.is_not_nil(recipe, "cindra-ice-crushing-calcite recipe must exist")
-    assert.is_true(in_category(R_CRUSH_CALCITE, CRUSH_CATEGORY),
-      "the calcite crush recipe runs in the private crusher category")
-    assert.is_false(recipe.enabled, "gated: unlocked by research, not free")
-
-    assert.is_false(has_fluid_product(R_CRUSH_CALCITE),
-      "the calcite crush recipe must produce NO fluid (crusher is solid->solid)")
-    local prods = products(R_CRUSH_CALCITE)
-    assert.is_true((prods[SHARD] or 0) > 0, "it still produces crushed-ice shards")
-    assert.is_true((prods["calcite"] or 0) > 0, "it also produces calcite (item)")
-
-    -- Both recipes crush the same amount of ice, so choosing calcite costs shards
-    -- (hence downstream water): the two recipes ARE the ratio the player picks.
-    assert.are.equal(ingredients(R_CRUSH)["ice"], ingredients(R_CRUSH_CALCITE)["ice"],
-      "both crush recipes crush the same ice per batch")
-    assert.is_true(products(R_CRUSH_CALCITE)[SHARD] < products(R_CRUSH)[SHARD],
-      "the calcite recipe yields FEWER shards than the plain one (matter diverted to calcite)")
-  end)
-
-  it("melter crafts only in the private ice-melting category (never vanilla chemistry)", function()
-    local proto = prototypes.entity[MELTER]
-    assert.is_not_nil(proto, "cindra-ice-melter entity must exist")
-    assert.are.equal("assembling-machine", proto.type, "it is a crafting machine (melter)")
-
-    local cats = proto.crafting_categories
-    assert.is_true(cats[MELT_CATEGORY], "the melter crafts in the private cindra-ice-melting category")
-    assert.is_nil(cats["chemistry"],
-      "the melter must NOT share the vanilla chemistry category (no recipe leak across planets)")
-  end)
-
-  it("melter has a water OUTPUT fluid box (this is where the fluid is born)", function()
-    local proto = prototypes.entity[MELTER]
-    local boxes = proto.fluidbox_prototypes
-    assert.is_not_nil(boxes, "the melter must have fluid boxes")
-    local has_output = false
-    for _, fb in pairs(boxes) do
-      if fb.production_type == "output" then has_output = true end
-    end
-    assert.is_true(has_output, "the melter must expose an OUTPUT fluid box to emit water")
-  end)
-
-  it("melt recipe: crushed-ice (item) -> water (fluid), in the private melt category, gated off", function()
+describe("cindra ice processing: melting reuses the vanilla chemical-plant recipe", function()
+  it("ice melts via the VANILLA ice-melting recipe (chemistry category): ice -> water", function()
     local recipe = prototypes.recipe[R_MELT]
-    assert.is_not_nil(recipe, "cindra-ice-melting recipe must exist")
-    assert.is_true(in_category(R_MELT, MELT_CATEGORY), "the melt recipe runs in the private melter category")
-    assert.is_false(recipe.enabled, "gated: unlocked by research, not free")
-
-    assert.is_true((ingredients(R_MELT)[SHARD] or 0) > 0, "it consumes crushed-ice shards (an item)")
-    assert.is_nil(ingredients(R_MELT)["ice"], "it consumes crushed-ice, not raw ice (that is the crusher's job)")
-    local prods = products(R_MELT)
-    assert.is_true((prods["water"] or 0) > 0, "it produces water (a fluid)")
-    assert.is_true(has_fluid_product(R_MELT), "water must be a FLUID product")
+    assert.is_not_nil(recipe, "the vanilla ice-melting recipe must exist")
+    assert.is_true(in_category(R_MELT, "chemistry"), "ice-melting is a vanilla chemistry (chemical-plant) recipe")
+    assert.is_true((ingredients(R_MELT)["ice"] or 0) > 0, "it consumes ice")
+    assert.is_true((products(R_MELT)["water"] or 0) > 0, "it produces water (a fluid)")
   end)
 
-  it("neither machine leaks its recipes into vanilla space crusher / chemical plant (never-mutate)", function()
-    local vanilla_crusher = prototypes.entity["crusher"]
-    assert.is_true(vanilla_crusher.crafting_categories["crushing"],
-      "the vanilla crusher still crafts vanilla crushing recipes")
-    assert.is_nil(vanilla_crusher.crafting_categories[CRUSH_CATEGORY],
-      "the vanilla space crusher must NOT gain the Cindra crush category")
+  it("the vanilla chemical plant runs it and stands on any gravity (no custom melter needed)", function()
+    local plant = prototypes.entity["chemical-plant"]
+    assert.is_not_nil(plant, "the vanilla chemical plant must exist")
+    assert.is_true(plant.crafting_categories["chemistry"], "the chemical plant crafts chemistry recipes")
+    -- It is placeable on Cindra (no zero-gravity gate, unlike the crusher).
+    local s = H.cindra_surface()
+    local e = s.create_entity({ name = "chemical-plant", position = { 6, 6 }, force = "player" })
+    assert.is_not_nil(e, "the chemical plant must be placeable on Cindra")
+    e.destroy()
+  end)
+end)
 
-    local vanilla_plant = prototypes.entity["chemical-plant"]
-    assert.is_true(vanilla_plant.crafting_categories["chemistry"],
-      "the vanilla chemical plant still crafts vanilla chemistry recipes")
-    assert.is_nil(vanilla_plant.crafting_categories[MELT_CATEGORY],
-      "the vanilla chemical plant must NOT gain the Cindra melt category")
-
-    for _, name in ipairs({ R_CRUSH, R_CRUSH_CALCITE }) do
-      assert.is_false(in_category(name, "crushing"),
-        name .. " must not live in the vanilla crushing category")
-    end
-    assert.is_false(in_category(R_MELT, "chemistry"),
-      R_MELT .. " must not live in the vanilla chemistry category")
+describe("cindra ice processing: the nightside deposit + tech unlock", function()
+  it("the nightside ice deposit yields the vanilla oxide-asteroid-chunk (crusher feedstock)", function()
+    local res = prototypes.entity["cindra-ice"]
+    assert.is_not_nil(res, "the cindra-ice deposit must exist")
+    assert.are.equal("resource", res.type, "it is a minable resource")
+    assert.are.equal(CHUNK, res.mineable_properties.products[1].name,
+      "the ice field must yield the vanilla oxide-asteroid-chunk (feeds vanilla crushing)")
   end)
 
-  it("has items that place both machines", function()
-    for _, name in ipairs({ CRUSHER, MELTER }) do
-      local item = prototypes.item[name]
-      assert.is_not_nil(item, name .. " item must exist")
-      assert.is_not_nil(item.place_result, "the item must place an entity")
-      assert.are.equal(name, item.place_result.name, "the item places its machine")
-    end
-  end)
-
-  it("has build recipes for both machines, gated behind research (not free)", function()
-    for _, name in ipairs({ CRUSHER, MELTER }) do
-      local recipe = prototypes.recipe[name]
-      assert.is_not_nil(recipe, name .. " build recipe must exist")
-      assert.is_false(recipe.enabled, "the build recipe is unlocked by research, not free")
-    end
-  end)
-
-  it("cindra-ice-processing technology unlocks both machines and all three recipes", function()
-    local tech = prototypes.technology["cindra-ice-processing"]
-    assert.is_not_nil(tech, "cindra-ice-processing technology must exist")
-    assert.is_true(tech.valid, "the tech must load (its icon is present)")
-
+  it("planet-discovery-cindra unlocks the crusher build + the vanilla crush/melt recipes (no new tech)", function()
+    local tech = prototypes.technology["planet-discovery-cindra"]
+    assert.is_not_nil(tech, "the Cindra discovery tech must exist")
     local unlocked = {}
     for _, effect in pairs(tech.effects) do
       if effect.type == "unlock-recipe" then unlocked[effect.recipe] = true end
     end
-    assert.is_true(unlocked[CRUSHER], "the tech unlocks the crusher build recipe")
-    assert.is_true(unlocked[MELTER], "the tech unlocks the melter build recipe")
-    assert.is_true(unlocked[R_CRUSH], "the tech unlocks the plain crush recipe")
-    assert.is_true(unlocked[R_CRUSH_CALCITE], "the tech unlocks the crush+calcite recipe")
-    assert.is_true(unlocked[R_MELT], "the tech unlocks the melt recipe")
-
-    assert.is_not_nil(tech.prerequisites["planet-discovery-cindra"],
-      "ice processing is gated behind discovering Cindra")
+    assert.is_true(unlocked[CRUSHER], "discovery unlocks the ground crusher build recipe")
+    assert.is_true(unlocked[R_OXIDE], "discovery unlocks the vanilla oxide crushing")
+    assert.is_true(unlocked[R_OXIDE_ADV], "discovery unlocks the vanilla advanced oxide crushing (calcite)")
+    assert.is_true(unlocked[R_MELT], "discovery unlocks the vanilla ice-melting")
   end)
 
-  it("crushes ice into shards, then melts shards into water on Cindra (end-to-end, powered)", function()
+  it("the crusher build recipe is gated (unlocked by research, not free)", function()
+    local recipe = prototypes.recipe[CRUSHER]
+    assert.is_not_nil(recipe, "the crusher build recipe must exist")
+    assert.is_false(recipe.enabled, "the crusher build is unlocked by research, not free")
+    local item = prototypes.item[CRUSHER]
+    assert.is_not_nil(item, "the crusher item must exist")
+    assert.are.equal(CRUSHER, item.place_result.name, "the item places the crusher")
+  end)
+end)
+
+describe("cindra ice processing: never mutates the vanilla prototypes (DESIGN §6)", function()
+  it("the vanilla crusher + chemical plant are unchanged (we clone, never edit vanilla)", function()
+    local vanilla_crusher = prototypes.entity["crusher"]
+    assert.is_true(vanilla_crusher.crafting_categories["crushing"],
+      "the vanilla space crusher still crafts vanilla crushing recipes")
+
+    local vanilla_plant = prototypes.entity["chemical-plant"]
+    assert.is_true(vanilla_plant.crafting_categories["chemistry"],
+      "the vanilla chemical plant still crafts vanilla chemistry recipes")
+
+    -- The reused recipes keep their vanilla shape (we only reference them in a tech
+    -- unlock; we never edit ingredients/products/category).
+    assert.is_true((ingredients(R_MELT)["ice"] or 0) > 0, "vanilla ice-melting still consumes ice")
+    assert.is_true((products(R_OXIDE)["ice"] or 0) > 0, "vanilla oxide crushing still yields ice")
+  end)
+end)
+
+describe("cindra ice processing: end-to-end on Cindra (crush chunk -> ice, melt ice -> water)", function()
+  it("crushes chunks into ice on the Cindra crusher, then melts ice into water in a chemical plant", function()
     local s = H.cindra_surface()
     -- A cheat power source + a substation so both machines share an electric
-    -- network and can actually run headless (a pole's supply area auto-connects
-    -- every entity standing in it).
+    -- network and can actually run headless.
     local pole = s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
     assert.is_not_nil(pole, "substation must place")
     local power = s.create_entity({
@@ -232,43 +198,41 @@ describe("cindra ice processing", function()
     power.energy = 10000000
 
     -- The recipes are research-gated; enable them for the force so the machines
-    -- craft headlessly (equivalent to having researched cindra-ice-processing).
-    game.forces["player"].recipes[R_CRUSH].enabled = true
+    -- craft headlessly (equivalent to having researched planet-discovery-cindra).
+    game.forces["player"].recipes[R_OXIDE].enabled = true
     game.forces["player"].recipes[R_MELT].enabled = true
 
     local crusher = s.create_entity({ name = CRUSHER, position = { 0, 0 }, force = "player" })
-    crusher.set_recipe(R_CRUSH)
-    crusher.insert({ name = "ice", count = 50 })
+    crusher.set_recipe(R_OXIDE)
+    crusher.insert({ name = CHUNK, count = 10 })
 
-    local melter = s.create_entity({ name = MELTER, position = { -4, 0 }, force = "player" })
-    melter.set_recipe(R_MELT)
+    local plant = s.create_entity({ name = "chemical-plant", position = { -4, 0 }, force = "player" })
+    plant.set_recipe(R_MELT)
 
     async(2400)
     after_ticks(600, function()
       assert.is_true(crusher.valid)
-      -- Stage 1: the crusher produced SOLID shards, and NO water (it emits no fluid).
-      local shards = crusher.get_item_count(SHARD)
-      assert.is_true(shards > 0,
-        "the crusher must have produced crushed-ice from ice (got " .. shards
-          .. ", ice left " .. crusher.get_item_count("ice") .. ")")
-      assert.are.equal(0, crusher.get_fluid_count("water"),
-        "the crusher must produce NO water (it has no fluid output -- ci-4or)")
+      -- Stage 1: the crusher turned chunks into ice (the vanilla oxide crushing).
+      local ice = crusher.get_item_count("ice")
+      assert.is_true(ice > 0,
+        "the crusher must have produced ice from oxide chunks (got " .. ice
+          .. ", chunks left " .. crusher.get_item_count(CHUNK) .. ")")
 
-      -- Feed the shards to the melter and let it run.
-      local moved = crusher.remove_item({ name = SHARD, count = shards })
-      melter.insert({ name = SHARD, count = moved })
+      -- Feed the ice to the chemical plant and let it melt.
+      local moved = crusher.remove_item({ name = "ice", count = ice })
+      plant.insert({ name = "ice", count = moved })
 
       after_ticks(1200, function()
-        assert.is_true(melter.valid)
-        -- Stage 2: the melter turned the shards into water (the fluid step).
-        local water = melter.get_fluid_count("water")
+        assert.is_true(plant.valid)
+        -- Stage 2: the chemical plant melted the ice into water (the vanilla recipe).
+        local water = plant.get_fluid_count("water")
         assert.is_true(water > 0,
-          "the melter must have produced water from crushed-ice (got " .. water
-            .. ", shards left " .. melter.get_item_count(SHARD) .. ")")
+          "the chemical plant must have produced water from ice (got " .. water
+            .. ", ice left " .. plant.get_item_count("ice") .. ")")
         pole.destroy()
         power.destroy()
         crusher.destroy()
-        melter.destroy()
+        plant.destroy()
         done()
       end)
     end)

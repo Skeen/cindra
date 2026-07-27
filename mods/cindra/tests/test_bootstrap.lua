@@ -24,7 +24,7 @@
 --      (what a post-Vulcanus arrival carries: a foundry + a little
 --      steel/gears/brick/pipe), the whole chain up to the headline Cindra
 --      science pack becomes reachable -- and that the seed materials then become
---      LOCALLY renewable (calcite from ice, iron-plate from cast lava), so the
+--      LOCALLY renewable (calcite from crushing nightside chunks, iron-plate from cast lava), so the
 --      seed is a one-time bootstrap, not a permanent import. The SAME solver run
 --      from absolute zero (no seed at all) provably STALLS before metal -- which
 --      is exactly the start-on-Cindra (any-planet-start) soft-lock that the
@@ -166,8 +166,9 @@ describe("cindra bootstrap: the stone->lava->metal spine turns on (runtime)", fu
     local foundry = s.create_entity({ name = "foundry", position = { 0, 0 }, force = "player" })
     foundry.set_recipe("molten-iron-from-lava")
     -- Feed the lava the previous step makes (1500 C, the manufactured spine
-    -- fluid) plus calcite -- which on Cindra comes from the ICE chain, proving
-    -- the fire and ice edges are coupled at the very first metal step.
+    -- fluid) plus calcite -- which on Cindra comes from crushing the nightside's
+    -- oxide chunks (the ice chain), proving the fire and ice edges are coupled at
+    -- the very first metal step.
     foundry.insert_fluid({ name = "lava", amount = 600, temperature = 1500 })
     foundry.insert({ name = "calcite", count = 10 })
 
@@ -207,11 +208,12 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
   --   * else    -> the ITEM of the machine that must first be built/brought.
   -- Ordering is emergent from the fixpoint, not hard-coded here.
   local PRODUCTIONS = {
-    { r = "cindra-ice-crusher",              m = "hand" },                 -- build the crusher
-    { r = "cindra-ice-melter",               m = "hand" },                 -- build the melter
-    { r = "cindra-ice-crushing",             m = "cindra-ice-crusher" },   -- ice -> crushed-ice
-    { r = "cindra-ice-crushing-calcite",     m = "cindra-ice-crusher" },   -- ice -> crushed-ice + calcite
-    { r = "cindra-ice-melting",              m = "cindra-ice-melter" },    -- crushed-ice -> water
+    { r = "cindra-ice-crusher",               m = "hand" },                -- build the ground crusher
+    { r = "oxide-asteroid-crushing",          m = "cindra-ice-crusher" },  -- chunk -> ice (vanilla)
+    { r = "advanced-oxide-asteroid-crushing", m = "cindra-ice-crusher" },  -- chunk -> ice + calcite (vanilla)
+    { r = "electronic-circuit",               m = "hand" },                -- iron-plate + copper-cable (for the plant)
+    { r = "chemical-plant",                   m = "hand" },                -- build the vanilla melter (chemical plant)
+    { r = "ice-melting",                      m = "chemical-plant" },      -- ice -> water (vanilla chemical-plant recipe)
     { r = "cindra-lava-manufacturer",        m = "hand" },                 -- build the dedicated caster
     { r = "cindra-lava",                     m = "cindra-lava-manufacturer" }, -- stone -> lava (ci-e8a)
     { r = "molten-iron-from-lava",           m = "foundry" },              -- lava + calcite -> molten iron
@@ -256,9 +258,10 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
   end
 
   -- What a from-nothing player hand-gathers on Cindra (the true roots): the
-  -- `stone` and `ice` items the resources yield, and the deep-nightside
-  -- `cindra-volatiles` item (the science pack's native input).
-  local HAND_ROOTS = { stone = true, ice = true, ["cindra-volatiles"] = true }
+  -- `stone` the ribbon yields, the `oxide-asteroid-chunk` the nightside ice field
+  -- yields (crushed into ice + calcite), and the deep-nightside `cindra-volatiles`
+  -- item (the science pack's native input).
+  local HAND_ROOTS = { stone = true, ["oxide-asteroid-chunk"] = true, ["cindra-volatiles"] = true }
 
   -- The FINITE brought bootstrap seed a post-Vulcanus arrival carries. A foundry
   -- (imported, per DESIGN §8) plus a little metal stock to build the FIRST
@@ -303,7 +306,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     -- to be self-sustaining (not a permanent import), the loop must produce its
     -- own key intermediates. Prove the two non-obvious renewables:
     assert.is_true(produced["calcite"] == true,
-      "calcite must be LOCALLY produced (from ice), not permanently imported -- the metal melt needs it every cycle")
+      "calcite must be LOCALLY produced (from crushing nightside oxide chunks), not permanently imported -- the metal melt needs it every cycle")
     assert.is_true(produced["iron-plate"] == true,
       "iron-plate must be LOCALLY produced (cast from manufactured lava), so gears/pipe/steel renew from the loop")
     assert.is_true(produced["iron-gear-wheel"] == true,
@@ -321,7 +324,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     end
     for _, recipe in ipairs({
       "cindra-lava", "molten-iron-from-lava",
-      "cindra-ice-crushing", "cindra-ice-crushing-calcite", "cindra-ice-melting",
+      "oxide-asteroid-crushing", "advanced-oxide-asteroid-crushing", "ice-melting",
       "cindra-alumina", "cindra-aluminium", "cindra-science-pack",
     }) do
       for _, ing in ipairs(ingredient_names(recipe)) do
@@ -402,7 +405,7 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
     -- metal, and melting still needs the (unbuildable-on-Cindra) foundry -- so
     -- from bare hand roots there is neither a caster nor a foundry, and the chain
     -- cannot even make lava.
-    local have = reach({ stone = true, ice = true, ["cindra-volatiles"] = true })
+    local have = reach({ stone = true, ["oxide-asteroid-chunk"] = true, ["cindra-volatiles"] = true })
     assert.is_falsy(have["lava"],
       "from bare hand roots there is no metal to build a caster and no foundry -> the APS start soft-locks (ci-arw)")
     assert.is_falsy(have["molten-iron"],
@@ -418,7 +421,7 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
     -- metal. This is the target ci-arw + the APS kit must satisfy; the end-to-end
     -- APS-mods proof lives in the follow-up bead.
     local have = reach({
-      stone = true, ice = true, ["cindra-volatiles"] = true,
+      stone = true, ["oxide-asteroid-chunk"] = true, ["cindra-volatiles"] = true,
       foundry = true, calcite = true,                  -- one kitted foundry + a pinch of starter calcite
       ["steel-plate"] = true, ["iron-gear-wheel"] = true, ["stone-brick"] = true, -- starter metal for the caster
     })

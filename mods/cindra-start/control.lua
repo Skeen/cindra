@@ -35,13 +35,16 @@
 --     own build recipe stays pressure-locked (we use the field recipe instead),
 --     but it unlocks the molten-iron/copper-from-lava recipes the economy needs.
 --   * cindra-lava                   -- `1 stone + power -> 5 lava`, the spine.
---   * cindra-ice-processing         -- ice -> water (+ calcite): water for the
---     renewable lubricant, calcite for the molten-metal recipes.
+--
+-- The ice chain (crush oxide-asteroid-chunk -> ice + calcite; melt ice -> water in
+-- the chemical plant) needs no entry here: it hangs off planet-discovery-cindra,
+-- which APS removes for a Cindra start while ENABLING its unlocked recipes from
+-- tick zero (vendor/any-planet-start/data-final-fixes.lua). So the crusher build +
+-- vanilla crush/melt recipes are already available on an APS start (ci-3mx).
 local PRE_RESEARCHED = {
   "cindra-improvised-metallurgy",
   "foundry",
   "cindra-lava",
-  "cindra-ice-processing",
 }
 
 -- True only when Any Planet Start is installed AND Cindra is the chosen start.

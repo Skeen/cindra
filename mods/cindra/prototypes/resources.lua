@@ -2,7 +2,8 @@
 --
 -- The resource LIST and where each lives on the ribbon axis:
 --   stone      -> the ribbon surface (feedstock for manufactured lava)
---   ice        -> the nightside (matter economy: water / calcite / volatiles)
+--   ice field  -> the nightside; yields the vanilla `oxide-asteroid-chunk` that the
+--                 vanilla crush -> melt chain turns into water / calcite (ci-3mx)
 --   volatiles  -> the DEEP nightside, inside the cold-lethal zone (optional carbon
 --                 chemistry root; edge-pushing reward)
 --   bootstrap rocks -> scattered near the terminator, hand-gathered, FINITE
@@ -154,8 +155,12 @@ data:extend({
     "__cindra__/graphics/icons/cindra-stone.png"),
   -- Ice: the nightside's single signature raw. Cold blue. Patches nightward of the
   -- safe band, richer the deeper (colder) they sit; a starting patch keeps the
-  -- matter economy reachable near the landing terminator.
-  cindra_resource("cindra-ice", "ice", { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
+  -- matter economy reachable near the landing terminator. It yields the VANILLA
+  -- `oxide-asteroid-chunk` (ice-blue frozen matter) so the whole ice chain reuses
+  -- vanilla recipes: crush the chunk -> ice (+calcite), melt ice -> water (ci-3mx).
+  -- The DEPOSIT still reads as "Ice field" (entity-name.cindra-ice); only the mined
+  -- item is the vanilla chunk (we never rename the global vanilla item).
+  cindra_resource("cindra-ice", "oxide-asteroid-chunk", { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
     banded_autoplace("cindra-ice",
       { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),

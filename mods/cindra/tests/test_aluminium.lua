@@ -149,11 +149,14 @@ describe("cindra aluminium: private category + gating", function()
     assert.is_true(unlocked[ALUMINIUM], "the tech unlocks the aluminium recipe")
     assert.is_true(unlocked[CELL], "the tech unlocks the electrolysis-cell build recipe")
 
-    -- The chain needs power+metal (lava) AND calcite (ice processing): gate on both.
+    -- The chain needs power+metal (lava) AND calcite (the ice chain). Gate directly
+    -- on the lava spine; the calcite is gated transitively -- cindra-lava requires
+    -- planet-discovery-cindra, which unlocks the crusher + vanilla oxide crushing
+    -- (the calcite source, ci-3mx). No separate ice tech to depend on.
     assert.is_not_nil(tech.prerequisites["cindra-lava"],
       "gated behind the lava spine -- the metal economy + the power to electrolyse")
-    assert.is_not_nil(tech.prerequisites["cindra-ice-processing"],
-      "gated behind ice processing -- the calcite the refine step needs")
+    assert.is_not_nil(prototypes.technology["cindra-lava"].prerequisites["planet-discovery-cindra"],
+      "cindra-lava requires Cindra discovery, which unlocks the crusher + oxide crushing (the calcite the refine step needs)")
   end)
 
   it("has an item that places the cell", function()
