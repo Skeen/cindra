@@ -23,12 +23,19 @@ C.DAY_TICKS = readings.DEFAULT_DAY_TICKS
 -- Optional integration with Cindra's flare system (ci-9k6). The scanner emits
 -- flare-forecast signals ONLY when a mod registers this remote interface; when
 -- absent, that signal set is simply inactive (graceful degradation, no hard
--- dependency on cindra). Contract, for the flare-system owner to implement:
+-- dependency on cindra).
+--
+-- REACTIVE early-warning contract (ci-2ba): Cindra's flares are SPORADIC (no
+-- fixed schedule to read off a clock), so the provider returns nil during calm
+-- and only reports a forecast once a flare has entered its telegraph or is
+-- active. That is what makes this scanner genuinely valuable - it is an
+-- early-warning device, not a schedule display. Contract for the flare owner:
 --
 --   remote.add_interface("cindra-flare", {
 --     forecast = function(surface_index)
---       -- return nil when no flare schedule applies to this surface, else:
---       return { countdown = <ticks:int>, phase = <"calm".."decay">, intensity = <x-baseline:number> }
+--       -- nil during calm (no imminent/active flare) OR a non-cindra surface;
+--       -- else, once a sporadic flare is telegraphing/active:
+--       return { countdown = <ticks:int>, phase = <"warning".."decay">, intensity = <x-baseline:number> }
 --     end,
 --   })
 C.FLARE_INTERFACE = "cindra-flare"

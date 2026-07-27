@@ -40,23 +40,28 @@ The daylight fraction uses the engine's own solar curve
 (`dusk`/`evening`/`morning`/`dawn` read from the surface), so it matches what a
 solar panel actually produces there.
 
-### Cindra flare forecast (optional)
+### Cindra flare forecast (optional, reactive early-warning)
 
-Emitted **only** when a flare-forecast source is present (see below). Absent
-otherwise, so the mod runs standalone with no Cindra.
+Emitted **only** when a flare-forecast source is present **and** a sporadic flare
+is actually imminent or active. Cindra's flares are **sporadic** (ci-2ba): they
+fire at randomized, unpredictable times, so there is no schedule to read off a
+clock. This block therefore appears **only once a flare enters its telegraph**
+(and stays through the surge), and is absent during calm - which is exactly what
+makes the scanner valuable: it is an **early-warning device**, not a clock.
 
 | Signal | Meaning | Range / scaling |
 |---|---|---|
-| `env-flare-countdown` | Ticks until the next flare ramp | ticks |
+| `env-flare-countdown` | Ticks until the ramp begins (during the telegraph) | ticks |
 | `env-flare-phase` | Current flare phase, as a code | `calm=0, warning=1, ramp=2, plateau=3, decay=4` |
 | `env-flare-intensity` | Current intensity in Nauvis-full-day equivalents | percent (`100` = baseline 1×, `10000` = 100× peak) |
 
-This is the planet's Fulgora-accumulator-rhythm equivalent: wire the countdown +
-phase to drive the flare-response ladder (fill capacitors → overclock
-lava/quench/boil-off → dump to dissipators) that `planet_design.md` §10
-describes.
+This is the planet's Fulgora-accumulator-rhythm equivalent, but **event-driven**:
+when the block appears, wire the countdown + phase to drive the flare-response
+ladder per event (fill capacitors → overclock lava/quench/boil-off → dump to
+dissipators). Because timing is random, the circuit must REACT to this signal
+rather than anticipate a fixed cadence.
 
-## Cross-mod contract (for the flare system, ci-9k6)
+## Cross-mod contract (for the flare system, ci-9k6 / ci-2ba)
 
 The scanner does **not** own or duplicate any flare-timing logic. It asks for a
 forecast via a documented remote interface. The flare system (or any mod)
@@ -66,17 +71,19 @@ registers it:
 -- In the flare system's control.lua:
 remote.add_interface("cindra-flare", {
   forecast = function(surface_index)
-    -- Return nil when no flare schedule applies to this surface, else:
+    -- Return nil during CALM (no imminent/active flare) or for a non-cindra
+    -- surface. Once a sporadic flare is telegraphing or active, return:
     return {
-      countdown = <ticks:int>,          -- until the next ramp
-      phase     = <"calm".."decay">,    -- one of the five phase names
+      countdown = <ticks:int>,          -- until the ramp begins (0 once active)
+      phase     = <"warning".."decay">, -- the current phase name
       intensity = <number>,             -- Nauvis-full-day equivalents (1.0 = baseline)
     }
   end,
 })
 ```
 
-If no mod registers `cindra-flare`, the flare signals stay inactive. The
+If no mod registers `cindra-flare`, or it returns nil, the flare signals stay
+inactive. The
 interface name is defined once in `scripts/config.lua`
 (`C.FLARE_INTERFACE` / `C.FLARE_METHOD`); coordinate any change with the
 flare-system owner.

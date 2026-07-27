@@ -16,15 +16,16 @@ this list is the last resort when no test path exists.
   surface generates; this entry is only for the interactive "it feels like a
   place you can stand" confirmation.
 
-- [ ] **Ice crusher fluid-pipe visuals (§15-4).** *Repro:* build a
-  `cindra-ice-crusher`, run `Ice crushing (water)`, and connect a pipe to its
-  south face. *Look for:* the water output connects and drains cleanly. The
-  crusher reuses the vanilla space-crusher art, which has no built-in pipe-covers
-  sprite for the added output box, so the connection point may look bare (no
-  pipe-cover graphic) even though it functions. Confirm the two south-edge output
-  connections line up with pipes and that the building still reads as a crusher.
-  Bespoke art (pipe stubs) is a later art pass, not a v1 bug. (Functionality —
-  ice → water production and both recipes — is integration-tested.)
+- [ ] **Ice processing two-stage read (§15-4, ci-4or).** *Repro:* build a
+  `cindra-ice-crusher` and a `cindra-ice-melter`; run `Ice crushing (shards)` on
+  the crusher, belt the crushed-ice to the melter, run `Ice melting (water)`, and
+  pipe the melter's water out. *Look for:* the crusher is a clean solid-in/solid-out
+  machine with NO pipe stub (it emits no fluid); the melter reuses the vanilla
+  chemical-plant art, so its pipe connections and fluid read should line up as a
+  chemical plant does. Confirm the chain reads as "grind, then melt" and that the
+  crusher never sprouts a water tap. (Functionality — crusher emits no fluid, melter
+  produces water, both crush recipes, and the end-to-end ice → shards → water chain
+  — is integration-tested.)
 
 - [ ] **Redesigned globe reads FIERY → SANDY → ICY in orbit (ci-hmc).** The
   planet globe was re-themed to the ribbon world: a radiant molten dayside, the
@@ -118,6 +119,20 @@ this list is the last resort when no test path exists.
   ("research is a power sink"), without being so punishing that early science
   stalls. Balance against the flare numbers (ci-9k6) and the balance pass (ci-63d).
 
+- [ ] **Start-on-Cindra foundry bootstrap reads well in-game (ci-arw).** The
+  no-Vulcanus foundry path (finite bootstrap coal → `cindra-crude-lubricant`,
+  renewable `cindra-mineral-lubricant`, and the Cindra-buildable
+  `cindra-field-foundry`, all under `cindra-improvised-metallurgy`) is fully
+  logic-tested headless (`tests/test_foundry_bootstrap.lua`,
+  `tests/test_aps_foundry.lua`). What a headless test cannot judge is the *felt*
+  opening once the ci-uex starting kit lands: start a game on Cindra via
+  any-planet-start and confirm the improvised-metallurgy recipes are visible/craftable
+  from tick zero, hand-mining a few rocks yields enough coal to crude-liquefy the
+  lubricant for a first `cindra-field-foundry`, and building + running that foundry
+  (lava → molten metal) feels like a deliberate, non-tedious bootstrap rather than a
+  soft-lock or a grind. The three recipes reuse vanilla lubricant/foundry icons (v1
+  placeholder art); do not file that as a bug.
+
 - [ ] **Discovery lore reads well in the tech GUI (ci-11b).** The
   `planet-discovery-cindra` technology now carries the full §3 planet-discovery
   entry as its description. *Repro:* open the technology screen and hover/select
@@ -144,7 +159,20 @@ this list is the last resort when no test path exists.
   telegraph/alarm/countdown UI yet (the `warning` phase is exposed in
   `flare.state` but not surfaced to the player). A sky-brightening cue + a
   countdown alarm are a follow-up art/UI pass. Cadence magnitudes are (tune)
-  (§15-14): the test-scale period is a flare every ~22 s; real play scales it up.
+  (§15-14): the test-scale event is ~12 s; real play scales it up.
+
+- [ ] **Sporadic flare timing FEELS fair, not punishing (ci-2ba).** Flare
+  *timing* is now randomized (calm gap drawn from a band, mean = the old fixed
+  cadence); the event shape and ~100× magnitude are unchanged. That the gaps are
+  randomized-within-band, that every event is still telegraphed, and that the
+  scanner only forecasts during the window are all tested (`test_flare` sporadic +
+  forecast blocks). *Look for (feel, cannot be asserted):* the randomness reads as
+  "unpredictable but fair" — you are never starved for minutes nor hit back-to-back
+  with no time to recover; the warning window is long enough to react per event
+  when you could NOT see it coming on a clock; riding flares still feels like a
+  windfall you respond to, not a survival timer. Tune `CALM_MIN_TICKS`/
+  `CALM_MAX_TICKS` (and the warning length) if it feels starved, clustered, or
+  un-reactable. Ties into the §15-14 balance pass (ci-63d).
 
 - [ ] **Panel damage reads as degrade-before-death (§15-8).** Undisposed flare
   surplus degrades the most-sunward panels first (recoverable), then destroys them
@@ -191,7 +219,10 @@ this list is the last resort when no test path exists.
   renamed combinator body and reused base signal icons; bespoke art is a
   follow-up bead, do not file as a bug); wiring the scanner's `env-daylight` /
   `env-flare-countdown` to a lamp or combinator visibly tracks the day and, on a
-  Cindra save with the flare system loaded, counts down to the next flare.
+  Cindra save with the flare system loaded, acts as a REACTIVE early warning
+  (ci-2ba): the flare signals are ABSENT during calm and only appear — countdown,
+  phase, intensity — once a sporadic flare enters its warning window, since timing
+  is no longer predictable by clock.
 
 - [ ] **Sunward-position solar output has no visual band cue (ci-9ht).** Solar
   panels only really work on the sunny (sunward, +Y) part of the ribbon: a placed

@@ -16,7 +16,10 @@ local panels = require("scripts.panels")
 local panel_solar = require("scripts.panel-solar")
 local flare = require("scripts.flare")
 
-local PEAK_TICK = C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS + 10 -- a plateau tick
+-- Pin a deterministic sporadic-flare anchor: the telegraph begins at WS, so tick
+-- 10 is calm and PEAK_TICK lands on the plateau.
+local WS = 600
+local PEAK_TICK = WS + C.WARNING_TICKS + C.RAMP_TICKS + 10 -- a plateau tick
 
 -- The sunmost / nightmost panel on a surface (panels.panels is sunward-first).
 local function sunward_and_nightward(s)
@@ -72,6 +75,7 @@ describe("position-scaled solar - real engine output", function()
   it("delivers materially more power sunward than nightward", function()
     local s = H.cindra_surface()
     H.power_reset()
+    flare.set_schedule(WS)
 
     -- Two isolated grids (60 tiles apart in x, beyond substation wire reach), so
     -- each measurement sink only ever sees its own panel's output.
@@ -105,6 +109,7 @@ describe("position-scaled solar - real engine output", function()
   it("composes with the flare: a placed panel still swings ~100x baseline", function()
     local s = H.cindra_surface()
     H.power_reset()
+    flare.set_schedule(WS)
     H.grid(s, 30, 42, 0)
     H.panel(s, { 0, 40 }) -- a sunward (reduced-band) panel
     local sink = H.measure_sink(s, { 0, 30 })

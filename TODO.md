@@ -62,16 +62,21 @@ merge queue.
     balance pass's, flagged in `lava.lua`.
 
 ## Backlog (§15 order)
-- [x] **§15-4 — Ice processing.** `ci-rgv` — `prototypes/ice-processing.lua`: a
-  ground-standing `cindra-ice-crusher` (clone of the space crusher; drops the
-  zero-gravity gate + space-platform heating draw, gains a water output fluid box)
-  plus two recipes the player picks between — `cindra-ice-crushing` (ice → water)
-  and `cindra-ice-crushing-calcite` (ice → water + calcite, trading water for
-  calcite). A private `cindra-ice-crushing` recipe category keeps the recipes off
-  vanilla space crushers (and vice versa); gated behind the `cindra-ice-processing`
-  tech. Tested: `tests/test_ice_processing.lua` (category isolation, water fluid
-  box, ground-placeability, recipe shapes/ratio, no vanilla-crusher leak, tech
-  gating, and an end-to-end powered crush of ice → water on Cindra).
+- [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or` —
+  `prototypes/ice-processing.lua`: a **two-stage** chain, faithful to the
+  item-only space crusher. Stage 1 `cindra-ice-crusher` (clone of the space
+  crusher; drops the zero-gravity gate + space-platform heating draw, SOLID →
+  SOLID, no fluid) runs the two crush recipes the player picks between —
+  `cindra-ice-crushing` (ice → crushed-ice) and `cindra-ice-crushing-calcite`
+  (ice → crushed-ice + calcite, trading shards for calcite). Stage 2
+  `cindra-ice-melter` (chemical-plant clone) runs `cindra-ice-melting`
+  (crushed-ice → water) — the only step that makes fluid (ci-4or). Private
+  `cindra-ice-crushing` / `cindra-ice-melting` categories keep the recipes off
+  vanilla space crushers + chemical plants (and vice versa); the
+  `cindra-ice-processing` tech unlocks both machines + all three recipes. Tested:
+  `tests/test_ice_processing.lua` (category isolation, crusher has NO fluid output,
+  melter water output box, ground-placeability, recipe shapes/ratio, no vanilla
+  leak, tech gating, and an end-to-end powered crush ice → shards → water on Cindra).
 - [x] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — `prototypes/cryo-alloy.lua`: the
   SIGNATURE two-temperature quench. A `cindra-cryo-quench` building (chemical-plant
   clone, electric, single hot-fluid input, private `cindra-quenching` category, re-
@@ -96,12 +101,22 @@ merge queue.
     and a balance-pass call (ci-63d), not part of shipping the signature building.
 - [x] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
   dark-weighted daylight curve; telegraph / fast-ramp / plateau / fast-decay;
-  regular cadence; ~100× peak. Replaced the placeholder baseline in
+  ~100× peak. Replaced the placeholder baseline in
   `prototypes/planet.lua` (`solar-power` = 10000, the ~100× surface multiplier;
   the flare swing is the frozen daylight curve, `scripts/flare.lua`). Integrated
   from the proven flare-poc (ci-zg3). Tested: `tests/test_flare.lua` +
   `unit-tests/test_flare.lua` (pure schedule) + `tests/test_catchability.lua`
   (never 100%-catchable). Cadence magnitudes are (tune) → §15-14.
+  - **`ci-2ba` (sporadic timing, landed):** flare *timing* is now SPORADIC, not a
+    fixed metronome — the calm gap before each event is a random draw in
+    `[CALM_MIN_TICKS, CALM_MAX_TICKS]` (mean = the old fixed calm), so the next
+    flare is unpredictable by clock. The telegraph, ramp/plateau/decay shape, and
+    ~100× magnitude are unchanged (capacity sizing still matters; every event is
+    still reactable). Scheduling is a deterministic, save/load-stable Lehmer PRNG
+    in `storage` (not `math.random`). The environmental scanner (ci-3o3) reads the
+    new `cindra-flare` remote interface (`flare.forecast`) and so becomes a
+    REACTIVE early-warning device: forecast only while a flare telegraphs/is
+    active, `nil` (calm) otherwise.
 - [x] **§15-8 — Panel damage.** `ci-9ay` — disposal-deficit rule, degrade-before-
   death, self-correcting (negative feedback), dissipator-as-fuse. `scripts/panels.lua`
   (edge-bias reads the ribbon sunward axis). Tested: `tests/test_panel_damage.lua`,
@@ -152,16 +167,29 @@ merge queue.
   electric high-draw machine that only crafts when powered, private category, tech
   gating + fold, a lab actually accepts the pack). Balance of amounts/draw is
   `(tune)` → §15-14.
+- [x] **Start-on-Cindra foundry bootstrap.** `ci-arw` (cross-cutting; APS +
+  mechanics). The no-Vulcanus start needs a foundry but the vanilla recipe is
+  pressure-gated to Vulcanus and needs oil lubricant. `prototypes/lubricant.lua`
+  adds a native, gated path: `cindra-crude-lubricant` (finite bootstrap
+  coal → lubricant — coal now dabbed into the bootstrap rocks, §4a), the renewable
+  `cindra-mineral-lubricant` (stone + water → lubricant), and `cindra-field-foundry`
+  (a Cindra-buildable `foundry` recipe with no pressure gate), all behind the
+  `cindra-improvised-metallurgy` tech; `mods/cindra-start/control.lua` pre-researches
+  it on a Cindra start. Vanilla foundry recipe + lubricant fluid untouched, so
+  normal imported play (DESIGN §8) is unaffected. See DESIGN §5b. Tested:
+  `tests/test_foundry_bootstrap.lua` + (APS) `tests/test_aps_foundry.lua`.
 - [x] **§15-13 — Bootstrap traversal check.** `ci-uex` — `tests/test_bootstrap.lua`
   proves landing → self-sustaining lava→metal economy is traversable: the fire
   spine is driven end-to-end (stone→lava→molten-iron + stone loop-back), a
   reachability solver over the real recipes shows no chicken-and-egg up to the
   Cindra science pack (seed materials become locally renewable), and the finite
-  bootstrap rock is asserted to never be a per-craft loop input. **Remaining:**
-  the start-on-Cindra (any-planet-start) run from ABSOLUTE zero still soft-locks
-  at the foundry (needs lubricant) — the solver documents this as a tripwire; the
-  lubricant-free/kitted APS foundry is `ci-arw`, and the end-to-end APS-mods
-  bootstrap proof is a follow-up (blocked on `ci-arw`).
+  bootstrap rock is asserted to never be a per-craft loop input. The start-on-Cindra
+  (any-planet-start) run from ABSOLUTE zero still soft-locks at the foundry
+  (building one needs metal + lubricant) — the solver documents this as a tripwire.
+  `ci-arw` (above) has now landed the native-lubricant + Cindra-buildable
+  `cindra-field-foundry` recipe path and its APS tech pre-research; the **remaining
+  follow-up** is the physical starting KIT (a starter foundry / metal seed) plus an
+  end-to-end APS-mods bootstrap proof, after which the tripwire is revisited.
 - [ ] **§15-14 — Balance pass.** `ci-63d` — tune all `(tune)` values against the
   lava energy cost; verify exportable buildings are **situational-not-strictly-
   better** than vanilla (§12 guardrail).

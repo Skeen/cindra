@@ -120,16 +120,22 @@ placement is deterministic and unit-testable; placement uses a coordinate hash
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
 | ice | nightside (`Y < −safe`) | richer deeper (colder) | `ice` |
 | volatiles | deep cold-lethal (`Y ≤ −lethal_at`) | richest deepest | `cindra-volatiles` |
-| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `tungsten-ore` |
+| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `iron-ore` + `copper-ore` + `coal` + a little `tungsten-ore` |
 
 The best of everything sits at the lethal margins (edge-pushing reward). Every
 resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
 `huge-rock`); the shared vanilla prototypes are **never mutated**. Bootstrap rocks
 are mined simple-entities (destroyed on mining → inherently finite, never a
-per-craft supply, per the §6 no-soft-lock rule); tungsten (Vulcanus-legacy) is the
-spec-endorsed landing metal. **Role only lives here** — the recipes that *consume*
-these (ice processing §15-4, lava §15-5, chemistry §11) belong to the mechanics
-track.
+per-craft supply, per the §6 no-soft-lock rule). Cindra has **no ore/coal patches
+at all** (ci-8nh), so these finite rocks are the only landing-tier metal: each drops
+stone plus a small trickle of iron ore + copper ore + coal (and a little tungsten,
+the Vulcanus-legacy metal accepted in §5) — enough to hand-smelt a first trickle of
+plates and to crude-liquefy the lubricant for the first foundry on a start-on-Cindra
+game (the foundry bootstrap, ci-arw, §5b). The coal in particular is the **only coal
+on the planet** (no mineable coal source), spent once and never scalable. **Role
+only lives here** — the recipes that *consume* these (ice processing §15-4, lava
+§15-5, chemistry §11, the foundry bootstrap `prototypes/lubricant.lua`) belong to the
+mechanics track.
 
 ## 4b. File-ownership map (parallel tracks — avoid conflicts)
 
@@ -166,9 +172,14 @@ impossible on Vulcanus (no cold) or Aquilo (no lava).
 
 Power is **high-intensity solar via the daylight curve**: a dark-weighted cycle
 whose night floor ≈ Nauvis full day (runs the factory) and whose day peak ≈ the
-**solar flare** (~100× baseline). The flare is **telegraphed and regular**, must
-**never be 100%-catchable**, and undisposed surplus **damages the panels
-producing it** (self-correcting, dissipator-as-fuse, degrade-before-death).
+**solar flare** (~100× baseline). The flare is **sporadic but telegraphed**
+(ci-2ba, overriding the old "regular/predictable cadence" of §10): its *timing*
+is randomized within a band so you cannot predict the next one by clock, yet
+every event is still preceded by a **warning window** (alarm + countdown) so you
+can react and circuit-automate a response per event, and the magnitude stays
+~100× so capacity sizing still matters. It must **never be 100%-catchable**, and
+undisposed surplus **damages the panels producing it** (self-correcting,
+dissipator-as-fuse, degrade-before-death).
 Storage is a two-tier puzzle: **capacitor** (fast spike) + **molten-salt battery**
 (bulk plateau, heat-upkeep). The **electric heater** (capped heat / uncapped
 draw) is the flare sink + water boil-off + nightside warmth. Goods leave by
@@ -216,30 +227,69 @@ only makes crafting progress when it has power.
 ### 5a. Ice processing — IMPLEMENTED (item 4)
 
 The nightside's matter economy starts here. `prototypes/ice-processing.lua` adds a
-ground-standing crusher and the recipes that turn `ice` into the factory's water.
-It REUSES the Space Age asteroid-crushing model, relocated from orbit to the
-ground:
+**two-stage** chain that turns `ice` into the factory's water, faithful to the
+Space Age asteroid model (whose crusher is item-only): the crusher grinds solids;
+the fluid appears only at a later melt step.
 
-- **`cindra-ice-crusher`** — a clone of the space-platform `crusher`. Two
-  adaptations make it work on Cindra: the vanilla crusher is gated to zero gravity
+- **Stage 1 — `cindra-ice-crusher`** (SOLID → SOLID): a clone of the
+  space-platform `crusher`. The vanilla crusher is gated to zero gravity
   (`surface_conditions`) and emits only solids, so the clone **drops the space-only
-  surface condition** (and the space-platform heating draw) and **gains a water
-  output fluid box**. Art is the vanilla crusher (v1 reuse); the added pipe has no
-  bespoke connector sprite yet (a [`PLAYTEST.md`](PLAYTEST.md) entry).
-- **Two recipes = the ratio knob.** `cindra-ice-crushing` grinds ice to water
-  only; `cindra-ice-crushing-calcite` grinds the same ice to *less* water plus
-  calcite. Choosing the recipe *is* choosing the water↔calcite ratio, matching the
-  asteroid-crushing "pick your output" model.
-- **A private recipe category** (`cindra-ice-crushing`, not vanilla `"crushing"`)
-  keeps these recipes on the Cindra crusher only — they never appear in vanilla
-  space-platform crushers, and vanilla asteroid recipes never appear in ours
-  (the never-mutate-other-planets invariant, §6). The shared vanilla crusher
-  prototype is deep-copied, never mutated.
-- Gated behind the **`cindra-ice-processing`** tech (prereq: Cindra discovery);
-  the full Cindra tech tree (§15-12) folds this in later.
+  surface condition** (and the space-platform heating draw) and stays item-only —
+  it grinds `ice` into `cindra-crushed-ice` shards and emits **no fluid** (a
+  crusher is a grinder, not a boiler — ci-4or). Art is the vanilla crusher (v1
+  reuse).
+- **Two crush recipes = the ratio knob.** `cindra-ice-crushing` grinds ice to
+  shards only; `cindra-ice-crushing-calcite` grinds the same ice to *fewer* shards
+  plus a `calcite` item. Choosing the recipe *is* choosing the water↔calcite ratio
+  (fewer shards ⇒ less downstream water), matching the asteroid-crushing "pick your
+  output" model.
+- **Stage 2 — `cindra-ice-melter`** (SOLID → FLUID): a clone of the
+  `chemical-plant` that runs `cindra-ice-melting` (crushed-ice → `water`). This
+  separate heat/melt step is the **only** place the fluid is born. Art is the
+  vanilla chemical plant (v1 reuse).
+- **Private recipe categories** (`cindra-ice-crushing` and `cindra-ice-melting`,
+  not vanilla `"crushing"`/`"chemistry"`) keep each recipe on its Cindra machine
+  only — they never appear in vanilla space crushers or chemical plants, and
+  vanilla recipes never appear in ours (the never-mutate-other-planets invariant,
+  §6). Both shared vanilla prototypes are deep-copied, never mutated.
+- Gated behind the **`cindra-ice-processing`** tech (prereq: Cindra discovery),
+  which unlocks both machines and all three recipes; the full Cindra tech tree
+  (§15-12) folds this in later.
 
 Tested end-to-end in `tests/test_ice_processing.lua`, including a powered crush of
-ice → water on the Cindra surface.
+ice → shards → water on the Cindra surface, asserting the crusher emits no fluid.
+
+### 5b. Start-on-Cindra foundry bootstrap — IMPLEMENTED (ci-arw)
+
+Normal play **imports** foundries from Vulcanus: the vanilla `foundry` build
+recipe is surface-gated to `pressure = 4000` (Vulcanus) and costs oil `lubricant`,
+so it can never be crafted on Cindra (pressure 500, no oil) — you carry finished
+foundries over. But a **start-on-Cindra** game (`any-planet-start`, `mods/cindra-start`)
+has no Vulcanus to import from and no petrochemistry, so with only the vanilla
+recipe it would **soft-lock**. `prototypes/lubricant.lua` adds a native, gated path:
+
+- **`cindra-crude-lubricant`** (bootstrap): `coal → lubricant`. Its coal comes only
+  from the **finite** hand-mined bootstrap rocks (§4a) — Cindra has no mineable
+  coal — so it builds the first foundry(ies) once and can never scale (a one-time
+  durable cost, per §6).
+- **`cindra-mineral-lubricant`** (sustain): `stone + water → lubricant`, a renewable
+  petrochemical-free "silica oil". Deliberately effortful (heavy stone + water +
+  power) so it is situational-not-strictly-better than oil lubricant (§12).
+- **`cindra-field-foundry`**: a `crafting-with-fluid` recipe that yields the vanilla
+  `foundry` item **without** the pressure gate, so it is Cindra-buildable. Costlier
+  than the import recipe, so a post-Vulcanus player keeps importing.
+
+All three are locked and unlocked by one tech, **`cindra-improvised-metallurgy`**
+(prereq: Cindra discovery, which itself sits behind Vulcanus in normal play, §6).
+`mods/cindra-start/control.lua` **pre-researches** that tech (plus `foundry`,
+`cindra-lava`, `cindra-ice-processing`) on a Cindra start, so the from-scratch
+opening reaches the lava→metal economy with no soft-lock. The shared vanilla
+`foundry` recipe and `lubricant` fluid are **never mutated** — the imported-foundry
+path (normal play) is untouched. Tested in `tests/test_foundry_bootstrap.lua`
+(prototypes + never-mutate + a powered coal→lubricant craft + an on-Cindra foundry
+running lava) and, under the APS invocation, `tests/test_aps_foundry.lua` (the
+pre-research grant). The physical starting **kit** (machines, power, initial items)
+is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 
 ## 6. Invariants (locked by tests as they land)
 

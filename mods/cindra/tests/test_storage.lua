@@ -9,13 +9,18 @@ local C = require("scripts.flare-config")
 local flare = require("scripts.flare")
 local sinks = require("scripts.sinks")
 
-local PEAK_TICK = C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS + 10
+-- Pin a deterministic sporadic-flare anchor (flares are now randomly timed, so
+-- the tests set their own schedule): the event's telegraph begins at WS, so tick
+-- 10 is calm and PEAK_TICK lands on the plateau.
+local WS = 600
+local PEAK_TICK = WS + C.WARNING_TICKS + C.RAMP_TICKS + 10
 local CALM_TICK = 10
 
 describe("storage", function()
   it("capacitor + battery charge during the flare and discharge after it", function()
     local s = H.cindra_surface()
     H.power_reset()
+    flare.set_schedule(WS)
     H.grid(s, 6, 18)
     H.panel_col(s, 4, 6)                     -- 24 MW at peak, 0.24 MW baseline
     local cap = H.capacitor(s, { -6, 6 })

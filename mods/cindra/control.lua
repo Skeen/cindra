@@ -24,6 +24,17 @@ driver.register()
 local mass_driver = require("scripts.mass-driver")
 mass_driver.register()
 
+-- Cross-mod flare forecast (the `cindra-flare` remote interface, ci-2ba/ci-3o3).
+-- The standalone environmental scanner calls `forecast(surface_index)` to act as
+-- a REACTIVE early-warning device: because flares are sporadic (no clock to read
+-- them off), it gets a live forecast ONLY while a flare is telegraphing/active,
+-- and nil ('calm') otherwise. Registered at load (interfaces re-register every
+-- load); the scanner degrades gracefully when this mod is absent.
+local flare = require("scripts.flare")
+remote.add_interface("cindra-flare", {
+  forecast = function(surface_index) return flare.forecast(surface_index) end,
+})
+
 local function on_init()
   driver.init()
   mass_driver.init()
@@ -65,6 +76,9 @@ if script.active_mods["factorio-test"] then
     -- with only stone + hand-minable rocks and reach a self-sustaining
     -- lava->metal economy, with no chicken-and-egg and no soft-lock.
     "tests/test_bootstrap",
+    -- ci-arw start-on-Cindra foundry bootstrap: finite bootstrap coal, native
+    -- lubricant (crude + renewable), and the Cindra-buildable field foundry.
+    "tests/test_foundry_bootstrap",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the
@@ -78,6 +92,9 @@ if script.active_mods["factorio-test"] then
   if script.active_mods["cindra-start"] then
     if script.active_mods["any-planet-start"] then
       test_files[#test_files + 1] = "tests/test_aps_start"
+      -- ci-arw: the pre-researched foundry path is a Cindra-start guarantee, so
+      -- it is only meaningful (and only asserted) when the APS chain is loaded.
+      test_files[#test_files + 1] = "tests/test_aps_foundry"
     else
       test_files[#test_files + 1] = "tests/test_aps_absent"
     end

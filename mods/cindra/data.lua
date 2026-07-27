@@ -19,15 +19,25 @@
 -- temperature-axis framing.
 require("prototypes.planet")
 
--- §15-4 ice processing: a ground crusher (asteroid-crushing model, relocated)
--- that grinds nightside ice into water, or water + calcite -- the player picks
--- the ratio by choosing the recipe.
+-- §15-4 ice processing: a two-stage chain (asteroid-crushing model, relocated).
+-- A ground crusher grinds nightside ice into crushed-ice shards (solid->solid,
+-- or shards + calcite -- the player picks the ratio), then a separate melter
+-- turns the shards into water. Only the melt step makes fluid (ci-4or).
 require("prototypes.ice-processing")
 
 -- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 5
 -- lava` (crafted in the brought-not-re-unlocked Vulcanus foundry), feeding the
 -- foundry's molten iron/copper chain with its stone byproduct looping back.
 require("prototypes.lava")
+
+-- ci-arw start-on-Cindra foundry bootstrap: a native, petrochemical-free lubricant
+-- (crude coal-liquefaction for the finite bootstrap, plus a renewable stone+water
+-- "silica oil" for the sustain) and a Cindra-buildable `foundry` recipe that drops
+-- the Vulcanus pressure gate. Rescues the no-Vulcanus start (any-planet-start)
+-- without leaking a free foundry into normal imported play. Must load AFTER lava
+-- (shares the metal-economy framing) and before the science tree (§15-12) folds
+-- its tech in. Requires resources.lua's bootstrap-rock coal, required below.
+require("prototypes.lubricant")
 
 -- §15-6 cryo-hardened alloy: the SIGNATURE two-temperature quench. One craft that
 -- needs a HOT input (the manufactured `lava` fluid, temperature-gated) and a COLD

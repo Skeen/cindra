@@ -170,30 +170,36 @@ first flare pays off.
 
 ---
 
-## 3. Flare shape & cadence (the daylight curve for `ci-9k6`)
+## 3. Flare shape & cadence (`ci-9k6`; sporadic timing `ci-2ba`)
+
+The flare is driven by `scripts/flare.lua` on a frozen daylight curve, NOT the
+raw day-night cycle, so the schedule is fully controlled in code.
 
 | Value | Start | Derivation / note |
 |---|---|---|
-| `day-night-cycle` | **300 s** | already in `planet.lua`; short cycle = frequent flares |
 | Curve **floor** | **1 % of peak** (60 kW/panel) | forced by 100× ratio + 60 kW pin; **never 0** (design) |
 | Curve **peak** | **100 % → 6 MW/panel** | `solar-power = 10000` |
-| Flare **duration** | **~30 s** (~10 % of cycle) | dark-weighted: short spike, long dim trough |
-| Ramp / decay | **fast** (~5 s each side, telegraphed) | design: telegraph → fast-ramp → plateau → fast-decay |
+| Flare **event** | **~12 s** (telegraph + ramp + plateau + decay), fixed shape | dark-weighted: short spike |
+| Ramp / decay | **fast**, telegraphed | design: telegraph → fast-ramp → plateau → fast-decay |
+| **Timing** | **SPORADIC** — random calm in `[CALM_MIN, CALM_MAX]`, **mean = old fixed calm** | ci-2ba: unpredictable *when*, consistent *how big* |
 
-Dark-weighting means the daylight integral is trough-dominated: ~90 % of the
-300 s sits near the 60 kW floor, ~10 % spikes toward 6 MW. Energy delivered by
-one flare, per reference 40-panel field (triangle-ish spike, avg ≈ ½ peak):
+Timing is **sporadic** (ci-2ba): the calm gap before each event is a random draw
+whose *mean* equals the old fixed cadence, so the average energy delivery — and
+all the sizing math below — is preserved on average; only any single gap is
+unpredictable. The event itself is unchanged: telegraphed, fixed
+ramp/plateau/decay, ~100× peak. Energy delivered by one flare, per reference
+40-panel field (triangle-ish spike, avg ≈ ½ peak):
 
 ```
-flare energy/cycle ≈ 234 MW × 30 s × 0.5 ≈ 3.5 GJ   (per 40-panel field)
-floor energy/cycle ≈ 2.34 MW × 270 s     ≈ 0.63 GJ
+flare energy/event ≈ 234 MW × ~12 s × 0.5 ≈ 1.4 GJ   (per 40-panel field)
 ```
 
-**~85 % of a cycle's energy arrives in a 30 s window** — that is the pressure
-that makes storage, live sinks, and the panel-damage fuse matter. `ci-9k6` owns
-the concrete curve control-points; these are its targets. Curve *feel* (is the
-telegraph readable? is 30 s enough to react?) is a **PLAYTEST** item — it cannot
-be asserted by `factorio-test`.
+Because the *magnitude* is consistent, **capacity sizing still matters**; because
+the *timing* is random, the player must **react per event** (via the warning
+telegraph + the reactive environmental scanner, ci-3o3) rather than pre-schedule
+against a clock. `ci-9k6`/`ci-2ba` own the concrete control-points; these are the
+targets. Curve *feel* (is the telegraph readable? is the warning window enough to
+react?) is a **PLAYTEST** item — it cannot be asserted by `factorio-test`.
 
 ---
 
@@ -347,7 +353,7 @@ Every `(tune)` from `DESIGN.md` §7, with a derived starting number and its leve
 | **Surface solar multiplier** (`solar-power`) | **10000** (~100× Nauvis) | §2: 40-panel field = 1 melt line @ peak | `ci-9k6` |
 | **Night floor** | **60 kW/panel** (1 % of peak) | 100× ratio + Nauvis-full-day pin | `ci-9k6` |
 | **Flare peak / baseline** | **100×** (peak 6 MW/panel) | falls out of §2 | `ci-9k6` |
-| Flare duration / cadence | ~30 s spike per 300 s cycle | dark-weighted (§3) | `ci-9k6` + PLAYTEST |
+| Flare event / cadence | ~12 s event, **sporadic** (random calm, mean = old cadence) | dark-weighted (§3), ci-2ba | `ci-9k6`/`ci-2ba` + PLAYTEST |
 | **Capacitor** | 10 MJ / 5 MW / 2×2 | §4: spike-catcher, feeds 500 MJ shot | `ci-tii` |
 | **Molten-salt battery** | 200 MJ / 1 MW / 3×3, heat-upkeep >100 °C | §4: trough bulk | `ci-tii` |
 | Uncatchable fraction | **≥ 50 % of peak** | §4 economics | `ci-9ay` (panel damage) |
@@ -377,7 +383,8 @@ Every `(tune)` from `DESIGN.md` §7, with a derived starting number and its leve
    `energy_required` (assumed 16 s) and stone byproduct (10/15). They shift the
    second-order terms in §1 and §6 only, but §6's fix depends on the exact
    byproduct.
-2. **Curve feel** (§3) is PLAYTEST — is a 30 s flare readable and reactable?
+2. **Curve feel** (§3) is PLAYTEST — is the sporadic warning telegraph readable
+   and the event reactable? (timing is now random, ci-2ba)
 3. **Heater "draw-when-full"** (§5) needs runtime logic, not a prototype field —
    file under `ci-f5l` if not already covered.
 4. **Master-lever sensitivity** — if `E_lava` moves, re-run §2 (a melt line's
