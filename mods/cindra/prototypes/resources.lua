@@ -90,7 +90,7 @@ end
 -- Clone the vanilla `stone` resource into a Cindra-exclusive resource that yields
 -- `item_yield` and is placed by NATIVE autoplace (spec). Depleting (a real mining
 -- activity), mineable by ordinary drills (default resource category).
-local function cindra_resource(name, item_yield, map_color, order, autoplace)
+local function cindra_resource(name, item_yield, map_color, order, autoplace, icon)
   local r = util.table.deepcopy(data.raw.resource["stone"])
   r.name = name
   r.order = order
@@ -99,6 +99,16 @@ local function cindra_resource(name, item_yield, map_color, order, autoplace)
   r.minable = r.minable or {}
   r.minable.result = item_yield
   r.minable.results = nil       -- single-product; drop any inherited multi-result
+  -- Own icon so the map-view "Contains" list / Factoriopedia read the resource as
+  -- what it actually is (ci-2sr): the deep-copied `stone` base carries the stone
+  -- resource icon, which made the ICE patch read as stone. Override to a Cindra
+  -- icon per resource (clear any inherited `icons` sheet so `icon` wins).
+  if icon then
+    r.icon = icon
+    r.icon_size = 64
+    r.icon_mipmaps = 4
+    r.icons = nil
+  end
   return r
 end
 
@@ -140,14 +150,16 @@ data:extend({
   cindra_resource("cindra-stone", "stone", { 0.690, 0.611, 0.427 }, "a[cindra-stone]",
     banded_autoplace("cindra-stone",
       { order = "a", base_density = 8, base_spots_per_km2 = 2.5, has_starting_area_placement = true },
-      field.stone_mask_expr(CFG), field.stone_richness_mult_expr(CFG))),
+      field.stone_mask_expr(CFG), field.stone_richness_mult_expr(CFG)),
+    "__cindra__/graphics/icons/cindra-stone.png"),
   -- Ice: the nightside's single signature raw. Cold blue. Patches nightward of the
   -- safe band, richer the deeper (colder) they sit; a starting patch keeps the
   -- matter economy reachable near the landing terminator.
   cindra_resource("cindra-ice", "ice", { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
     banded_autoplace("cindra-ice",
       { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
-      field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG))),
+      field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
+    "__cindra__/graphics/icons/ice.png"),
   -- Volatiles: deep-nightside frozen gases, inside the cold-lethal band. Pale
   -- violet so it reads as "the deepest, coldest, best node." No starting patch:
   -- an edge-pushing reward you must brave the cold-lethal zone to reach.

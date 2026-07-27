@@ -94,6 +94,20 @@ test("mod identity strings are present", function()
     "[space-location-name] cindra")
 end)
 
+test("map name is just 'Cindra' with no tagline (ci-2sr)", function()
+  local name = cfg["space-location-name"] and cfg["space-location-name"].cindra
+  assert_true(name == "Cindra",
+    "[space-location-name] cindra must read exactly 'Cindra'; got " .. tostring(name))
+  assert_true(not name:lower():find("ribbon"),
+    "the 'Ribbon World' tagline must not leak into the map name (docs only)")
+end)
+
+test("planet carries a map description (ci-2sr)", function()
+  local desc = cfg["space-location-description"] and cfg["space-location-description"].cindra
+  assert_true(desc ~= nil, "[space-location-description] cindra must exist for the map panel")
+  assert_true(#desc > 60, "the planet description must be real prose, like the vanilla planets")
+end)
+
 test("§3 codex/lore section carries all five entries, each substantial", function()
   local lore = cfg["cindra-lore"]
   assert_true(lore ~= nil, "[cindra-lore] section must exist")

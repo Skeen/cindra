@@ -25,6 +25,30 @@ local asteroid_util = require("__space-age__.prototypes.planet.asteroid-spawn-de
 
 local minute = 60 * 60
 
+-- Star-map placement + tidal-lock presentation (ci-2sr).
+--
+-- Cindra hugs the star: a small orbital radius so it sits well sunward of
+-- Vulcanus (distance 10), close to the sun at the map centre.
+local ORBIT_DISTANCE = 3
+-- Angular position on the orbit ring (RealOrientation: 0 = up, clockwise).
+local ORBIT_ORIENTATION = 0.05
+-- TIDAL LOCK: the fiery dayside must face the star. The star-map icon is a fixed
+-- bake (space-appearance.lua) with the FIRE hemisphere on the sprite's LEFT limb
+-- and the icy nightside on the right. starmap_icon_orientation defaults to
+-- "aim the icon's TOP at the sun", which leaves that fiery LEFT limb a quarter-
+-- turn (~90deg) off the sunward line -- exactly the "rotated wrong" the report
+-- flags. Rotate the icon a quarter-turn so the FIRE limb, not the top, points at
+-- the star. Still a single fixed value: tidal lock, the globe never spins.
+local STARMAP_ICON_ORIENTATION = (ORBIT_ORIENTATION - 0.25) % 1
+-- TIDAL LOCK => NO day/night cycle. Express that as an effectively-infinite cycle
+-- length so the map view reads "no cycle" (an enormous number of minutes), NOT 0:
+-- a 0 flips the surface to always_day and flattens the daylight curve that
+-- scripts/flare.lua rides to swing solar output between flares. A huge finite
+-- value keeps that curve intact while making the cycle imperceptible (the flare
+-- driver freezes daytime anyway). Mirrors the NO_ROTATION trick space-appearance
+-- uses to freeze the globe.
+local NO_DAY_NIGHT_CYCLE = 300000 * minute
+
 -- Cindra terrain: NAUVIS map gen for its working, buildable land, but with NO
 -- vanilla ores, enemies, trees, rocks, cliffs -- and, crucially, NO WATER. Cindra
 -- has no biology, no native crude, and no water bodies (its only water comes from
@@ -87,8 +111,15 @@ data:extend({
   {
     type = "planet",
     name = "cindra",
-    -- v1: vanilla Vulcanus art (see ART NOTE above). Swap for baked Cindra
-    -- ribbon art in a later pass.
+    -- Map name/description (ci-2sr). Pin the localised name to the plain
+    -- "space-location-name.cindra" ("Cindra") so the map view reads just "Cindra"
+    -- (the tagline "The Ribbon World" stays in the mod title / docs, off the map),
+    -- and give it a real planet description like the vanilla planets do.
+    localised_name = { "space-location-name.cindra" },
+    localised_description = { "space-location-description.cindra" },
+    -- v1: vanilla Vulcanus art (see ART NOTE above). data-updates.lua swaps in the
+    -- baked Cindra icon + star-map sprite (ci-94v); these are the load-time
+    -- placeholders it overrides.
     icon = "__space-age__/graphics/icons/vulcanus.png",
     icon_size = 64,
     icon_mipmaps = 4,
@@ -96,20 +127,24 @@ data:extend({
     starmap_icon_size = 512,
     gravity_pull = 10,
     -- Innermost world of the system: Cindra hugs the star, sunward of Vulcanus.
-    distance = 6,
-    orientation = 0.05,
+    distance = ORBIT_DISTANCE,
+    orientation = ORBIT_ORIENTATION,
+    -- Tidal lock: point the baked fiery dayside at the star (see above).
+    starmap_icon_orientation = STARMAP_ICON_ORIENTATION,
     magnitude = 1.2,
     order = "a[cindra]",
     subgroup = "planets",
     map_gen_settings = cindra_map_gen(),
     pollutant_type = nil,
-    -- Orbits perilously close to the star -> enormous raw solar intensity.
-    solar_power_in_space = 2000,
+    -- Orbits perilously close to the star -> the strongest orbit solar in the
+    -- system: 1000, well above Vulcanus's 600 (Nauvis 300). Platforms parked over
+    -- Cindra bake in the light. (Was 2000; halved per ci-2sr.)
+    solar_power_in_space = 1000,
     surface_properties = {
-      -- Day-night cycle: the flare driver (§15-7, scripts/flare.lua) FREEZES
-      -- daytime and drives it along the telegraph/ramp/plateau/decay curve, so
-      -- this value is a fallback rhythm only (used if the driver is disabled).
-      ["day-night-cycle"] = 5 * minute,
+      -- TIDAL LOCK => no day/night cycle: an effectively-infinite length so the
+      -- map view reports no cycle. NOT 0 (that would flatten the daylight curve
+      -- the flare driver rides). See NO_DAY_NIGHT_CYCLE above.
+      ["day-night-cycle"] = NO_DAY_NIGHT_CYCLE,
       ["magnetic-field"] = 25,
       -- §15-7 solar: the real ~10000%-of-Nauvis surface multiplier (100x). Nauvis
       -- reads 100 here; 10000 = 100x, the fixed high multiplier the flare swings
@@ -136,7 +171,22 @@ data:extend({
     from = "vulcanus",
     to = "cindra",
     order = "a[cindra]",
-    length = 80000,
+    -- ci-2sr: was 80000 (~5x the vanilla inter-planet norm, an absurd haul). The
+    -- other connections are ~15000; Cindra now hugs the star just inside Vulcanus,
+    -- so the hop is SHORT. 12000 (a touch under the norm) reads as "next door".
+    length = 12000,
+    -- Route icon (ci-2sr): show origin -> destination, not two Vulcanus globes.
+    -- Left unset the engine composited the endpoints while Cindra still wore the
+    -- Vulcanus placeholder icon, so both halves read as Vulcanus. Pin it: the
+    -- baked CINDRA globe (destination) as the base with a small VULCANUS badge
+    -- (origin) in the corner, so the route reads Vulcanus -> Cindra.
+    icons = {
+      { icon = "__cindra__/graphics/icons/cindra.png", icon_size = 64, icon_mipmaps = 4 },
+      {
+        icon = "__space-age__/graphics/icons/vulcanus.png",
+        icon_size = 64, icon_mipmaps = 4, scale = 0.44, shift = { -10, -10 },
+      },
+    },
     -- Space-connection form: the helper takes NO density multiplier (that second
     -- arg is for a planet's approach field, and yields a different structure).
     asteroid_spawn_definitions = asteroid_util.spawn_definitions(asteroid_util.nauvis_vulcanus),

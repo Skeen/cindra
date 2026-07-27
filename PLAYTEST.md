@@ -30,27 +30,46 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   this entry is only the interactive "it feels like a place you can stand"
   confirmation.
 
-- [ ] **[LANDED] Map view / orbit reads as Cindra (ci-hmc).** *Repro:* open the
-  star-map / navigate the orbital approach to Cindra. *Look for:* the planet is
-  named **Cindra** with a description; it sits in a close orbit; `solar_power_in_space`
-  is high (currently **2000**, i.e. far above Nauvis); "contains" reads **stone +
-  ice**; the Vulcanus->Cindra space route shows the Cindra icon with a length
-  (currently **80000**). The globe reads FIERY (radiant molten dayside) ->
-  SANDY (a clearly lit warm terminator band down the middle, NOT black) -> ICY
-  (dark blue-shimmer nightside); it does NOT rotate (tidally locked) while the
-  terminator steam band and the flares off the fire limb animate in place. The
-  baked star-map sprite split is verified off-game
-  (`unit-tests/test_planet_maps.py`: centre ~RGB [139,108,61] sandy, fire limb
-  ~[244,168,137], ice limb ~[40,57,77]); only the LIVE orbital backdrop is the
-  playtest. *Note:* the display name currently still carries the
-  "- The Ribbon World" suffix; dropping it to a bare "Cindra" is IN-FLIGHT (see
-  below).
+- [ ] **[LANDED] Map view / orbit reads as Cindra (ci-hmc, ci-2sr).** *Repro:* open
+  the star-map / navigate the orbital approach to Cindra. *Look for:* the planet is
+  named exactly **Cindra** (no "- The Ribbon World" suffix; that lives in the
+  description + mod title now, ci-2sr) with a real planet description (molten
+  dayside / frozen nightside / thin ribbon / sporadic flares); it sits in a
+  **close** orbit visibly sunward of Vulcanus; `solar_power_in_space` is high
+  (currently **1000**, above Vulcanus's 600); "contains" reads **stone + ice** with
+  distinct icons (the ice patch no longer wears a stone icon, ci-2sr); the
+  Vulcanus->Cindra space route shows the **Cindra** globe (with a small Vulcanus
+  origin badge, not two Vulcanus planets) and a SHORT length (currently **12000**,
+  was 80000). The globe reads FIERY (radiant molten dayside) -> SANDY (a clearly
+  lit warm terminator band down the middle, NOT black) -> ICY (dark blue-shimmer
+  nightside); it does NOT rotate (tidally locked) while the terminator steam band
+  and the flares off the fire limb animate in place. The baked star-map sprite
+  split is verified off-game (`unit-tests/test_planet_maps.py`: centre ~RGB
+  [139,108,61] sandy, fire limb ~[244,168,137], ice limb ~[40,57,77]); only the
+  LIVE orbital backdrop is the playtest.
 
-- [ ] **[LANDED] No day/night cycle (tidally locked).** *Repro:* stand on Cindra
-  and watch the sky over several minutes without a flare. *Look for:* daylight
-  does NOT free-run through a dawn/dusk cycle; the flare driver freezes daytime and
-  only moves it during a flare event (see the flare item). It should read as a
-  fixed, dark-weighted "always the same time of day" until a flare hits.
+- [ ] **[LANDED] Star-map icon faces the fiery dayside at the sun (ci-2sr).** As a
+  tidally-locked world the fiery dayside must point TOWARD the star. The engine's
+  default aims the icon's top sunward, which left the baked fire limb ~90 deg off;
+  planet.lua now sets `starmap_icon_orientation = (orientation - 0.25) = 0.8` so the
+  fire limb points at the star (the prototype value is asserted in
+  `tests/test_planet.lua`, but the on-screen rotation is a render only the engine
+  shows). *Repro:* `./play.sh`, open the system/star-map view and look at Cindra.
+  *Look for:* the FIERY (warm orange) hemisphere faces toward the central star and
+  the icy nightside faces away; the fire/ice terminator is roughly perpendicular to
+  the planet->sun line. If the ICY side faces the sun, the orientation is a
+  half-turn off (add 0.5); if the terminator points at the sun, it is a
+  quarter-turn off (adjust by +/-0.25).
+
+- [ ] **[LANDED] No day/night cycle (tidally locked, ci-2sr).** *Repro:* select
+  Cindra on the star-map and read the planet panel, then stand on the surface for
+  several minutes without a flare. *Look for:* the panel's **Day/night cycle** line
+  reads as effectively none (an enormous value), NOT "5 minutes" -- the surface
+  property is now an effectively-infinite length (not 0, which would flip the
+  surface to always_day and flatten the flare's daylight curve). On the ground,
+  daylight does NOT free-run through a dawn/dusk cycle; the flare driver freezes
+  daytime and only moves it during a flare event. It reads as a fixed,
+  dark-weighted "always the same time of day" until a flare hits.
 
 - [ ] **[LANDED] Discovery lore reads well in the tech GUI (ci-11b).** *Repro:*
   open the technology screen and hover/select the `planet-discovery-cindra` tech.
@@ -322,8 +341,10 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 - [ ] **[LANDED] Resource art is placeholder.** Stone/ice/volatiles resources are
   cloned from vanilla `stone` (recoloured via `map_color`) and bootstrap rocks from
-  vanilla `huge-rock`; the volatiles item reuses the vanilla ice icon. Bespoke
-  Cindra resource art is a later pass.
+  vanilla `huge-rock`. The stone + ice resources now carry the Cindra stone/ice
+  icons so the map "contains" list reads correctly (ci-2sr); the volatiles resource
+  + item still reuse the vanilla ice icon. Bespoke Cindra resource art is a later
+  pass.
 
 - [ ] **[LANDED] Signature-building art is placeholder.** The cryo-quench, aluminium
   electrolysis cell, lava manufacturer, electric heater, starforge, and mass driver
@@ -363,8 +384,3 @@ of the current build; they are listed so "not built yet" is distinguishable from
   science ingredient; aluminium coexists as a second chain. The building-art bead
   is parked pending the pivot bead and the asset. Until this lands, playtest the
   cryo-quench and the current (alloy-based) science pack as the live systems.
-
-- [ ] **[IN-FLIGHT] Planet name drops the "- The Ribbon World" suffix.** The map/
-  planet display name currently reads **"Cindra - The Ribbon World"**; the target is
-  a bare **"Cindra"** (with the tagline kept as the description). Not yet changed on
-  `main`.

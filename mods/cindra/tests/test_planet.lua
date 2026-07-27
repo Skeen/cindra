@@ -57,6 +57,75 @@ describe("cindra planet", function()
     assert.is_true(tech.valid, "discovery tech must load (its icon present)")
   end)
 
+  -- Map-view fixes (ci-2sr): orientation, name, description, no cycle, closer to
+  -- the sun, orbit solar, and the shortened reach route.
+  describe("map-view presentation (ci-2sr)", function()
+    it("points the fiery dayside at the star (tidal lock orientation)", function()
+      local loc = prototypes.space_location["cindra"]
+      -- The baked star-map icon carries the FIRE hemisphere on its LEFT limb; the
+      -- engine's default aims the icon's TOP sunward, leaving fire a quarter-turn
+      -- off. planet.lua rotates it: starmap_icon_orientation = (orientation-0.25).
+      local expected = (0.05 - 0.25) % 1 -- = 0.8
+      assert.is_true(math.abs(loc.starmap_icon_orientation - expected) < 1e-6,
+        "fiery dayside must face the star; got " .. tostring(loc.starmap_icon_orientation)
+          .. " expected " .. tostring(expected))
+      -- Guard the regression: must NOT be the ~90deg-off default (top-at-sun,
+      -- orientation + 0.5 = 0.55).
+      assert.is_true(math.abs(loc.starmap_icon_orientation - ((0.05 + 0.5) % 1)) > 1e-6,
+        "orientation must be corrected away from the default top-at-sun")
+    end)
+
+    it("shows just 'Cindra' on the map, no tagline", function()
+      local loc = prototypes.space_location["cindra"]
+      -- Pinned to the plain space-location-name so the map reads "Cindra"; the
+      -- "The Ribbon World" tagline lives only in the mod title / docs.
+      assert.are.equal("space-location-name.cindra", loc.localised_name[1],
+        "map name must resolve to the plain 'Cindra' locale key")
+    end)
+
+    it("has a real planet description on the map", function()
+      local loc = prototypes.space_location["cindra"]
+      assert.is_not_nil(loc.localised_description, "planet must carry a map description")
+      assert.are.equal("space-location-description.cindra", loc.localised_description[1],
+        "description must point at the space-location-description locale key")
+    end)
+
+    it("has NO day/night cycle (tidal lock) but keeps a live daylight curve", function()
+      local s = H.cindra_surface()
+      -- The map view reports the day-night-cycle surface property; an effectively-
+      -- infinite value reads as "no cycle" (the old 5-minute value was wrong).
+      local cycle = s.get_property("day-night-cycle")
+      assert.is_true(cycle > 10000 * 60 * 60,
+        "day/night cycle must be effectively infinite (no cycle); got " .. tostring(cycle))
+      -- NOT 0 -> not always_day: the flare driver still rides the daylight curve to
+      -- swing solar output between events. Freezing that curve would break flares.
+      assert.is_false(s.always_day,
+        "must not be always_day (0-cycle) -- that flattens the flare's daylight curve")
+    end)
+
+    it("orbits closer to the sun than Vulcanus", function()
+      local loc = prototypes.space_location["cindra"]
+      assert.are.equal(3, loc.distance, "Cindra hugs the star at distance 3")
+      local vulc = prototypes.space_location["vulcanus"]
+      assert.is_true(loc.distance < vulc.distance,
+        "Cindra must sit sunward (closer) of Vulcanus: " .. tostring(loc.distance)
+          .. " < " .. tostring(vulc.distance))
+    end)
+
+    it("bathes orbiting platforms in 1000% solar", function()
+      local loc = prototypes.space_location["cindra"]
+      assert.are.equal(1000, loc.solar_power_in_space,
+        "orbit solar (for space platforms) is 1000% of Nauvis")
+    end)
+
+    it("reaches Cindra via a short route (~<=15000), not the old 80000 haul", function()
+      local conn = prototypes.space_connection["vulcanus-cindra"]
+      assert.is_true(conn.length <= 15000,
+        "route must be no longer than the vanilla inter-planet norm; got " .. tostring(conn.length))
+      assert.are.equal(12000, conn.length, "the Vulcanus->Cindra hop is short (nearby orbit)")
+    end)
+  end)
+
   it("map gen produces NO vanilla ores, biters, worms, trees or rocks", function()
     local surface = H.cindra_surface()
     surface.request_to_generate_chunks({ 300, 300 }, 3)
