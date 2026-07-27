@@ -118,6 +118,20 @@ this list is the last resort when no test path exists.
   ("research is a power sink"), without being so punishing that early science
   stalls. Balance against the flare numbers (ci-9k6) and the balance pass (ci-63d).
 
+- [ ] **Start-on-Cindra foundry bootstrap reads well in-game (ci-arw).** The
+  no-Vulcanus foundry path (finite bootstrap coal → `cindra-crude-lubricant`,
+  renewable `cindra-mineral-lubricant`, and the Cindra-buildable
+  `cindra-field-foundry`, all under `cindra-improvised-metallurgy`) is fully
+  logic-tested headless (`tests/test_foundry_bootstrap.lua`,
+  `tests/test_aps_foundry.lua`). What a headless test cannot judge is the *felt*
+  opening once the ci-uex starting kit lands: start a game on Cindra via
+  any-planet-start and confirm the improvised-metallurgy recipes are visible/craftable
+  from tick zero, hand-mining a few rocks yields enough coal to crude-liquefy the
+  lubricant for a first `cindra-field-foundry`, and building + running that foundry
+  (lava → molten metal) feels like a deliberate, non-tedious bootstrap rather than a
+  soft-lock or a grind. The three recipes reuse vanilla lubricant/foundry icons (v1
+  placeholder art); do not file that as a bug.
+
 - [ ] **Discovery lore reads well in the tech GUI (ci-11b).** The
   `planet-discovery-cindra` technology now carries the full §3 planet-discovery
   entry as its description. *Repro:* open the technology screen and hover/select

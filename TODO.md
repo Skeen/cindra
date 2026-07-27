@@ -152,16 +152,29 @@ merge queue.
   electric high-draw machine that only crafts when powered, private category, tech
   gating + fold, a lab actually accepts the pack). Balance of amounts/draw is
   `(tune)` → §15-14.
+- [x] **Start-on-Cindra foundry bootstrap.** `ci-arw` (cross-cutting; APS +
+  mechanics). The no-Vulcanus start needs a foundry but the vanilla recipe is
+  pressure-gated to Vulcanus and needs oil lubricant. `prototypes/lubricant.lua`
+  adds a native, gated path: `cindra-crude-lubricant` (finite bootstrap
+  coal → lubricant — coal now dabbed into the bootstrap rocks, §4a), the renewable
+  `cindra-mineral-lubricant` (stone + water → lubricant), and `cindra-field-foundry`
+  (a Cindra-buildable `foundry` recipe with no pressure gate), all behind the
+  `cindra-improvised-metallurgy` tech; `mods/cindra-start/control.lua` pre-researches
+  it on a Cindra start. Vanilla foundry recipe + lubricant fluid untouched, so
+  normal imported play (DESIGN §8) is unaffected. See DESIGN §5b. Tested:
+  `tests/test_foundry_bootstrap.lua` + (APS) `tests/test_aps_foundry.lua`.
 - [x] **§15-13 — Bootstrap traversal check.** `ci-uex` — `tests/test_bootstrap.lua`
   proves landing → self-sustaining lava→metal economy is traversable: the fire
   spine is driven end-to-end (stone→lava→molten-iron + stone loop-back), a
   reachability solver over the real recipes shows no chicken-and-egg up to the
   Cindra science pack (seed materials become locally renewable), and the finite
-  bootstrap rock is asserted to never be a per-craft loop input. **Remaining:**
-  the start-on-Cindra (any-planet-start) run from ABSOLUTE zero still soft-locks
-  at the foundry (needs lubricant) — the solver documents this as a tripwire; the
-  lubricant-free/kitted APS foundry is `ci-arw`, and the end-to-end APS-mods
-  bootstrap proof is a follow-up (blocked on `ci-arw`).
+  bootstrap rock is asserted to never be a per-craft loop input. The start-on-Cindra
+  (any-planet-start) run from ABSOLUTE zero still soft-locks at the foundry
+  (building one needs metal + lubricant) — the solver documents this as a tripwire.
+  `ci-arw` (above) has now landed the native-lubricant + Cindra-buildable
+  `cindra-field-foundry` recipe path and its APS tech pre-research; the **remaining
+  follow-up** is the physical starting KIT (a starter foundry / metal seed) plus an
+  end-to-end APS-mods bootstrap proof, after which the tripwire is revisited.
 - [ ] **§15-14 — Balance pass.** `ci-63d` — tune all `(tune)` values against the
   lava energy cost; verify exportable buildings are **situational-not-strictly-
   better** than vanilla (§12 guardrail).

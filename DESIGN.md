@@ -120,16 +120,22 @@ placement is deterministic and unit-testable; placement uses a coordinate hash
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
 | ice | nightside (`Y < −safe`) | richer deeper (colder) | `ice` |
 | volatiles | deep cold-lethal (`Y ≤ −lethal_at`) | richest deepest | `cindra-volatiles` |
-| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `tungsten-ore` |
+| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `iron-ore` + `copper-ore` + `coal` + a little `tungsten-ore` |
 
 The best of everything sits at the lethal margins (edge-pushing reward). Every
 resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
 `huge-rock`); the shared vanilla prototypes are **never mutated**. Bootstrap rocks
 are mined simple-entities (destroyed on mining → inherently finite, never a
-per-craft supply, per the §6 no-soft-lock rule); tungsten (Vulcanus-legacy) is the
-spec-endorsed landing metal. **Role only lives here** — the recipes that *consume*
-these (ice processing §15-4, lava §15-5, chemistry §11) belong to the mechanics
-track.
+per-craft supply, per the §6 no-soft-lock rule). Cindra has **no ore/coal patches
+at all** (ci-8nh), so these finite rocks are the only landing-tier metal: each drops
+stone plus a small trickle of iron ore + copper ore + coal (and a little tungsten,
+the Vulcanus-legacy metal accepted in §5) — enough to hand-smelt a first trickle of
+plates and to crude-liquefy the lubricant for the first foundry on a start-on-Cindra
+game (the foundry bootstrap, ci-arw, §5b). The coal in particular is the **only coal
+on the planet** (no mineable coal source), spent once and never scalable. **Role
+only lives here** — the recipes that *consume* these (ice processing §15-4, lava
+§15-5, chemistry §11, the foundry bootstrap `prototypes/lubricant.lua`) belong to the
+mechanics track.
 
 ## 4b. File-ownership map (parallel tracks — avoid conflicts)
 
@@ -240,6 +246,38 @@ ground:
 
 Tested end-to-end in `tests/test_ice_processing.lua`, including a powered crush of
 ice → water on the Cindra surface.
+
+### 5b. Start-on-Cindra foundry bootstrap — IMPLEMENTED (ci-arw)
+
+Normal play **imports** foundries from Vulcanus: the vanilla `foundry` build
+recipe is surface-gated to `pressure = 4000` (Vulcanus) and costs oil `lubricant`,
+so it can never be crafted on Cindra (pressure 500, no oil) — you carry finished
+foundries over. But a **start-on-Cindra** game (`any-planet-start`, `mods/cindra-start`)
+has no Vulcanus to import from and no petrochemistry, so with only the vanilla
+recipe it would **soft-lock**. `prototypes/lubricant.lua` adds a native, gated path:
+
+- **`cindra-crude-lubricant`** (bootstrap): `coal → lubricant`. Its coal comes only
+  from the **finite** hand-mined bootstrap rocks (§4a) — Cindra has no mineable
+  coal — so it builds the first foundry(ies) once and can never scale (a one-time
+  durable cost, per §6).
+- **`cindra-mineral-lubricant`** (sustain): `stone + water → lubricant`, a renewable
+  petrochemical-free "silica oil". Deliberately effortful (heavy stone + water +
+  power) so it is situational-not-strictly-better than oil lubricant (§12).
+- **`cindra-field-foundry`**: a `crafting-with-fluid` recipe that yields the vanilla
+  `foundry` item **without** the pressure gate, so it is Cindra-buildable. Costlier
+  than the import recipe, so a post-Vulcanus player keeps importing.
+
+All three are locked and unlocked by one tech, **`cindra-improvised-metallurgy`**
+(prereq: Cindra discovery, which itself sits behind Vulcanus in normal play, §6).
+`mods/cindra-start/control.lua` **pre-researches** that tech (plus `foundry`,
+`cindra-lava`, `cindra-ice-processing`) on a Cindra start, so the from-scratch
+opening reaches the lava→metal economy with no soft-lock. The shared vanilla
+`foundry` recipe and `lubricant` fluid are **never mutated** — the imported-foundry
+path (normal play) is untouched. Tested in `tests/test_foundry_bootstrap.lua`
+(prototypes + never-mutate + a powered coal→lubricant craft + an on-Cindra foundry
+running lava) and, under the APS invocation, `tests/test_aps_foundry.lua` (the
+pre-research grant). The physical starting **kit** (machines, power, initial items)
+is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 
 ## 6. Invariants (locked by tests as they land)
 

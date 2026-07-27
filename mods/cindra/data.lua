@@ -29,6 +29,15 @@ require("prototypes.ice-processing")
 -- foundry's molten iron/copper chain with its stone byproduct looping back.
 require("prototypes.lava")
 
+-- ci-arw start-on-Cindra foundry bootstrap: a native, petrochemical-free lubricant
+-- (crude coal-liquefaction for the finite bootstrap, plus a renewable stone+water
+-- "silica oil" for the sustain) and a Cindra-buildable `foundry` recipe that drops
+-- the Vulcanus pressure gate. Rescues the no-Vulcanus start (any-planet-start)
+-- without leaking a free foundry into normal imported play. Must load AFTER lava
+-- (shares the metal-economy framing) and before the science tree (§15-12) folds
+-- its tech in. Requires resources.lua's bootstrap-rock coal, required below.
+require("prototypes.lubricant")
+
 -- §15-6 cryo-hardened alloy: the SIGNATURE two-temperature quench. One craft that
 -- needs a HOT input (the manufactured `lava` fluid, temperature-gated) and a COLD
 -- input (cryo-coolant packed from nightside ice) at once -> cryo-hardened alloy.

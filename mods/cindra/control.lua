@@ -65,6 +65,9 @@ if script.active_mods["factorio-test"] then
     -- with only stone + hand-minable rocks and reach a self-sustaining
     -- lava->metal economy, with no chicken-and-egg and no soft-lock.
     "tests/test_bootstrap",
+    -- ci-arw start-on-Cindra foundry bootstrap: finite bootstrap coal, native
+    -- lubricant (crude + renewable), and the Cindra-buildable field foundry.
+    "tests/test_foundry_bootstrap",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the
@@ -78,6 +81,9 @@ if script.active_mods["factorio-test"] then
   if script.active_mods["cindra-start"] then
     if script.active_mods["any-planet-start"] then
       test_files[#test_files + 1] = "tests/test_aps_start"
+      -- ci-arw: the pre-researched foundry path is a Cindra-start guarantee, so
+      -- it is only meaningful (and only asserted) when the APS chain is loaded.
+      test_files[#test_files + 1] = "tests/test_aps_foundry"
     else
       test_files[#test_files + 1] = "tests/test_aps_absent"
     end
