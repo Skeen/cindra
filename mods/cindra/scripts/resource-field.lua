@@ -3,21 +3,20 @@
 -- coordinate to a per-band richness, so the placement geometry is deterministic
 -- and unit-testable off the game entirely.
 --
--- Two consumers read this ONE source of truth:
---   * DATA stage (prototypes/resources.lua): stone / ice / volatiles are placed
---     by NATIVE Factorio resource autoplace (spot-noise patches, not a script
---     grid), CONSTRAINED to their axis band by multiplying the autoplace
---     probability/richness by a perpendicular-axis (Y) MASK this module emits as
---     a noise-expression string (see *_mask_expr / *_richness_mult_expr).
---   * RUNTIME (scripts/worldgen.lua): the finite bootstrap-rock scatter still
---     reads rock_zone (rocks are simple-entities, not an autoplace resource).
+-- The ONE source of truth for every Cindra resource's placement, read entirely at
+-- the DATA stage (prototypes/resources.lua): stone / ice patches and the finite
+-- bootstrap rocks are ALL placed by NATIVE map-gen autoplace (spot-noise patches,
+-- not a script grid), CONSTRAINED to their axis band by multiplying the autoplace
+-- probability/richness by a perpendicular-axis MASK this module emits as a
+-- noise-expression string (see *_mask_expr / *_richness_mult_expr /
+-- rock_probability_expr). There is NO runtime placement any more (ci-3yl).
 --
 -- The single organising idea (the planet's thesis, §1): ENERGY sunward, MATTER
 -- nightward, and the BEST of everything at the lethal margins (edge-pushing).
 --
 --   stone      ribbon + sunward margin   richer toward the HOT lethal edge
 --   ice        nightward of the safe band richer DEEPER (colder) toward the wall
---   volatiles  deep nightside cold-lethal richer deeper still (the coldest, best)
+--              (deep ice ALSO yields the science pack's frozen volatiles)
 --   rocks      scattered around the terminator (finite bootstrap scatter, §6)
 --
 -- Every band reads the SAME axis geometry (safe_half_width / lethal_at / wall_at)
@@ -37,9 +36,11 @@ local M = {}
 M.PERP_AXIS = axis.perp_expr()
 
 -- Cindra resource / entity prototype names (defined in prototypes/resources.lua).
+-- Only Stone + Ice are mineable resources (map-gen sliders); the frozen volatiles
+-- the science pack needs come from the deep-nightside ICE chain, not a standalone
+-- resource (ci-3yl). The bootstrap ROCK is a finite simple-entity scatter.
 M.STONE = "cindra-stone"
 M.ICE = "cindra-ice"
-M.VOLATILES = "cindra-volatiles"
 M.ROCK = "cindra-bootstrap-rock"
 
 -- Node richness (resource `amount`) starting points, all (tune).
@@ -47,8 +48,6 @@ M.STONE_BASE = 600
 M.STONE_PEAK = 5000     -- at the sunward lethal margin (best stone)
 M.ICE_BASE = 600
 M.ICE_PEAK = 5000       -- deep nightside (best ice)
-M.VOLATILES_BASE = 1500
-M.VOLATILES_PEAK = 8000 -- the coldest, deepest, best node
 
 local function clamp(x, lo, hi)
   if x < lo then return lo end
@@ -83,24 +82,21 @@ function M.ice_richness(y, cfg)
   return math.floor(lerp(M.ICE_BASE, M.ICE_PEAK, f))
 end
 
--- Volatiles: only in the DEEP nightside cold-lethal band (>= lethal_at
--- nightward), the coldest edge-pushing reward. Returns 0 elsewhere.
-function M.volatiles_richness(y, cfg)
-  cfg = ribbon.resolve(cfg)
-  if y > -cfg.lethal_at then return 0 end
-  local depth = -y - cfg.lethal_at
-  local span = math.max(1, cfg.wall_at - cfg.lethal_at)
-  local f = clamp(depth / span, 0, 1)
-  return math.floor(lerp(M.VOLATILES_BASE, M.VOLATILES_PEAK, f))
-end
-
 -- Bootstrap rocks scatter around the terminator only (inside the safe band, so
 -- they are reachable at landing with no damage). Boolean: is `y` in the scatter
--- band. Finiteness comes from the entity (a mined rock is destroyed), not here.
+-- band. Finiteness comes from being confined to a bounded disk near spawn (see
+-- rock_probability_expr) AND from the entity (a mined rock is destroyed).
 function M.rock_zone(y, cfg)
   cfg = ribbon.resolve(cfg)
   return math.abs(y) <= cfg.safe_half_width
 end
+
+-- How far from spawn (tiles) bootstrap rocks scatter along the ribbon. Beyond
+-- this the native autoplace probability is zero, so the rocks are FINITE (a
+-- bounded disk near the landing terminator), never an infinite metal supply. (tune)
+M.ROCK_SPAWN_RANGE = 130
+-- Per-tile spawn probability inside the rock band (sparse hand-gathered scatter).
+M.ROCK_PROBABILITY = 0.006
 
 -- ---------------------------------------------------------------------------
 -- Native-autoplace band masks (§15-v2 item 1: patches, not a grid).
@@ -140,11 +136,19 @@ function M.ice_mask_expr(cfg)
          " * (" .. Y .. " > " .. num(-cfg.wall_at) .. ")"
 end
 
--- Volatiles: only the deep nightside cold-lethal band, y in [-wall_at, -lethal].
-function M.volatiles_mask_expr(cfg)
+-- Bootstrap rocks: a native simple-entity autoplace, confined to the terminator
+-- safe band (|perp| <= safe_half_width) AND to a bounded disk of radius
+-- ROCK_SPAWN_RANGE around spawn (`distance` = tiles from the nearest starting
+-- point), so the scatter is FINITE. A comparison yields 1/0, so the product is a
+-- logical AND masking the constant per-tile probability. This replaces the old
+-- on_chunk_generated script scatter (ci-3yl): the whole ribbon is now map-gen.
+function M.rock_probability_expr(cfg)
   cfg = ribbon.resolve(cfg)
-  return "(" .. Y .. " <= " .. num(-cfg.lethal_at) .. ")" ..
-         " * (" .. Y .. " > " .. num(-cfg.wall_at) .. ")"
+  local S = cfg.safe_half_width
+  return "(" .. Y .. " < " .. num(S) .. ")" ..
+         " * (" .. Y .. " > " .. num(-S) .. ")" ..
+         " * (distance < " .. num(M.ROCK_SPAWN_RANGE) .. ")" ..
+         " * " .. num(M.ROCK_PROBABILITY)
 end
 
 -- Edge-pushing richness multiplier (>= 1): scales the native patch richness so
@@ -167,13 +171,6 @@ function M.ice_richness_mult_expr(cfg)
   local span = math.max(1, cfg.wall_at - cfg.safe_half_width)
   local frac = "(" .. NY .. " - " .. num(cfg.safe_half_width) .. ") / " .. num(span)
   return lerp_expr(1, M.ICE_PEAK / M.ICE_BASE, frac)
-end
-
-function M.volatiles_richness_mult_expr(cfg)
-  cfg = ribbon.resolve(cfg)
-  local span = math.max(1, cfg.wall_at - cfg.lethal_at)
-  local frac = "(" .. NY .. " - " .. num(cfg.lethal_at) .. ") / " .. num(span)
-  return lerp_expr(1, M.VOLATILES_PEAK / M.VOLATILES_BASE, frac)
 end
 
 return M

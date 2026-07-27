@@ -15,8 +15,14 @@
 --
 -- See DESIGN.md for the authoritative design and TODO.md for the backlog.
 
+-- Map-gen foundations (§4, §15-2; ci-3yl): the named noise expression the planet
+-- overrides, and Cindra's own terrain tiles (the noise-driven ribbon bands). Both
+-- must exist for the planet's map_gen_settings to reference them.
+require("prototypes.noise")
+require("prototypes.tiles")
+
 -- The Cindra planet: tidally-locked ribbon world, surface + reachability + the
--- temperature-axis framing.
+-- temperature-axis framing, generated as a REAL noise-driven ribbon world.
 require("prototypes.planet")
 
 -- §15-4 ice processing: pure vanilla-recipe reuse (ci-3mx). The nightside deposit

@@ -103,8 +103,9 @@ describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", funct
       "a mined bootstrap rock must also drop a small metal trickle (landing-tier material)")
   end)
 
-  it("stone / ice / volatiles are placed, hand-minable raws (the other roots)", function()
-    for _, name in ipairs({ "cindra-stone", "cindra-ice", "cindra-volatiles" }) do
+  it("stone + ice are placed, hand-minable raws (the other roots)", function()
+    -- Only Stone and Ice are standalone mined resources (ci-3yl: no volatiles ore).
+    for _, name in ipairs({ "cindra-stone", "cindra-ice" }) do
       local res = prototypes.entity[name]
       assert.is_not_nil(res, name .. " resource must exist")
       assert.are.equal("resource", res.type, name .. " must be a minable resource")
@@ -112,6 +113,16 @@ describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", funct
     -- The stone resource yields the vanilla `stone` item that the lava spine eats.
     assert.are.equal("stone", prototypes.entity["cindra-stone"].mineable_properties.products[1].name,
       "the Cindra stone resource must yield the `stone` item (the lava recipe's input)")
+    -- Volatiles are no longer a standalone resource; the deep-nightside ICE chain
+    -- yields them, so hand-mining ice is the hand-root for volatiles. Prove ice
+    -- drops both the vanilla ice chunk (crush->melt chain, ci-3mx) and the volatiles item.
+    local ice_products = {}
+    for _, p in ipairs(prototypes.entity["cindra-ice"].mineable_properties.products) do
+      ice_products[p.name] = true
+    end
+    assert.is_true(ice_products["oxide-asteroid-chunk"], "the ice field yields the vanilla ice chunk")
+    assert.is_true(ice_products["cindra-volatiles"],
+      "the ice field ALSO yields frozen volatiles (the deep-nightside volatiles source)")
   end)
 end)
 

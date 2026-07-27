@@ -4,6 +4,13 @@ node_modules/
 .factorio/
 .factorio-test/
 factorio-test-data-dir/
+# Also ignore the symlink / APS forms of the test data dirs: a trailing-slash
+# pattern matches a real directory but NOT a symlink, so a symlinked
+# factorio-test-data-dir slips past `factorio-test-data-dir/` and keeps getting
+# accidentally committed. Match the bare names too (ci-3yl).
+factorio-test-data-dir
+aps-test-data-dir
+aps-test-data-dir/
 factorio-test-output.json
 package-lock.json
 mods-bundle/
