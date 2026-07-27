@@ -72,6 +72,33 @@ this list is the last resort when no test path exists.
   volatiles feels like a deliberate, survivable-with-gear risk. (The axis *values*
   and *placement* are tested; the *felt geometry* is a playtest.)
 
+- [ ] **Resources read as NATURAL PATCHES + map-gen sliders respond (ci-8nh).**
+  Stone / ice / volatiles now use NATIVE Factorio resource autoplace (spot-noise),
+  band-masked to the ribbon axis, replacing the old uniform script grid. Placement,
+  band constraint (stone on the ribbon+hot margin, ice nightward, volatiles deep
+  cold-lethal), edge-pushing richness, and NO-water are integration-tested
+  (`tests/test_worldgen.lua`, on a fixed-seed surface). Confirm in-game the parts a
+  test cannot: *Repro:* `./play.sh` onto Cindra. *Look for:* (1) stone/ice appear as
+  IRREGULAR patches of varying size/richness (like nauvis ore), NOT a repeating grid
+  of identical deposits; (2) on the New Game map-gen screen, the Resources tab shows
+  `cindra-stone` / `cindra-ice` / `cindra-volatiles` Frequency/Size/Richness sliders,
+  and cranking them visibly changes patch count/size/richness; (3) NO water tiles or
+  starting lake anywhere at any water-slider setting; (4) volatiles patches actually
+  appear out in the deep cold-lethal nightside (their band is thin, so presence is
+  playtest-confirmed, not asserted). Native autoplace is the fix for the reported
+  "grid of identical 1920-stone deposits" bug.
+
+- [ ] **From-nothing bootstrap start works (ci-8nh / §6).** Cindra has NO ore or
+  coal patches at all; the finite hand-mined bootstrap rocks are the ONLY landing
+  metal, and now drop stone + iron ore + copper ore + coal (yields are
+  prototype-tested in `tests/test_worldgen.lua`). Confirm the actual bootstrap loop:
+  *Repro:* start a fresh Cindra game with nothing, hand-mine the terminator rocks.
+  *Look for:* enough stone to hand-craft stone furnaces AND enough iron/copper ore +
+  coal to smelt a first trickle of plates and fuel — i.e. you can stand up the first
+  foundry / power / ice-processing without a pre-existing ore patch, after which the
+  infinite lava→metal economy takes over. If a from-nothing start soft-locks, that
+  is a balance bug (coordinate amounts with ci-arw / ci-uex).
+
 - [ ] **Resource art is placeholder.** Stone/ice/volatiles resources are cloned
   from vanilla `stone` (recoloured via `map_color`) and bootstrap rocks from the
   vanilla `huge-rock`; the volatiles item reuses the vanilla ice icon. Expected in

@@ -1,4 +1,4 @@
--- Cindra per-chunk world generation (§4 ribbon geometry, §15 items 2-3).
+-- Cindra per-chunk world generation (§4 ribbon geometry, §15 item 2 + bootstrap).
 --
 -- Two jobs as each chunk generates on a Cindra surface:
 --   1. HARD-WALL BACKSTOP (§15-2 / §4 Impl B): tiles at or beyond `wall_at`
@@ -7,11 +7,16 @@
 --      east-west). The gradient damage (scripts/edge-damage.lua) is the teacher;
 --      this void is the bulletproof floor so the player can never walk off the
 --      usable map into instant death.
---   2. RESOURCE PLACEMENT (§15-3): stone / ice / volatiles / bootstrap rocks,
---      each in its band on the axis with the best nodes at the lethal margins,
---      per scripts/resource-field.lua (the pure geometry). Placement is
---      DETERMINISTIC (a coordinate hash, not math.random) so it is reproducible
---      and testable, and so it never desyncs in multiplayer.
+--   2. BOOTSTRAP-ROCK SCATTER (§6): finite, hand-gathered rocks around the
+--      terminator, the landing-tier trickle of metal. Placement is DETERMINISTIC
+--      (a coordinate hash, not math.random) so it is reproducible, testable, and
+--      never desyncs in multiplayer.
+--
+-- The mineable RESOURCES (stone / ice / volatiles) are NOT placed here: they use
+-- NATIVE Factorio resource autoplace (prototypes/resources.lua) so they form
+-- natural spot-noise PATCHES with real map-gen sliders, band-masked to the ribbon.
+-- The rocks stay script-scattered because they are simple-entities, not a resource
+-- (and must stay finite, per §6 -- no ore/coal patches anywhere).
 --
 -- 🚨 Scoped to `surface.name == "cindra"`. Everything is a Cindra-exclusive
 -- `cindra-*` prototype; no vanilla resource or tile is mutated anywhere.
@@ -21,14 +26,11 @@ local field = require("scripts.resource-field")
 
 local M = {}
 
--- Placement lattice: candidate node every STEP tiles. Coarser = sparser world.
+-- Placement lattice: candidate rock every STEP tiles. Coarser = sparser scatter.
 M.STEP = 6
--- Per-band placement probability at a candidate lattice point (0..1). Tuned so
--- the ribbon feels resourced without paving it. All (tune).
-M.STONE_CHANCE = 0.22
-M.ICE_CHANCE = 0.22
-M.VOLATILES_CHANCE = 0.16
-M.ROCK_CHANCE = 0.05      -- sparse scatter (finite bootstrap trickle, not a patch)
+-- Rock placement probability at a candidate lattice point (0..1): sparse scatter,
+-- a finite bootstrap trickle, not a patch. (tune)
+M.ROCK_CHANCE = 0.05
 
 local function is_cindra(surface)
   return surface and surface.valid and surface.name == "cindra"
@@ -70,16 +72,6 @@ function M.apply_hard_wall(surface, area, cfg)
   if #void > 0 then surface.set_tiles(void, true) end
 end
 
--- Try to place one resource node of `name`/`amount` at (x,y) if the tile can
--- host it (buildable land, not water/void, nothing already there).
-local function try_resource(surface, x, y, name, amount)
-  if amount <= 0 then return end
-  local pos = { x = x + 0.5, y = y + 0.5 }
-  if surface.can_place_entity({ name = name, position = pos }) then
-    surface.create_entity({ name = name, position = pos, amount = amount })
-  end
-end
-
 local function try_rock(surface, x, y)
   local pos = { x = x + 0.5, y = y + 0.5 }
   if surface.can_place_entity({ name = field.ROCK, position = pos }) then
@@ -87,8 +79,10 @@ local function try_rock(surface, x, y)
   end
 end
 
--- Scatter resources across the chunk on the lattice, each in its own axis band.
-function M.place_resources(surface, area, cfg)
+-- Scatter finite bootstrap rocks across the chunk on the lattice, only within the
+-- terminator scatter band (field.rock_zone). The mineable resources are placed by
+-- native autoplace (prototypes/resources.lua), not here.
+function M.place_bootstrap_rocks(surface, area, cfg)
   local wall = ribbon.resolve(cfg).wall_at
   local x1, y1 = area.left_top.x, area.left_top.y
   local x2, y2 = area.right_bottom.x, area.right_bottom.y
@@ -98,24 +92,8 @@ function M.place_resources(surface, area, cfg)
   for y = sy, y2 - 1, M.STEP do
     if math.abs(y) < wall and y >= y1 then
       for x = sx, x2 - 1, M.STEP do
-        if x >= x1 then
-          -- Each band draws an independent stream (distinct salt), so bands can
-          -- overlap near the terminator (rocks + stone) without lockstep.
-          local stone = field.stone_richness(y, cfg)
-          if stone > 0 and frac(x, y, 1) < M.STONE_CHANCE then
-            try_resource(surface, x, y, field.STONE, stone)
-          end
-          local ice = field.ice_richness(y, cfg)
-          if ice > 0 and frac(x, y, 2) < M.ICE_CHANCE then
-            try_resource(surface, x, y, field.ICE, ice)
-          end
-          local vol = field.volatiles_richness(y, cfg)
-          if vol > 0 and frac(x, y, 3) < M.VOLATILES_CHANCE then
-            try_resource(surface, x, y, field.VOLATILES, vol)
-          end
-          if field.rock_zone(y, cfg) and frac(x, y, 4) < M.ROCK_CHANCE then
-            try_rock(surface, x, y)
-          end
+        if x >= x1 and field.rock_zone(y, cfg) and frac(x, y, 4) < M.ROCK_CHANCE then
+          try_rock(surface, x, y)
         end
       end
     end
@@ -126,7 +104,7 @@ function M.on_chunk_generated(event)
   if not is_cindra(event.surface) then return end
   local cfg = ribbon_cfg()
   M.apply_hard_wall(event.surface, event.area, cfg)
-  M.place_resources(event.surface, event.area, cfg)
+  M.place_bootstrap_rocks(event.surface, event.area, cfg)
 end
 
 return M
