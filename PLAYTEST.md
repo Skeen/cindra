@@ -142,17 +142,25 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   water tap. (Both crush recipes, the no-fluid crusher, and the end-to-end ice ->
   shards -> water chain are integration-tested.)
 
-- [ ] **[LANDED] Manufactured lava reads as a ruinous power sink (§15-5).** Lava is
-  crafted in the **brought Vulcanus foundry** (metallurgy category) - there is NO
-  dedicated lava-manufacturer building on `main`; power is the lever via the recipe's
-  long craft time against the foundry draw. *Repro:* research `cindra-lava` (gated
-  behind the foundry + Cindra discovery), feed a foundry stone + power, run the
-  1 stone -> 5 lava recipe, and route lava on into the foundry chain for molten
-  metal. *Look for:* the stone->lava->metal spine feels like "power is the lever"
-  (a visibly heavy draw at scale), and productivity modules are allowed on the lava
-  + aluminium recipes (ci-095). *Note:* the design intends to move lava to a few
-  distinct HIGH-POWER lava-manufacturer buildings with their own tint; that is not
-  yet built (foundry-only today).
+- [ ] **[LANDED] Manufactured lava: dedicated lava-manufacturer, ruinous power (§15-5, ci-e8a).**
+  Lava is now cast in a dedicated **`cindra-lava-manufacturer`** (a fast, 40 MW foundry
+  clone in a private category), NOT the shared foundry; the foundry only MELTS lava into
+  metal. This fixes the old ~100-foundries-per-melt unusability without cheapening lava:
+  the machine's speed sets the count (single-digit, ~6 per melting foundry) while its draw
+  is pinned proportional so **energy-per-lava is unchanged and ruinous**. Machine count,
+  fixed energy-per-lava, the ruinous aggregate draw, and the recipe tint are all
+  headless-tested (`tests/test_lava.lua`, `prototypes/lava-icon.lua`). *Repro:* research
+  `cindra-lava` (gated behind the foundry + Cindra discovery), build a handful (~6) of
+  `cindra-lava-manufacturer`, feed them stone + power, and route the lava into foundries
+  for molten metal. *Look for:* (1) the `cindra-lava` recipe icon is the vanilla lava
+  sprite under a warm amber-tinted layer - it reads a touch hotter/brighter than natural
+  Vulcanus lava at icon size, still obviously lava (placeholder tint, do not file as a
+  bug); (2) the manufacturer reuses the vanilla foundry sprite (v1 art reuse) so it looks
+  like a foundry in world/toolbar - intentional for v1, bespoke art is a follow-up bead;
+  (3) the *feel*: ~6 manufacturers visibly feed one melting foundry without an absurd
+  machine wall, at a visibly heavy grid draw ("power is the lever"), and productivity
+  modules are allowed on the lava recipe (ci-095). Balance the ruinous 40 MW draw against
+  the flare/solar numbers (ci-9k6, ci-63d).
 
 - [ ] **[LANDED] Cryo-quench signature build + hot-pipe read (§15-6, ci-gd4).**
   *Repro:* research `cindra-cryo-quenching`, build a `cindra-cryo-quench`, pipe

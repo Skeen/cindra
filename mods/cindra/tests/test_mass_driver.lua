@@ -38,8 +38,11 @@ local FORBIDDEN = {
 
 local function energy_usage_of(proto)
   -- Crafting machines expose get_max_energy_usage; fall back to energy_usage.
-  if proto.get_max_energy_usage then return proto.get_max_energy_usage() end
-  return proto.energy_usage
+  -- Both report Joules per TICK, so * 60 -> Watts (what the draw assertions below
+  -- compare against, e.g. ">=50 MW"). Without the conversion a 100 MW draw reads
+  -- as 1.67e6 and spuriously fails the >=50e6 check.
+  if proto.get_max_energy_usage then return proto.get_max_energy_usage() * 60 end
+  return proto.energy_usage * 60
 end
 
 -- ============================================================================
@@ -64,9 +67,13 @@ describe("cindra mass driver (prototype shape)", function()
       "it must NOT share the vanilla rocket-building category (no recipe leak)")
     -- The charge recipe (the silo's fixed_recipe) lives in that private category.
     assert.is_not_nil(prototypes.recipe[CHARGE], "the launch-charge recipe must exist")
-    local cats = prototypes.recipe[CHARGE].category
-    -- LuaRecipePrototype exposes the primary category as .category.
-    assert.are.equal(CHARGE_CATEGORY, cats,
+    -- 2.1: LuaRecipePrototype exposes its categories as a LIST (`.categories`);
+    -- there is no scalar `.category` key. Assert the private category is in it.
+    local in_private = false
+    for _, c in pairs(prototypes.recipe[CHARGE].categories) do
+      if c == CHARGE_CATEGORY then in_private = true end
+    end
+    assert.is_true(in_private,
       "the launch charge lives in the private category, so only the driver builds it")
   end)
 

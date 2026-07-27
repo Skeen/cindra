@@ -49,6 +49,11 @@ describe("cindra APS start chain: foundry path pre-researched (no soft-lock)", f
       "the foundry tech (molten-metal recipes) must be pre-researched")
     assert.is_true(force.recipes["cindra-lava"].enabled,
       "manufactured lava must be craftable from the start")
+    -- Since ci-e8a lava is crafted on a dedicated caster, not the foundry. The
+    -- cindra-lava tech unlocks both, so pre-researching it also hands the caster
+    -- (else a Cindra start could research lava but have nothing to craft it in).
+    assert.is_true(force.recipes["cindra-lava-manufacturer"].enabled,
+      "the lava manufacturer (the machine that crafts lava) must be craftable from the start")
     assert.is_true(force.recipes["molten-iron-from-lava"].enabled,
       "the molten-iron recipe (foundry tech) must be available")
   end)
