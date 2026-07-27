@@ -16,15 +16,16 @@ this list is the last resort when no test path exists.
   surface generates; this entry is only for the interactive "it feels like a
   place you can stand" confirmation.
 
-- [ ] **Ice crusher fluid-pipe visuals (§15-4).** *Repro:* build a
-  `cindra-ice-crusher`, run `Ice crushing (water)`, and connect a pipe to its
-  south face. *Look for:* the water output connects and drains cleanly. The
-  crusher reuses the vanilla space-crusher art, which has no built-in pipe-covers
-  sprite for the added output box, so the connection point may look bare (no
-  pipe-cover graphic) even though it functions. Confirm the two south-edge output
-  connections line up with pipes and that the building still reads as a crusher.
-  Bespoke art (pipe stubs) is a later art pass, not a v1 bug. (Functionality —
-  ice → water production and both recipes — is integration-tested.)
+- [ ] **Ice processing two-stage read (§15-4, ci-4or).** *Repro:* build a
+  `cindra-ice-crusher` and a `cindra-ice-melter`; run `Ice crushing (shards)` on
+  the crusher, belt the crushed-ice to the melter, run `Ice melting (water)`, and
+  pipe the melter's water out. *Look for:* the crusher is a clean solid-in/solid-out
+  machine with NO pipe stub (it emits no fluid); the melter reuses the vanilla
+  chemical-plant art, so its pipe connections and fluid read should line up as a
+  chemical plant does. Confirm the chain reads as "grind, then melt" and that the
+  crusher never sprouts a water tap. (Functionality — crusher emits no fluid, melter
+  produces water, both crush recipes, and the end-to-end ice → shards → water chain
+  — is integration-tested.)
 
 - [ ] **Redesigned globe reads FIERY → SANDY → ICY in orbit (ci-hmc).** The
   planet globe was re-themed to the ribbon world: a radiant molten dayside, the
