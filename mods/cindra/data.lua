@@ -54,8 +54,9 @@ require("prototypes.aluminium")
 require("prototypes.electric-heater")
 
 -- §15-11 mass driver: a RESKINNED ROCKET-SILO (ci-o39), gated behind the
--- cindra-orbital-launch tech. A launch consumes an aluminium can + aluminium-powder
--- solid rocket fuel + a shitton of power (petrochemical-free), and the vanilla
+-- cindra-orbital-launch tech. A launch consumes an aluminium can + vanilla rocket-fuel
+-- (minted from aluminium by the "Solid rocket fuel" recipe, ci-519) + a shitton of
+-- power (petrochemical-free), and the vanilla
 -- rocket path delivers cargo to the space platform hub -- no catcher, no runtime
 -- loop. Loads after aluminium (its can/fuel chain reads cindra-aluminium).
 require("prototypes.mass-driver")

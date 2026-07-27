@@ -1,6 +1,7 @@
 -- Proof: the Cindra mass driver (§15-11; DESIGN.md §5, §11) is a RESKINNED
 -- ROCKET-SILO (ci-o39). A launch is built from Cindra's own economy -- an aluminium
--- CAN (cargo container) + aluminium-powder SOLID ROCKET FUEL + a shitton of power,
+-- CAN (cargo container) + VANILLA rocket-fuel minted from aluminium by the "Solid
+-- rocket fuel" recipe (ci-519) + a shitton of power,
 -- all PETROCHEMICAL-FREE -- and cargo is delivered to an orbiting space platform via
 -- the NATIVE vanilla rocket path (no bespoke catcher). Its recipes are GATED behind
 -- the cindra-orbital-launch tech in the folded Cindra science tree.
@@ -20,16 +21,21 @@ local H = require("tests.helpers")
 local DRIVER = "cindra-mass-driver"
 local CAN = "cindra-aluminium-can"
 local POWDER = "cindra-aluminium-powder"
-local FUEL = "cindra-solid-rocket-fuel"
+-- ci-519: NO custom fuel item. The launch propellant IS vanilla rocket-fuel, minted
+-- from aluminium by the "Solid rocket fuel" recipe (recipe name below != its product).
+local ROCKET_FUEL = "rocket-fuel"
+local FUEL_RECIPE = "cindra-solid-rocket-fuel"
 local CHARGE = "cindra-launch-charge"
 local CHARGE_CATEGORY = "cindra-mass-driver-charge"
 local TECH = "cindra-orbital-launch"
 
 -- Vanilla petrochemistry / oil-rocketry inputs a Cindra launch must NEVER need
--- (the whole point of §11: zero oil/coal footprint). Our aluminium-derived fuel
--- (cindra-solid-rocket-fuel) is petrochemical-free and NOT on this list.
+-- (the whole point of §11: zero oil/coal footprint). rocket-fuel is NOT here: it is
+-- the vanilla item, but Cindra MAKES it from aluminium (ci-519), so it is a legal,
+-- petrochemical-free product/ingredient -- what stays banned is the oil route to it
+-- (solid-fuel) and the rest of the vanilla oil-rocketry chain.
 local FORBIDDEN = {
-  ["rocket-fuel"] = true, ["rocket-part"] = true, ["solid-fuel"] = true,
+  ["rocket-part"] = true, ["solid-fuel"] = true,
   ["low-density-structure"] = true, ["processing-unit"] = true,
   ["plastic-bar"] = true, ["sulfuric-acid"] = true, ["sulfur"] = true,
   ["lubricant"] = true, ["petroleum-gas"] = true, ["light-oil"] = true,
@@ -77,13 +83,14 @@ describe("cindra mass driver (prototype shape)", function()
       "the launch charge lives in the private category, so only the driver builds it")
   end)
 
-  it("a launch consumes an aluminium can + solid rocket fuel (the recurring cost)", function()
+  it("a launch consumes an aluminium can + vanilla rocket-fuel (the recurring cost)", function()
     local charge = prototypes.recipe[CHARGE]
     local names = {}
     for _, ing in pairs(charge.ingredients) do names[ing.name] = ing.amount end
     assert.is_not_nil(names[CAN], "the launch charge must consume an aluminium can (cargo container)")
-    assert.is_not_nil(names[FUEL], "the launch charge must consume solid rocket fuel")
-    assert.are.equal(2, #charge.ingredients, "the launch cost is exactly the can + fuel")
+    assert.is_not_nil(names[ROCKET_FUEL],
+      "the launch charge must consume vanilla rocket-fuel (Cindra's aluminium-made propellant, ci-519)")
+    assert.are.equal(2, #charge.ingredients, "the launch cost is exactly the can + rocket-fuel")
   end)
 
   it("costs a SHITTON of power: a huge crafting draw over a long craft", function()
@@ -121,11 +128,44 @@ end)
 -- The launch chain: aluminium -> can / powder -> fuel, all petrochemical-free
 -- ============================================================================
 describe("cindra mass driver (launch chain is petrochemical-free)", function()
-  it("adds the can, powder, and solid-fuel items + recipes", function()
-    for _, n in ipairs({ CAN, POWDER, FUEL }) do
+  it("adds the can + powder items and the can/powder/fuel recipes", function()
+    -- Items: can + powder are Cindra-exclusive. There is deliberately NO custom fuel
+    -- item -- the propellant is the vanilla rocket-fuel item.
+    for _, n in ipairs({ CAN, POWDER }) do
       assert.is_not_nil(prototypes.item[n], n .. " item must exist")
       assert.is_not_nil(prototypes.recipe[n], n .. " recipe must exist")
     end
+    assert.is_not_nil(prototypes.recipe[FUEL_RECIPE], "the Solid rocket fuel recipe must exist")
+    assert.is_not_nil(prototypes.item[ROCKET_FUEL], "vanilla rocket-fuel item must exist")
+  end)
+
+  -- === ci-519: the core requirement ==========================================
+  it("the 'Solid rocket fuel' recipe PRODUCES vanilla rocket-fuel from aluminium", function()
+    local fuel = prototypes.recipe[FUEL_RECIPE]
+    assert.is_not_nil(fuel, "the Solid rocket fuel recipe must exist")
+
+    -- Output is the VANILLA rocket-fuel item, not a custom one.
+    local makes_vanilla = false
+    for _, p in pairs(fuel.products) do
+      if p.name == ROCKET_FUEL then makes_vanilla = true end
+    end
+    assert.is_true(makes_vanilla,
+      "the Solid rocket fuel recipe must output vanilla rocket-fuel (ci-519)")
+
+    -- Input traces back to Cindra aluminium: fuel <- powder <- aluminium.
+    assert.are.equal(POWDER, fuel.ingredients[1].name,
+      "Solid rocket fuel is made from aluminium powder (Cindra's route to rocket fuel)")
+    assert.are.equal("cindra-aluminium", prototypes.recipe[POWDER].ingredients[1].name,
+      "aluminium powder is ground from Cindra aluminium (so rocket fuel traces to aluminium)")
+  end)
+
+  it("NO custom solid-fuel item prototype exists (ci-519)", function()
+    -- The earlier design added a `cindra-solid-rocket-fuel` ITEM. It must be gone:
+    -- the name now belongs only to the RECIPE, producing the vanilla item.
+    assert.is_nil(prototypes.item["cindra-solid-rocket-fuel"],
+      "no custom solid-rocket-fuel item type may exist -- rocket fuel is the vanilla item")
+    assert.is_not_nil(prototypes.recipe["cindra-solid-rocket-fuel"],
+      "cindra-solid-rocket-fuel is now a RECIPE (producing vanilla rocket-fuel), not an item")
   end)
 
   it("the launch consumables trace back to Cindra aluminium, not chemistry", function()
@@ -136,12 +176,12 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
     -- powder <- aluminium ; fuel <- powder  (so the propellant is native metal)
     assert.are.equal("cindra-aluminium", prototypes.recipe[POWDER].ingredients[1].name,
       "aluminium powder is ground from Cindra aluminium")
-    assert.are.equal(POWDER, prototypes.recipe[FUEL].ingredients[1].name,
-      "solid rocket fuel is made from aluminium powder (no oil/coal)")
+    assert.are.equal(POWDER, prototypes.recipe[FUEL_RECIPE].ingredients[1].name,
+      "rocket fuel is made from aluminium powder (no oil/coal)")
   end)
 
   it("nothing the launch touches uses vanilla petrochemistry/oil-rocketry", function()
-    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL, CHARGE }) do
+    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL_RECIPE, CHARGE }) do
       local recipe = prototypes.recipe[rname]
       for _, ing in pairs(recipe.ingredients) do
         assert.is_falsy(FORBIDDEN[ing.name],
@@ -151,7 +191,7 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
   end)
 
   it("all launch recipes are GATED (disabled by default, not free)", function()
-    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL, CHARGE }) do
+    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL_RECIPE, CHARGE }) do
       assert.is_false(prototypes.recipe[rname].enabled,
         rname .. " recipe must be disabled by default -- unlocked by research, not free")
     end
@@ -212,7 +252,7 @@ describe("cindra mass driver (tech gating)", function()
     end
     -- Unlocks the driver + the whole launch-fuel chain (the charge is the silo's
     -- fixed_recipe -- auto-crafted, so it is NOT and need NOT be a tech unlock).
-    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL }) do
+    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL_RECIPE }) do
       assert.is_true(unlocked[rname], "the tech must unlock the " .. rname .. " recipe")
     end
     assert.is_nil(unlocked["cindra-mass-driver-catcher"],
