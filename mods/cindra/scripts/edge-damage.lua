@@ -15,6 +15,7 @@
 -- player is the teacher here).
 
 local ribbon = require("scripts.ribbon")
+local config = require("scripts.config")
 
 local M = {}
 
@@ -29,20 +30,6 @@ M.DAMAGE_TYPE = {
   heat = "cindra-heat",
   cold = "cindra-cold",
 }
-
--- Read the ribbon-geometry tuning from mod settings so live balancing (the
--- settings mirror scripts/ribbon.lua's DEFAULTS) drives the runtime damage too.
--- Returns nil if settings aren't present (tests call sweep with an explicit cfg).
-local function settings_cfg()
-  local s = settings.startup
-  if not s or not s["cindra-ribbon-safe-half-width"] then return nil end
-  return {
-    safe_half_width = s["cindra-ribbon-safe-half-width"].value,
-    lethal_at = s["cindra-ribbon-lethal-at"].value,
-    wall_at = s["cindra-ribbon-wall-at"].value,
-    max_dps = s["cindra-ribbon-max-dps"].value,
-  }
-end
 
 -- HP to inflict on a character at ribbon coordinate `y` over `interval_ticks`
 -- ticks, plus the concrete damage-type prototype name. Pure helper (no game.*):
@@ -60,11 +47,13 @@ end
 function M.sweep(surface, interval_ticks, cfg)
   if not (surface and surface.valid) or surface.name ~= "cindra" then return end
   interval_ticks = interval_ticks or M.DAMAGE_INTERVAL
-  cfg = cfg or settings_cfg()
+  cfg = cfg or config.ribbon_cfg()
 
   for _, char in pairs(surface.find_entities_filtered({ type = "character" })) do
     if char.valid then
-      local amount, dtype = M.damage_for(char.position.y, interval_ticks, cfg)
+      -- Read the perpendicular (hot-cold) coordinate off the axis so damage is
+      -- correct in BOTH ribbon orientations (v2).
+      local amount, dtype = M.damage_for(ribbon.perp(char.position, cfg), interval_ticks, cfg)
       if amount > 0 and dtype then
         -- The character's own force + resistances apply, so heat/cold-shielded
         -- gear mitigates the damage (edge-pushing), never zeroing the geography.

@@ -146,6 +146,27 @@ describe("cindra ice processing", function()
       "ice processing is gated behind discovering Cindra")
   end)
 
+  it("minable ice yields ice chunks that the crusher accepts (closed loop, §15 v2 item 8)", function()
+    -- The nightside ice field is MINABLE and drops the vanilla `ice` item (Space
+    -- Age's chunk-of-ice raw). The crusher's recipes consume exactly that item, so
+    -- mining -> crushing -> water is one unbroken chain.
+    local ore = prototypes.entity["cindra-ice"]
+    assert.is_not_nil(ore, "the cindra-ice resource must exist")
+    assert.are.equal("resource", ore.type, "it is a mineable resource")
+    local mine = ore.mineable_properties
+    assert.is_not_nil(mine, "the ice resource must be mineable")
+    assert.is_true(mine.minable, "the ice field can be mined")
+    local yields_ice = false
+    for _, p in pairs(mine.products or {}) do
+      if p.name == "ice" then yields_ice = true end
+    end
+    assert.is_true(yields_ice, "mining the ice field yields the `ice` chunk item")
+
+    -- And that item is exactly what the crusher consumes.
+    assert.is_true((ingredients(R_WATER)["ice"] or 0) > 0, "the water recipe crushes ice chunks")
+    assert.is_true((ingredients(R_CALCITE)["ice"] or 0) > 0, "the calcite recipe crushes ice chunks")
+  end)
+
   it("crushes ice into water on Cindra when powered (end-to-end runtime)", function()
     local s = H.cindra_surface()
     -- A cheat power source + a substation so the crusher shares an electric

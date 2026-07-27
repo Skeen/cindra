@@ -43,10 +43,10 @@ if script.active_mods["factorio-test"] then
     "tests/test_ice_processing",
     "tests/test_lava",
     "tests/test_cryo_alloy",
-    "tests/test_aluminium",
     "tests/test_edge_damage",
     "tests/test_worldgen",
     "tests/test_building_heat",
+    "tests/test_feedback",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
     -- Power system (§15 items 7-9), integrated from the flare-poc (ci-zg3):

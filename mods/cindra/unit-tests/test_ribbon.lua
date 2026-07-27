@@ -72,10 +72,22 @@ test("damage ramps 0 -> max then holds", function()
   assert_eq(200, lethal, "peak dps default (§16)")
 end)
 
-test("damage ramp is exactly linear at the midpoint", function()
-  -- safe=24, lethal=96, max=200: midpoint distance 60 -> t = (60-24)/(96-24) = 0.5
-  local mid = ribbon.damage_per_second(60)
-  assert_eq(100, mid, "half-way through the margin is half the peak dps")
+test("damage ramp is a SMOOTH ease-in (starts slow, ramps up with depth)", function()
+  -- safe=24, lethal=96, max=200: midpoint distance 60 -> t = 0.5, dps = 200*0.5^2 = 50.
+  assert_eq(50, ribbon.damage_per_second(60), "ease-in: halfway is a QUARTER of peak, not half")
+  -- Strictly increasing with depth across the whole margin (both sides), and it
+  -- accelerates (later steps add more than earlier ones -> "starts slow").
+  local prev, prev_step = 0, -1
+  for d = 25, 96 do
+    local dps = ribbon.damage_per_second(d)
+    assert_true(dps > prev, "fire dps strictly increases with depth at d=" .. d)
+    local step = dps - prev
+    if d > 30 then assert_true(step >= prev_step - 1e-9, "ramp accelerates (ease-in) at d=" .. d) end
+    prev, prev_step = dps, step
+  end
+  -- Symmetric on the cold side: freeze also strictly increases toward the edge.
+  assert_true(ribbon.damage_per_second(-96) > ribbon.damage_per_second(-60), "freeze ramps too")
+  assert_true(ribbon.damage_per_second(-60) > ribbon.damage_per_second(-30), "freeze gentle near entry")
 end)
 
 test("hard-wall backstop bounds the ribbon", function()
@@ -126,6 +138,59 @@ test("solar falloff respects a config override (tunable, still clamped)", functi
   assert_eq(0.1, ribbon.sunward_factor(-10, cfg), "below the zero point: floor")
   local mid = ribbon.sunward_factor(24, cfg)
   assert_true(mid > 0.1 and mid < 1.0, "halfway ramps between floor and full")
+end)
+
+-- Orientation (v2 item 1): the perp/along accessors are the single place that
+-- maps a world position to the ribbon axes, and MUST be correct in BOTH layouts.
+
+test("east-west orientation: perpendicular axis is Y, long axis is X", function()
+  local cfg = { orientation = "east-west" }
+  local pos = { x = 300, y = -40 }
+  assert_eq(-40, ribbon.perp(pos, cfg), "perp reads Y east-west")
+  assert_eq(300, ribbon.along(pos, cfg), "along reads X east-west")
+  -- Default orientation is east-west when unspecified.
+  assert_eq(-40, ribbon.perp(pos), "default orientation reads Y")
+end)
+
+test("north-south orientation: perpendicular axis is X, long axis is Y", function()
+  local cfg = { orientation = "north-south" }
+  local pos = { x = -40, y = 300 }
+  assert_eq(-40, ribbon.perp(pos, cfg), "perp reads X north-south")
+  assert_eq(300, ribbon.along(pos, cfg), "along reads Y north-south")
+end)
+
+test("the SAME perp value gives the SAME axis result in either orientation", function()
+  -- A point 40 tiles sunward is identical physics regardless of orientation;
+  -- only which world coordinate carries it changes.
+  local ew = ribbon.perp({ x = 999, y = 40 }, { orientation = "east-west" })
+  local ns = ribbon.perp({ x = 40, y = 999 }, { orientation = "north-south" })
+  assert_eq(ew, ns, "both extract perp = 40")
+  assert_eq(ribbon.zone(ew), ribbon.zone(ns), "identical zone")
+end)
+
+-- Asymmetric per-side depths (v2 item 7: hot-zone / cold-zone depth sliders).
+
+test("per-side lethal/wall overrides make hot and cold zones differ", function()
+  -- Shallow hot zone, deep cold zone: y=+50 is already lethal-hot, but the same
+  -- distance nightward (-50) is still only a warning.
+  local cfg = {
+    safe_half_width = 24,
+    hot_lethal_at = 40, hot_wall_at = 60,
+    cold_lethal_at = 96, cold_wall_at = 200,
+  }
+  assert_eq("hot_lethal", ribbon.zone(50, cfg), "shallow hot zone: 50 is lethal")
+  assert_eq("cold_warn", ribbon.zone(-50, cfg), "deep cold zone: -50 still a warning")
+  assert_true(ribbon.past_wall(60, cfg), "sunward wall at 60")
+  assert_true(not ribbon.past_wall(-60, cfg), "nightward wall much further out")
+  assert_true(ribbon.past_wall(-200, cfg), "nightward wall at 200")
+end)
+
+test("temperature saturates at the per-side wall, not the symmetric default", function()
+  local cfg = { hot_wall_at = 60, cold_wall_at = 200 }
+  assert_eq(ribbon.temperature(60, cfg), ribbon.temperature(500, cfg),
+    "sunward saturates at the shallow hot wall")
+  assert_true(ribbon.temperature(-60, cfg) > ribbon.temperature(-200, cfg),
+    "nightward keeps cooling out to the deep cold wall")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

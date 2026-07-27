@@ -161,5 +161,49 @@ test("every *-description has a sibling *-name (no orphan descriptions)", functi
   assert_true(#orphans == 0, "descriptions with no matching name: " .. table.concat(orphans, ", "))
 end)
 
+-- Every mod SETTING must have locale, or the settings GUI renders raw keys like
+-- "mod-setting-name.cindra-...". Parse settings.lua and assert each setting has a
+-- [mod-setting-name] + [mod-setting-description] entry, and each string-setting
+-- value has a [string-mod-setting] label. (Guards the bug in hq-wisp-lesr6.)
+local function parse_settings()
+  local src = read_file("settings.lua")
+  -- Split into per-setting blocks at each `type = "..."` so a block's `type`,
+  -- `name`, and any `allowed_values` are read together.
+  local settings = {}
+  for block in src:gmatch("type%s*=%s*\"[%w%-]-setting\".-order%s*=") do
+    local stype = block:match("type%s*=%s*\"([%w%-]+)\"")
+    local name = block:match("name%s*=%s*\"([%w%-]+)\"")
+    if name then
+      local values = {}
+      local av = block:match("allowed_values%s*=%s*{(.-)}")
+      if av then for v in av:gmatch("\"([%w%-]+)\"") do values[#values + 1] = v end end
+      settings[#settings + 1] = { name = name, type = stype, values = values }
+    end
+  end
+  return settings
+end
+
+test("every mod setting has name + description locale (no raw keys in the GUI)", function()
+  local settings = parse_settings()
+  assert_true(#settings >= 6, "expected to parse the worldgen settings (got " .. #settings .. ")")
+  local missing = {}
+  for _, s in ipairs(settings) do
+    if not (cfg["mod-setting-name"] and cfg["mod-setting-name"][s.name]) then
+      missing[#missing + 1] = "mod-setting-name." .. s.name
+    end
+    if not (cfg["mod-setting-description"] and cfg["mod-setting-description"][s.name]) then
+      missing[#missing + 1] = "mod-setting-description." .. s.name
+    end
+    -- Dropdown (string-setting) values each need a [string-mod-setting] label.
+    for _, v in ipairs(s.values) do
+      local key = s.name .. "-" .. v
+      if not (cfg["string-mod-setting"] and cfg["string-mod-setting"][key]) then
+        missing[#missing + 1] = "string-mod-setting." .. key
+      end
+    end
+  end
+  assert_true(#missing == 0, "settings missing locale: " .. table.concat(missing, ", "))
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

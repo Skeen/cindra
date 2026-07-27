@@ -58,4 +58,24 @@ describe("ribbon temperature axis (§4)", function()
     -- Unspecified keys fall back to defaults.
     assert.are.equal("safe", ribbon.zone(0, cfg))
   end)
+
+  it("maps positions to the perpendicular axis per orientation (v2)", function()
+    -- East-west: the ribbon runs left-right, so the hot-cold axis is Y.
+    assert.are.equal(40, ribbon.perp({ x = 500, y = 40 }, { orientation = "east-west" }))
+    assert.are.equal(500, ribbon.along({ x = 500, y = 40 }, { orientation = "east-west" }))
+    -- North-south: the ribbon runs top-bottom, so the hot-cold axis is X.
+    assert.are.equal(40, ribbon.perp({ x = 40, y = 500 }, { orientation = "north-south" }))
+    assert.are.equal(500, ribbon.along({ x = 40, y = 500 }, { orientation = "north-south" }))
+    -- Default (no orientation) is east-west.
+    assert.are.equal(40, ribbon.perp({ x = 500, y = 40 }))
+  end)
+
+  it("supports asymmetric hot vs cold zone depths (v2 sliders)", function()
+    local cfg = { safe_half_width = 24, hot_lethal_at = 40, hot_wall_at = 60,
+                  cold_lethal_at = 96, cold_wall_at = 200 }
+    assert.are.equal("hot_lethal", ribbon.zone(50, cfg), "shallow hot zone")
+    assert.are.equal("cold_warn", ribbon.zone(-50, cfg), "deep cold zone")
+    assert.is_true(ribbon.past_wall(60, cfg), "sunward wall is shallow")
+    assert.is_false(ribbon.past_wall(-60, cfg), "nightward wall is deep")
+  end)
 end)

@@ -34,9 +34,16 @@ local function cindra_map_gen()
   local mg = planet_map_gen.nauvis()
 
   -- Keep only terrain-shaping controls; drop every ore, enemy, tree, rock, cliff.
+  -- Cindra's stone + ice DENSITY are exposed as world-gen-screen sliders via
+  -- dedicated `resource` autoplace-controls (§15 v2 item 7): listing them here
+  -- makes their Frequency/Size/Richness sliders appear on the new-game screen.
+  -- Cindra places its resources by script (scripts/worldgen.lua), which READS the
+  -- chosen slider values -- so nothing binds vanilla-autoplace noise to them.
   mg.autoplace_controls = {
     ["water"] = {},
     ["starting_area_moisture"] = {},
+    ["cindra-stone"] = {},
+    ["cindra-ice"] = {},
   }
   mg.default_enable_all_autoplace_controls = false
 

@@ -7,6 +7,32 @@ this list is the last resort when no test path exists.
 
 ## Pending
 
+- [ ] **Themed terrain gradient reads hot -> cold (worldgen v2, §15 item 2).**
+  *Repro:* `./play.sh` onto Cindra and walk perpendicular to the ribbon in both
+  orientations (mod setting *Ribbon: orientation* = east-west / north-south).
+  *Look for:* a legible sequence from the temperate seam outward -- sand, glowing
+  molten rock, then the lava ocean sunward; frosted icy ground then the ice wall
+  nightward -- and the map voids to a hard edge past each wall. The band tiles are
+  vanilla placeholders (volcanic-soil / sand / volcanic-cracks-hot / lava /
+  brash-ice / ice-rough); bespoke Cindra tile art is a follow-up (ci-70r). The
+  band *geometry* and per-tile placement are integration-tested in both
+  orientations; this entry is only the "does it read as a gradient" look.
+
+- [ ] **Heat/cold feedback banner is unmistakable (worldgen v2, §15 item 4).**
+  *Repro:* walk a character into the sunward margin, then the nightward margin.
+  *Look for:* a warm "Overheating" banner while taking heat damage and a cold
+  "Freezing" banner while taking cold damage, each clearing the instant you step
+  back to the ribbon. v1 is a coloured GUI banner placeholder; a richer
+  full-screen tint / flame shader is a follow-up (ci-7tl). Show/hide logic is
+  integration-tested against a live player; this entry is the visual feel.
+
+- [ ] **Ice wall / lava ocean feel impassable (worldgen v2, §15 item 5).**
+  *Repro:* push nightward into the ice wall and sunward into the lava ocean.
+  *Look for:* the lava ocean blocks walking (vanilla lava tile) and the void past
+  each wall is a hard edge; the nightward ice wall stops you via lethal cold + the
+  void backstop rather than a visibly-impassable mountain tile (no such vanilla
+  tile exists -- a bespoke impassable ice-mountain tile is a follow-up, ci-70r).
+
 - [ ] **Reach and stand on Cindra (v1 smoke test).** *Repro:* `./play.sh` → New
   Game (with `cindra-dev-default` enabled, Any-Planet-Start lands on Cindra), or
   research `planet-discovery-cindra` from an existing save and travel from
@@ -127,16 +153,6 @@ this list is the last resort when no test path exists.
   panel array cooking sunward-first during an over-built flare, and recovering
   once disposal is added. Panels currently have no bespoke "overheating" visual
   (just the health bar); an emissive damage cue is a follow-up art pass.
-
-- [ ] **Aluminium chain uses placeholder art (ci-txh).** The alumina item (calcite
-  icon tinted white), the aluminium item (steel-plate icon tinted cool silver), and
-  the electrolysis cell (reused vanilla electric-furnace sprite + icon) are v1
-  placeholders. The chain itself (native stone+calcite → alumina → ruinous-power
-  electrolysis → aluminium, the cell out-drawing the foundry, capacitor demand,
-  gating, and a powered cell actually smelting) is fully integration-tested
-  (`test_aluminium`). *Look for:* the two tinted icons read as distinct materials
-  and the cell reads as its own building, not a stray electric furnace. Bespoke art
-  is a filed follow-up, not a v1 bug.
 
 - [ ] **Power buildings reuse vanilla-derived art (§15-9).** The solar panel,
   capacitor, molten-salt battery, and dissipator use the delivered first-pass

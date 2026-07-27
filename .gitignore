@@ -22,3 +22,6 @@ __pycache__/
 .claude/
 .runtime/
 CLAUDE.md
+
+# Isolated per-worktree factorio-test data dir (radrat).
+.test-data-dir/

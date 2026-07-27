@@ -21,6 +21,7 @@
 -- other planet.
 
 local ribbon = require("scripts.ribbon")
+local config = require("scripts.config")
 
 local M = {}
 
@@ -68,9 +69,10 @@ local function freeze_temp(cfg)
   return M.DEFAULT_FREEZE_TEMP
 end
 
--- Pure: is the axis at coordinate `y` cold enough to freeze unheated machines?
-function M.is_cold(y, cfg)
-  return ribbon.temperature(y, cfg) <= freeze_temp(cfg)
+-- Pure: is the axis at perpendicular coordinate `p` cold enough to freeze
+-- unheated machines?
+function M.is_cold(p, cfg)
+  return ribbon.temperature(p, cfg) <= freeze_temp(cfg)
 end
 
 -- Is there an active heat source within HEAT_RADIUS of `entity`?
@@ -97,11 +99,13 @@ end
 -- (place a heat source in range and the damage stops on the next sweep).
 function M.sweep(surface, cfg, interval_ticks)
   if not is_cindra(surface) then return end
+  cfg = cfg or config.ribbon_cfg()
   interval_ticks = interval_ticks or M.FREEZE_INTERVAL
   local amount = M.FREEZE_DPS * (interval_ticks / 60)
 
   for _, m in pairs(surface.find_entities_filtered({ type = M.FREEZABLE_TYPES })) do
-    if m.valid and M.is_cold(m.position.y, cfg) and not M.is_heated(surface, m) then
+    -- Perpendicular coordinate off the axis: correct in both orientations (v2).
+    if m.valid and M.is_cold(ribbon.perp(m.position, cfg), cfg) and not M.is_heated(surface, m) then
       m.damage(amount, m.force, M.COLD_DAMAGE_TYPE)
     end
   end

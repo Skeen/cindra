@@ -20,6 +20,20 @@
 
 local util = require("util")
 
+-- Autoplace-control prototypes for stone + ice (§15 v2 item 7, hq-wisp-j6olv).
+-- These make STONE and ICE density show as Frequency / Size / Richness SLIDERS on
+-- the NEW-GAME world-gen screen (a `resource`-category control renders those
+-- sliders). Cindra's resources are placed by scripts/worldgen.lua (not vanilla
+-- autoplace), so nothing binds its noise to these controls; instead worldgen
+-- READS the chosen slider values at runtime (surface.map_gen_settings
+-- .autoplace_controls) and scales placement chance + node richness by them.
+-- They only appear on the world-gen screen because planet.lua lists them in
+-- Cindra's map-gen `autoplace_controls`.
+data:extend({
+  { type = "autoplace-control", name = "cindra-stone", category = "resource", richness = true, order = "a[cindra]-a[stone]" },
+  { type = "autoplace-control", name = "cindra-ice",   category = "resource", richness = true, order = "a[cindra]-b[ice]" },
+})
+
 -- The deep-nightside volatiles the player can harvest (frozen gases). A raw
 -- harvestable, parallel to `ice`; the optional local-chemistry recipes that turn
 -- it into carbon/CO2 (§11) are the mechanics track's to add. Placeholder icon
@@ -67,11 +81,14 @@ data:extend({
 -- Bootstrap rocks: scattered, hand-gatherable, FINITE (a mined simple-entity is
 -- destroyed, so it can never become a per-craft supply of the main loop, per the
 -- §6 no-soft-lock rule). Cloned from the vanilla huge-rock so it reads as a rock
--- pile, but re-mined for CINDRA: NO coal (this planet has none), yielding stone
--- plus a small trickle of tungsten ore (Vulcanus-legacy metal, explicitly
--- accepted for the bootstrap in §5). The exact metal item/amount is a
--- bootstrap-balance decision (§15-13); worldgen only guarantees the rock exists,
--- is finite, and drops a landing-tier material.
+-- pile, but re-mined for CINDRA: it drops stone, a small trickle of tungsten ore
+-- (Vulcanus-legacy metal, §5), AND a SMALL amount of COAL. Cindra has NO mineable
+-- coal patch anywhere (no coal autoplace) -- the ONLY coal is this finite,
+-- hand-gathered bootstrap trickle. That finite coal seeds the foundry bootstrap
+-- (nitro ci-arw: coal -> a little lubricant -> the first foundry) without ever
+-- becoming a renewable coal supply. The exact amounts are a bootstrap-balance
+-- decision (§15-13, coordinated with ci-arw); worldgen guarantees the rock
+-- exists, is finite, and drops landing-tier stone + metal + a spark of coal.
 local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
 rock.name = "cindra-bootstrap-rock"
 rock.autoplace = nil            -- scattered by scripts/worldgen.lua near the terminator
@@ -83,6 +100,8 @@ rock.minable = {
   results = {
     { type = "item", name = "stone", amount_min = 12, amount_max = 24 },
     { type = "item", name = "tungsten-ore", amount_min = 2, amount_max = 5 },
+    -- Finite bootstrap coal: small, rock-only, never a patch. (tune, w/ ci-arw)
+    { type = "item", name = "coal", amount_min = 1, amount_max = 3 },
   },
 }
 data:extend({ rock })

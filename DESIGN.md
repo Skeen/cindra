@@ -40,32 +40,49 @@ into productive sinks, storage, or safe waste.
 
 ## 3. Geography & the ribbon (§4) — IMPLEMENTED (item 1)
 
-The map is a 1D **ribbon**: long east–west along the terminator (X axis), shallow
-perpendicular (Y axis = the sunward–nightward temperature axis). Expansion is
-mostly lateral; scarcity is on the perpendicular axis.
+The map is a 1D **ribbon**: long along the terminator, shallow perpendicular (the
+sunward–nightward temperature axis). Expansion is mostly lateral; scarcity is on
+the perpendicular axis.
+
+**Orientation (worldgen v2):** the ribbon's long axis is a mod setting —
+`east-west` (default: perpendicular axis = Y) or `north-south` (perpendicular axis
+= X). `ribbon.perp(position)` / `ribbon.along(position)` are the **only** place
+that maps a world position to the axes, so every downstream system (terrain,
+damage, resources, feedback) reads the same perpendicular coordinate in both
+orientations — no code hard-codes x/y.
 
 `mods/cindra/scripts/ribbon.lua` is the **single source of truth** for the
-hot–cold axis. It is a pure module (no `game.*` / `prototypes.*`) mapping a Y
-coordinate to:
+hot–cold axis. It is a pure module (no `game.*` / `prototypes.*` / `settings.*`)
+mapping a perpendicular coordinate `p` (and, via the accessors, a position +
+orientation) to:
 
-- **temperature(y)** — °C, `temp_center` (25) at Y=0, rising linearly to
+- **temperature(p)** — °C, `temp_center` (25) at `p`=0, rising linearly to
   `temp_hot_max` (1500) sunward and falling to `temp_cold_min` (−270) nightward,
-  saturating at the wall.
-- **zone(y)** — `safe` | `hot_warn` | `hot_lethal` | `cold_warn` | `cold_lethal`.
-- **damage_per_second(y)** — 0 inside the safe band, ramping 0→`max_dps` (200)
+  saturating at the per-side wall.
+- **zone(p)** — `safe` | `hot_warn` | `hot_lethal` | `cold_warn` | `cold_lethal`.
+- **damage_per_second(p)** — 0 inside the safe band, ramping 0→`max_dps` (200)
   across the margin, saturating at the lethal edge. Returns the matching damage
   type (`heat` sunward, `cold` nightward).
-- **past_wall(y)** — the hard-wall backstop bounding the playable ribbon.
+- **past_wall(p)** — the hard-wall backstop bounding the playable ribbon.
 
-Band layout, from centre outward on **each** side (all `(tune)`, mirrored in mod
-settings so they're editable without touching Lua):
+Band layout, from centre outward on **each** side. The hot and cold zones can be
+tuned to **different depths** (per-side `hot_*` / `cold_*` boundaries); the table
+shows the symmetric defaults (all `(tune)`, driven by the mod-setting sliders:
+orientation, playable half-width, hot-zone depth, cold-zone depth):
 
-| Band | Distance (tiles) | Effect |
-|---|---|---|
-| Safe ribbon | `|Y| ≤ 24` | temperate, no damage |
-| Margin | `24 < |Y| < 96` | damage ramps 0→max (survivable briefly with gear) |
-| Lethal deep edge | `|Y| ≥ 96` | full damage; best edge resources live here |
-| Hard wall | `|Y| ≥ 128` | impassable backstop (§15-2) |
+| Band | Distance (tiles) | Terrain tile (placeholder) | Effect |
+|---|---|---|---|
+| Temperate ribbon | `|p| ≤ 24` | volcanic-soil | no damage; resources OK |
+| Sand / icy margin | `24 < |p| < 96` | sand-1 / brash-ice | damage ramps 0→max; resources OK |
+| Molten rock / ice wall | `96 ≤ |p| < 128` | volcanic-cracks-hot, lava / ice-rough | full damage; **no resources** |
+| Hard wall (death zone) | `|p| ≥ 128` | out-of-map | impassable backstop |
+
+The sunward lethal band splits into **molten rock** (inner) then the impassable
+**lava ocean** (outer, vanilla lava tile) — fire damage across both prevents
+reaching/pumping the free lava (the economy must *manufacture* lava). The
+nightward lethal band is the **ice wall** (icy mountain range); beyond each wall
+is the out-of-map **death zone**. The pure gradient geometry lives in
+`scripts/terrain.lua` (unit-tested); `scripts/worldgen.lua` paints it per chunk.
 
 **Chosen edge model:** Implementation **A** (gradient ticking damage) as the
 teacher, plus **B** (hard wall) as the extreme-edge backstop, per the spec's
@@ -73,15 +90,23 @@ recommendation — both **IMPLEMENTED (item 2)**:
 
 - **Player damage** — `scripts/edge-damage.lua` reads `ribbon.damage_per_second`
   each sweep and applies it to every character on the Cindra surface as
-  `cindra-heat` (sunward) or `cindra-cold` (nightward). Base ships no heat/cold
-  damage type, so both are new prototypes in `prototypes/damage-types.lua`;
-  `ribbon.lua` stays pure and returns the *semantic* kind, mapped to the concrete
-  prototype at application time. Character resistances (gear) mitigate, never
+  `cindra-heat` (sunward) or `cindra-cold` (nightward). The ramp is a **smooth
+  ease-in** (t², gentle at the zone entry, accelerating continuously with depth to
+  the lethal edge, strictly increasing) so edge-pushing is a telegraphed, graded
+  risk on both sides. Base ships no heat/cold damage type, so both are new
+  prototypes in `prototypes/damage-types.lua`; `ribbon.lua` stays pure and returns
+  the *semantic* kind, mapped to the concrete prototype at application time.
+  Character resistances (gear) mitigate, never
   zero, the geography — that is edge-pushing.
-- **Hard wall** — `scripts/worldgen.lua` voids every tile at/beyond `wall_at`
-  (`out-of-map`) as chunks generate, so the playable map is a finite-width ribbon:
-  constrained on the Y axis, infinite east–west. The damage ramp teaches; the void
-  is the bulletproof floor.
+- **Hard wall** — `scripts/worldgen.lua` voids every tile at/beyond the per-side
+  wall (`out-of-map`) as chunks generate, so the playable map is a finite-width
+  ribbon: constrained on the perpendicular axis, infinite along it. The damage
+  ramp teaches; the void is the bulletproof floor.
+- **Player feedback (worldgen v2, item 4)** — `scripts/damage-feedback.lua` shows
+  a warm "Overheating" / cold "Freezing" screen banner while a character is in a
+  hot / cold band on Cindra, cleared the instant it steps back to safety, so the
+  cause of the damage is unmistakable. (v1 is a coloured GUI banner; a full-screen
+  tint/shader is a follow-up.)
 - **Nightside building-heat** — `scripts/building-heat.lua` ticks `cindra-cold`
   damage on unheated machines past the cold threshold (axis temperature <
   `freeze_temp`, default −30 °C). A heat source (heat pipe / reactor / heat
@@ -110,26 +135,40 @@ recommendation — both **IMPLEMENTED (item 2)**:
 ## 4a. Resources & runtime worldgen — IMPLEMENTED (item 3)
 
 The planet strips vanilla autoplace, so Cindra's resources are placed at runtime
-by `scripts/worldgen.lua` (`on_chunk_generated`), keyed to the ribbon Y axis. The
-*pure* band geometry lives in `scripts/resource-field.lua` (no `game.*`), so the
-placement is deterministic and unit-testable; placement uses a coordinate hash
-(never `math.random`) so it is reproducible and multiplayer-safe.
+by `scripts/worldgen.lua` (`on_chunk_generated`), keyed to the ribbon perpendicular
+axis (via `ribbon.perp`, correct in both orientations). The *pure* band geometry
+lives in `scripts/resource-field.lua` (no `game.*`), so the placement is
+deterministic and unit-testable; placement uses a coordinate hash (never
+`math.random`) so it is reproducible and multiplayer-safe.
+
+**Worldgen v2 resource rule (item 6):** resources spawn **ONLY in the survivable
+playable band** — never in molten rock, the lava ocean, the ice wall, or the death
+zone. The best of everything therefore sits at the *playable edge* (the deepest
+survivable slice), preserving the edge-pushing reward without letting nodes hide
+in lethal terrain. Stone + ice **density/size are new-game WORLD-GEN-SCREEN
+sliders** (Frequency/Size/Richness), driven by the `cindra-stone` / `cindra-ice`
+`autoplace-control` prototypes wired into the planet's map gen; `scripts/worldgen
+.lua` reads the chosen values off `surface.map_gen_settings.autoplace_controls`.
+`p` is the perpendicular coordinate.
 
 | Resource (`cindra-*`) | Band on the axis | Richness | Yields |
 |---|---|---|---|
-| stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
-| ice | nightside (`Y < −safe`) | richer deeper (colder) | `ice` |
-| volatiles | deep cold-lethal (`Y ≤ −lethal_at`) | richest deepest | `cindra-volatiles` |
-| bootstrap rock | terminator scatter (`|Y| ≤ safe`) | n/a (finite scatter) | `stone` + `tungsten-ore` |
+| stone | temperate + sunward sand (`−safe ≤ p < hot_lethal`) | richest toward the HOT playable edge | `stone` |
+| ice | nightward icy margin (`−cold_lethal < p < −safe`) | richer toward the COLD playable edge | `ice` (chunk) |
+| volatiles | deepest survivable icy slice (just inside `−cold_lethal`) | richest at the cold edge | `cindra-volatiles` |
+| bootstrap rock | terminator scatter (`|p| ≤ safe`) | n/a (finite scatter) | `stone` + `tungsten-ore` + a little `coal` |
 
-The best of everything sits at the lethal margins (edge-pushing reward). Every
-resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
+Every resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
 `huge-rock`); the shared vanilla prototypes are **never mutated**. Bootstrap rocks
 are mined simple-entities (destroyed on mining → inherently finite, never a
 per-craft supply, per the §6 no-soft-lock rule); tungsten (Vulcanus-legacy) is the
-spec-endorsed landing metal. **Role only lives here** — the recipes that *consume*
-these (ice processing §15-4, lava §15-5, chemistry §11) belong to the mechanics
-track.
+spec-endorsed landing metal, and each rock also drops a **little finite COAL** —
+Cindra has NO mineable coal patch anywhere, so this bootstrap trickle is the only
+coal (it seeds the foundry bootstrap, `ci-arw`). **Minable ice (item 8):** the ice field is mineable
+and drops the vanilla `ice` item (Space Age's chunk-of-ice raw) that the ice
+crusher (§15-4) consumes — one unbroken mine → crush → water loop. **Role only
+lives here** — the recipes that *consume* these (ice processing §15-4, lava §15-5,
+chemistry §11) belong to the mechanics track.
 
 ## 4b. File-ownership map (parallel tracks — avoid conflicts)
 

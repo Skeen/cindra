@@ -17,6 +17,7 @@
 local edge_damage = require("scripts.edge-damage")
 local building_heat = require("scripts.building-heat")
 local worldgen = require("scripts.worldgen")
+local feedback = require("scripts.damage-feedback")
 local flare = require("scripts.flare")
 local panels = require("scripts.panels")
 local sinks = require("scripts.sinks")
@@ -39,6 +40,9 @@ end
 local function on_edge_damage_tick()
   if not driver_enabled() then return end
   for_each_cindra(function(s) edge_damage.sweep(s) end)
+  -- Refresh the player-facing heat/cold banner on the same cadence, so the visual
+  -- feedback tracks the damage it explains (§15 v2 item 4).
+  feedback.update_all()
 end
 
 local function on_building_heat_tick()
