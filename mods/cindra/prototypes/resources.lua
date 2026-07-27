@@ -3,22 +3,22 @@
 -- The resource LIST and where each lives on the ribbon axis:
 --   stone      -> the ribbon surface (feedstock for manufactured lava)
 --   ice field  -> the nightside; yields the vanilla `oxide-asteroid-chunk` that the
---                 vanilla crush -> melt chain turns into water / calcite (ci-3mx)
---   volatiles  -> the DEEP nightside, inside the cold-lethal zone (optional carbon
---                 chemistry root; edge-pushing reward)
+--                 vanilla crush -> melt chain turns into water / calcite (ci-3mx),
+--                 AND a chance of the frozen volatiles the science pack needs, so
+--                 there is NO standalone volatiles resource or map-gen slider
+--                 (ci-3yl): deep-nightside ice IS the volatiles chain.
 --   bootstrap rocks -> scattered near the terminator, hand-gathered, FINITE
 --                 (the landing-tier trickle of metal, §6)
 --
--- Stone / ice / volatiles are placed by NATIVE Factorio resource autoplace (the
--- core resource-autoplace / spot-noise library, same as nauvis/vulcanus ores) so
--- they form irregular NATURAL PATCHES of varying size/richness -- NOT the uniform
--- script grid of the earlier hand-rolled placement. Each is CONSTRAINED to its
--- ribbon band by multiplying its autoplace probability/richness by the
--- perpendicular-axis (Y) mask emitted from scripts/resource-field.lua (the one
--- band-geometry source of truth). Native autoplace also gives real
--- Frequency/Size/Richness map-gen sliders for free (via the autoplace-controls
--- below). Only the finite bootstrap ROCKS stay script-scattered (they are
--- simple-entities, not an autoplace resource).
+-- EVERYTHING is NATIVE map-gen (ci-3yl): stone + ice are placed by the core
+-- resource-autoplace / spot-noise library (same as nauvis/vulcanus ores) so they
+-- form irregular NATURAL PATCHES of varying size/richness, and the finite
+-- bootstrap ROCKS are a native simple-entity autoplace confined to a bounded disk
+-- near spawn. Each patch is CONSTRAINED to its ribbon band by multiplying its
+-- autoplace probability/richness by the perpendicular-axis mask emitted from
+-- scripts/resource-field.lua (the one band-geometry source of truth). Native
+-- autoplace also gives real Frequency/Size/Richness map-gen sliders for free (via
+-- the autoplace-controls below). There is NO on_chunk_generated placement any more.
 --
 -- Everything is a NEW `cindra-*` prototype cloned from a vanilla base: we never
 -- mutate the shared vanilla `stone`/`huge-rock` prototypes (that would leak onto
@@ -44,10 +44,11 @@ local function ribbon_cfg()
 end
 local CFG = ribbon_cfg()
 
--- The deep-nightside volatiles the player can harvest (frozen gases). A raw
--- harvestable, parallel to `ice`; the optional local-chemistry recipes that turn
--- it into carbon/CO2 (§11) are the mechanics track's to add. Placeholder icon
--- reuses the vanilla ice item art (bespoke art is a later pass).
+-- The deep-nightside frozen volatiles, a science-pack input. It is NO LONGER a
+-- standalone mined resource with its own map-gen slider (ci-3yl); the ITEM
+-- survives and is obtained from the deep-nightside ICE chain (mining ice yields a
+-- chance of volatiles, see cindra_ice_resource below). Placeholder icon reuses the
+-- vanilla ice item art (bespoke art is a later pass).
 data:extend({
   {
     type = "item",
@@ -63,10 +64,10 @@ data:extend({
 })
 
 -- Register the patch sets up front, in a deterministic order (mirrors vanilla
--- base/prototypes/entity/resources.lua), so patch indices are stable.
+-- base/prototypes/entity/resources.lua), so patch indices are stable. Only Stone
+-- and Ice are mineable resources (ci-3yl): the map-gen screen shows just these two.
 resource_autoplace.initialize_patch_set("cindra-stone", true)
 resource_autoplace.initialize_patch_set("cindra-ice", true)
-resource_autoplace.initialize_patch_set("cindra-volatiles", false)
 
 -- Build a native spot-noise autoplace for `name`, CONSTRAINED to its ribbon band.
 -- `mask_expr` zeroes probability/richness outside the band; `rich_mult_expr` is
@@ -113,32 +114,53 @@ local function cindra_resource(name, item_yield, map_color, order, autoplace, ic
   return r
 end
 
+-- The vanilla ice-chunk item a Cindra ice field yields (ci-3mx): the whole ice
+-- chain reuses vanilla recipes (crush -> ice + calcite, melt -> water).
+local ICE_ITEM = "oxide-asteroid-chunk"
+-- Chance a mined ice node also yields a unit of frozen volatiles. Deep-nightside
+-- ice is the volatiles chain (ci-3yl), so ice mining is where volatiles come from.
+local VOLATILES_FROM_ICE_PROBABILITY = 0.4
+
+-- The Cindra ice resource: ice-chunk patches that ALSO yield frozen volatiles when
+-- mined. Built on the shared `cindra_resource` clone, then its single-product
+-- mining is swapped for a multi-product drop (the vanilla ice chunk + a chance of
+-- volatiles) so the science pack's volatiles come from working the nightside ice,
+-- with no standalone volatiles ore or map-gen slider.
+local function cindra_ice_resource()
+  local r = cindra_resource("cindra-ice", ICE_ITEM, { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
+    banded_autoplace("cindra-ice",
+      { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
+      field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
+    "__cindra__/graphics/icons/ice.png")
+  r.minable.result = nil
+  r.minable.results = {
+    { type = "item", name = ICE_ITEM, amount = 1 },
+    { type = "item", name = "cindra-volatiles", amount = 1, independent_probability = VOLATILES_FROM_ICE_PROBABILITY },
+  }
+  return r
+end
+
 -- Autoplace-controls: one per resource so the new-game map-gen screen shows real
 -- Frequency / Size / Richness sliders (category "resource"). The band masks read
 -- `var('control:<name>:...')`, so these sliders drive the patches directly.
+--
+-- Labels are just "Stone" / "Ice" (locale [autoplace-control-names], no "Cindra"
+-- prefix, no icon soup), and the `order` sorts them BELOW every vanilla planet's
+-- resources -- including Aquilo -- so the Cindra sliders group together at the
+-- BOTTOM of the map-gen screen instead of mixing in with Nauvis (ci-3yl).
 data:extend({
   {
     type = "autoplace-control",
     name = "cindra-stone",
-    localised_name = { "", "[entity=cindra-stone] ", { "entity-name.cindra-stone" } },
     richness = true,
-    order = "a-a",
+    order = "z[cindra]-a[stone]",
     category = "resource",
   },
   {
     type = "autoplace-control",
     name = "cindra-ice",
-    localised_name = { "", "[entity=cindra-ice] ", { "entity-name.cindra-ice" } },
     richness = true,
-    order = "a-b",
-    category = "resource",
-  },
-  {
-    type = "autoplace-control",
-    name = "cindra-volatiles",
-    localised_name = { "", "[entity=cindra-volatiles] ", { "entity-name.cindra-volatiles" } },
-    richness = true,
-    order = "a-c",
+    order = "z[cindra]-b[ice]",
     category = "resource",
   },
 })
@@ -153,25 +175,15 @@ data:extend({
       { order = "a", base_density = 8, base_spots_per_km2 = 2.5, has_starting_area_placement = true },
       field.stone_mask_expr(CFG), field.stone_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/cindra-stone.png"),
-  -- Ice: the nightside's single signature raw. Cold blue. Patches nightward of the
-  -- safe band, richer the deeper (colder) they sit; a starting patch keeps the
-  -- matter economy reachable near the landing terminator. It yields the VANILLA
-  -- `oxide-asteroid-chunk` (ice-blue frozen matter) so the whole ice chain reuses
-  -- vanilla recipes: crush the chunk -> ice (+calcite), melt ice -> water (ci-3mx).
-  -- The DEPOSIT still reads as "Ice field" (entity-name.cindra-ice); only the mined
-  -- item is the vanilla chunk (we never rename the global vanilla item).
-  cindra_resource("cindra-ice", "oxide-asteroid-chunk", { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
-    banded_autoplace("cindra-ice",
-      { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
-      field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
-    "__cindra__/graphics/icons/ice.png"),
-  -- Volatiles: deep-nightside frozen gases, inside the cold-lethal band. Pale
-  -- violet so it reads as "the deepest, coldest, best node." No starting patch:
-  -- an edge-pushing reward you must brave the cold-lethal zone to reach.
-  cindra_resource("cindra-volatiles", "cindra-volatiles", { 0.70, 0.60, 0.85 }, "c[cindra-volatiles]",
-    banded_autoplace("cindra-volatiles",
-      { order = "c", base_density = 6, base_spots_per_km2 = 4, has_starting_area_placement = false },
-      field.volatiles_mask_expr(CFG), field.volatiles_richness_mult_expr(CFG))),
+  -- Ice: the nightside's single signature raw, and the SOURCE of the deep-nightside
+  -- frozen volatiles the science pack needs (ci-3yl: no standalone volatiles
+  -- resource). It yields the VANILLA `oxide-asteroid-chunk` so the whole ice chain
+  -- reuses vanilla recipes (crush -> ice + calcite, melt -> water; ci-3mx) AND a
+  -- chance of frozen volatiles. Cold blue; patches nightward of the safe band,
+  -- richer the deeper (colder) they sit, with a starting patch near the terminator.
+  -- The DEPOSIT reads as "Ice field" (entity-name.cindra-ice); the mined items are
+  -- the vanilla chunk + the Cindra volatiles item (we never rename the vanilla item).
+  cindra_ice_resource(),
 })
 
 -- Bootstrap rocks: scattered, hand-gatherable, FINITE (a mined simple-entity is
@@ -190,7 +202,10 @@ data:extend({
 -- ci-uex); kept small and finite so they can never replace the main loop.
 local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
 rock.name = "cindra-bootstrap-rock"
-rock.autoplace = nil            -- scattered by scripts/worldgen.lua near the terminator
+-- NATIVE autoplace (ci-3yl): a sparse per-tile scatter confined to the terminator
+-- safe band AND a bounded disk around spawn (scripts/resource-field), so the rocks
+-- stay FINITE without any on_chunk_generated script. The map-gen places them.
+rock.autoplace = { probability_expression = field.rock_probability_expr(CFG) }
 rock.order = "a[cindra]-a[bootstrap-rock]"
 rock.map_color = { 0.55, 0.45, 0.35 }
 rock.minable = {

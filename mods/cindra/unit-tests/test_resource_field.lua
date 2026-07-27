@@ -56,14 +56,6 @@ test("ice lives on the nightside only, richer deeper (colder)", function()
     "ice richer the deeper (colder) it gets")
 end)
 
-test("volatiles only in the deep nightside cold-lethal band", function()
-  assert_eq(0, field.volatiles_richness(-60), "not in the nightward margin")
-  assert_eq(0, field.volatiles_richness(0), "not in the ribbon")
-  assert_true(field.volatiles_richness(-110) > 0, "volatiles in the deep cold edge")
-  assert_true(field.volatiles_richness(-127) > field.volatiles_richness(-100),
-    "the coldest, deepest node is the best")
-end)
-
 test("bootstrap rocks scatter only around the terminator", function()
   assert_true(field.rock_zone(0), "rocks at the terminator")
   assert_true(field.rock_zone(24), "rocks to the edge of the safe band")
@@ -83,8 +75,8 @@ end)
 
 -- The native-autoplace band masks (emitted as noise-expression DSL strings) MUST
 -- describe the same boundaries as the numeric richness_* fns above: stone on the
--- ribbon+hot margin [-safe, lethal], ice nightward (-safe .. -wall), volatiles in
--- the deep cold-lethal band (-lethal .. -wall). Pinning the exact string catches
+-- ribbon+hot margin [-safe, lethal], ice nightward (-safe .. -wall). Pinning the
+-- exact string catches
 -- any boundary drift. The DEFAULT orientation is vertical (hot on the LEFT), so
 -- the sunward-positive perpendicular axis is "(0 - x)" and its negation is "x";
 -- scripts/axis.lua proves both orientations of that mapping.
@@ -99,8 +91,13 @@ test("ice mask covers the nightside in to the wall", function()
   assert_eq("((0 - x) < -24) * ((0 - x) > -128)", field.ice_mask_expr(), "default ice band")
 end)
 
-test("volatiles mask covers only the deep cold-lethal band", function()
-  assert_eq("((0 - x) <= -96) * ((0 - x) > -128)", field.volatiles_mask_expr(), "default volatiles band")
+test("bootstrap-rock autoplace masks to the terminator band AND a finite spawn disk", function()
+  local expr = field.rock_probability_expr()
+  -- Confined to the safe band on the perpendicular axis (|perp| <= safe_half_width).
+  assert_true(expr:find("(0 - x) < 24", 1, true) ~= nil, "capped sunward of the safe band")
+  assert_true(expr:find("(0 - x) > -24", 1, true) ~= nil, "capped nightward of the safe band")
+  -- FINITE: zero probability beyond a bounded disk around spawn.
+  assert_true(expr:find("distance < ", 1, true) ~= nil, "rocks stop beyond a spawn-radius disk (finite)")
 end)
 
 test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins", function()
@@ -108,11 +105,10 @@ test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins",
   local mult = field.stone_richness_mult_expr()
   assert_true(mult:find("lerp%(1, ", 1) ~= nil, "starts at 1x at the near edge")
   assert_true(mult:find("clamp%(", 1) ~= nil, "clamped to the band fraction")
-  -- Ice / volatiles multipliers ramp on the nightward axis ("x" by default:
-  -- deeper nightward = colder = richer). Pin the depth term so a boundary or
-  -- orientation drift is caught.
+  -- The ice multiplier ramps on the nightward axis ("x" by default: deeper
+  -- nightward = colder = richer). Pin the depth term so a boundary or orientation
+  -- drift is caught.
   assert_true(field.ice_richness_mult_expr():find("%(x %- 24%)", 1) ~= nil, "ice ramps with nightward depth")
-  assert_true(field.volatiles_richness_mult_expr():find("%(x %- 96%)", 1) ~= nil, "volatiles ramp with nightward depth")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))
