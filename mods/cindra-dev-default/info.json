@@ -2,7 +2,7 @@
   "name": "cindra-dev-default",
   "version": "0.1.0",
   "title": "Cindra — dev: default APS planet",
-  "author": "you",
+  "author": "Vuza",
   "factorio_version": "2.1",
   "description": "DEV-ONLY: forces Any Planet Start's planet picker to default to Cindra. Disable this for shipping. Only useful when iterating on the Cindra opening so ./play.sh + New Game lands on Cindra without picker clicks. Optional; safe to disable any time.",
   "dependencies": [

@@ -78,7 +78,7 @@ describe("cindra planet", function()
     it("shows just 'Cindra' on the map, no tagline", function()
       local loc = prototypes.space_location["cindra"]
       -- Pinned to the plain space-location-name so the map reads "Cindra"; the
-      -- "The Ribbon World" tagline lives only in the mod title / docs.
+      -- "The Ribbon World" tagline is docs-only now, never user-facing (ci-06j).
       assert.are.equal("space-location-name.cindra", loc.localised_name[1],
         "map name must resolve to the plain 'Cindra' locale key")
     end)

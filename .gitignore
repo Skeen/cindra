@@ -7,6 +7,9 @@ factorio-test-data-dir/
 factorio-test-output.json
 package-lock.json
 mods-bundle/
+# Mods play.sh fetches from the portal (any-planet-start, helmod) are cached
+# here so we download each at most once. Never committed.
+.play-cache/
 # Local Factorio install (./play.sh + test runner). The DLCs + binary live
 # here; nothing in this directory should be committed. Ignored both as a real
 # directory and as a local symlink to an out-of-repo install.

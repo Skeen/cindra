@@ -113,7 +113,7 @@ data:extend({
     name = "cindra",
     -- Map name/description (ci-2sr). Pin the localised name to the plain
     -- "space-location-name.cindra" ("Cindra") so the map view reads just "Cindra"
-    -- (the tagline "The Ribbon World" stays in the mod title / docs, off the map),
+    -- (the tagline "The Ribbon World" is docs-only now, never user-facing),
     -- and give it a real planet description like the vanilla planets do.
     localised_name = { "space-location-name.cindra" },
     localised_description = { "space-location-description.cindra" },
