@@ -27,18 +27,18 @@ local ribbon = require("scripts.ribbon")
 local M = {}
 
 -- Output bands as a fraction of the panel's nominal output, sunward (1.0) ->
--- nightward (~0). The TOP band (1.0) IS the base panel prototype (C.PANEL, the
--- craftable item); the rest are reduced-output variants generated in
--- prototypes/flare.lua. More bands = smoother gradient at the cost of more
+-- nightward (~0). The TOP band (1.0) IS the vanilla panel prototype (C.PANEL, the
+-- panel the player actually crafts); the rest are reduced-output Cindra variants
+-- generated in prototypes/flare.lua. More bands = smoother gradient at the cost of more
 -- prototypes; five reads as clear "zones". (tune) -- balance pass is §15-14.
 M.BANDS = { 1.0, 0.75, 0.5, 0.25, 0.05 }
 
--- Prototype name for a band factor. The full band is the base panel (so a
--- sunward placement needs no morph); every reduced band gets a "-bNN" suffix,
--- e.g. 0.25 -> "cindra-solar-panel-b25".
+-- Prototype name for a band factor. The full band is the vanilla panel (C.PANEL,
+-- so a sunward placement needs no morph); every reduced band is a Cindra clone
+-- with a "-bNN" suffix on C.PANEL_BAND_PREFIX, e.g. 0.25 -> "cindra-solar-band-b25".
 function M.name_for_band(factor)
   if factor >= 1.0 then return C.PANEL end
-  return string.format("%s-b%02d", C.PANEL, math.floor(factor * 100 + 0.5))
+  return string.format("%s-b%02d", C.PANEL_BAND_PREFIX, math.floor(factor * 100 + 0.5))
 end
 
 -- All panel prototype names (base + variants) -- what find_entities_filtered must

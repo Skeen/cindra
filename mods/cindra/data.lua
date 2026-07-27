@@ -58,7 +58,9 @@ require("prototypes.damage-types")
 require("prototypes.resources")
 
 -- Power system (§15 items 7-9), integrated from the proven flare-poc (ci-zg3):
---   * flare   §15-7  the high-output Cindra solar panel (the flare's producer).
+--   * flare   §15-7  the sunward-band solar variants (ci-8al: Cindra uses the
+--                    plain vanilla panel; only the reduced position bands are new
+--                    prototypes). The flare itself is a surface property.
 --   * storage §15-9  capacitor + molten-salt battery + dissipator (the sink web).
 -- The panel-damage rule (§15-8) is runtime-only (scripts/panels.lua); it adds no
 -- prototypes. Shared tuning lives in scripts/flare-config.lua.

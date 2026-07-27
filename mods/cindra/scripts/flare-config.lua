@@ -26,8 +26,13 @@ C.SURFACE = "cindra"
 -- prototype's `solar-power` surface property is set to match (100x Nauvis), and
 -- flare.apply re-affirms this multiplier on the surface as it drives the curve.
 C.SOLAR_MULT = 100
--- Each panel's Nauvis-full-day output (W), before the surface multiplier.
-C.PANEL_NOMINAL_W = 100e3 -- 100 kW
+-- Each panel's Nauvis-full-day output (W), before the surface multiplier. This
+-- is the VANILLA solar panel's own `production` (60 kW): Cindra reuses the plain
+-- vanilla panel (ci-8al), so the damage model's per-panel output must match the
+-- real prototype it now degrades. Anchoring here also keeps the reduced-band
+-- variants (production = this * factor) strictly BELOW the full band, so a
+-- nightward band never out-produces the sunward vanilla panel.
+C.PANEL_NOMINAL_W = 60e3 -- 60 kW (vanilla solar-panel)
 -- Intensity is measured in "Nauvis full-day equivalents" = sf * SOLAR_MULT.
 -- Baseline (the never-fully-dark night floor) is one Nauvis full day; the flare
 -- peak is SOLAR_MULT of them, i.e. ~100x baseline.
@@ -58,7 +63,19 @@ C.PERIOD_TICKS = C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS
   + C.PLATEAU_TICKS + C.DECAY_TICKS
 
 -- === Panel damage (§15-8 "disposal-deficit rule") ============================
-C.PANEL = "cindra-solar-panel"
+-- Cindra uses the plain VANILLA solar panel (ci-8al): the flare behaviour comes
+-- from the SURFACE (high solar multiplier + daylight-curve flares), which already
+-- applies to vanilla panels, so a bespoke panel tier is redundant. Every flare
+-- system (damage sweep, sunward morph) reads C.PANEL and so targets the vanilla
+-- panel on Cindra; the gating is per-surface, so vanilla panels off-world are
+-- never touched.
+C.PANEL = "solar-panel"
+-- Reduced sunward-band variants (§ ci-9ht) are Cindra clones of the vanilla panel
+-- with a smaller fixed output. They carry this prefix (e.g. cindra-solar-band-b75)
+-- so they are unmistakably Cindra prototypes and never collide with the vanilla
+-- panel; the full band (1.0) is the vanilla panel itself, not a clone.
+C.PANEL_BAND_PREFIX = "cindra-solar-band"
+-- Vanilla solar-panel max_health (the panels the disposal-deficit rule degrades).
 C.PANEL_MAX_HEALTH = 200
 -- Damage budget per sweep scales with the disposal DEFICIT (MW with nowhere to
 -- go), never with panel count (mirrors the induction-damage kernel).

@@ -1,9 +1,15 @@
 -- PROOF: the power system's prototypes exist, are craftable + tech-gated, and
 -- the EXPORTABLE storage buildings are situational-not-strictly-better than a
--- vanilla accumulator (§12 guardrail). §15 items 7 (solar panel) + 9 (capacitor,
--- molten-salt battery, dissipator). Mirrors the electric-heater proto test.
+-- vanilla accumulator (§12 guardrail). §15 item 9 (capacitor, molten-salt
+-- battery, dissipator). Mirrors the electric-heater proto test.
+--
+-- Cindra reuses the PLAIN VANILLA solar panel (ci-8al); there is NO bespoke
+-- Cindra panel tier. This suite asserts that removal held (no custom panel
+-- prototype, no unlock tech), and that the FULL band the flare systems target
+-- (C.PANEL) is literally the vanilla panel.
 
 local C = require("scripts.flare-config")
+local panel_solar = require("scripts.panel-solar")
 
 local function unlocks(tech_name, recipe_name)
   local tech = prototypes.technology[tech_name]
@@ -15,28 +21,53 @@ local function unlocks(tech_name, recipe_name)
 end
 
 describe("power system prototypes", function()
-  it("registers the Cindra solar panel as a higher-output solar tier", function()
-    local p = prototypes.entity[C.PANEL]
-    assert.is_not_nil(p, "cindra-solar-panel entity must exist")
-    assert.are.equal("solar-panel", p.type)
-    local vanilla = prototypes.entity["solar-panel"]
-    assert.is_true(p.get_max_energy_production() > vanilla.get_max_energy_production(),
-      "the Cindra panel must out-produce the vanilla solar panel (the flare tier)")
+  it("uses the plain vanilla solar panel (no custom Cindra panel tier)", function()
+    -- The flare systems target C.PANEL; it must be the vanilla panel itself.
+    assert.are.equal("solar-panel", C.PANEL, "the flare systems target the vanilla panel")
+    assert.is_not_nil(prototypes.entity["solar-panel"], "the vanilla solar panel must exist")
+
+    -- The removed custom panel (ci-8al): no entity / item / recipe of that name.
+    assert.is_nil(prototypes.entity["cindra-solar-panel"],
+      "the custom cindra-solar-panel entity must NOT exist (removed in ci-8al)")
+    assert.is_nil(prototypes.item["cindra-solar-panel"],
+      "the custom cindra-solar-panel item must NOT exist")
+    assert.is_nil(prototypes.recipe["cindra-solar-panel"],
+      "the custom cindra-solar-panel recipe must NOT exist")
+
+    -- Its unlock tech is gone too, and nothing left behind unlocks it.
+    assert.is_nil(prototypes.technology["cindra-flare-power"],
+      "the cindra-flare-power tech must NOT exist (removed in ci-8al)")
+    for _, tech in pairs(prototypes.technology) do
+      assert.is_false(unlocks(tech.name, "cindra-solar-panel"),
+        "no tech may unlock the removed cindra-solar-panel recipe (dangling): " .. tech.name)
+    end
   end)
 
-  it("gates the solar panel behind a recipe + tech (not free)", function()
-    local item = prototypes.item[C.PANEL]
-    assert.is_not_nil(item, "cindra-solar-panel item must exist")
-    assert.are.equal(C.PANEL, item.place_result.name, "the item places the panel")
+  it("registers reduced sunward-band variants as cindra clones of the vanilla panel", function()
+    local vanilla = prototypes.entity["solar-panel"]
+    local vanilla_out = vanilla.get_max_energy_production()
 
-    local recipe = prototypes.recipe[C.PANEL]
-    assert.is_not_nil(recipe, "cindra-solar-panel recipe must exist")
-    assert.is_false(recipe.enabled, "the recipe must be unlocked by research, not free")
-
-    assert.is_true(unlocks("cindra-flare-power", C.PANEL),
-      "cindra-flare-power tech must unlock the solar panel")
-    assert.is_not_nil(prototypes.technology["cindra-flare-power"].prerequisites["solar-energy"],
-      "the flare-power tech is gated behind vanilla solar-energy")
+    local reduced = 0
+    for _, f in ipairs(panel_solar.BANDS) do
+      if f < 1.0 then
+        reduced = reduced + 1
+        local name = panel_solar.name_for_band(f)
+        local v = prototypes.entity[name]
+        assert.is_not_nil(v, "reduced band variant must exist: " .. name)
+        assert.are.equal("solar-panel", v.type, name .. " must be a solar panel")
+        -- Reduced output: a band strictly below the full (vanilla) panel, so a
+        -- nightward panel never out-produces a sunward one.
+        assert.is_true(v.get_max_energy_production() < vanilla_out,
+          name .. " must produce LESS than the vanilla full band")
+        -- Mines back to the vanilla item: the player only ever holds vanilla
+        -- panels; a morphed variant returns the vanilla item.
+        assert.are.equal("solar-panel", v.mineable_properties.products[1].name,
+          name .. " must mine back to the vanilla solar-panel item")
+        -- Variants have NO item / recipe of their own (never crafted directly).
+        assert.is_nil(prototypes.recipe[name], name .. " must have no recipe of its own")
+      end
+    end
+    assert.is_true(reduced >= 1, "there must be at least one reduced sunward band")
   end)
 
   -- The runtime prototype API exposes an accumulator's buffer_capacity but NOT

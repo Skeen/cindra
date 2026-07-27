@@ -9,12 +9,13 @@
 
 local audit = require("scripts.graphics-audit")
 
--- Skip the entities being reworked concurrently (ci-98r / ci-8al own their
--- graphics audit): the mass driver (driver + charger + orbital catcher) and the
--- solar-panel band variants. Everything else prefixed "cindra-" is audited here.
+-- Skip the entities being reworked concurrently (ci-98r owns its graphics
+-- audit): the mass driver (driver + charger + orbital catcher). Everything else
+-- prefixed "cindra-" is audited here -- including the sunward solar-band variants
+-- (cindra-solar-band-*, ci-8al), which are clones of the vanilla solar panel and
+-- so carry its sprite (they pass this audit rather than needing a skip).
 local SKIP_PREFIXES = {
   "cindra-mass-driver",
-  "cindra-solar-panel",
 }
 
 local specs = audit.discover(data.raw, SKIP_PREFIXES)

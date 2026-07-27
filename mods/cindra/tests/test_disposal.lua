@@ -24,7 +24,7 @@ describe("disposal", function()
     local s = H.cindra_surface()
     H.power_reset()
     H.grid(s, 6, 18)
-    local none = H.panel_col(s, 4, 6) -- 40 MW at peak
+    local none = H.panel_col(s, 4, 6) -- 24 MW at peak (4 * 6 MW)
     H.set_consumption(0)
 
     async(240)
@@ -66,7 +66,7 @@ describe("disposal", function()
     local s = H.cindra_surface()
     H.power_reset()
     H.grid(s, 6, 34)
-    local col = H.panel_col(s, 8, 6) -- 80 MW at peak
+    local col = H.panel_col(s, 8, 6) -- 48 MW at peak (8 * 6 MW)
     -- Four dissipators (80 MW) + storage + a little consumption: capture always
     -- covers the peak, so there is never a deficit.
     H.dissipator(s, { -6, 6 })

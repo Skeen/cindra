@@ -34,16 +34,17 @@ local function assert_true(x, msg)
   if not x then error(msg or "expected true", 2) end
 end
 
-test("the full band IS the base panel; reduced bands are suffixed variants", function()
-  assert_eq(C.PANEL, panel_solar.name_for_band(1.0), "1.0 -> the base panel item")
-  assert_eq(C.PANEL .. "-b75", panel_solar.name_for_band(0.75))
-  assert_eq(C.PANEL .. "-b05", panel_solar.name_for_band(0.05))
+test("the full band IS the vanilla panel; reduced bands are cindra variants", function()
+  assert_eq(C.PANEL, panel_solar.name_for_band(1.0), "1.0 -> the vanilla solar panel")
+  assert_eq("solar-panel", panel_solar.name_for_band(1.0), "the full band is literally vanilla")
+  assert_eq(C.PANEL_BAND_PREFIX .. "-b75", panel_solar.name_for_band(0.75))
+  assert_eq(C.PANEL_BAND_PREFIX .. "-b05", panel_solar.name_for_band(0.05))
 end)
 
-test("all_names lists the base plus one name per reduced band", function()
+test("all_names lists the vanilla panel plus one name per reduced band", function()
   local names = panel_solar.all_names()
   assert_eq(#panel_solar.BANDS, #names, "one name per band")
-  assert_eq(C.PANEL, names[1], "the base panel is first (the full band)")
+  assert_eq(C.PANEL, names[1], "the vanilla panel is first (the full band)")
   -- names are unique
   local seen = {}
   for _, n in ipairs(names) do
@@ -53,8 +54,8 @@ test("all_names lists the base plus one name per reduced band", function()
 end)
 
 test("nominal_w scales with the band; unknown names fall back to full", function()
-  assert_eq(C.PANEL_NOMINAL_W, panel_solar.nominal_w(C.PANEL), "base = full nominal")
-  assert_eq(C.PANEL_NOMINAL_W * 0.5, panel_solar.nominal_w(C.PANEL .. "-b50"))
+  assert_eq(C.PANEL_NOMINAL_W, panel_solar.nominal_w(C.PANEL), "full band = full nominal")
+  assert_eq(C.PANEL_NOMINAL_W * 0.5, panel_solar.nominal_w(C.PANEL_BAND_PREFIX .. "-b50"))
   assert_eq(C.PANEL_NOMINAL_W, panel_solar.nominal_w("some-other-entity"),
     "unknown name over-estimates to full (safe default)")
 end)

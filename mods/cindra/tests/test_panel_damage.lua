@@ -34,8 +34,9 @@ describe("panel damage - disposal deficit rule", function()
     H.power_reset()
     H.grid(s, 6, 26)
     local col = H.panel_col(s, 6, 6) -- y = 6 .. 26; col[6] is sunmost (max y)
-    -- potential = 6 * 10 MW = 60 MW; leave a 1 MW deficit.
-    H.set_consumption(60 * 1e6 - 1e6)
+    -- potential = 6 * 6 MW = 36 MW (vanilla 60 kW panel at the ~100x peak); leave
+    -- a 1 MW deficit.
+    H.set_consumption(36 * 1e6 - 1e6)
 
     async(120)
     after_ticks(6, function()
@@ -53,7 +54,7 @@ describe("panel damage - disposal deficit rule", function()
     H.grid(s, 6, 18)
     -- Grid A: 4 panels, 2 MW deficit.
     local a = H.panel_col(s, 4, 6)
-    H.set_consumption(4 * 10e6 - 2e6)
+    H.set_consumption(4 * 6e6 - 2e6)
 
     async(200)
     after_ticks(6, function()
@@ -65,7 +66,7 @@ describe("panel damage - disposal deficit rule", function()
       local s2 = H.cindra_surface()
       H.grid(s2, 6, 34)
       local b = H.panel_col(s2, 8, 6)
-      H.set_consumption(8 * 10e6 - 2e6)
+      H.set_consumption(8 * 6e6 - 2e6)
       after_ticks(6, function()
         panels.sweep(s2, PEAK)
         local dmgB = damage_of(b)
@@ -82,7 +83,7 @@ describe("panel damage - disposal deficit rule", function()
     H.power_reset()
     H.grid(s, 6, 6)
     local p = H.panel(s, { 6, 6 })
-    H.set_consumption(0) -- full 10 MW deficit
+    H.set_consumption(0) -- full 6 MW deficit
 
     async(120)
     after_ticks(6, function()
@@ -140,9 +141,9 @@ describe("panel damage - disposal deficit rule", function()
     local s = H.cindra_surface()
     H.power_reset()
     H.grid(s, 6, 42)
-    local col = H.panel_col(s, 10, 6) -- 100 MW potential at peak
-    -- 30 MW of disposal (consumption). Equilibrium: alive * 10 MW <= 30 MW.
-    H.set_consumption(30 * 1e6)
+    local col = H.panel_col(s, 10, 6) -- 60 MW potential at peak (10 * 6 MW)
+    -- 18 MW of disposal (consumption). Equilibrium: alive * 6 MW <= 18 MW.
+    H.set_consumption(18 * 1e6)
 
     async(200)
     after_ticks(6, function()
@@ -151,7 +152,7 @@ describe("panel damage - disposal deficit rule", function()
       assert.is_true(survivors > 0, "must NOT death-spiral to zero (negative feedback)")
       assert.is_true(survivors < 10, "some panels must die under a large sustained deficit")
       assert.is_true(survivors >= 2 and survivors <= 4,
-        "array converges to ~disposal capacity (3 panels ~ 30 MW): got " .. survivors)
+        "array converges to ~disposal capacity (3 panels ~ 18 MW): got " .. survivors)
       done()
     end)
   end)

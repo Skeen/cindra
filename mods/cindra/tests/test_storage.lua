@@ -17,14 +17,14 @@ describe("storage", function()
     local s = H.cindra_surface()
     H.power_reset()
     H.grid(s, 6, 18)
-    H.panel_col(s, 4, 6)                     -- 40 MW at peak, 0.4 MW baseline
+    H.panel_col(s, 4, 6)                     -- 24 MW at peak, 0.24 MW baseline
     local cap = H.capacitor(s, { -6, 6 })
     local bat = H.battery(s, { -6, 10 })
     H.dissipator(s, { -6, 14 })              -- a 20 MW load on the grid
     cap.energy = 0
     bat.energy = 0
 
-    -- Flare peak: generation (40 MW) far exceeds the load, so surplus charges.
+    -- Flare peak: generation (24 MW) exceeds the 20 MW load, so surplus charges.
     flare.apply(s, PEAK_TICK)
 
     async(600)
@@ -40,7 +40,7 @@ describe("storage", function()
         "capacitor must fill faster than the battery: cap=" .. string.format("%.2f", cap_frac)
         .. " bat=" .. string.format("%.2f", bat_frac))
 
-      -- After the flare: baseline generation (0.4 MW) is far below the 20 MW load,
+      -- After the flare: baseline generation (0.24 MW) is far below the 20 MW load,
       -- so both accumulators discharge to help cover it.
       flare.apply(s, CALM_TICK)
       after_ticks(120, function()

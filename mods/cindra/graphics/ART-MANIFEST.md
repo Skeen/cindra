@@ -59,11 +59,11 @@ picture = {
 | Capacitor (fast storage)   | `icons/capacitor.png`             | ✔ `entity/capacitor/`           | **ci-tii** (§15-9 storage) |
 | Molten-salt battery (bulk) | `icons/molten-salt-battery.png`   | ✔ `entity/molten-salt-battery/` | **ci-tii** |
 | Dissipator (heat sink)     | `icons/dissipator.png`            | ✔ `entity/dissipator/`          | **ci-tii** / **ci-9ay** (panel damage) |
-| Cindra solar panel (tier)  | `icons/cindra-solar-panel.png`    | ✔ `entity/cindra-solar-panel/`  | **ci-9k6** (§15-7 solar/flare) / **ci-9ay** |
 | Cindra science pack        | `icons/cindra-science-pack.png`   | —             | **ci-3or** (§15-12 science/tech) |
 
 ⭐ = signature building. Priority buildings (mass driver, cryo-quench,
-flare-PoC storage/dissipator/panels) all have both an icon and an entity sprite.
+flare-PoC storage/dissipator) all have both an icon and an entity sprite. Cindra
+reuses the plain vanilla solar panel (ci-8al), so there is no custom panel art.
 
 ## Scope / known limits (honest first pass)
 

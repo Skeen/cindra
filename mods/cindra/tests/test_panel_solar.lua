@@ -132,6 +132,70 @@ describe("position-scaled solar - real engine output", function()
   end)
 end)
 
+describe("vanilla panel targeting - cindra only", function()
+  -- ci-8al: the flare mechanics target the PLAIN VANILLA solar panel, and only on
+  -- the Cindra surface. A vanilla panel on any other surface must be untouched:
+  -- no sunward morph, no disposal-deficit damage (the never-mutate-other-planets
+  -- invariant, enforced by the surface.name == C.SURFACE gate).
+  local function other_surface()
+    local s = game.surfaces["not-cindra-test"]
+    if not s then
+      s = game.create_surface("not-cindra-test", { width = 64, height = 64 })
+      s.request_to_generate_chunks({ 0, 0 }, 2)
+      s.force_generate_chunk_requests()
+    end
+    for _, e in pairs(s.find_entities_filtered({ area = { { -30, -30 }, { 30, 30 } } })) do
+      if e.type ~= "character" then e.destroy() end
+    end
+    local tiles = {}
+    for x = -20, 20 do for y = -20, 20 do
+      tiles[#tiles + 1] = { name = "refined-concrete", position = { x, y } }
+    end end
+    s.set_tiles(tiles)
+    return s
+  end
+
+  it("damages a genuinely vanilla solar panel on Cindra", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.grid(s, 6, 6)
+    local p = H.panel(s, { 6, 6 }) -- a plain vanilla solar panel on Cindra
+    assert.are.equal("solar-panel", p.name, "the placed panel is the vanilla solar panel")
+    assert.are.equal("solar-panel", p.prototype.type, "it is a real solar-panel prototype")
+
+    -- Disposal-deficit damage targets the vanilla panel directly (no morph here):
+    -- with no disposal, the vanilla panel degrades.
+    H.set_consumption(0)
+    panels.sweep(s, C.PEAK_INTENSITY)
+    assert.is_true(p.valid and p.name == "solar-panel",
+      "the damaged entity is still the plain vanilla solar panel")
+    assert.is_true(p.health < p.max_health,
+      "the vanilla panel takes disposal-deficit damage on Cindra")
+  end)
+
+  it("leaves a vanilla solar panel on another surface untouched (no morph, no damage)", function()
+    local s = other_surface()
+    -- A plain vanilla solar panel, placed nightward-equivalent (would morph on Cindra).
+    local p = s.create_entity({ name = "solar-panel", position = { 0, -18 }, force = "player" })
+    assert.is_not_nil(p, "vanilla solar panel places on the other surface")
+    local hp0 = p.health
+
+    -- Sunward morph is a no-op off Cindra: reconcile touches nothing.
+    local morphed = panels.reconcile_variants(s)
+    assert.are.equal(0, morphed, "reconcile must not morph panels off Cindra")
+    assert.is_true(p.valid, "the off-Cindra panel is not destroyed")
+    assert.are.equal("solar-panel", p.name, "the off-Cindra panel stays a plain vanilla panel")
+
+    -- Damage sweep is a no-op off Cindra even under a maximal deficit.
+    H.set_consumption(0)
+    local summary = panels.sweep(s, C.PEAK_INTENSITY)
+    assert.is_nil(next(summary), "sweep reports nothing off Cindra")
+    assert.are.equal(hp0, p.health, "the off-Cindra panel takes NO disposal-deficit damage")
+
+    p.destroy()
+  end)
+end)
+
 describe("position-scaled solar - damage model", function()
   it("sizes a panel's disposal surplus by its position band", function()
     -- A sunward array dumps far more surplus than an equal-count nightward array,

@@ -197,7 +197,8 @@ this list is the last resort when no test path exists.
   panels only really work on the sunny (sunward, +Y) part of the ribbon: a placed
   panel silently morphs to a reduced-output variant matching its Y, so nightward
   panels produce ~nothing and sunward panels produce full. *Repro:* build a row of
-  `cindra-solar-panel` spanning from deep nightward to deep sunward, then compare
+  plain vanilla `solar-panel` (Cindra uses the vanilla panel, ci-8al) spanning from
+  deep nightward to deep sunward, then compare
   their contribution during a flare (e.g. watch a power graph, or the panels'
   tooltips). *Look for:* the sunward end carries the array and the nightward end is
   near-dead — placement toward the heat/danger is rewarded. All bands share ONE
