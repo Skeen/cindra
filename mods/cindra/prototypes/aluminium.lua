@@ -33,7 +33,8 @@
 --     WITHOUT gating flare survival behind aluminium -- no soft-lock.
 --   * EXPORT: aluminium is a clean, high-value bulk good, AND the very stuff the
 --     mass driver (ci-o39) burns to launch -- it presses the aluminium CAN (cargo
---     container) and grinds into the aluminium-powder SOLID ROCKET FUEL. So the
+--     container) and grinds into the aluminium powder the "Solid rocket fuel" recipe
+--     turns into VANILLA rocket-fuel (ci-519). So the
 --     petrochemical-free launch chain lands its whole recurring cost back on this
 --     ruinous-power metal + power: local metallurgy and the star, never chemistry.
 --

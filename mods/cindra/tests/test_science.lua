@@ -3,18 +3,16 @@
 -- The bead's MANDATORY assertions, plus the tech-tree fold:
 --   1. PETROCHEMICAL-FREE, NATIVE INPUTS ONLY -- no oil/coal/plastic/sulfur/etc.
 --      anywhere in the recipe; every ingredient is a Cindra material.
---   2. A SIGNIFICANT POWER SINK -- a high crafting-time (energy_required) run in a
---      dedicated machine whose electric DRAW dwarfs a normal assembler, and which
---      genuinely consumes power to produce (crafting only progresses when powered).
---   3. A REAL SCIENCE PACK -- a `tool` a lab will actually accept as research input.
+--   2. A REAL ENERGY COST, IN A STOCK MACHINE -- a high crafting-time
+--      (energy_required), crafted in an ORDINARY assembling machine (ci-2tz: the
+--      bespoke "starforge" is GONE). No bespoke crafting building survives.
+--   3. A REAL SCIENCE PACK -- an item a lab will actually accept as research input.
 --   4. THE FOLDED TREE -- the pack has a real downstream unlock: orbital launch now
 --      branches off `cindra-science` and is researched WITH the Cindra pack.
 
 local H = require("tests.helpers")
 
 local PACK = "cindra-science-pack"
-local FORGE = "cindra-starforge"
-local CATEGORY = "cindra-science"
 local TECH = "cindra-science"
 local ALUMINIUM = "cindra-aluminium"
 local VOLATILES = "cindra-volatiles"
@@ -40,12 +38,6 @@ local NATIVE_NON_CINDRA = {
 
 local function is_native(name)
   return name:sub(1, 7) == "cindra-" or NATIVE_NON_CINDRA[name] == true
-end
-
-local function energy_usage_of(proto)
-  -- Field name differs across API surfaces; take whichever resolves.
-  if proto.get_max_energy_usage then return proto.get_max_energy_usage() end
-  return proto.energy_usage
 end
 
 -- LuaRecipePrototype.categories is a dictionary {name -> true}; tolerate an array.
@@ -89,45 +81,54 @@ describe("cindra science pack: petrochemical-free, native inputs only", function
   end)
 end)
 
-describe("cindra science pack: a significant POWER SINK", function()
+describe("cindra science pack: a real energy cost, crafted in a STOCK machine", function()
   it("costs a large amount of crafting time (the energy lever)", function()
     local r = prototypes.recipe[PACK]
-    -- energy_required is the crafting time; long time x high draw = a big energy
-    -- cost per pack, so research scales with captured flare/baseline power.
+    -- energy_required is the crafting time; a long craft means the assembler
+    -- draws power the whole time, so a pack costs real energy to make -- and its
+    -- aluminium input is the planet's most power-hungry product on top of that.
     assert.is_true(r.energy >= 45,
       "the pack recipe must cost real crafting time (got " .. tostring(r.energy) .. "s)")
   end)
 
-  it("is crafted in a dedicated ELECTRIC machine that draws far more than a normal assembler", function()
-    local forge = prototypes.entity[FORGE]
-    assert.is_not_nil(forge, "the starforge entity must exist")
-    assert.is_not_nil(forge.electric_energy_source_prototype,
-      "the starforge must be electric -- it eats power to make science")
+  it("crafts in the stock `crafting` category -- an ordinary assembling machine runs it", function()
+    assert.is_true(recipe_in_category(PACK, "crafting"),
+      "the pack must craft in the vanilla `crafting` category, so a stock assembler makes it")
 
-    local mine = energy_usage_of(forge)
-    local vanilla = energy_usage_of(prototypes.entity["assembling-machine-3"])
-    assert.is_true(mine > vanilla * 5,
-      "the starforge's active draw (" .. tostring(mine) .. " W) must dwarf a normal assembler's ("
-        .. tostring(vanilla) .. " W): running it is a deliberate power sink")
+    -- A vanilla assembling machine must actually be able to run this recipe (the
+    -- proof there is no bespoke machine gate): every assembler crafts `crafting`.
+    for _, am in ipairs({ "assembling-machine-1", "assembling-machine-2", "assembling-machine-3" }) do
+      assert.is_true(prototypes.entity[am].crafting_categories["crafting"] == true,
+        am .. " must be able to craft the pack's category")
+    end
   end)
 
-  it("runs the pack recipe in a PRIVATE category (no leak to/from vanilla assemblers)", function()
-    local forge = prototypes.entity[FORGE]
-    assert.is_true(forge.crafting_categories[CATEGORY],
-      "the starforge crafts in the private cindra-science category")
-    assert.is_nil(prototypes.entity["assembling-machine-3"].crafting_categories[CATEGORY],
-      "vanilla assemblers must NOT gain the Cindra science category (no cross-planet leak)")
-
-    assert.is_true(recipe_in_category(PACK, CATEGORY), "the pack recipe lives in the private category")
-    assert.is_false(recipe_in_category(PACK, "crafting"),
-      "and NOT in the generic vanilla crafting category")
+  it("has NO bespoke 'starforge' machine (ci-2tz: ripped out)", function()
+    assert.is_nil(prototypes.entity["cindra-starforge"],
+      "the starforge entity must be gone -- the pack crafts in a stock machine now")
+    assert.is_nil(prototypes.item["cindra-starforge"],
+      "the starforge place-item must be gone")
+    assert.is_nil(prototypes.recipe["cindra-starforge"],
+      "the starforge build recipe must be gone")
+    -- The old private crafting category the starforge used must not survive either.
+    for name, recipe in pairs(prototypes.recipe) do
+      if recipe.categories then
+        assert.is_nil(recipe.categories["cindra-science"],
+          "recipe '" .. name .. "' still lives in the removed private starforge category")
+      end
+    end
+    for name, ent in pairs(prototypes.entity) do
+      if ent.crafting_categories then
+        assert.is_nil(ent.crafting_categories["cindra-science"],
+          "entity '" .. name .. "' still declares the removed private starforge category")
+      end
+    end
   end)
 end)
 
 describe("cindra science pack: the tech tree (headline science + folded unlocks)", function()
-  it("recipes are research-gated, not free", function()
+  it("the pack recipe is research-gated, not free", function()
     assert.is_false(prototypes.recipe[PACK].enabled, "the pack recipe must be gated")
-    assert.is_false(prototypes.recipe[FORGE].enabled, "the starforge recipe must be gated")
   end)
 
   it("is unlocked by cindra-science, gated behind the signature aluminium", function()
@@ -140,7 +141,6 @@ describe("cindra science pack: the tech tree (headline science + folded unlocks)
       if e.type == "unlock-recipe" then unlocked[e.recipe] = true end
     end
     assert.is_true(unlocked[PACK], "the tech unlocks the science-pack recipe")
-    assert.is_true(unlocked[FORGE], "the tech unlocks the starforge recipe")
 
     -- Gated behind the signature apex -> you cannot make Cindra science until you
     -- already command BOTH fire (lava) and ice, via the aluminium tech (which
@@ -191,25 +191,27 @@ describe("cindra science pack: a lab actually accepts it as research input", fun
   end)
 end)
 
-describe("cindra starforge runtime: consumes power to produce", function()
-  -- A powered starforge on a clean Cindra surface, recipe set, ingredients for a
-  -- single craft loaded. Same headless power pattern as the aluminium suite.
-  local function make_forge(powered)
+describe("cindra science pack runtime: a stock assembler crafts it, and it needs power", function()
+  -- A powered vanilla assembling machine on a clean Cindra surface, the pack recipe
+  -- set, ingredients for a single craft loaded. Proves the pack really crafts in a
+  -- stock machine (no bespoke starforge) AND still costs power to make.
+  local ASSEMBLER = "assembling-machine-3"
+  local function make_assembler(powered)
     local s = H.cindra_surface()
     s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
     if powered then
       local power = s.create_entity({
         name = "electric-energy-interface", position = { 4, 0 }, force = "player",
       })
-      power.power_production = 100000000 -- 100 MW: ample headroom over the ~10 MW draw
+      power.power_production = 100000000 -- 100 MW: ample headroom
       power.electric_buffer_size = 100000000
       power.energy = 100000000
     end
 
     game.forces["player"].recipes[PACK].enabled = true
 
-    local m = s.create_entity({ name = FORGE, position = { 0, 0 }, force = "player" })
-    assert.is_not_nil(m, "the starforge must be placeable on Cindra")
+    local m = s.create_entity({ name = ASSEMBLER, position = { 0, 0 }, force = "player" })
+    assert.is_not_nil(m, "a stock assembling machine must be placeable on Cindra")
     m.set_recipe(PACK)
     m.insert({ name = ALUMINIUM, count = 1 })
     m.insert({ name = VOLATILES, count = 3 })
@@ -217,13 +219,13 @@ describe("cindra starforge runtime: consumes power to produce", function()
     return m
   end
 
-  it("with power, it begins crafting (progresses and consumes the native inputs)", function()
-    local m = make_forge(true)
+  it("with power, a stock assembler crafts the pack (progresses and consumes the native inputs)", function()
+    local m = make_assembler(true)
     async(720)
     after_ticks(600, function()
       assert.is_true(m.valid)
       assert.is_true(m.crafting_progress > 0,
-        "a powered starforge must make crafting progress (it is drawing power to craft)")
+        "a powered stock assembler must make crafting progress on the pack recipe")
       assert.are.equal(0, m.get_item_count(ALUMINIUM),
         "the native inputs are consumed once the craft starts (proving real production)")
       m.destroy()
@@ -231,13 +233,13 @@ describe("cindra starforge runtime: consumes power to produce", function()
     end)
   end)
 
-  it("with NO power, it cannot craft (no progress) -- power is genuinely required", function()
-    local m = make_forge(false)
+  it("with NO power, it cannot craft (no progress) -- the pack still costs power", function()
+    local m = make_assembler(false)
     async(720)
     after_ticks(600, function()
       assert.is_true(m.valid)
       assert.are.equal(0, m.crafting_progress,
-        "an unpowered starforge makes zero progress -- the pack genuinely consumes power")
+        "an unpowered assembler makes zero progress -- the pack genuinely consumes power")
       m.destroy()
       done()
     end)

@@ -16,46 +16,39 @@
 --    lethal edges (power-manufactured aluminium reaches toward the fire/power
 --    side; the deep-nightside volatiles toward the cold).
 --
--- 2. A SIGNIFICANT POWER SINK. Power is Cindra's real resource (§1), so its
---    largest continuous activity -- researching -- must be another flare-timed
---    power sink. Two levers, both here: a LONG craft (`energy_required`) run in a
---    DEDICATED HIGH-DRAW machine (the starforge, ~10 MW active). One pack costs on
---    the order of the flare's own scale in energy, so science throughput scales
---    with captured flare / baseline power (ties to ci-9k6 / ci-63d).
+-- 2. A REAL ENERGY COST. Power is Cindra's real resource (§1), so the headline
+--    science must still cost power to make -- but it is crafted in an ORDINARY
+--    assembling machine, not a bespoke building. The cost is carried by two
+--    honest levers: a LONG craft (`energy_required`), which draws the assembler's
+--    power the whole time, and the signature aluminium input, which is itself the
+--    planet's most power-hungry product (prototypes/aluminium.lua). So science
+--    throughput still scales with captured flare / baseline power, with no
+--    dedicated "starforge" machine standing in for it.
 --
--- 3. A REAL SCIENCE PACK. It is a `tool` (like every vanilla pack) and is appended
---    to the shared labs' accepted inputs so the force can actually research with
---    it. See the lab note below for why that shared-prototype touch is safe.
+-- 3. A REAL SCIENCE PACK. It is a science-pack item (like every vanilla pack) and
+--    is appended to the shared labs' accepted inputs so the force can actually
+--    research with it. See the lab note below for why that shared touch is safe.
 --
 -- SIGNATURE: aluminium is Cindra's signature product (§14; prototypes/aluminium.lua),
 -- and the headline science is built on it -- the planet's power-manufactured metal
 -- distilled into research. Cindra's core thesis is power-manufactured aluminium +
 -- flare mastery; this pack is where that thesis becomes the tech tree's spine.
 --
--- 🚨 NEVER MUTATE OTHER PLANETS: the pack (cloned from automation-science-pack),
--- the starforge (cloned from assembling-machine-3) and its recipe are all fresh
--- prototypes in a PRIVATE crafting category, so the recipe never appears in a
--- vanilla assembler and vanilla recipes never appear in the starforge. The ONE
--- shared touch is appending our pack name to the labs' `inputs` (below) -- purely
--- ADDITIVE, and it changes no other planet's gameplay (no other planet can make
--- or needs the pack).
+-- 🚨 NEVER MUTATE OTHER PLANETS: the pack is a fresh prototype (cloned from
+-- automation-science-pack) and its recipe crafts in the stock `crafting` category,
+-- exactly like every vanilla science pack, so it adds nothing to any other
+-- planet's progression. The ONE shared touch is appending our pack name to the
+-- labs' `inputs` (below) -- purely ADDITIVE, and it changes no other planet's
+-- gameplay (no other planet can make or needs the pack).
 
 local util = require("util")
 
-local PACK = "cindra-science-pack"    -- the tool item (a real science pack)
-local FORGE = "cindra-starforge"      -- the dedicated high-draw crafting machine
-local CATEGORY = "cindra-science"     -- private category: only the starforge runs it
-local TECH = "cindra-science"         -- unlocks the pack + the forge
+local PACK = "cindra-science-pack"    -- the science-pack item (a real research pack)
+local TECH = "cindra-science"         -- unlocks the pack
 
--- (tune) §15-14. THE POWER SINK, expressed in the two honest levers:
---   * FORGE_DRAW -- the machine's active electric draw. Set far above a normal
---     assembler (~375 kW) so running one starforge is a real load on the grid,
---     and an array of them is a flare-scale sink. This is the "power is the real
---     resource" identity made literal.
---   * PACK_SECONDS -- a long craft, so each pack also costs a lot of ENERGY
---     (FORGE_DRAW x PACK_SECONDS ~= 600 MJ/pack at the start values), not just a
---     lot of instantaneous power. Both are (tune) against the flare numbers.
-local FORGE_DRAW = "10MW"
+-- (tune) §15-14. PACK_SECONDS -- a long craft, so each pack costs real ENERGY
+-- (the assembler draws power for the whole craft) on top of its power-hungry
+-- aluminium input. (tune) against the flare numbers.
 local PACK_SECONDS = 60
 
 -- (tune) §15-14. Per-craft native inputs. Every one is a Cindra material with no
@@ -98,40 +91,16 @@ pack.icons = {
 pack.localised_name = { "item-name.cindra-science-pack" }
 pack.localised_description = { "item-description.cindra-science-pack" }
 
--- === The starforge: the dedicated, power-hungry crafting machine ============
--- Cloned from assembling-machine-3 (a known-good electric crafter). We crank its
--- active draw far up so it is a genuine power SINK, and lock it to the private
--- Cindra science category so nothing else runs here and this runs nowhere else.
-local forge = util.table.deepcopy(data.raw["assembling-machine"]["assembling-machine-3"])
-forge.name = FORGE
-forge.minable = { mining_time = 0.5, result = FORGE }
-forge.crafting_categories = { CATEGORY }
-forge.energy_usage = FORGE_DRAW -- the power sink: ~10 MW active draw
-forge.fast_replaceable_group = nil -- not interchangeable with vanilla assemblers
-forge.next_upgrade = nil
-forge.placeable_by = { item = FORGE, count = 1 }
-forge.localised_name = { "entity-name.cindra-starforge" }
-forge.localised_description = { "entity-description.cindra-starforge" }
-
-local forge_item = util.table.deepcopy(data.raw.item["assembling-machine-3"])
-forge_item.name = FORGE
-forge_item.place_result = FORGE
-forge_item.order = "z[cindra]-y[starforge]"
-forge_item.localised_name = { "item-name.cindra-starforge" }
-forge_item.localised_description = { "item-description.cindra-starforge" }
-
--- Private crafting category: only the starforge crafts Cindra science, and the
--- starforge crafts nothing else.
-local category = { type = "recipe-category", name = CATEGORY }
-
--- === Recipes ================================================================
+-- === Recipe =================================================================
 -- The headline recipe: native inputs only, deliberately expensive in TIME so the
--- high-draw starforge turns it into a large ENERGY cost per pack. No fluid, no
--- fuel, no petrochemical -- the whole point.
+-- craft draws real energy from whatever assembler runs it. It crafts in the stock
+-- `crafting` category -- an ordinary assembling machine, exactly like every
+-- vanilla science pack -- so there is no bespoke machine to build. No fluid, no
+-- fuel, no petrochemical: the whole point.
 local pack_recipe = {
   type = "recipe",
   name = PACK,
-  categories = { CATEGORY },
+  categories = { "crafting" },
   enabled = false, -- gated: unlocked by the cindra-science tech, never free.
   energy_required = PACK_SECONDS,
   ingredients = {
@@ -144,21 +113,6 @@ local pack_recipe = {
   },
   allow_productivity = true,
   main_product = PACK,
-}
-
--- Recipe to BUILD the starforge (gated behind the tech). Native/brought metal +
--- a little of the signature aluminium, so the machine itself is a Cindra artifact.
-local forge_build_recipe = {
-  type = "recipe",
-  name = FORGE,
-  enabled = false,
-  energy_required = 15,
-  ingredients = {
-    { type = "item", name = "steel-plate", amount = 30 },
-    { type = "item", name = "iron-gear-wheel", amount = 30 },
-    { type = "item", name = ALUMINIUM, amount = 5 },
-  },
-  results = { { type = "item", name = FORGE, amount = 1 } },
 }
 
 -- === Technology =============================================================
@@ -176,7 +130,6 @@ local technology = {
   icon_mipmaps = 4,
   effects = {
     { type = "unlock-recipe", recipe = PACK },
-    { type = "unlock-recipe", recipe = FORGE },
   },
   prerequisites = { "cindra-aluminium" },
   unit = {
@@ -191,9 +144,8 @@ local technology = {
 }
 
 data:extend({
-  category,
-  pack, forge, forge_item,
-  pack_recipe, forge_build_recipe,
+  pack,
+  pack_recipe,
   technology,
 })
 

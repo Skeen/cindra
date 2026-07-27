@@ -54,8 +54,9 @@ require("prototypes.aluminium")
 require("prototypes.electric-heater")
 
 -- §15-11 mass driver: a RESKINNED ROCKET-SILO (ci-o39), gated behind the
--- cindra-orbital-launch tech. A launch consumes an aluminium can + aluminium-powder
--- solid rocket fuel + a shitton of power (petrochemical-free), and the vanilla
+-- cindra-orbital-launch tech. A launch consumes an aluminium can + vanilla rocket-fuel
+-- (minted from aluminium by the "Solid rocket fuel" recipe, ci-519) + a shitton of
+-- power (petrochemical-free), and the vanilla
 -- rocket path delivers cargo to the space platform hub -- no catcher, no runtime
 -- loop. Loads after aluminium (its can/fuel chain reads cindra-aluminium).
 require("prototypes.mass-driver")
@@ -77,8 +78,8 @@ require("prototypes.flare")
 require("prototypes.storage")
 
 -- §15-12 Cindra science: the HEADLINE science pack (petrochemical-free, native
--- inputs only) crafted in a dedicated power-hungry "starforge" -- the largest
--- continuous activity is another flare-timed power sink. Its tech is gated behind
+-- inputs only) crafted in an ordinary assembling machine -- its energy cost rides
+-- on a long craft plus the power-hungry aluminium input. Its tech is gated behind
 -- the signature aluminium (which needs both lava and ice), and it folds the
 -- launch tech into the Cindra tree so the pack has real downstream unlocks.
 -- Consumes the signature aluminium (prototypes/aluminium.lua), so it loads after.
