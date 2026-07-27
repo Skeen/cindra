@@ -150,8 +150,9 @@ local alumina_recipe = {
 }
 
 -- ELECTROLYSE: alumina + [RUINOUS power] -> aluminium. The single ingredient +
--- the cell's huge draw over a long craft is the whole cost. Productivity OFF so a
--- prod bonus can never mint cheap aluminium (power is the honest cost, per lava).
+-- the cell's huge draw over a long craft is the dominant cost. Productivity ON:
+-- aluminium is an intermediate (a plate-analog), so a prod bonus is a fair reward
+-- and matches vanilla intermediate conventions (per lava). Power stays the cost.
 local aluminium_recipe = {
   type = "recipe",
   name = ALUMINIUM,
@@ -166,7 +167,7 @@ local aluminium_recipe = {
   results = {
     { type = "item", name = ALUMINIUM, amount = ALUMINIUM_PER_ELECTROLYSIS },
   },
-  allow_productivity = false, -- power, not a prod bonus, is what aluminium costs
+  allow_productivity = true, -- intermediate: prod is a fair reward (per lava); power stays the dominant cost
   main_product = ALUMINIUM,
 }
 

@@ -44,19 +44,19 @@ describe("cindra manufactured lava", function()
     assert.are.equal(5, amount_of(recipe.products, "lava"), "5 lava out (spec ratio)")
   end)
 
-  it("makes power the lever: nontrivial energy cost, no productivity shortcut", function()
+  it("makes power the lever, and allows productivity as an intermediate reward", function()
     local recipe = prototypes.recipe[RECIPE]
-    -- energy_required is the whole cost knob; it must be a real, nontrivial time
+    -- energy_required is the dominant cost knob; it must be a real, nontrivial time
     -- so the foundry's electric draw dominates (ruinous power).
     assert.is_true(recipe.energy >= 10,
       "lava must cost real crafting time (the power lever), got " .. tostring(recipe.energy))
-    -- Productivity is disabled: a prod bonus would mint free lava and undo the
-    -- "power is the honest cost" identity. (Contrast molten-iron-from-lava, which
-    -- allows productivity -- proving this is a deliberate, recipe-specific off.)
-    assert.is_false(recipe.allowed_effects.productivity,
-      "productivity must be OFF: power, not a prod bonus, is what lava costs")
+    -- Productivity is allowed: lava is the central intermediate + ruinous power
+    -- cost, so a prod bonus is a fair reward and matches vanilla intermediate
+    -- conventions (the downstream molten recipes allow it too).
+    assert.is_true(recipe.allowed_effects.productivity,
+      "productivity must be ON: lava is an intermediate; a prod bonus is a fair reward")
     assert.is_true(prototypes.recipe["molten-iron-from-lava"].allowed_effects.productivity,
-      "sanity: the downstream melt DOES allow productivity, so lava's off is deliberate")
+      "sanity: the downstream melt also allows productivity (consistent intermediate convention)")
   end)
 
   it("is gated: disabled by default, unlocked only by its own tech", function()
@@ -139,6 +139,29 @@ describe("cindra manufactured lava", function()
     assert.is_not_nil(set, "the foundry must accept a recipe")
     assert.are.equal(RECIPE, set.name,
       "the foundry accepts cindra-lava: metallurgy category + a fluid-output box for lava")
+    foundry.destroy()
+  end)
+
+  it("accepts a productivity module in-machine: the bonus actually applies", function()
+    local s = H.cindra_surface()
+    game.forces["player"].recipes[RECIPE].enabled = true
+
+    local foundry = s.create_entity({ name = "foundry", position = { 0, 0 }, force = "player" })
+    foundry.set_recipe(RECIPE)
+
+    -- Insert a productivity module and confirm the machine reports a live
+    -- productivity bonus. This only happens when the recipe allows productivity,
+    -- so it proves the flag reaches the machine, not just the prototype.
+    local modules = foundry.get_module_inventory()
+    assert.is_not_nil(modules, "the foundry must have a module inventory")
+    local inserted = modules.insert({ name = "productivity-module", count = 1 })
+    assert.are.equal(1, inserted, "a productivity module must go into the foundry")
+
+    local effects = foundry.effects
+    assert.is_not_nil(effects, "the foundry must report module effects with a recipe set")
+    assert.is_not_nil(effects.productivity, "the productivity effect must be present")
+    assert.is_true(effects.productivity > 0,
+      "the productivity bonus must be live (recipe allows productivity)")
     foundry.destroy()
   end)
 end)

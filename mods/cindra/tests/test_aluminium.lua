@@ -4,7 +4,8 @@
 --        stone + calcite -> alumina -> [power] -> aluminium.
 --   2. POWER IS THE COST: the electrolysis cell has a huge electric draw (a
 --      bigger single-building sink than the lava foundry) and the recipe a long
---      craft time, with productivity OFF -- so power, not material, is the cost.
+--      craft time -- so power, not material, is the dominant cost. Productivity
+--      is allowed (intermediate reward, per lava); power still dominates.
 --   3. GATED: recipes off by default; the tech unlocks all three and sits behind
 --      BOTH the lava spine and ice processing (rock AND ice).
 --   4. DEMAND EXISTS: the flare capacitor consumes aluminium (a downstream use),
@@ -93,14 +94,15 @@ describe("cindra aluminium: power is the ruinous cost", function()
       "the cell draw must be cranked well above the vanilla electric furnace")
   end)
 
-  it("the electrolysis recipe costs real crafting time, no productivity shortcut", function()
+  it("the electrolysis recipe costs real crafting time, and allows productivity", function()
     local r = prototypes.recipe[ALUMINIUM]
     assert.is_true(r.energy >= 10,
       "aluminium must cost real crafting time (the power lever), got " .. tostring(r.energy))
-    -- Productivity OFF: a prod bonus would mint cheap aluminium and undo the
-    -- "power is the honest cost" identity (the same rule manufactured lava keeps).
-    assert.is_false(r.allowed_effects.productivity,
-      "productivity must be OFF: power, not a prod bonus, is what aluminium costs")
+    -- Productivity ON: aluminium is an intermediate (a plate-analog), so a prod
+    -- bonus is a fair reward and matches vanilla intermediate conventions (the
+    -- same rule manufactured lava keeps). Power stays the dominant cost.
+    assert.is_true(r.allowed_effects.productivity,
+      "productivity must be ON: aluminium is an intermediate; a prod bonus is a fair reward")
   end)
 
   it("does not mutate the shared electric furnace (never-mutate-other-planets)", function()

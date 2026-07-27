@@ -11,8 +11,10 @@
 --    "metallurgy", so the FOUNDRY crafts it -- no new building. "Power is the
 --    lever": the stone/lava amounts are fixed, and the entire cost knob is
 --    `energy_required` against the foundry's electric draw. Productivity is
---    DISABLED so power stays the honest cost (a productivity bonus would mint
---    free lava and defeat the "ruinous power" identity).
+--    ALLOWED: lava is the central intermediate and its cost is ruinous power, so
+--    a productivity bonus is a fair reward and matches vanilla intermediate
+--    conventions (the downstream molten recipes allow it too). Power stays the
+--    dominant cost via `energy_required`; productivity only softens it.
 --
 -- 2. FOUNDRY INTEGRATION -- BROUGHT, NOT RE-UNLOCKED. The foundry and its
 --    `molten-iron-from-lava` / `molten-copper-from-lava` recipes are Vulcanus
@@ -44,8 +46,8 @@ local STONE_IN = 1
 local LAVA_OUT = 5
 
 -- THE POWER LEVER (tune, §7). All of "ruinous power" lives here. The material
--- cost is fixed at a single stone and productivity is off, so the ONLY cost knob
--- is energy_required against the foundry's 2.5 MW draw. Because the batch is
+-- cost is fixed at a single stone, so the dominant cost knob is energy_required
+-- against the foundry's 2.5 MW draw (productivity only trims it). Because the batch is
 -- small (5 lava) and one downstream melt swallows 500 lava, ~100 lava crafts
 -- back every metal cycle: at this energy_required that aggregate energy dwarfs
 -- the ~16 s melt step, so power -- not stone -- is what metal really costs.
@@ -70,8 +72,9 @@ local recipe = {
   results = {
     { type = "fluid", name = "lava", amount = LAVA_OUT },
   },
-  -- Power is the lever, not productivity: no free lava from a prod bonus.
-  allow_productivity = false,
+  -- Central intermediate + ruinous power cost: productivity is a fair reward and
+  -- matches vanilla intermediate conventions. Power stays the dominant cost.
+  allow_productivity = true,
   -- Single fluid product: show the recipe as the lava it makes.
   icon = "__space-age__/graphics/icons/fluid/lava.png",
   icon_size = 64,
