@@ -233,14 +233,20 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `CALM_MIN_TICKS` / `CALM_MAX_TICKS` (and warning length) if it feels starved,
   clustered, or un-reactable. Ties into the balance pass (ci-63d).
 
-- [ ] **[LANDED] Panel damage reads as degrade-before-death (§15-8, ci-9ay).**
-  Undisposed flare surplus degrades the most-sunward panels first (recoverable),
-  then destroys them under a sustained deficit; adding a dissipator/storage heals
-  them. Rule, edge-bias, self-correction, and dissipator-as-fuse are
-  integration-tested (`test_panel_damage`, `test_disposal`). *Look for:* the
-  health read of a panel array cooking sunward-first during an over-built flare,
-  and recovering once disposal is added. Panels have no bespoke "overheating"
-  visual yet (just the health bar); an emissive cue is a follow-up.
+- [ ] **[LANDED] Panel damage reads as degrade-before-death (§15-8, ci-9ay,
+  ci-snq).** Undisposed flare surplus degrades the most-sunward panels first
+  (recoverable), then destroys them under a sustained deficit; adding a
+  dissipator/storage heals them. Rule, edge-bias, self-correction, and
+  dissipator-as-fuse are integration-tested (`test_panel_damage`, `test_disposal`),
+  and the whole thing is now proven END-TO-END through the live driver path (ci-snq,
+  `test_panel_damage_runtime`): driver enabled, a real sporadic flare,
+  `panels.sweep()` reading the schedule intensity -- insufficient disposal degrades
+  panels, sufficient disposal is zero loss, a near-full buffer raises the alarm
+  (Coercia's "full battery"), only Cindra panels are touched, and it fires with no
+  day/night cycle (tidal-lock safe). *Look for:* the health read of a panel array
+  cooking sunward-first during an over-built flare, and recovering once disposal is
+  added. Panels have no bespoke "overheating" visual yet (just the health bar); an
+  emissive cue is a follow-up.
 
 - [ ] **[LANDED] Sunward-position solar output, no visual band cue (ci-9ht,
   ci-8al).** Cindra uses the **vanilla** `solar-panel` (ci-8al). A placed panel

@@ -62,6 +62,7 @@ if script.active_mods["factorio-test"] then
     -- flare cycle, disposal-deficit panel damage, storage + dissipator sinks.
     "tests/test_flare",
     "tests/test_panel_damage",
+    "tests/test_panel_damage_runtime",
     "tests/test_panel_solar",
     "tests/test_disposal",
     "tests/test_storage",

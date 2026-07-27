@@ -12,7 +12,11 @@
 --                      capture < delivery at every scale).
 --
 -- All quantities are power (W). A sink counts toward capture only if it can
--- actually accept power THIS tick: a full accumulator contributes 0.
+-- actually accept power THIS tick: a SATURATED accumulator (real fill at/above
+-- C.STORAGE_SATURATION_THRESHOLD) contributes 0. That real-fill read is Coercia's
+-- "a full battery is the alarm" (ci-snq): storage stops masking the surge as soon
+-- as it is genuinely near cap, so the disposal deficit -- and panel damage --
+-- fires reliably rather than only when a buffer pegs bit-exact full.
 --
 -- 🚨 Every lookup is per-surface (the caller passes a Cindra surface); this
 -- module never reaches onto another planet.
@@ -37,6 +41,16 @@ local function in_network(entity, network_id)
   return network_id == nil or entity.electric_network_id == network_id
 end
 
+-- Coercia's "full battery is the alarm" (ci-snq): a storage buffer only counts as
+-- available disposal while its REAL fill is below the saturation threshold. Read
+-- from live engine state (entity.energy vs its buffer), so once the grid's storage
+-- is genuinely pegged near cap it stops masking the surplus and the deficit fires.
+-- An accumulator charging through its final headroom during a flare plateau reads
+-- as saturated here, not as free capacity.
+local function has_headroom(acc)
+  return acc.energy < C.STORAGE_SATURATION_THRESHOLD * acc.electric_buffer_size
+end
+
 -- Capture capacity available on `surface` (optionally restricted to one electric
 -- network). Returns a breakdown plus the total; `storage` is capacitor+battery
 -- and only counts accumulators that still have room to accept power.
@@ -48,12 +62,12 @@ function M.capture(surface, network_id)
     if in_network(d, network_id) then dissipator = dissipator + C.DISSIPATOR_DRAW_W end
   end
   for _, c in pairs(surface.find_entities_filtered({ name = C.CAPACITOR })) do
-    if in_network(c, network_id) and c.energy < c.electric_buffer_size then
+    if in_network(c, network_id) and has_headroom(c) then
       capacitor = capacitor + C.CAPACITOR_FLOW_W
     end
   end
   for _, b in pairs(surface.find_entities_filtered({ name = C.BATTERY })) do
-    if in_network(b, network_id) and b.energy < b.electric_buffer_size then
+    if in_network(b, network_id) and has_headroom(b) then
       battery = battery + C.BATTERY_FLOW_W
     end
   end
