@@ -62,8 +62,10 @@ capacitor.energy_source = {
   input_flow_limit = watts(C.CAPACITOR_FLOW_W),
   output_flow_limit = watts(C.CAPACITOR_FLOW_W),
 }
-capacitor.chargable_graphics = nil -- v1 static art; drop the vanilla charge lamp.
-capacitor.picture = entity_art("capacitor")
+-- Accumulator art lives in `chargable_graphics.picture` -- a top-level `picture`
+-- is silently ignored by the engine (that made the capacitor INVISIBLE, ci-sop).
+-- v1 static art: a single picture, no charge/discharge lamp animation.
+capacitor.chargable_graphics = { picture = entity_art("capacitor") }
 set_icon(capacitor, "capacitor")
 capacitor.localised_name = { "entity-name." .. C.CAPACITOR }
 capacitor.localised_description = { "entity-description." .. C.CAPACITOR }
@@ -109,8 +111,9 @@ battery.energy_source = {
   input_flow_limit = watts(C.BATTERY_FLOW_W),
   output_flow_limit = watts(C.BATTERY_FLOW_W),
 }
-battery.chargable_graphics = nil
-battery.picture = entity_art("molten-salt-battery")
+-- Same accumulator-graphics rule as the capacitor: art must go in
+-- `chargable_graphics.picture`, not a top-level `picture` (ci-sop).
+battery.chargable_graphics = { picture = entity_art("molten-salt-battery") }
 set_icon(battery, "molten-salt-battery")
 battery.localised_name = { "entity-name." .. C.BATTERY }
 battery.localised_description = { "entity-description." .. C.BATTERY }

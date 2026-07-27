@@ -72,3 +72,9 @@ require("prototypes.storage")
 -- launch tech into the Cindra tree so the pack has real downstream unlocks.
 -- Consumes the cryo-hardened alloy (prototypes/cryo-alloy.lua), so it loads after.
 require("prototypes.science")
+
+-- Graphics guard (ci-sop): MUST be last -- audits every registered Cindra entity
+-- for a wired render sprite and errors the load on any invisible building. Catches
+-- the class of bug the runtime API cannot see (LuaEntityPrototype has no graphics
+-- accessor). See prototypes/graphics-audit.lua + scripts/graphics-audit.lua.
+require("prototypes.graphics-audit")

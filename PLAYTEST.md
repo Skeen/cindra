@@ -143,6 +143,13 @@ this list is the last resort when no test path exists.
   Cindra sprites/icons (`graphics/ART-MANIFEST.md`, ci-pru): single static frames,
   no charge-lamp/working animation. Expected in v1 — bespoke animated art is a
   later pass. Do not file as a bug.
+  *Note (ci-sop):* the capacitor + molten-salt battery were previously INVISIBLE
+  in world — their art was assigned to a top-level `picture`, which the engine
+  ignores for accumulators (art must live in `chargable_graphics.picture`). Now
+  fixed and guarded by an automated data-stage audit (every custom Cindra entity
+  must have a wired render sprite, else the mod fails to load; see
+  `prototypes/graphics-audit.lua`). This playtest is now only the *visual read*
+  (scale/shift/tint look right), not presence.
 
 - [ ] **Environmental scanner reads well as a circuit hub (ci-3o3).** The
   standalone `env-scanner` mod adds a buildable **Environmental scanner** (a
