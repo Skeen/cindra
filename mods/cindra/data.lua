@@ -46,8 +46,9 @@ require("prototypes.aluminium")
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
 
--- §15-11 mass driver: electric launch-to-orbit (driver + hidden charger + orbital
--- catcher + native shell), gated behind the cindra-orbital-launch tech. Removes
+-- §15-11 mass driver: electric launch-to-orbit (driver + hidden charger + native
+-- shell), gated behind the cindra-orbital-launch tech. No platform-side catcher --
+-- cargo lands in the space platform hub like normal rocket cargo (ci-98r). Removes
 -- launch chemistry entirely. Runtime loop in scripts/mass-driver.lua.
 require("prototypes.mass-driver")
 

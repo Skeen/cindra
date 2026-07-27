@@ -3,7 +3,8 @@
 A **standalone, self-contained** Factorio: Space Age mod that proves the
 mass-driver concept from Cindra's `planet_design.md` §11: a building that flings
 cargo to orbit using **essentially only electricity** (plus an optional
-native-metal projectile shell), caught by a platform-side catcher. **No rocket
+native-metal projectile shell). The payload lands in the **space platform hub**
+like normal rocket cargo — there is **no platform-side catcher**. **No rocket
 fuel, no chemistry.**
 
 It lives in its own mod dir (`mods/mass-driver/`) so it develops fully in
@@ -29,20 +30,23 @@ electric buffer, so we pair them:
 |---|---|---|
 | `mass-driver` | `container` | Visible building. Load it (belt / inserter / hand) with **cargo** + **projectile shells**. |
 | `mass-driver-charger` | `accumulator` (hidden) | Spawned by the runtime on the driver's tile (empty collision mask, so it overlaps). Charges the per-shot energy from the grid. `output_flow_limit = 0` → never feeds the grid back; energy only leaves as a shot. |
-| `mass-driver-catcher` | `container` | One-time platform-side structure, built in orbit. Receives the payload. |
 | `mass-driver-shell` | item | Consumable projectile shell, forged from native metal. |
+
+The **destination is a space platform hub** — the same place a vanilla rocket
+delivers to. There is no bespoke catcher to build; the runtime finds a same-force
+platform (via `force.platforms`) and inserts into its hub (`hub_main`).
 
 Each tick-check (`scripts/launch.lua`), a driver **fires** when **all** hold:
 
 1. its charger buffer is full (`>= 99%` of capacity),
 2. it holds at least one `mass-driver-shell`,
 3. it holds at least one cargo item,
-4. a `mass-driver-catcher` of the same force exists (the destination).
+4. a same-force space platform with a hub exists (the destination).
 
 On fire it spends the **whole** electric buffer, consumes **one** shell, and
-moves up to `SHOT_CAPACITY` cargo items **across surfaces** into the catcher.
-Then it must recharge before the next shot — naturally **bursty**. With no
-catcher or no shell, nothing is consumed (payload preserved).
+moves up to `SHOT_CAPACITY` cargo items **across surfaces** into the platform
+hub. Then it must recharge before the next shot — naturally **bursty**. With no
+destination platform or no shell, nothing is consumed (payload preserved).
 
 ### Payload container decision
 
@@ -60,7 +64,7 @@ catcher or no shell, nothing is consumed (payload preserved).
 |---|---|---|---|
 | Per-shot energy | **500 MJ** | charger `buffer_capacity` | Whole buffer spent per shot — a real power decision. |
 | Charge rate | **10 MW** | charger `input_flow_limit` | ~50 s per shot from a strong grid → bursty. |
-| Cargo per shot | **100 items** | `SHOT_CAPACITY` | Delivered to the catcher per fire. |
+| Cargo per shot | **100 items** | `SHOT_CAPACITY` | Delivered to the platform hub per fire. |
 | Shell per shot | **1** | `SHELL_PER_SHOT` | Native-metal projectile (option A). |
 | Shell recipe | **5 × steel-plate → 1 shell** | `prototypes/mass-driver.lua` | Pure native metal. No plastic/acid/fuel. |
 | Fire-check cadence | **every 20 ticks** | `FIRE_INTERVAL` | |
@@ -70,17 +74,18 @@ Launch cost = **500 MJ electricity + 5 steel-plate per 100 items**, and
 
 ## What's proven (in-engine, `factorio-test`)
 
-`tests/test_mass_driver.lua` — 11 tests, all green:
+`tests/test_mass_driver.lua` — 12 tests, all green:
 
 - **prototype shape** — driver is a fuel-less container; charger is a hidden
-  electric accumulator with a ≥100 MJ buffer; catcher + shell exist; no recipe
-  in the loop uses rocketry/chemistry inputs.
+  electric accumulator with a ≥100 MJ buffer; the shell exists; **no catcher
+  prototype exists** (delivery reuses the platform hub); no recipe in the loop
+  uses rocketry/chemistry inputs.
 - **charges from the grid** — a solar-fed grid fills the hidden charger.
 - **FULL LOOP** — a charged, loaded driver delivers exactly `SHOT_CAPACITY`
-  cargo **across surfaces** into an orbital catcher, spends one shell, drains
-  its buffer to zero.
-- **needs a shell / needs a catcher / needs a full charge** — each missing
-  precondition blocks the launch with nothing consumed.
+  cargo **across surfaces** into a real **space platform hub**, spends one shell,
+  drains its buffer to zero.
+- **needs a shell / needs a destination platform / needs a full charge** — each
+  missing precondition blocks the launch with nothing consumed.
 - **bursty** — two shots require two independent charge cycles.
 
 ## Running the tests
@@ -108,7 +113,7 @@ ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
 which targets `mods/cindra`). `recycler` is a required built-in DLC in 2.1; the
 runner may print `Could not download mod: recycler` and then proceed — that is
 harmless (the DLC is resolved from the Factorio install). Expected:
-`Tests: 11 passed (11 total)`.
+`Tests: 12 passed (12 total)`.
 ```
 
 ## Layout

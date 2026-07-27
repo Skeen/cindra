@@ -16,8 +16,9 @@
 -- (accumulator) is the only way to get both on one building: no single vanilla
 -- entity type exposes an item inventory AND a chargeable, readable buffer.
 --
--- The orbit side is a one-time `mass-driver-catcher` container (models a
--- cargo-landing-pad on a space platform). See README.md for the tuning table.
+-- There is NO platform-side structure: a launch behaves like a vanilla rocket
+-- delivering to a platform, so the payload lands directly in the space platform
+-- hub's inventory (defines.inventory.hub_main). See README.md for the tuning table.
 
 local util = require("util")
 
@@ -26,7 +27,6 @@ local util = require("util")
 local M = {}
 M.DRIVER = "mass-driver"
 M.CHARGER = "mass-driver-charger"
-M.CATCHER = "mass-driver-catcher"
 M.SHELL = "mass-driver-shell"
 
 M.SHOT_ENERGY = "500MJ"   -- energy per shot (the charger's buffer capacity)
@@ -79,30 +79,11 @@ charger.chargable_graphics = { picture = EMPTY_SPRITE }
 charger.water_reflection = nil
 charger.default_output_signal = nil
 
--- === Orbit-side catcher: a one-time container on the space platform ==========
-local catcher = util.table.deepcopy(data.raw.container["steel-chest"])
-catcher.name = M.CATCHER
-catcher.minable = { mining_time = 0.5, result = M.CATCHER }
-catcher.inventory_size = 80
-catcher.next_upgrade = nil
-if catcher.picture and catcher.picture.layers then
-  for _, layer in pairs(catcher.picture.layers) do
-    layer.tint = { r = 1.0, g = 0.75, b = 0.4, a = 1.0 }
-  end
-elseif catcher.picture then
-  catcher.picture.tint = { r = 1.0, g = 0.75, b = 0.4, a = 1.0 }
-end
-
 -- === Items ===================================================================
 local driver_item = util.table.deepcopy(data.raw.item["steel-chest"])
 driver_item.name = M.DRIVER
 driver_item.place_result = M.DRIVER
 driver_item.order = "z[mass-driver]-a[driver]"
-
-local catcher_item = util.table.deepcopy(data.raw.item["steel-chest"])
-catcher_item.name = M.CATCHER
-catcher_item.place_result = M.CATCHER
-catcher_item.order = "z[mass-driver]-b[catcher]"
 
 -- The projectile shell: option A -- a consumable made of native metal, so the
 -- recurring launch cost lands on local metallurgy, NOT on chemistry. steel-plate
@@ -130,18 +111,6 @@ local driver_recipe = {
   results = { { type = "item", name = M.DRIVER, amount = 1 } },
 }
 
-local catcher_recipe = {
-  type = "recipe",
-  name = M.CATCHER,
-  enabled = true,
-  energy_required = 5,
-  ingredients = {
-    { type = "item", name = "steel-plate", amount = 50 },
-    { type = "item", name = "iron-gear-wheel", amount = 10 },
-  },
-  results = { { type = "item", name = M.CATCHER, amount = 1 } },
-}
-
 -- Shell recipe: pure native metal. No plastic, no sulfuric acid, no rocket fuel.
 local shell_recipe = {
   type = "recipe",
@@ -155,9 +124,9 @@ local shell_recipe = {
 }
 
 data:extend({
-  driver, charger, catcher,
-  driver_item, catcher_item, shell_item,
-  driver_recipe, catcher_recipe, shell_recipe,
+  driver, charger,
+  driver_item, shell_item,
+  driver_recipe, shell_recipe,
 })
 
 return M

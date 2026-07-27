@@ -4,11 +4,18 @@
 -- A cindra-mass-driver (visible container) is paired at build time with a hidden
 -- cindra-mass-driver-charger (accumulator) on its own tile. The charger fills from
 -- the electric grid. Once it is full AND the driver holds a projectile shell AND
--- some cargo AND a same-force catcher exists (in orbit), the driver FIRES: it
--- spends the whole buffer, consumes one shell, and delivers a shot of cargo across
--- surfaces into the catcher. Then it must recharge before firing again (naturally
--- bursty: charge up, fire, charge up again). The only launch costs are electricity
--- (the buffer) and one native-metal shell -- no rocket fuel, no chemistry.
+-- some cargo AND a same-force space platform (in orbit) exists to receive it, the
+-- driver FIRES: it spends the whole buffer, consumes one shell, and delivers a
+-- shot of cargo across surfaces into the platform's hub -- the same place normal
+-- rocket cargo lands (defines.inventory.hub_main). Then it must recharge before
+-- firing again (naturally bursty: charge up, fire, charge up again). The only
+-- launch costs are electricity (the buffer) and one native-metal shell -- no
+-- rocket fuel, no chemistry.
+--
+-- NO PLATFORM-SIDE STRUCTURE (ci-98r): a launch behaves like a vanilla rocket
+-- delivering to a platform. There is no bespoke "catcher" to build; the payload
+-- lands directly in the space platform hub, reusing the vanilla launch-to-platform
+-- destination.
 --
 -- 🚨 on_nth_tick(N) is REPLACE-not-add. FIRE_INTERVAL below MUST stay distinct from
 -- every other Cindra periodic N (edge-damage 20, building-heat 47). The build /
@@ -27,7 +34,6 @@ local M = {}
 -- the loaded prototypes so drift is caught.
 M.DRIVER = "cindra-mass-driver"
 M.CHARGER = "cindra-mass-driver-charger"
-M.CATCHER = "cindra-mass-driver-catcher"
 M.SHELL = "cindra-mass-driver-shell"
 
 M.SHOT_CAPACITY = 100        -- max cargo items moved per shot
@@ -37,7 +43,6 @@ M.FIRE_INTERVAL = 31         -- ticks between fire checks (distinct from 20 / 47
 
 local function ensure_storage()
   storage.cindra_md_drivers = storage.cindra_md_drivers or {}   -- [unit_number] = {driver=, charger=}
-  storage.cindra_md_catchers = storage.cindra_md_catchers or {} -- [unit_number] = LuaEntity
 end
 
 -- Spawn the hidden charger that overlaps a freshly built driver.
@@ -62,8 +67,6 @@ local function on_build_event(event)
   ensure_storage()
   if e.name == M.DRIVER then
     attach_charger(e)
-  elseif e.name == M.CATCHER then
-    storage.cindra_md_catchers[e.unit_number] = e
   end
 end
 
@@ -75,21 +78,28 @@ local function on_remove_event(event)
     local rec = storage.cindra_md_drivers[e.unit_number]
     if rec and rec.charger and rec.charger.valid then rec.charger.destroy() end
     storage.cindra_md_drivers[e.unit_number] = nil
-  elseif e.name == M.CATCHER then
-    storage.cindra_md_catchers[e.unit_number] = nil
   end
 end
 
--- First valid catcher belonging to the same force (the shot's destination).
-local function find_catcher(force)
-  for un, catcher in pairs(storage.cindra_md_catchers) do
-    if catcher and catcher.valid then
-      if catcher.force == force then return catcher end
-    else
-      storage.cindra_md_catchers[un] = nil
+-- The shot's destination: a same-force space platform hub, the vanilla place
+-- rocket cargo lands (defines.inventory.hub_main). Prefer a platform orbiting the
+-- driver's own planet (a rocket only reaches platforms above its silo's planet);
+-- fall back to any same-force platform with a live hub. Nil when the force owns no
+-- platform with a hub yet -- then nothing launches and the payload is preserved.
+local function find_platform_hub(driver)
+  local platforms = driver.force.platforms
+  if not platforms then return nil end
+  local planet_name = driver.surface.name
+  local fallback = nil
+  for _, platform in pairs(platforms) do
+    local hub = platform.hub
+    if hub and hub.valid then
+      local loc = platform.space_location
+      if loc and loc.name == planet_name then return hub end
+      fallback = fallback or hub
     end
   end
-  return nil
+  return fallback
 end
 
 -- Attempt to fire one driver. Returns true if a shot was launched.
@@ -104,15 +114,15 @@ local function try_fire(rec)
   if not inv then return false end
   if inv.get_item_count(M.SHELL) < M.SHELL_PER_SHOT then return false end
 
-  -- Need a destination before consuming anything (no catcher => no launch,
+  -- Need a destination before consuming anything (no platform hub => no launch,
   -- payload preserved).
-  local catcher = find_catcher(driver.force)
-  if not catcher then return false end
-  local catcher_inv = catcher.get_inventory(defines.inventory.chest)
-  if not catcher_inv then return false end
+  local hub = find_platform_hub(driver)
+  if not hub then return false end
+  local hub_inv = hub.get_inventory(defines.inventory.hub_main)
+  if not hub_inv then return false end
 
   -- Gather up to SHOT_CAPACITY of cargo (everything that is not a shell) and
-  -- deliver it across surfaces into the catcher.
+  -- deliver it across surfaces into the platform hub -- like normal rocket cargo.
   local remaining = M.SHOT_CAPACITY
   local moved = 0
   for _, stack in pairs(inv.get_contents()) do
@@ -123,9 +133,9 @@ local function try_fire(rec)
       local removed = inv.remove(id)
       if removed > 0 then
         local put = { name = stack.name, count = removed, quality = stack.quality }
-        local inserted = catcher_inv.insert(put)
+        local inserted = hub_inv.insert(put)
         if inserted < removed then
-          -- Catcher full: return the overflow to the driver, keep it for later.
+          -- Hub full: return the overflow to the driver, keep it for later.
           inv.insert({ name = stack.name, count = removed - inserted, quality = stack.quality })
         end
         moved = moved + inserted
