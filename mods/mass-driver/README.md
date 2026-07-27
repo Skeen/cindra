@@ -85,13 +85,20 @@ Launch cost = **500 MJ electricity + 5 steel-plate per 100 items**, and
 
 ## Running the tests
 
-Needs a local `factorio/` install (2.1.9 Space Age) and node deps — both
-gitignored; see the repo-root `SETUP.md`. The runner (`vendor/factorio-test`)
-is committed. From the repo root:
+Needs a local Factorio install (2.1.9 Space Age) and node deps — both
+gitignored; see the repo-root `SETUP.md`. The runner (`factorio-test`) is built
+by the repo `flake.nix` and exposed in the dev shell as `$FACTORIO_TEST_MOD`.
+The repo's `cindra-test` targets `mods/cindra`, so this standalone PoC uses the
+CLI directly. From the repo root, inside `nix develop`:
 
 ```sh
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
+# seed the flake-built factorio-test into the data dir
+mkdir -p factorio-test-data-dir/mods
+ver=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$FACTORIO_TEST_MOD/info.json" | head -1)
+ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
+
+./node_modules/.bin/factorio-test run \
+  --factorio-path "${FACTORIO_PATH:-./factorio/bin/x64/factorio}" \
   --data-directory ./factorio-test-data-dir \
   --mod-path ./mods/mass-driver \
   --mods space-age quality elevated-rails recycler

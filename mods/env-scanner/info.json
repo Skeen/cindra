@@ -8,7 +8,6 @@
   "dependencies": [
     "base >= 2.1",
     "? space-age",
-    "? cindra",
-    "? factorio-test"
+    "? cindra"
   ]
 }

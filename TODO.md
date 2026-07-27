@@ -22,7 +22,8 @@ merge queue.
     (dev picker default). APS is an OPTIONAL dependency (`ci-gfp`): the companion
     mods load clean with AND without it. Full APS chain loads headless when APS
     is installed.
-  - Scaffold: vendored dep (factorio-test), test harness, `play.sh`, docs.
+  - Scaffold: flake dev shell (factorio-test built from upstream, `ci-9u3`),
+    test harness, `play.sh`, docs.
 
 - [x] **§15-2 — Lethal edges.** `ci-318` (worldgen track `ci-9nj`).
   - Gradient ticking damage: `scripts/edge-damage.lua` consumes

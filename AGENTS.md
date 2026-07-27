@@ -60,36 +60,39 @@ mods/
   cindra-start/          sibling: any-planet-start integration (Cindra as a start; APS optional)
   cindra-dev-default/    sibling: dev-only planet-picker default
 
-vendor/                  factorio-test (self-contained). any-planet-start is an
-                         optional external dep, NOT vendored.
+flake.nix                dev/test shell: factorio-test (built from upstream, NOT
+                         vendored) + art/test toolchain. any-planet-start is an
+                         optional external dep, NOT provided by the flake.
 scripts/                 tooling (patchelf-factorio.sh, render-*.sh)
 factorio/                Factorio install (gitignored — see SETUP.md)
 ```
 
 ## Run tests
 
-Integration suite (`recycler` is a required built-in DLC in 2.1 — `quality` /
-`space-age` depend on it, so it must be in the `--mods` list):
+The toolchain lives in the flake dev shell — `factorio-test` (built from
+upstream), node, lua, and the art tools. Enter it, then use `cindra-test`
+(seeds the flake-built factorio-test into the data dir and invokes the CLI):
 
 ```sh
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
-  --data-directory ./factorio-test-data-dir \
-  --mod-path ./mods/cindra \
-  --mods space-age quality elevated-rails recycler
+nix develop
+npm install          # one-time: fetch factorio-test-cli
+cindra-test          # integration suite
 ```
 
-`node` isn't on PATH — wrap via `nix shell nixpkgs#nodejs -c`. The vendored
-factorio-test must be visible to the runner as
-`factorio-test-data-dir/mods/factorio-test_3.1.1 -> ../../vendor/factorio-test`
-(pre-seeded so the runner doesn't try to download it). The "Could not download
-mod: recycler" line is a harmless warning — recycler loads from the Factorio
-install's bundled DLC data.
+`cindra-test` passes the DLC set the suite needs — `recycler` is a required
+built-in DLC in 2.1 (`quality` / `space-age` depend on it). It resolves the
+Factorio binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio`, so one
+shared install serves every clone (see SETUP.md). The "Could not download mod:
+recycler" line is a harmless warning — recycler loads from the Factorio
+install's bundled DLC data. Extra args are forwarded to the CLI (e.g.
+`cindra-test cindra-start cindra-dev-default` for the companion suite).
 
 Plain-Lua unit tests (pure logic) run without Factorio:
 
 ```sh
-cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_ribbon.lua
+npm run test:unit                    # all unit-tests/test_*.lua (in the dev shell)
+# or a single one:
+cd mods/cindra && lua unit-tests/test_ribbon.lua
 ```
 
 ## Launch game for manual testing
@@ -128,7 +131,12 @@ storage tier, the electric heater, the mass driver, the science pack.
   Cindra as a game-start option ONLY when APS is installed (guarded on
   `mods["any-planet-start"]`); without it the companion mods load clean and
   register nothing. Install it from the mod portal to use the Cindra start chain.
-- **`factorio-test`** (vendored, 3.1.1) — the integration-test framework.
+- **`factorio-test`** (3.1.1, dev/test-only) — the integration-test framework.
+  Built from its upstream GitHub source by `flake.nix` (a flake input, NOT
+  vendored) and seeded into the runner by `cindra-test`. It is deliberately NOT
+  a dependency of any shipped mod (`info.json`) and is not in the release
+  archive; the mods load/play fine without it (`control.lua` boots the suite
+  only when `script.active_mods["factorio-test"]`).
 
 ## Conventions
 
