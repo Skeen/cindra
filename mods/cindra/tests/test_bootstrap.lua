@@ -130,29 +130,31 @@ describe("cindra bootstrap: the stone->lava->metal spine turns on (runtime)", fu
     local power = s.create_entity({
       name = "electric-energy-interface", position = { 10, 8 }, force = "player",
     })
-    power.power_production = 100000000 -- 100 MW: dwarfs a foundry's ~2.5 MW draw
+    power.power_production = 100000000 -- 100 MW: covers the caster's 40 MW draw + a foundry
     power.electric_buffer_size = 100000000
     power.energy = 100000000
     return s
   end
 
-  it("a foundry crafts stone -> lava (the fire spine ignites from a hand resource)", function()
+  it("a lava-manufacturer crafts stone -> lava (the fire spine ignites from a hand resource)", function()
     local s = powered_surface()
     game.forces["player"].recipes["cindra-lava"].enabled = true
 
-    local foundry = s.create_entity({ name = "foundry", position = { 0, 0 }, force = "player" })
-    foundry.set_recipe("cindra-lava")
+    -- Lava is crafted on the dedicated Cindra caster (ci-e8a), not the shared
+    -- foundry: a fast, high-draw machine so a single-digit count feeds a foundry.
+    local caster = s.create_entity({ name = "cindra-lava-manufacturer", position = { 0, 0 }, force = "player" })
+    caster.set_recipe("cindra-lava")
     -- Stone is the ONLY input the player has hand-mined at this point.
-    foundry.insert({ name = "stone", count = 50 })
+    caster.insert({ name = "stone", count = 50 })
 
     async(1800)
     after_ticks(900, function()
-      assert.is_true(foundry.valid)
-      local lava = foundry.get_fluid_count("lava")
+      assert.is_true(caster.valid)
+      local lava = caster.get_fluid_count("lava")
       assert.is_true(lava > 0,
-        "the foundry must have made lava from stone (got " .. lava
-          .. ", stone left " .. foundry.get_item_count("stone") .. ")")
-      foundry.destroy()
+        "the lava-manufacturer must have made lava from stone (got " .. lava
+          .. ", stone left " .. caster.get_item_count("stone") .. ")")
+      caster.destroy()
       done()
     end)
   end)
@@ -210,7 +212,8 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     { r = "cindra-ice-crushing",             m = "cindra-ice-crusher" },   -- ice -> crushed-ice
     { r = "cindra-ice-crushing-calcite",     m = "cindra-ice-crusher" },   -- ice -> crushed-ice + calcite
     { r = "cindra-ice-melting",              m = "cindra-ice-melter" },    -- crushed-ice -> water
-    { r = "cindra-lava",                     m = "foundry" },              -- stone -> lava
+    { r = "cindra-lava-manufacturer",        m = "hand" },                 -- build the dedicated caster
+    { r = "cindra-lava",                     m = "cindra-lava-manufacturer" }, -- stone -> lava (ci-e8a)
     { r = "molten-iron-from-lava",           m = "foundry" },              -- lava + calcite -> molten iron
     { r = "casting-iron",                    m = "foundry" },              -- molten iron -> iron plate
     { r = "iron-gear-wheel",                 m = "hand" },                 -- iron plate -> gears
@@ -352,7 +355,8 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
   -- this reads as a standalone statement of the gap).
   local PRODUCTIONS = {
     { r = "cindra-ice-crusher",        m = "hand" },
-    { r = "cindra-lava",               m = "foundry" },
+    { r = "cindra-lava-manufacturer",  m = "hand" },                     -- caster (needs starter metal)
+    { r = "cindra-lava",               m = "cindra-lava-manufacturer" }, -- stone -> lava (ci-e8a)
     { r = "molten-iron-from-lava",     m = "foundry" },
     { r = "casting-iron",              m = "foundry" },
   }
@@ -390,28 +394,35 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
       "the vanilla foundry build consumes lubricant (petrochemical) -- so a no-Vulcanus start cannot build one")
   end)
 
-  it("from absolute zero (hand roots only, no foundry) the chain STALLS before metal", function()
+  it("from absolute zero (hand roots only, no metal) the chain STALLS before metal", function()
     -- Exactly the start-on-Cindra condition: only what the terminator gives you.
+    -- Lava now needs the dedicated caster (ci-e8a), which itself needs starter
+    -- metal, and melting still needs the (unbuildable-on-Cindra) foundry -- so
+    -- from bare hand roots there is neither a caster nor a foundry, and the chain
+    -- cannot even make lava.
     local have = reach({ stone = true, ice = true, ["cindra-volatiles"] = true })
     assert.is_falsy(have["lava"],
-      "without a brought/kitted foundry there is no way to craft lava -> the APS start soft-locks (ci-arw must fix)")
+      "from bare hand roots there is no metal to build a caster and no foundry -> the APS start soft-locks (ci-arw)")
     assert.is_falsy(have["molten-iron"],
       "and therefore no metal -> the from-zero economy cannot turn on unaided")
   end)
 
-  it("a single starter foundry is sufficient to break the stall (the fix ci-arw must deliver)", function()
+  it("a starter foundry + a little starter metal breaks the stall (the fix ci-arw must deliver)", function()
     -- Prove the fix is small + well-scoped: hand a start-on-Cindra player ONE
-    -- foundry (kit) or a lubricant-free build, and (with a little starter metal
-    -- for the first crusher) the same chain immediately reaches metal. This is
-    -- the target ci-arw + the APS kit must satisfy; the end-to-end APS-mods proof
-    -- lives in the follow-up bead.
+    -- foundry (kit) plus a little starter metal (steel/gears/brick) -- the same
+    -- pinch that builds the first crusher also builds the lava caster -- and the
+    -- chain immediately reaches metal. The foundry remains the keystone (it alone
+    -- cannot be built on Cindra, needing lubricant); the caster is cheap local
+    -- metal. This is the target ci-arw + the APS kit must satisfy; the end-to-end
+    -- APS-mods proof lives in the follow-up bead.
     local have = reach({
       stone = true, ice = true, ["cindra-volatiles"] = true,
-      foundry = true, calcite = true, -- one kitted foundry + a pinch of starter calcite
+      foundry = true, calcite = true,                  -- one kitted foundry + a pinch of starter calcite
+      ["steel-plate"] = true, ["iron-gear-wheel"] = true, ["stone-brick"] = true, -- starter metal for the caster
     })
     assert.is_true(have["lava"] == true,
-      "with a kitted foundry, stone -> lava is immediately craftable")
+      "with a kitted foundry + starter metal, a lava caster is buildable and stone -> lava turns on")
     assert.is_true(have["molten-iron"] == true,
-      "and the metal economy turns on -- so the ONLY missing piece for APS is the foundry itself (ci-arw)")
+      "and the metal economy turns on -- the missing pieces for APS are the foundry (keystone) + starter metal (ci-arw)")
   end)
 end)

@@ -164,11 +164,18 @@ track's files or a shared file.**
 ## 5. Systems still to build (summary; detail in TODO.md)
 
 Manufactured **lava** is the central intermediate (`1 stone + [ruinous power] →
-5 lava`), processed via **Vulcanus foundries** (brought, not re-unlocked) into
-metal, with a **stone loop-back** that stays slightly net-consuming. The
-signature product is the **cryo-hardened alloy**, forged in a **two-temperature
-quench** (hot molten input + cold cryo-coolant input in the same craft) —
-impossible on Vulcanus (no cold) or Aquilo (no lava).
+5 lava`), cast in a **dedicated Cindra lava-manufacturer** (a high-speed,
+high-draw machine, not the shared foundry — ci-e8a) and then processed via
+**Vulcanus foundries** (brought, not re-unlocked) into metal, with a **stone
+loop-back** that stays slightly net-consuming. The manufacturer exists to fix
+usability without cheapening lava: the machine's crafting speed sets how many
+machines feed a foundry (a **single-digit** count, vs ~100 on the plain
+foundry), while its draw is pinned proportional to that speed so **energy per
+unit lava is unchanged and ruinous**. Machine count and per-lava energy are the
+same knob on a single machine type, so lava gets its OWN machine to decouple
+them. The signature product is the **cryo-hardened alloy**, forged in a
+**two-temperature quench** (hot molten input + cold cryo-coolant input in the
+same craft) — impossible on Vulcanus (no cold) or Aquilo (no lava).
 
 Power is **high-intensity solar via the daylight curve**: a dark-weighted cycle
 whose night floor ≈ Nauvis full day (runs the factory) and whose day peak ≈ the
@@ -286,8 +293,9 @@ All three are locked and unlocked by one tech, **`cindra-improvised-metallurgy`*
 opening reaches the lava→metal economy with no soft-lock. The shared vanilla
 `foundry` recipe and `lubricant` fluid are **never mutated** — the imported-foundry
 path (normal play) is untouched. Tested in `tests/test_foundry_bootstrap.lua`
-(prototypes + never-mutate + a powered coal→lubricant craft + an on-Cindra foundry
-running lava) and, under the APS invocation, `tests/test_aps_foundry.lua` (the
+(prototypes + never-mutate + a powered coal→lubricant craft + an on-Cindra lava
+caster + foundry reaching the metal economy) and, under the APS invocation,
+`tests/test_aps_foundry.lua` (the
 pre-research grant). The physical starting **kit** (machines, power, initial items)
 is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 
@@ -313,6 +321,7 @@ is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 | Ribbon wall-at | 128 tiles | hard backstop |
 | Ribbon peak dps | 200 | survivable briefly with gear |
 | Lava recipe | 1 stone → 5 lava | fixed per spec; power is the lever |
+| Lava manufacturer | crafting_speed 64, 40 MW draw | dedicated caster (ci-e8a); draw÷speed matched to the foundry so energy-per-lava is fixed; a single-digit count feeds one foundry |
 | Lava power cost | very high | rival/exceed baseline solar at scale |
 | Molten iron | 500 lava + 1 calcite + 10 stone → 250 | Vulcanus values |
 | Molten copper | 500 lava + 1 calcite + 15 stone → 250 | Vulcanus values |

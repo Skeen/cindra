@@ -246,22 +246,31 @@ describe("cindra start-on-Cindra foundry bootstrap", function()
     end)
   end)
 
-  it("a foundry obtained on Cindra reaches the lava->metal economy (no soft-lock)", function()
-    -- The endpoint of the bootstrap: a foundry stands on Cindra and accepts the
-    -- lava recipe, so the lava->molten-metal spine is reachable without Vulcanus.
-    -- (The foundry ENTITY has no placement surface condition, so a field-built
-    -- one drops and runs here.) The full traversal is ci-uex's proof; this pins
-    -- ci-arw's contribution: an on-Cindra foundry that feeds the economy.
+  it("an on-Cindra foundry + lava caster reach the lava->metal economy (no soft-lock)", function()
+    -- The endpoint of the bootstrap: the lava->molten-metal spine is reachable on
+    -- Cindra without Vulcanus. Since ci-e8a the spine is SPLIT -- a dedicated
+    -- caster makes lava, the foundry melts it -- so pin both halves: the caster
+    -- accepts the lava recipe and the on-Cindra foundry accepts the melt recipe.
+    -- (Neither entity has a placement surface condition, so both drop and run
+    -- here.) The full traversal is ci-uex's proof; this pins ci-arw's
+    -- contribution: an on-Cindra metal economy that feeds itself.
     local s = H.cindra_surface()
     game.forces["player"].recipes["cindra-lava"].enabled = true
+    game.forces["player"].recipes["molten-iron-from-lava"].enabled = true
 
-    local foundry = s.create_entity({ name = "foundry", position = { 0, 0 }, force = "player" })
+    local caster = s.create_entity({ name = "cindra-lava-manufacturer", position = { 0, 0 }, force = "player" })
+    assert.is_not_nil(caster, "a lava caster must be placeable/obtainable on Cindra")
+    caster.set_recipe("cindra-lava")
+    assert.are.equal("cindra-lava", caster.get_recipe().name,
+      "the on-Cindra caster runs manufactured lava -- the fire spine is reachable")
+
+    local foundry = s.create_entity({ name = "foundry", position = { 8, 0 }, force = "player" })
     assert.is_not_nil(foundry, "a foundry must be placeable/obtainable on Cindra")
-    foundry.set_recipe("cindra-lava")
-    local set = foundry.get_recipe()
-    assert.is_not_nil(set, "the on-Cindra foundry accepts a recipe")
-    assert.are.equal("cindra-lava", set.name,
-      "the on-Cindra foundry runs manufactured lava -- the economy is reachable")
+    foundry.set_recipe("molten-iron-from-lava")
+    assert.are.equal("molten-iron-from-lava", foundry.get_recipe().name,
+      "the on-Cindra foundry melts lava into molten metal -- the metal economy is reachable")
+
+    caster.destroy()
     foundry.destroy()
   end)
 end)

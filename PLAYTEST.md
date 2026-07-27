@@ -133,6 +133,22 @@ this list is the last resort when no test path exists.
   soft-lock or a grind. The three recipes reuse vanilla lubricant/foundry icons (v1
   placeholder art); do not file that as a bug.
 
+- [ ] **Lava-manufacturer reads distinct + usable in-game (ci-e8a).** Lava is now
+  cast in a dedicated `cindra-lava-manufacturer` (a fast, 40 MW foundry clone), not
+  the shared foundry. The machine COUNT (single-digit per foundry), the fixed
+  energy-per-lava, and the recipe's color-layered icon are all headless-tested
+  (`tests/test_lava.lua`, `prototypes/lava-icon.lua`). What a test cannot judge is
+  the *visual read*: (1) the `cindra-lava` recipe icon is the vanilla lava sprite
+  under a warm amber-tinted layer — confirm it reads a touch hotter/brighter than
+  natural Vulcanus lava at icon size in the crafting menu, while still obviously
+  being lava (placeholder tint, do not file as a bug); (2) the manufacturer reuses
+  the vanilla foundry sprite (v1 art reuse) so it looks identical to a foundry in
+  the world/toolbar — that shared silhouette is intentional for v1, bespoke art is a
+  follow-up bead, do not file as a bug. Also confirm the *feel*: research
+  `cindra-lava`, build a handful (~6) of manufacturers, and check they visibly feed
+  one melting foundry without needing an absurd machine wall — the ci-e8a usability
+  fix. Balance the ruinous 40 MW draw against the flare/solar numbers (ci-9k6, ci-63d).
+
 - [ ] **Discovery lore reads well in the tech GUI (ci-11b).** The
   `planet-discovery-cindra` technology now carries the full §3 planet-discovery
   entry as its description. *Repro:* open the technology screen and hover/select
