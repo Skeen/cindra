@@ -10,8 +10,22 @@
 -- circuits, no plastic / sulfur / oil) to preserve Cindra's zero-chemistry
 -- identity, while remaining buildable on any vanilla planet (it is exportable).
 --
--- Signal art is placeholder (reused base icons); a follow-up bead tracks bespoke
--- icons. See scripts/readings.lua for the signal meanings and scaling.
+-- The scanner ENTITY + ITEM art is the user-supplied "radio-station" set (ci-0e8):
+-- a bespoke building body, a ground shadow, and an emissive glow layer, plus a
+-- dedicated icon. The SIGNAL icons remain placeholder (reused base icons); a
+-- follow-up bead tracks bespoke signal art. See scripts/readings.lua for the
+-- signal meanings and scaling.
+--
+-- Body-animation note: a constant-combinator renders its body through the
+-- `sprites` field, which is a Sprite4Way built from *static* Sprites (the Sprite
+-- type has no frame_count). So the body cannot frame-animate from the prototype.
+-- We render the first frame of the supplied animation strip as the static body
+-- and wire the emission as a draw_as_glow layer. The full multi-frame strips are
+-- shipped (not just a cropped frame) so a future entity-type change or runtime
+-- overlay can animate without re-sourcing the art. A runtime LuaRendering overlay
+-- would animate in-world but would NOT show in ghost / blueprint / factoriopedia
+-- previews (a regression) and cannot be visually verified headless, so it is out
+-- of scope here. Visual scale/shift confirmation is tracked in PLAYTEST.md.
 
 local util = require("util")
 local C = require("scripts.config")
@@ -19,16 +33,65 @@ local readings = require("scripts.readings")
 
 local S = readings.SIGNALS
 
+-- === Radio-station art (user-supplied) =======================================
+local GFX = "__env-scanner__/graphics/"
+local ENTITY_GFX = GFX .. "entity/scanner/"
+local ICON = GFX .. "icons/radio-station-icon.png"
+
+-- Frame geometry of the supplied animation strip: 1280x870 px laid out as an
+-- 8-wide grid of 160x290 frames (20 frames; last row partial). We render the
+-- top-left frame (x=0, y=0) as the static body.
+local FRAME_W, FRAME_H = 160, 290
+local BODY_SCALE = 0.4
+-- Lift the sprite so the building base sits on the 1x1 footprint (the frame is
+-- tall; a centered sprite would bury the base). Values pending PLAYTEST.
+local BODY_SHIFT = util.by_pixel(0, -44)
+
+local scanner_sprites = {
+  layers = {
+    { -- building body (frame 0 of the animation strip)
+      filename = ENTITY_GFX .. "radio-station-hr-animation-1.png",
+      width = FRAME_W,
+      height = FRAME_H,
+      scale = BODY_SCALE,
+      shift = BODY_SHIFT,
+    },
+    { -- ground shadow (its own composed image, not on the frame grid)
+      filename = ENTITY_GFX .. "radio-station-hr-shadow.png",
+      width = 400,
+      height = 350,
+      scale = BODY_SCALE,
+      shift = util.by_pixel(30, 6),
+      draw_as_shadow = true,
+    },
+    { -- emissive glow: screens / status LEDs / vents (renders lit in the dark)
+      filename = ENTITY_GFX .. "radio-station-hr-emission-1.png",
+      width = FRAME_W,
+      height = FRAME_H,
+      scale = BODY_SCALE,
+      shift = BODY_SHIFT,
+      draw_as_glow = true,
+    },
+  },
+}
+
 -- === The buildable scanner (a renamed constant combinator) ===================
 local scanner = util.table.deepcopy(data.raw["constant-combinator"]["constant-combinator"])
 scanner.name = C.SCANNER
 scanner.minable = { mining_time = 0.1, result = C.SCANNER }
 scanner.next_upgrade = nil
+-- A single Sprite applies to all 4 directions (Sprite4Way rule); the radio
+-- station reads the same from every side.
+scanner.sprites = scanner_sprites
+scanner.icon = ICON
+scanner.icon_size = 64
 
 local scanner_item = util.table.deepcopy(data.raw["item"]["constant-combinator"])
 scanner_item.name = C.SCANNER
 scanner_item.place_result = C.SCANNER
 scanner_item.order = "c[combinators]-z[environmental-scanner]"
+scanner_item.icon = ICON
+scanner_item.icon_size = 64
 
 -- Chemistry-free recipe, enabled from the start for this standalone PoC.
 local scanner_recipe = {

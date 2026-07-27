@@ -127,8 +127,13 @@ ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
 
 ## Notes
 
-* Entity art and signal icons are **placeholder** (a renamed constant combinator;
-  reused base signal icons). Bespoke art is tracked as a follow-up bead.
+* Entity/item art is the bespoke **radio-station** set (ci-0e8): a building body,
+  a ground shadow, an emissive `draw_as_glow` layer, and a dedicated icon, wired
+  into the constant-combinator's `sprites` field. The body is static (a
+  constant-combinator's `sprites` is a Sprite4Way of *static* Sprites, so only
+  frame 0 of the supplied animation strip renders); the full strips ship for a
+  future animated entity-type or runtime-overlay pass. The **signal** icons are
+  still placeholder base icons; bespoke signal art is a follow-up bead.
 * Never mutates another planet: it only adds its own entity and reads surface
   state. Setting a constant combinator's own output affects nothing but that
   building's wires.

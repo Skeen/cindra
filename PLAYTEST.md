@@ -215,9 +215,10 @@ this list is the last resort when no test path exists.
   (`tests/test_scanner.lua`) and the pure maths unit-tested
   (`unit-tests/test_readings.lua`); only the *visual/UX read* is a playtest.
   *Look for:* the seven virtual signals appear in the signal picker under a
-  clustered subgroup and read sensibly (icons are placeholder base icons -- a
-  renamed combinator body and reused base signal icons; bespoke art is a
-  follow-up bead, do not file as a bug); wiring the scanner's `env-daylight` /
+  clustered subgroup and read sensibly (the SIGNAL icons are still placeholder
+  base icons; the entity/item art is now the bespoke radio-station set, see
+  ci-0e8 below; bespoke signal art is a follow-up bead, do not file as a bug);
+  wiring the scanner's `env-daylight` /
   `env-flare-countdown` to a lamp or combinator visibly tracks the day and, on a
   Cindra save with the flare system loaded, acts as a REACTIVE early warning
   (ci-2ba): the flare signals are ABSENT during calm and only appear — countdown,
@@ -252,6 +253,22 @@ this list is the last resort when no test path exists.
   fuel (rocket-fuel icon tinted) are v1 placeholders; the recipe chain, gating, and
   petrochemical-free provenance are integration-tested (`tests/test_mass_driver.lua`).
   *Look for:* the three icons read as distinct materials. Bespoke art is a later pass.
+
+- [ ] **Radio-station scanner art scale/shift look right (ci-0e8).** The
+  scanner now renders the user-supplied radio-station set: a bespoke building
+  body, a `draw_as_shadow` ground shadow, an emissive `draw_as_glow` layer
+  (screens/vents that read lit in the dark), and a dedicated item/entity icon.
+  The wiring (3 sprite layers + icon, and that every PNG ships) is locked by
+  `unit-tests/test_scanner_graphics.lua`, and the mod loading validates frame
+  geometry against the real images; only the *visual read* is a playtest.
+  *Look for:* the building sits believably on its 1x1 footprint (`BODY_SCALE` /
+  `BODY_SHIFT` in `prototypes/scanner.lua` may need nudging so the base rests on
+  the tile and the shadow lands at the base extending right), the item/entity
+  icon is the radio station (not the old combinator), and the emission glow lights
+  up at night. KNOWN, not a bug: the body does NOT frame-animate — a
+  constant-combinator's `sprites` is a *static* Sprite4Way, so only frame 0 of
+  the supplied strip is shown; the full strips ship for a future animated
+  entity-type or runtime-overlay pass.
 
 - [ ] **Sunward-position solar output has no visual band cue (ci-9ht).** Solar
   panels only really work on the sunny (sunward, +Y) part of the ribbon: a placed
