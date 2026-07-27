@@ -14,16 +14,19 @@
 -- builds ONE launch charge (its `fixed_recipe`) before it can fire, and that
 -- charge consumes:
 --   * 1 ALUMINIUM CAN         the cargo container, pressed from Cindra aluminium.
---   * SOLID ROCKET FUEL       aluminium-POWDER based -- metallic aluminium is the
---                             energetic fuel, so the propellant is native metal,
---                             NOT oil/coal/plastic. (Real composite propellants
---                             burn aluminium powder; here it stands in for the lot.)
+--   * ROCKET FUEL             the VANILLA rocket-fuel item (ci-519), but minted the
+--                             Cindra way: the "Solid rocket fuel" recipe below turns
+--                             aluminium POWDER into vanilla rocket-fuel -- metallic
+--                             aluminium is the energetic base, so the propellant is
+--                             native metal, NOT oil/coal/plastic. There is NO custom
+--                             fuel item; anything needing rocket fuel uses the vanilla
+--                             one made via this aluminium recipe.
 --   * a SHITTON of POWER      the silo's crafting draw (a large continuous load)
 --                             times a long charge craft => a huge per-launch energy.
--- That drops vanilla rocket-parts / LDS / processing-units / liquid rocket fuel
--- entirely: the recurring launch cost lands on local metallurgy + power, never
--- petrochemistry. The can + fuel chain is added here (aluminium -> can; aluminium
--- -> powder -> solid fuel), gated behind the same launch tech.
+-- That drops vanilla rocket-parts / LDS / processing-units and the oil route to
+-- rocket fuel entirely: the recurring launch cost lands on local metallurgy + power,
+-- never petrochemistry. The can + fuel chain is added here (aluminium -> can;
+-- aluminium -> powder -> vanilla rocket-fuel), gated behind the same launch tech.
 --
 -- CARGO DELIVERY. A launch behaves like a vanilla rocket: the payload lands in the
 -- space platform hub (the standard rocket destination). There is NO platform-side
@@ -52,7 +55,8 @@ M.DRIVER = "cindra-mass-driver"            -- the reskinned rocket-silo
 M.TECH = "cindra-orbital-launch"           -- the unlock tech (folded into the Cindra tree)
 M.CAN = "cindra-aluminium-can"             -- cargo container (aluminium)
 M.POWDER = "cindra-aluminium-powder"       -- metallic aluminium powder (the fuel base)
-M.FUEL = "cindra-solid-rocket-fuel"        -- aluminium-powder solid propellant
+M.ROCKET_FUEL = "rocket-fuel"              -- VANILLA rocket-fuel: Cindra makes it from aluminium (ci-519)
+M.FUEL_RECIPE = "cindra-solid-rocket-fuel" -- recipe "Solid rocket fuel": aluminium-powder -> vanilla rocket-fuel
 M.CHARGE = "cindra-launch-charge"          -- the silo's rocket-part analog (internal)
 M.CHARGE_CATEGORY = "cindra-mass-driver-charge"  -- PRIVATE: only the driver crafts the charge
 
@@ -60,7 +64,7 @@ M.SILO_DRAW = "60MW"        -- crafting draw while building a launch charge (a l
 M.SILO_LAUNCH_DRAW = "100MW" -- extra draw during the launch sequence (the burst)
 M.CHARGE_SECONDS = 30       -- long charge craft: SILO_DRAW * CHARGE_SECONDS ~= 1.8 GJ / launch
 M.CAN_PER_LAUNCH = 1        -- one aluminium can (cargo container) per launch
-M.FUEL_PER_LAUNCH = 10      -- solid rocket fuel per launch
+M.FUEL_PER_LAUNCH = 10      -- vanilla rocket-fuel (Cindra's aluminium-made "Solid rocket fuel") per launch
 
 -- Delivered mass-driver icon (graphics/ART-MANIFEST.md, ci-pru): a 64px mipmap strip.
 local function set_driver_icon(proto)
@@ -131,21 +135,10 @@ set_icon(powder_item, "__space-age__/graphics/icons/calcite.png", { r = 0.72, g 
 powder_item.localised_name = { "item-name.cindra-aluminium-powder" }
 powder_item.localised_description = { "item-description.cindra-aluminium-powder" }
 
--- Solid rocket fuel: aluminium-powder propellant. Cloned from rocket-fuel for its
--- icon, but stripped of fuel props -- it is a launch INGREDIENT, not a burner fuel.
-local fuel_item = util.table.deepcopy(data.raw.item["rocket-fuel"])
-fuel_item.name = M.FUEL
-fuel_item.fuel_category = nil
-fuel_item.fuel_value = nil
-fuel_item.fuel_acceleration_multiplier = nil
-fuel_item.fuel_top_speed_multiplier = nil
-fuel_item.fuel_emissions_multiplier = nil
-fuel_item.burnt_result = nil
-fuel_item.stack_size = 100
-fuel_item.order = "z[cindra-mass-driver]-c[fuel]"
-set_icon(fuel_item, "__base__/graphics/icons/rocket-fuel.png", { r = 0.80, g = 0.86, b = 0.96, a = 1.0 })
-fuel_item.localised_name = { "item-name.cindra-solid-rocket-fuel" }
-fuel_item.localised_description = { "item-description.cindra-solid-rocket-fuel" }
+-- NO custom "solid rocket fuel" ITEM (ci-519). Cindra's petrochemical-free
+-- propellant IS the VANILLA rocket-fuel item, minted from aluminium by the "Solid
+-- rocket fuel" recipe below. The mass driver (and anything else needing rocket
+-- fuel) uses that vanilla item, so there is no new fuel type to carry around.
 
 -- The launch charge: the silo's internal "rocket part". Hidden -- the player never
 -- handles it; the driver builds one from a can + fuel, then launches.
@@ -184,17 +177,22 @@ local powder_recipe = {
   results = { { type = "item", name = M.POWDER, amount = 2 } },
 }
 
--- Aluminium powder -> solid rocket fuel. Single native input: no oil, no coal,
--- no plastic, no acid -- the propellant is the metal itself.
+-- "Solid rocket fuel": aluminium powder -> VANILLA rocket-fuel (ci-519). This is
+-- Cindra's petrochemical-free ROUTE to rocket fuel -- it PRODUCES the vanilla
+-- rocket-fuel item (no bespoke fuel type) from a single native input: no oil, no
+-- coal, no plastic, no acid, the propellant is the metal itself. The recipe name
+-- differs from its product (localised "Solid rocket fuel"), so it reads as an
+-- alternative recipe sitting next to vanilla rocket-fuel in the crafting menu.
 local fuel_recipe = {
   type = "recipe",
-  name = M.FUEL,
+  name = M.FUEL_RECIPE,
   enabled = false,
   energy_required = 2,
   ingredients = {
     { type = "item", name = M.POWDER, amount = 3 },
   },
-  results = { { type = "item", name = M.FUEL, amount = 1 } },
+  results = { { type = "item", name = M.ROCKET_FUEL, amount = 1 } },
+  main_product = M.ROCKET_FUEL,
 }
 
 -- The launch charge (the silo's fixed_recipe): { 1 can + solid rocket fuel } over a
@@ -210,7 +208,7 @@ local charge_recipe = {
   energy_required = M.CHARGE_SECONDS,
   ingredients = {
     { type = "item", name = M.CAN, amount = M.CAN_PER_LAUNCH },
-    { type = "item", name = M.FUEL, amount = M.FUEL_PER_LAUNCH },
+    { type = "item", name = M.ROCKET_FUEL, amount = M.FUEL_PER_LAUNCH },
   },
   results = { { type = "item", name = M.CHARGE, amount = 1 } },
   allow_productivity = false,   -- a launch charge is not an intermediate to farm
@@ -253,7 +251,7 @@ local technology = {
     { type = "unlock-recipe", recipe = M.DRIVER },
     { type = "unlock-recipe", recipe = M.CAN },
     { type = "unlock-recipe", recipe = M.POWDER },
-    { type = "unlock-recipe", recipe = M.FUEL },
+    { type = "unlock-recipe", recipe = M.FUEL_RECIPE },
   },
   prerequisites = { "planet-discovery-cindra", "cindra-science" },
   unit = {
@@ -272,7 +270,7 @@ local technology = {
 data:extend({
   charge_category,
   driver,
-  driver_item, can_item, powder_item, fuel_item, charge_item,
+  driver_item, can_item, powder_item, charge_item,
   driver_recipe, can_recipe, powder_recipe, fuel_recipe, charge_recipe,
   technology,
 })
