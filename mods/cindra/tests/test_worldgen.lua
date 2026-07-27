@@ -1,29 +1,39 @@
--- Proof: Cindra world generation. Two layers:
+-- Proof: Cindra world generation on the DEFAULT (vertical, hot-left) orientation.
+-- The ribbon runs N-S (long Y); the hot-cold gradient runs LEFT<->RIGHT (X) with
+-- HOT on the LEFT (west), so the perpendicular coordinate is -x (scripts/axis.lua,
+-- unit-proven in unit-tests/test_axis.lua). Three layers:
 --   1. SCRIPT layer (scripts/worldgen.lua): the hard-wall backstop makes the map a
---      finite RIBBON, and finite bootstrap rocks scatter around the terminator.
---   2. NATIVE layer (prototypes/resources.lua): stone / ice / volatiles are placed
---      by native Factorio resource autoplace as irregular PATCHES (not a script
---      grid), each CONSTRAINED to its ribbon band, and the map generates NO water.
+--      finite RIBBON on the X axis; the TERRAIN gradient paints molten tiles on
+--      the hot (left) edge and ice on the cold (right) edge so the VISIBLE ground
+--      IS the temperature axis and lines up with the fire/freeze damage; finite
+--      bootstrap rocks scatter around the terminator.
+--   2. NATIVE layer (prototypes/resources.lua): stone / ice / volatiles autoplace
+--      as irregular PATCHES, each CONSTRAINED to its ribbon band ON THE X AXIS,
+--      and the map generates NO water.
 --
--- The pure band geometry + masks are proven in unit-tests/test_resource_field.lua;
--- this proves the runtime actually voids tiles, scatters rocks, and that native
--- autoplace respects the bands and never floods the map.
+-- The pure band geometry + tile bands are proven in unit-tests/test_resource_field
+-- and unit-tests/test_terrain; this proves the runtime voids, paints, scatters,
+-- damages, and bands correctly on a live surface.
 
 local field = require("scripts.resource-field")
 local worldgen = require("scripts.worldgen")
+local edge = require("scripts.edge-damage")
 
 -- ---------------------------------------------------------------------------
--- Script layer: hard wall + bootstrap-rock scatter. Driven directly on a paved,
--- isolated strip (driver disabled) so placement is deterministic.
+-- Script layer: hard wall + terrain gradient + bootstrap-rock scatter. Driven
+-- directly on a paved, isolated strip (driver disabled) so placement is
+-- deterministic. The strip CROSSES the wall on X and is parked far away on the
+-- long (Y) axis so it never meets another test.
 -- ---------------------------------------------------------------------------
-describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function()
-  local CFG = { safe_half_width = 24, lethal_at = 96, wall_at = 128 }
-  -- A tall work strip far from any other test, covering both lethal edges and the
-  -- wall on the Y axis. Wide in X so the sparse, clumped rock scatter reliably lands
-  -- plenty of rocks inside the sampled area (enough to judge the scatter pattern).
-  local X1, X2 = 2000, 2360
-  local Y1, Y2 = -140, 140
+describe("cindra worldgen: ribbon geometry on the default vertical axis (§4, §15-2)", function()
+  local CFG = { safe_half_width = 24, lethal_at = 96, wall_at = 128 } -- edge_mid = 112
+  -- The strip CROSSES the wall on the perpendicular (X) axis and runs tall on the
+  -- long (Y) axis, parked far from any other test. Tall in Y so the sparse, clumped
+  -- rock scatter lands plenty of rocks inside the sampled band (to judge the pattern).
+  local X1, X2 = -140, 140
+  local Y1, Y2 = 2000, 2360
   local AREA = { left_top = { x = X1, y = Y1 }, right_bottom = { x = X2, y = Y2 } }
+  local YM = (Y1 + Y2) / 2 -- a sample row well inside the strip
   local s
 
   before_each(function()
@@ -33,9 +43,9 @@ describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function(
       s = game.planets["cindra"] and game.planets["cindra"].create_surface()
         or game.create_surface("cindra")
     end
-    -- Generate the chunks under the strip, then clear + pave to clean land so
-    -- placement is deterministic (nothing pre-placed).
-    s.request_to_generate_chunks({ (X1 + X2) / 2, 0 }, 8)
+    -- Generate the chunks under the strip (centred on it), then clear + pave to
+    -- clean land so placement is deterministic (nothing pre-placed).
+    s.request_to_generate_chunks({ 0, YM }, 8)
     s.force_generate_chunk_requests()
     local box = { { X1, Y1 }, { X2, Y2 } }
     for _, e in pairs(s.find_entities_filtered({ area = box })) do
@@ -54,22 +64,62 @@ describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function(
     storage.cindra_driver_enabled = true
   end)
 
-  local function count(name, y1, y2)
-    return s.count_entities_filtered({ name = name, area = { { X1, y1 }, { X2, y2 } } })
+  -- Count entities in a perpendicular (X) band spanning the whole strip.
+  local function count(name, x1, x2)
+    return s.count_entities_filtered({ name = name, area = { { x1, Y1 }, { x2, Y2 } } })
   end
 
-  it("voids tiles at/beyond the wall, keeping the ribbon interior playable", function()
+  it("voids tiles at/beyond the wall on the X axis, keeping the ribbon interior playable", function()
     worldgen.apply_hard_wall(s, AREA, CFG)
-    assert.are.equal("out-of-map", s.get_tile(X1 + 5, 135).name, "sunward past the wall is void")
-    assert.are.equal("out-of-map", s.get_tile(X1 + 5, -135).name, "nightward past the wall is void")
-    assert.are_not.equal("out-of-map", s.get_tile(X1 + 5, 0).name, "the terminator stays playable")
-    assert.are_not.equal("out-of-map", s.get_tile(X1 + 5, 100).name, "the lethal margin is still land")
+    assert.are.equal("out-of-map", s.get_tile(-135, YM).name, "sunward (west) past the wall is void")
+    assert.are.equal("out-of-map", s.get_tile(135, YM).name, "nightward (east) past the wall is void")
+    assert.are_not.equal("out-of-map", s.get_tile(0, YM).name, "the terminator stays playable")
+    assert.are_not.equal("out-of-map", s.get_tile(-100, YM).name, "the hot lethal margin is still land")
   end)
 
-  it("scatters finite bootstrap rocks around the terminator only", function()
+  it("paints the hot tiles hot-lava -> lava -> volcanic-cracks-hot from the LEFT (west)", function()
+    worldgen.apply_hard_wall(s, AREA, CFG)
+    worldgen.paint_terrain(s, AREA, CFG)
+    -- Hot side is the LEFT (negative x). From the edge inward the design calls for
+    -- hot-lava, then lava, then volcanic-cracks-hot.
+    assert.are.equal("lava-hot", s.get_tile(-120, YM).name, "hottest tile at the far-left edge")
+    assert.are.equal("lava", s.get_tile(-100, YM).name, "molten lava next")
+    assert.are.equal("volcanic-cracks-hot", s.get_tile(-60, YM).name, "then the walkable hot margin")
+    -- Order really is left-to-right hot-lava, lava, cracks (decreasing depth).
+    assert.is_true(-120 < -100 and -100 < -60, "and they lie in that order from the left")
+    -- Cold side mirrors it on the right (east): icy inward, ice wall at the edge.
+    assert.are.equal("ice-smooth", s.get_tile(60, YM).name, "walkable cold margin")
+    assert.are.equal("ammoniacal-ocean", s.get_tile(120, YM).name, "the frozen ice wall at the far right")
+    -- The wide safe band at spawn stays natural land (here, the paved slab).
+    assert.are.equal("refined-concrete", s.get_tile(0, YM).name, "the temperate ribbon is untouched")
+  end)
+
+  it("aligns the fire-damage zone to the hot tiles: standing on them scales with depth", function()
+    worldgen.apply_hard_wall(s, AREA, CFG)
+    worldgen.paint_terrain(s, AREA, CFG)
+    -- All three hot tiles sit in the fire-damage zone; damage scales with depth
+    -- (hot-lava, deepest/leftmost, is the most lethal).
+    local d_cracks = edge.damage_for(60, edge.DAMAGE_INTERVAL, CFG)   -- volcanic-cracks-hot @ perp 60
+    local d_lava = edge.damage_for(100, edge.DAMAGE_INTERVAL, CFG)    -- lava @ perp 100
+    local d_hotlava = edge.damage_for(120, edge.DAMAGE_INTERVAL, CFG) -- hot-lava @ perp 120
+    assert.is_true(d_cracks > 0, "volcanic-cracks-hot cooks the player")
+    assert.is_true(d_lava >= d_cracks, "lava is at least as lethal (deeper)")
+    assert.is_true(d_hotlava >= d_lava, "hot-lava is the most lethal edge")
+    -- A character actually standing on the walkable hot tile takes HEAT damage:
+    -- the visible terrain IS the damage zone.
+    local ch = s.create_entity({ name = "character", position = { -60, YM }, force = "player" })
+    assert.is_not_nil(ch, "a character can stand on the walkable volcanic-cracks-hot margin")
+    local before = ch.health
+    edge.sweep(s, edge.DAMAGE_INTERVAL, CFG)
+    assert.is_true(ch.health < before, "the visible hot terrain deals fire damage")
+    ch.destroy()
+  end)
+
+  it("scatters finite bootstrap rocks around the terminator (safe band) only", function()
     worldgen.place_bootstrap_rocks(s, AREA, CFG)
-    assert.is_true(count(field.ROCK, -30, 30) > 0, "rocks near the terminator")
-    assert.are.equal(0, count(field.ROCK, 50, Y2), "no rocks out in the damage margin")
+    assert.is_true(count(field.ROCK, -24, 24) > 0, "rocks in the terminator band")
+    assert.are.equal(0, count(field.ROCK, 50, X2), "no rocks out in the cold (east) margin")
+    assert.are.equal(0, count(field.ROCK, X1, -50), "no rocks out in the hot (west) margin")
   end)
 
   it("places rocks OFF a fixed lattice (natural scatter, no visible grid)", function()
@@ -77,7 +127,9 @@ describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function(
     -- on BOTH axes, so every rock sat exactly on a grid node -- a visible lattice.
     -- Natural scatter jitters each rock across its cell, so rocks land off-grid.
     worldgen.place_bootstrap_rocks(s, AREA, CFG)
-    local rocks = s.find_entities_filtered({ name = field.ROCK, area = { { X1, -30 }, { X2, 30 } } })
+    -- The rock band is the terminator on the PERPENDICULAR (X) axis, spanning the
+    -- full length of the strip on the long (Y) axis.
+    local rocks = s.find_entities_filtered({ name = field.ROCK, area = { { -30, Y1 }, { 30, Y2 } } })
     assert.is_true(#rocks >= 8, "enough rocks to judge the pattern")
     -- Distance from a coord to the nearest OLD lattice node (k*STEP + 0.5). The old
     -- gridded code made this exactly 0 for every rock on both axes; jitter makes it
@@ -98,8 +150,8 @@ describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function(
   end)
 
   it("keeps the richest nodes at the lethal margins (edge-pushing geometry)", function()
-    -- The band geometry the native masks read is edge-pushing: the best stone is
-    -- hottest, the best ice/volatiles are coldest.
+    -- Pure band geometry (perpendicular coordinate): best stone hottest, best
+    -- ice/volatiles coldest. Orientation-independent (reads perp, not x/y).
     assert.is_true(field.stone_richness(90, CFG) > field.stone_richness(0, CFG))
     assert.is_true(field.ice_richness(-120, CFG) > field.ice_richness(-40, CFG))
     assert.is_true(field.volatiles_richness(-125, CFG) > field.volatiles_richness(-100, CFG))
@@ -109,23 +161,24 @@ end)
 -- ---------------------------------------------------------------------------
 -- Native layer: real map-gen. We generate a natural Cindra region (NOT paved) at
 -- a FIXED seed so autoplace is deterministic, then prove the patches land in the
--- right bands, nothing floods the wrong band, and NO water generates.
+-- right bands ON THE X AXIS, nothing floods the wrong band, and NO water
+-- generates. This runs on a PRIVATE surface (not named "cindra"), so the runtime
+-- worldgen handlers (void/paint/rocks) never touch it -- pure native autoplace.
 -- ---------------------------------------------------------------------------
-describe("cindra worldgen: native resource autoplace + no water (§15-3)", function()
+describe("cindra worldgen: native resource autoplace + no water on the X axis (§15-3)", function()
   local s
-  -- Region centred on the starting area (0,0). Wide in X so patches are sampled
-  -- across many chunks; tall enough to cover every band on the Y axis.
-  local RX = 320  -- +/- tiles in X
-  local RY = 128  -- +/- tiles in Y (the wall)
+  -- Region: wide on the perpendicular (X) axis to cover every band in to the
+  -- wall; tall on the long (Y) axis so patches are sampled across many chunks.
+  local RX = 128 -- +/- tiles in X (the wall / ribbon width)
+  local RY = 320 -- +/- tiles in Y (the long axis)
   local ready = false
 
   before_each(function()
     if ready then return end
     -- Generate on a DEDICATED surface cloned from the Cindra planet's map-gen
     -- (same autoplace controls, band masks, and no-water tile set) at a FIXED
-    -- seed. Using a private surface keeps this test isolated from the many other
-    -- tests that pave/trample the shared "cindra" surface, and the fixed seed
-    -- makes native autoplace fully reproducible run-to-run.
+    -- seed, so native autoplace is fully reproducible run-to-run and isolated
+    -- from the many tests that pave/trample the shared "cindra" surface.
     local base = game.surfaces["cindra"]
       or (game.planets["cindra"] and game.planets["cindra"].create_surface())
     local mgs = base.map_gen_settings
@@ -136,9 +189,9 @@ describe("cindra worldgen: native resource autoplace + no water (§15-3)", funct
     ready = true
   end)
 
-  -- Count resource entities in an X-full band [y1, y2].
-  local function count(name, y1, y2)
-    return s.count_entities_filtered({ name = name, area = { { -RX, y1 }, { RX, y2 } } })
+  -- Count a resource in a perpendicular (X) band spanning the full long axis.
+  local function count(name, x1, x2)
+    return s.count_entities_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
   end
 
   it("exposes real map-gen sliders via autoplace-controls (Frequency/Size/Richness)", function()
@@ -153,19 +206,21 @@ describe("cindra worldgen: native resource autoplace + no water (§15-3)", funct
   end)
 
   it("places stone as patches on the ribbon + hot margin, never deep nightward", function()
-    assert.is_true(count(field.STONE, -RY, 96) > 0, "stone patches in the stone band")
-    assert.are.equal(0, count(field.STONE, -RY, -40), "no stone deep nightward of the safe band")
+    -- Stone band: perp in [-safe, lethal] -> x in [-96, 24] (hot is -x).
+    assert.is_true(count(field.STONE, -96, 24) > 0, "stone patches in the stone band")
+    assert.are.equal(0, count(field.STONE, 40, RX), "no stone deep nightward (east) of the safe band")
   end)
 
   it("places ice as patches on the nightside, never sunward of the safe band", function()
-    assert.is_true(count(field.ICE, -RY, -30) > 0, "ice patches on the nightside")
-    assert.are.equal(0, count(field.ICE, 0, RY), "no ice sunward of the safe band")
+    -- Ice band: perp < -safe -> x > 24 (the nightward/east side).
+    assert.is_true(count(field.ICE, 30, RX) > 0, "ice patches on the nightside (east)")
+    assert.are.equal(0, count(field.ICE, -RX, 0), "no ice sunward (west) of the safe band")
   end)
 
   it("keeps volatiles out of the ribbon and sunward (deep cold-lethal only)", function()
-    -- Volatiles' band is a thin deep-nightside slice; presence there is playtest-
-    -- verified. Here we prove the hard exclusion: never in the ribbon or sunward.
-    assert.are.equal(0, count(field.VOLATILES, -90, RY), "no volatiles above the cold-lethal band")
+    -- Volatiles' band is a thin deep-nightside slice (perp <= -lethal -> x >= 96);
+    -- presence there is playtest-verified. Here we prove the hard exclusion.
+    assert.are.equal(0, count(field.VOLATILES, -RX, 90), "no volatiles above the cold-lethal band")
   end)
 
   it("generates NO water and NO starting lake at all", function()

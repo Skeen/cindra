@@ -6,6 +6,20 @@
 -- these. All are (tune) starting points (§16).
 
 data:extend({
+  -- Ribbon ORIENTATION. Which way the survivable ribbon runs, and therefore which
+  -- world axis carries the hot-cold gradient (see scripts/axis.lua):
+  --   "vertical"   DEFAULT -- ribbon long axis N-S (bottom-to-top); hot-cold runs
+  --                LEFT<->RIGHT with HOT on the LEFT (west). perpendicular = X.
+  --   "horizontal" ribbon long axis E-W; hot-cold runs top-bottom, hot sunward
+  --                (+Y). perpendicular = Y (the legacy layout).
+  {
+    type = "string-setting",
+    name = "cindra-ribbon-orientation",
+    setting_type = "startup",
+    default_value = "vertical",
+    allowed_values = { "vertical", "horizontal" },
+    order = "a-orientation",
+  },
   -- Half-width (tiles) of the guaranteed-safe temperate band around the ribbon
   -- centre. Inside this, no environmental damage.
   {

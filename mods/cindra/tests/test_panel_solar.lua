@@ -1,7 +1,9 @@
 -- PROOF: solar output scales with sunward position (§ ci-9ht). Panels only REALLY
--- work on the sunny (sunward, +Y) part of the ribbon: a panel's REAL engine
--- output scales with how far sunward it sits and drops toward ~nothing nightward,
--- so panel PLACEMENT is a real decision (build sunward, toward the heat/danger).
+-- work on the sunny (sunward) part of the ribbon: a panel's REAL engine output
+-- scales with how far sunward it sits and drops toward ~nothing nightward, so
+-- panel PLACEMENT is a real decision (build sunward, toward the heat/danger). In
+-- the default vertical orientation sunward is the LEFT / west (negative x); see
+-- scripts/axis.lua for the perpendicular-coordinate mapping.
 --
 -- Mechanism (scripts/panel-solar.lua + scripts/panels.lua reconcile): a placed
 -- panel morphs to the reduced-output VARIANT matching its Y. Each variant is a
@@ -31,18 +33,20 @@ describe("position-scaled solar - morph", function()
   it("morphs a placed panel to the output band matching its sunward Y", function()
     local s = H.cindra_surface()
     H.power_reset()
-    local sun = H.panel(s, { 6, 40 })    -- sunward
-    local night = H.panel(s, { 6, -40 }) -- nightward
+    -- Default vertical orientation: sunward is the LEFT / west (negative x), so
+    -- perp = -x. Put the sunward panel at x = -40 and the nightward one at x = 40.
+    local sun = H.panel(s, { -40, 6 })  -- sunward (west)
+    local night = H.panel(s, { 40, 6 }) -- nightward (east)
     assert.are.equal(C.PANEL, sun.name, "freshly placed panels start as the base item")
     assert.are.equal(C.PANEL, night.name)
 
     local morphed = panels.reconcile_variants(s)
     assert.is_true(morphed >= 1, "at least the nightward panel must morph to a reduced band")
 
-    -- (3x3 panels center on tile+0.5, so the exact Y is ~40.5 / ~-39.5.)
+    -- (3x3 panels center on tile+0.5, so the exact x is ~-39.5 / ~40.5.)
     local sunward, nightward = sunward_and_nightward(s)
-    assert.is_true(sunward.position.y > 0, "sunmost panel is the +Y one")
-    assert.is_true(nightward.position.y < 0, "nightmost panel is the -Y one")
+    assert.is_true(sunward.position.x < 0, "sunmost panel is the west (-x) one")
+    assert.is_true(nightward.position.x > 0, "nightmost panel is the east (+x) one")
     assert.is_true(
       panel_solar.nominal_w(sunward.name) > panel_solar.nominal_w(nightward.name),
       "sunward panel's band output must beat the nightward panel's: "
@@ -53,7 +57,7 @@ describe("position-scaled solar - morph", function()
   it("is idempotent and never re-morphs (or heals) a settled panel", function()
     local s = H.cindra_surface()
     H.power_reset()
-    H.panel(s, { 6, -40 })
+    H.panel(s, { 40, 6 }) -- nightward (east): morphs to a reduced band
     panels.reconcile_variants(s)
 
     local before = #panels.panels(s)
@@ -111,7 +115,7 @@ describe("position-scaled solar - real engine output", function()
     H.power_reset()
     flare.set_schedule(WS)
     H.grid(s, 30, 42, 0)
-    H.panel(s, { 0, 40 }) -- a sunward (reduced-band) panel
+    H.panel(s, { 0, 40 }) -- a reduced-band panel (perp = 0 at the terminator)
     local sink = H.measure_sink(s, { 0, 30 })
     panels.reconcile_variants(s)
 
@@ -209,12 +213,14 @@ describe("position-scaled solar - damage model", function()
     -- ~no surplus and earns ~no damage.
     local s = H.cindra_surface()
     H.power_reset()
-    H.panel_col(s, 4, 30) -- sunward column (y = 30..42)
+    -- Sunward column at x = -40 (west); the perpendicular coordinate is -x, so
+    -- these sit deep in the sunward band.
+    H.panel_col(s, 4, 0, -40) -- sunward column (x = -40)
     panels.reconcile_variants(s)
     local sunward_potential = panels.potential(panels.panels(s), C.PEAK_INTENSITY)
 
     local s2 = H.cindra_surface() -- fresh surface wipes the first
-    H.panel_col(s2, 4, -42)       -- SAME count, nightward (y = -42..-30)
+    H.panel_col(s2, 4, 0, 40)     -- SAME count, nightward (x = 40, east)
     panels.reconcile_variants(s2)
     local nightward_potential = panels.potential(panels.panels(s2), C.PEAK_INTENSITY)
 

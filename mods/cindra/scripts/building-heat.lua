@@ -21,6 +21,7 @@
 -- other planet.
 
 local ribbon = require("scripts.ribbon")
+local axis = require("scripts.axis")
 
 local M = {}
 
@@ -99,9 +100,10 @@ function M.sweep(surface, cfg, interval_ticks)
   if not is_cindra(surface) then return end
   interval_ticks = interval_ticks or M.FREEZE_INTERVAL
   local amount = M.FREEZE_DPS * (interval_ticks / 60)
+  local orient = axis.orientation()
 
   for _, m in pairs(surface.find_entities_filtered({ type = M.FREEZABLE_TYPES })) do
-    if m.valid and M.is_cold(m.position.y, cfg) and not M.is_heated(surface, m) then
+    if m.valid and M.is_cold(axis.perp(m.position.x, m.position.y, orient), cfg) and not M.is_heated(surface, m) then
       m.damage(amount, m.force, M.COLD_DAMAGE_TYPE)
     end
   end

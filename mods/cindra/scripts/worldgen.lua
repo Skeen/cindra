@@ -1,18 +1,27 @@
 -- Cindra per-chunk world generation (§4 ribbon geometry, §15 item 2 + bootstrap).
 --
--- Two jobs as each chunk generates on a Cindra surface:
+-- Three jobs as each chunk generates on a Cindra surface:
 --   1. HARD-WALL BACKSTOP (§15-2 / §4 Impl B): tiles at or beyond `wall_at`
 --      perpendicular distance become out-of-map, so the playable world is a
---      finite-width RIBBON (constrained on the sunward-nightward Y axis, infinite
---      east-west). The gradient damage (scripts/edge-damage.lua) is the teacher;
---      this void is the bulletproof floor so the player can never walk off the
---      usable map into instant death.
---   2. BOOTSTRAP-ROCK SCATTER (§6): finite, hand-gathered rocks around the
+--      finite-width RIBBON (constrained on the sunward-nightward axis, infinite
+--      along the ribbon). The gradient damage (scripts/edge-damage.lua) is the
+--      teacher; this void is the bulletproof floor so the player can never walk
+--      off the usable map into instant death.
+--   2. TERRAIN GRADIENT (§4 tile layers): paint each tile from its perpendicular
+--      coordinate (scripts/terrain.lua) so the VISIBLE ground IS the hot-cold
+--      axis -- molten lava tiles on the hot edge, ice on the cold edge, temperate
+--      land at the ribbon. The tiles line up with the fire/freeze damage zone.
+--   3. BOOTSTRAP-ROCK SCATTER (§6): finite, hand-gathered rocks around the
 --      terminator, the landing-tier trickle of metal. Placement is DETERMINISTIC
 --      (a coordinate hash, not math.random) so it is reproducible, testable, and
 --      never desyncs in multiplayer -- but NATURALLY SCATTERED: rocks are jittered
 --      off the sampling grid and clumped by a smooth noise field, so there is no
 --      visible lattice.
+--
+-- Which world axis is "hot vs cold" is the ORIENTATION (scripts/axis.lua): the
+-- default is vertical (ribbon runs N-S, hot on the LEFT / west). Every job below
+-- reads the perpendicular coordinate from axis.perp, so both orientations are
+-- correct and nothing re-derives the gradient direction.
 --
 -- The mineable RESOURCES (stone / ice / volatiles) are NOT placed here: they use
 -- NATIVE Factorio resource autoplace (prototypes/resources.lua) so they form
@@ -20,11 +29,14 @@
 -- The rocks stay script-scattered because they are simple-entities, not a resource
 -- (and must stay finite, per §6 -- no ore/coal patches anywhere).
 --
--- 🚨 Scoped to `surface.name == "cindra"`. Everything is a Cindra-exclusive
--- `cindra-*` prototype; no vanilla resource or tile is mutated anywhere.
+-- 🚨 Scoped to `surface.name == "cindra"`. Resources are Cindra-exclusive
+-- `cindra-*` prototypes; the painted terrain REUSES vanilla Vulcanus/Aquilo tiles
+-- (read, never mutated) via set_tiles, so no vanilla prototype is changed.
 
 local ribbon = require("scripts.ribbon")
 local field = require("scripts.resource-field")
+local axis = require("scripts.axis")
+local terrain = require("scripts.terrain")
 
 local M = {}
 
@@ -84,16 +96,19 @@ local function cluster_field(x, y)
   return top + (bot - top) * fy
 end
 
--- Void every tile at/over the wall so the ribbon is finite perpendicular. Runs
--- first so we never place a resource on a tile we're about to remove.
+-- Void every tile at/over the wall so the ribbon is finite perpendicular. The
+-- wall is on the PERPENDICULAR axis (X in the default vertical orientation), so
+-- we test each tile's perp coordinate, not a raw row. Runs first so we never
+-- place a resource on a tile we're about to remove.
 function M.apply_hard_wall(surface, area, cfg)
   local wall = ribbon.resolve(cfg).wall_at
+  local orient = axis.orientation()
   local x1, y1 = area.left_top.x, area.left_top.y
   local x2, y2 = area.right_bottom.x, area.right_bottom.y
   local void = {}
   for y = y1, y2 - 1 do
-    if math.abs(y) >= wall then
-      for x = x1, x2 - 1 do
+    for x = x1, x2 - 1 do
+      if math.abs(axis.perp(x, y, orient)) >= wall then
         void[#void + 1] = { name = "out-of-map", position = { x, y } }
       end
     end
@@ -101,6 +116,43 @@ function M.apply_hard_wall(surface, area, cfg)
   if #void > 0 then surface.set_tiles(void, true) end
 end
 
+-- The set of terrain tile names that actually exist in the running data, resolved
+-- once. A mistyped / DLC-absent tile is skipped (never a crash), so the gradient
+-- degrades gracefully rather than erroring a chunk.
+local valid_tiles
+local function tile_exists(name)
+  if not valid_tiles then
+    valid_tiles = {}
+    for _, n in ipairs(terrain.all_tiles()) do
+      valid_tiles[n] = (prototypes and prototypes.tile and prototypes.tile[n]) ~= nil
+    end
+  end
+  return valid_tiles[name] == true
+end
+
+-- Paint the hot-cold terrain gradient across the chunk: each tile becomes the
+-- vanilla tile scripts/terrain.lua assigns to its perpendicular coordinate, so
+-- the visible ground IS the temperature axis (lava hot edge -> temperate ribbon
+-- -> ice cold edge). Tiles inside the wide safe band are left as natural land
+-- (tile_for returns nil), keeping spawn buildable and recognizably temperate.
+function M.paint_terrain(surface, area, cfg)
+  local rcfg = ribbon.resolve(cfg)
+  local orient = axis.orientation()
+  local x1, y1 = area.left_top.x, area.left_top.y
+  local x2, y2 = area.right_bottom.x, area.right_bottom.y
+  local tiles = {}
+  for y = y1, y2 - 1 do
+    for x = x1, x2 - 1 do
+      local name = terrain.tile_for(axis.perp(x, y, orient), rcfg)
+      if name and tile_exists(name) then
+        tiles[#tiles + 1] = { name = name, position = { x, y } }
+      end
+    end
+  end
+  if #tiles > 0 then surface.set_tiles(tiles, true) end
+end
+
+-- Placement takes an already-jittered FLOAT world position (see the scatter loop).
 local function try_rock(surface, px, py)
   local pos = { x = px, y = py }
   if surface.can_place_entity({ name = field.ROCK, position = pos }) then
@@ -115,7 +167,7 @@ end
 -- so rocks land NATURALLY SCATTERED (no visible lattice), never on a fixed grid.
 -- The mineable resources are placed by native autoplace (prototypes/resources.lua).
 function M.place_bootstrap_rocks(surface, area, cfg)
-  local wall = ribbon.resolve(cfg).wall_at
+  local orient = axis.orientation()
   local x1, y1 = area.left_top.x, area.left_top.y
   local x2, y2 = area.right_bottom.x, area.right_bottom.y
   -- Snap the sampling grid to global coords so the scatter is continuous across
@@ -123,9 +175,12 @@ function M.place_bootstrap_rocks(surface, area, cfg)
   local sx = x1 - (x1 % M.STEP)
   local sy = y1 - (y1 % M.STEP)
   for cy = sy, y2 - 1, M.STEP do
-    if cy >= y1 and math.abs(cy) < wall then
+    if cy >= y1 then
       for cx = sx, x2 - 1, M.STEP do
-        if cx >= x1 and field.rock_zone(cy, cfg) then
+        -- rock_zone reads the PERPENDICULAR coordinate, so rocks scatter only in
+        -- the terminator (safe) band whichever axis the orientation makes
+        -- perpendicular; that band already lies well inside the wall.
+        if cx >= x1 and field.rock_zone(axis.perp(cx, cy, orient), cfg) then
           -- Clumping: density rides a smooth noise field, bounded so no stretch of
           -- band ever goes fully empty (0.4x in gaps, up to 1.6x in clumps; the
           -- field averages ~0.5, so the mean density -- and rock count -- is ~1x).
@@ -147,6 +202,7 @@ function M.on_chunk_generated(event)
   if not is_cindra(event.surface) then return end
   local cfg = ribbon_cfg()
   M.apply_hard_wall(event.surface, event.area, cfg)
+  M.paint_terrain(event.surface, event.area, cfg)
   M.place_bootstrap_rocks(event.surface, event.area, cfg)
 end
 
