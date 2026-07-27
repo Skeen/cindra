@@ -91,18 +91,21 @@ describe("pivot: aluminium is the signature product", function()
       "the science pack must consume the signature aluminium (the pivot's re-base)")
   end)
 
-  it("is EXPORTABLE via the mass driver: the launch chain is pressed from aluminium", function()
-    -- The mass driver launches cargo pressed from Cindra aluminium: the aluminium
-    -- can is the cargo container. Assert the can recipe consumes aluminium, so the
-    -- signature product is literally what leaves the planet.
-    local can = prototypes.recipe["cindra-aluminium-can"]
-    assert.is_not_nil(can, "the aluminium-can recipe (launch cargo container) must exist")
+  it("is EXPORTABLE via the mass driver: the launch charge is formed from aluminium", function()
+    -- The mass driver forms its launch vehicle from raw Cindra aluminium fed straight
+    -- into the silo -- there is no pre-crafted can (ci-loa). Assert the launch-charge
+    -- recipe (the silo's fixed_recipe) consumes aluminium, so the signature product is
+    -- literally what leaves the planet.
+    assert.is_nil(prototypes.recipe["cindra-aluminium-can"],
+      "the pre-crafted aluminium-can recipe must be gone -- the silo forms the vehicle from raw materials")
+    local charge = prototypes.recipe["cindra-launch-charge"]
+    assert.is_not_nil(charge, "the launch-charge recipe (the silo's fixed_recipe) must exist")
     local from_aluminium = false
-    for _, ing in pairs(can.ingredients) do
+    for _, ing in pairs(charge.ingredients) do
       if ing.name == ALUMINIUM then from_aluminium = true end
     end
     assert.is_true(from_aluminium,
-      "the launch cargo can must be pressed from aluminium -- the signature product is the export")
+      "the launch charge must be formed from aluminium -- the signature product is the export")
 
     -- And the driver is a rocket-silo (native cross-surface delivery), so a launch
     -- really does leave the planet.

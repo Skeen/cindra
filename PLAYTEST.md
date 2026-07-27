@@ -192,8 +192,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   v1 placeholders). The full chain, gating, cell power draw, and a powered cell
   smelting are integration-tested (`tests/test_aluminium.lua`). Aluminium is
   consumed by the flare **capacitor** (as its plates), by the **mass driver**
-  (pressed into the launch CAN and ground into the aluminium-powder SOLID ROCKET
-  FUEL), and by the **Cindra science pack** (its signature input). *Note:*
+  (fed straight in as the launch-vehicle material and ground into the
+  aluminium-powder SOLID ROCKET FUEL), and by the **Cindra science pack** (its
+  signature input). *Note:*
   aluminium is now Cindra's SOLE signature product + primary export (ci-84s):
   the cryo-quench / cryo-hardened-alloy chain is retired and Cindra science is
   re-based onto aluminium. Productivity is OFF on the electrolysis recipe (power
@@ -272,29 +273,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Mass driver (space export)
 
-- [ ] **[LANDED] Mass driver: full launch -> hub delivery (ci-o39).** The mass
-  driver is a reskinned `rocket-silo`, so launch + cross-surface delivery are the
-  ENGINE's vanilla rocket path. Prototype shape is fully integration-tested
+- [ ] **[LANDED] Mass driver: full launch -> hub delivery (ci-o39, ci-loa).** The
+  mass driver is a reskinned `rocket-silo`, so launch + cross-surface delivery are
+  the ENGINE's vanilla rocket path. Prototype shape is fully integration-tested
   (`tests/test_mass_driver.lua`: type=rocket-silo, cloned vanilla `rocket_entity`/
-  cargo pod, `launch_to_space_platforms`, a can+fuel launch charge, a vanilla
-  platform hub as the destination); end-to-end behaviour is the playtest. *Repro:*
-  research `cindra-orbital-launch`, build a `cindra-mass-driver`, power it, feed it
-  an aluminium can + solid rocket fuel, and load cargo (or request from a platform
-  in orbit). *Look for:* the silo builds a launch charge (consuming the can + fuel
-  + a large slug of power), the rocket rises, and cargo lands in the space
-  platform's hub inventory, with NO catcher or bespoke platform-side building. If
-  the cargo pod is rejected by the hub, that is a bug (the clone must keep the
-  vanilla `rocket_entity`).
+  cargo pod, `launch_to_space_platforms`, a launch charge FORMED from fed
+  aluminium + fuel with NO pre-crafted can, module slots + productivity allowed, a
+  vanilla platform hub as the destination); end-to-end behaviour is the playtest.
+  *Repro:* research `cindra-orbital-launch`, build a `cindra-mass-driver`, power it,
+  feed it raw aluminium + solid rocket fuel (NOT a pre-made can), optionally slot
+  productivity modules, and load cargo (or request from a platform in orbit).
+  *Look for:* the silo forms a launch charge INSIDE itself from the fed aluminium +
+  fuel (+ a large slug of power), productivity modules visibly speed launches, the
+  rocket rises, and cargo lands in the space platform's hub inventory, with NO
+  catcher or bespoke platform-side building. If the cargo pod is rejected by the
+  hub, that is a bug (the clone must keep the vanilla `rocket_entity`).
 
-- [ ] **[LANDED] Mass driver + launch-chain art are placeholders (ci-o39).** The
-  driver is a full deep-copy of the vanilla rocket-silo, so in world it wears the
+- [ ] **[LANDED] Mass driver + launch-chain art are placeholders (ci-o39, ci-loa).**
+  The driver is a full deep-copy of the vanilla rocket-silo, so in world it wears the
   vanilla silo animation; only its inventory/tech ICON is the delivered mass-driver
-  art (`graphics/icons/mass-driver.png`). The aluminium can (steel-plate tinted),
-  aluminium powder (calcite tinted), and solid rocket fuel (rocket-fuel tinted) are
-  v1 placeholder icons. *Look for:* the building reads acceptably as a launcher, its
-  icon reads as the mass driver in the Space crafting tab, and the three chain icons
-  read as distinct materials. A bespoke rail-gun/coilgun silo reskin is a later
-  art pass, not a v1 bug.
+  art (`graphics/icons/mass-driver.png`). The aluminium powder (calcite tinted) and
+  solid rocket fuel (rocket-fuel tinted) are v1 placeholder icons. *Look for:* the
+  building reads acceptably as a launcher, its icon reads as the mass driver in the
+  Space crafting tab, and the two chain icons read as distinct materials. A bespoke
+  rail-gun/coilgun silo reskin is a later art pass, not a v1 bug.
 
 ## Science & circuits
 

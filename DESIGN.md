@@ -216,10 +216,12 @@ dissipator-as-fuse, degrade-before-death).
 Storage is a two-tier puzzle: **capacitor** (fast spike) + **molten-salt battery**
 (bulk plateau, heat-upkeep). The **electric heater** (capped heat / uncapped
 draw) is the flare sink + water boil-off + nightside warmth. Goods leave by
-**mass driver** — a reskinned rocket-silo whose launch burns an **aluminium can**
-+ **aluminium-powder solid fuel** + a huge slug of power (§15-11, ci-o39), never
-oil-based rocketry — so the planet's oil/coal chemistry footprint is **zero**. The
-**Cindra science pack** is petrochemical-free.
+**mass driver** — a reskinned rocket-silo that is fed **raw aluminium** +
+**aluminium-powder solid fuel** and forms the launch vehicle **inside itself**
+(no pre-crafted can), on a huge slug of power (§15-11, ci-o39, ci-loa), never
+oil-based rocketry — so the planet's oil/coal chemistry footprint is **zero**. It
+**takes productivity modules** like any silo. The **Cindra science pack** is
+petrochemical-free.
 
 Exportable buildings (capacitor, molten-salt battery, electric heater) must be
 **situational-better, never strictly better** than vanilla (§12 guardrail).
