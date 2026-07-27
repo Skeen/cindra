@@ -120,27 +120,31 @@ C.PANEL_DAMAGE_INTERVAL = 29 -- the panel damage / recovery sweep
 C.DISSIPATOR = "cindra-dissipator"
 C.DISSIPATOR_DRAW_W = 20e6 -- 20 MW per building
 
--- Capacitor: fast, SMALL. Huge flow, tiny buffer -> catches the sharp leading
--- edge of a flare but stores almost nothing. Situational-not-strictly-better vs
--- a vanilla accumulator (§12 guardrail): worse reservoir (smaller buffer),
--- better spike response (higher flow). It is a spike catcher, not bulk storage.
+-- Capacitor: TINY, very high rate (ci-wcu). A minute buffer with a huge flow ->
+-- catches the sharp leading edge of a flare but stores almost nothing.
+-- Situational-not-strictly-better vs a vanilla accumulator (§12 guardrail): a
+-- far worse reservoir (1/10th the buffer) traded for a much higher flow. It is a
+-- spike catcher, not bulk storage.
 C.CAPACITOR = "cindra-capacitor"
-C.CAPACITOR_BUFFER_J = 2e6  -- 2 MJ  (< vanilla accumulator's 5 MJ)
-C.CAPACITOR_FLOW_W = 5e6    -- 5 MW  (>> vanilla accumulator's 300 kW)
+C.CAPACITOR_BUFFER_J = 0.5e6 -- 0.5 MJ (1/10th a vanilla accumulator's 5 MJ)
+C.CAPACITOR_FLOW_W = 50e6    -- 50 MW  (charge AND discharge; >> accumulator 300 kW)
 
--- Molten-salt battery: bulk, SLOW. Huge buffer, trickle flow -> soaks the
--- sustained plateau across an array but can never catch the spike alone.
--- Situational-not-strictly-better (§12): 40x the buffer of a vanilla
--- accumulator but an INTRINSICALLY lower throughput (so it is a reserve, not a
--- responsive buffer), PLUS a heat-upkeep self-discharge when left idle-cold
--- (scripts/sinks.lua) that makes it a mild sink here and awkward off-world.
+-- Molten-salt battery: large-ish, SLOW, CHEAP, LEAKY (ci-wcu). A moderate buffer
+-- with a trickle flow -> soaks a sustained plateau across an array but can never
+-- catch the spike alone. Situational-not-strictly-better (§12): its buffer AND
+-- its flow are BOTH below a vanilla accumulator's, so on raw specs it is strictly
+-- worse; its upside is a CHEAP recipe (no chemical batteries) and its downside a
+-- heat-upkeep self-discharge (scripts/sinks.lua) that fully drains it in ~5-10
+-- min when unpowered -- a mild sink here, awkward off-world.
 C.BATTERY = "cindra-molten-salt-battery"
-C.BATTERY_BUFFER_J = 200e6 -- 200 MJ (bulk: 40x a vanilla accumulator)
-C.BATTERY_FLOW_W = 250e3   -- 250 kW (< vanilla accumulator's 300 kW: slow)
+C.BATTERY_BUFFER_J = 2.5e6 -- 2.5 MJ (large-ish; half a vanilla accumulator)
+C.BATTERY_FLOW_W = 150e3   -- 150 kW (inflow AND discharge; < accumulator 300 kW: slow)
 -- Heat upkeep: fraction of the battery's *capacity* lost per flare-driver tick
--- when idle. Small but present, so the battery is itself a mild power sink and
--- thrives on Cindra / is awkward elsewhere.
-C.BATTERY_UPKEEP_FRACTION = 0.0005
+-- when idle. Sized so a full battery bleeds its whole 2.5 MJ in ~5-10 min
+-- unpowered: drain/tick = capacity * FRACTION, so full-drain takes 1/FRACTION
+-- flare ticks = (1/FRACTION) * FLARE_INTERVAL / 60 seconds. At 0.00085 that is
+-- ~1176 ticks -> ~451 s (~7.5 min), squarely inside the 5-10 min window.
+C.BATTERY_UPKEEP_FRACTION = 0.00085
 
 -- Test-only measurement rig: an accumulator with flow far above the flare peak,
 -- so it absorbs a panel's full output WITHOUT throttling. Reading its energy
