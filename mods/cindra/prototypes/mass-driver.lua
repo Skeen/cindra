@@ -10,10 +10,14 @@
 -- hub-accepted vanilla cargo pod) intact -- reskinned with the mass-driver icon
 -- and re-fuelled on Cindra's own economy.
 --
--- WHAT A LAUNCH COSTS (still PETROCHEMICAL-FREE, the whole point of §11). The silo
--- builds ONE launch charge (its `fixed_recipe`) before it can fire, and that
--- charge consumes:
---   * 1 ALUMINIUM CAN         the cargo container, pressed from Cindra aluminium.
+-- WHAT A LAUNCH COSTS (still PETROCHEMICAL-FREE, the whole point of §11). Like the
+-- vanilla silo builds its rocket from rocket-PARTS out of raw LDS/fuel/chips, this
+-- driver assembles ONE launch vehicle INTERNALLY (its `fixed_recipe`, the launch
+-- charge) from RAW MATERIALS fed straight in -- there is NO pre-crafted "can" item
+-- to press elsewhere (ci-loa). The internal build consumes:
+--   * RAW ALUMINIUM           the launch-vehicle body, fed directly as Cindra's
+--                             signature metal (not a hand-pressed can). The silo
+--                             presses/assembles the vehicle in place before firing.
 --   * ROCKET FUEL             the VANILLA rocket-fuel item (ci-519), but minted the
 --                             Cindra way: the "Solid rocket fuel" recipe below turns
 --                             aluminium POWDER into vanilla rocket-fuel -- metallic
@@ -25,8 +29,16 @@
 --                             times a long charge craft => a huge per-launch energy.
 -- That drops vanilla rocket-parts / LDS / processing-units and the oil route to
 -- rocket fuel entirely: the recurring launch cost lands on local metallurgy + power,
--- never petrochemistry. The can + fuel chain is added here (aluminium -> can;
+-- never petrochemistry. The materials + fuel chain is added here (aluminium fed raw;
 -- aluminium -> powder -> vanilla rocket-fuel), gated behind the same launch tech.
+--
+-- PRODUCTIVITY MODULES (ci-loa). A mass driver is a real rocket-silo, so it keeps
+-- the vanilla silo's module slots and PERMITS PRODUCTIVITY on the internal launch
+-- build: a prod bonus yields bonus launch charges => more launches per unit of
+-- aluminium + fuel, a fair reward where you have spare module capacity. (Contrast
+-- the aluminium/lava chains, where productivity is deliberately OFF so power stays
+-- the honest cost of the METAL itself; here productivity discounts the LAUNCH, not
+-- the metal, and the dominant per-launch cost remains the silo's raw power draw.)
 --
 -- CARGO DELIVERY. A launch behaves like a vanilla rocket: the payload lands in the
 -- space platform hub (the standard rocket destination). There is NO platform-side
@@ -53,18 +65,19 @@ local util = require("util")
 local M = {}
 M.DRIVER = "cindra-mass-driver"            -- the reskinned rocket-silo
 M.TECH = "cindra-orbital-launch"           -- the unlock tech (folded into the Cindra tree)
-M.CAN = "cindra-aluminium-can"             -- cargo container (aluminium)
 M.POWDER = "cindra-aluminium-powder"       -- metallic aluminium powder (the fuel base)
+M.ALUMINIUM = "cindra-aluminium"           -- the launch-vehicle body, fed RAW (no pre-made can, ci-loa)
 M.ROCKET_FUEL = "rocket-fuel"              -- VANILLA rocket-fuel: Cindra makes it from aluminium (ci-519)
 M.FUEL_RECIPE = "cindra-solid-rocket-fuel" -- recipe "Solid rocket fuel": aluminium-powder -> vanilla rocket-fuel
-M.CHARGE = "cindra-launch-charge"          -- the silo's rocket-part analog (internal)
+M.CHARGE = "cindra-launch-charge"          -- the silo's rocket-part analog (the internal launch vehicle)
 M.CHARGE_CATEGORY = "cindra-mass-driver-charge"  -- PRIVATE: only the driver crafts the charge
 
 M.SILO_DRAW = "60MW"        -- crafting draw while building a launch charge (a large load)
 M.SILO_LAUNCH_DRAW = "100MW" -- extra draw during the launch sequence (the burst)
 M.CHARGE_SECONDS = 30       -- long charge craft: SILO_DRAW * CHARGE_SECONDS ~= 1.8 GJ / launch
-M.CAN_PER_LAUNCH = 1        -- one aluminium can (cargo container) per launch
+M.ALUMINIUM_PER_LAUNCH = 5  -- raw aluminium the silo assembles into the launch vehicle (was a pre-pressed can)
 M.FUEL_PER_LAUNCH = 10      -- vanilla rocket-fuel (Cindra's aluminium-made "Solid rocket fuel") per launch
+M.MODULE_SLOTS = 4          -- keep the vanilla silo's module bay (supports productivity, ci-loa)
 
 -- Delivered mass-driver icon (graphics/ART-MANIFEST.md, ci-pru): a 64px mipmap strip.
 local function set_driver_icon(proto)
@@ -101,6 +114,12 @@ driver.rocket_parts_storage_cap = 1
 driver.energy_usage = M.SILO_DRAW
 driver.active_energy_usage = M.SILO_LAUNCH_DRAW
 driver.launch_to_space_platforms = true  -- deliver cargo to platforms (Space Age)
+-- Support productivity modules (ci-loa). The deep-copy already carries the vanilla
+-- silo's module bay, but we pin the slots + allowed effects EXPLICITLY so the
+-- productivity capability survives any upstream silo change and is unambiguous in
+-- tests. Productivity discounts the LAUNCH (bonus charges), not the metal.
+driver.module_slots = M.MODULE_SLOTS
+driver.allowed_effects = { "consumption", "speed", "productivity", "pollution" }
 set_driver_icon(driver)
 driver.localised_name = { "entity-name.cindra-mass-driver" }
 driver.localised_description = { "entity-description.cindra-mass-driver" }
@@ -116,15 +135,10 @@ set_driver_icon(driver_item)
 driver_item.localised_name = { "item-name.cindra-mass-driver" }
 driver_item.localised_description = { "item-description.cindra-mass-driver" }
 
--- Aluminium can: the cargo container, pressed from Cindra aluminium.
-local can_item = util.table.deepcopy(data.raw.item["steel-plate"])
-can_item.name = M.CAN
-can_item.place_result = nil
-can_item.stack_size = 100
-can_item.order = "z[cindra-mass-driver]-a[can]"
-set_icon(can_item, "__base__/graphics/icons/steel-plate.png", { r = 0.75, g = 0.82, b = 0.95, a = 1.0 })
-can_item.localised_name = { "item-name.cindra-aluminium-can" }
-can_item.localised_description = { "item-description.cindra-aluminium-can" }
+-- NO aluminium-can item (ci-loa). The launch vehicle is assembled INSIDE the silo
+-- from raw aluminium fed straight in (see the launch-charge recipe below), exactly
+-- as a vanilla silo builds its rocket from raw materials -- there is no pre-crafted
+-- cargo container the player presses elsewhere.
 
 -- Aluminium powder: metallic aluminium ground fine -- the energetic fuel base.
 local powder_item = util.table.deepcopy(data.raw.item["calcite"])
@@ -153,17 +167,7 @@ charge_item.localised_description = { "item-description.cindra-launch-charge" }
 local charge_category = { type = "recipe-category", name = M.CHARGE_CATEGORY }
 
 -- === Recipes (all PETROCHEMICAL-FREE; gated behind the launch tech) ==========
--- Aluminium -> can (the cargo container).
-local can_recipe = {
-  type = "recipe",
-  name = M.CAN,
-  enabled = false,
-  energy_required = 1,
-  ingredients = {
-    { type = "item", name = "cindra-aluminium", amount = 2 },
-  },
-  results = { { type = "item", name = M.CAN, amount = 1 } },
-}
+-- NO can recipe (ci-loa): raw aluminium is fed straight into the launch charge.
 
 -- Aluminium -> powder (grind metallic aluminium fine).
 local powder_recipe = {
@@ -195,10 +199,13 @@ local fuel_recipe = {
   main_product = M.ROCKET_FUEL,
 }
 
--- The launch charge (the silo's fixed_recipe): { 1 can + solid rocket fuel } over a
--- LONG craft. `enabled=false` is fine -- a rocket-silo always runs its fixed_recipe
--- regardless, so this is never hand/assembler craftable. The dominant cost is the
--- silo's power draw across the long craft (SILO_DRAW * CHARGE_SECONDS per launch).
+-- The launch charge (the silo's fixed_recipe): the launch vehicle assembled INSIDE
+-- the silo from RAW MATERIALS -- { raw aluminium + solid rocket fuel } over a LONG
+-- craft (ci-loa). `enabled=false` is fine -- a rocket-silo always runs its
+-- fixed_recipe regardless, so this is never hand/assembler craftable. The dominant
+-- cost is the silo's power draw across the long craft (SILO_DRAW * CHARGE_SECONDS
+-- per launch). Productivity is ALLOWED: a prod bonus yields bonus charges (more
+-- launches per unit of material), the fair reward for spending module capacity here.
 local charge_recipe = {
   type = "recipe",
   name = M.CHARGE,
@@ -207,11 +214,11 @@ local charge_recipe = {
   hidden = true,
   energy_required = M.CHARGE_SECONDS,
   ingredients = {
-    { type = "item", name = M.CAN, amount = M.CAN_PER_LAUNCH },
+    { type = "item", name = M.ALUMINIUM, amount = M.ALUMINIUM_PER_LAUNCH },
     { type = "item", name = M.ROCKET_FUEL, amount = M.FUEL_PER_LAUNCH },
   },
   results = { { type = "item", name = M.CHARGE, amount = 1 } },
-  allow_productivity = false,   -- a launch charge is not an intermediate to farm
+  allow_productivity = true,   -- productivity discounts the LAUNCH (bonus charges), ci-loa
 }
 
 -- Recipe to BUILD the driver (gated behind the tech). Native metal + electronics +
@@ -249,7 +256,6 @@ local technology = {
   icon_mipmaps = 4,
   effects = {
     { type = "unlock-recipe", recipe = M.DRIVER },
-    { type = "unlock-recipe", recipe = M.CAN },
     { type = "unlock-recipe", recipe = M.POWDER },
     { type = "unlock-recipe", recipe = M.FUEL_RECIPE },
   },
@@ -270,8 +276,8 @@ local technology = {
 data:extend({
   charge_category,
   driver,
-  driver_item, can_item, powder_item, charge_item,
-  driver_recipe, can_recipe, powder_recipe, fuel_recipe, charge_recipe,
+  driver_item, powder_item, charge_item,
+  driver_recipe, powder_recipe, fuel_recipe, charge_recipe,
   technology,
 })
 

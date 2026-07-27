@@ -1,10 +1,11 @@
 -- Proof: the Cindra mass driver (§15-11; DESIGN.md §5, §11) is a RESKINNED
--- ROCKET-SILO (ci-o39). A launch is built from Cindra's own economy -- an aluminium
--- CAN (cargo container) + VANILLA rocket-fuel minted from aluminium by the "Solid
--- rocket fuel" recipe (ci-519) + a shitton of power,
--- all PETROCHEMICAL-FREE -- and cargo is delivered to an orbiting space platform via
--- the NATIVE vanilla rocket path (no bespoke catcher). Its recipes are GATED behind
--- the cindra-orbital-launch tech in the folded Cindra science tree.
+-- ROCKET-SILO (ci-o39, ci-loa). It SUPPORTS PRODUCTIVITY MODULES and assembles its
+-- launch vehicle INTERNALLY from RAW MATERIALS fed straight in -- raw aluminium (NO
+-- pre-crafted can) + VANILLA rocket-fuel minted from aluminium by the "Solid rocket
+-- fuel" recipe (ci-519) + a shitton of power, all PETROCHEMICAL-FREE -- and cargo is
+-- delivered to an orbiting space platform via the NATIVE vanilla rocket path (no
+-- bespoke catcher). Its recipes are GATED behind the cindra-orbital-launch tech in
+-- the folded Cindra science tree.
 --
 -- WHY MOSTLY PROTOTYPE-LEVEL PROOFS. Choosing the `rocket-silo` TYPE means launch +
 -- cross-surface delivery are the ENGINE's vanilla behaviour, not our code: there is
@@ -19,7 +20,8 @@
 local H = require("tests.helpers")
 
 local DRIVER = "cindra-mass-driver"
-local CAN = "cindra-aluminium-can"
+local ALUMINIUM = "cindra-aluminium"
+local CAN = "cindra-aluminium-can"  -- the REMOVED pre-crafted can (ci-loa): must no longer exist
 local POWDER = "cindra-aluminium-powder"
 -- ci-519: NO custom fuel item. The launch propellant IS vanilla rocket-fuel, minted
 -- from aluminium by the "Solid rocket fuel" recipe (recipe name below != its product).
@@ -83,14 +85,37 @@ describe("cindra mass driver (prototype shape)", function()
       "the launch charge lives in the private category, so only the driver builds it")
   end)
 
-  it("a launch consumes an aluminium can + vanilla rocket-fuel (the recurring cost)", function()
+  it("a launch is built from RAW aluminium + vanilla rocket-fuel -- NO pre-made can (ci-loa)", function()
     local charge = prototypes.recipe[CHARGE]
     local names = {}
     for _, ing in pairs(charge.ingredients) do names[ing.name] = ing.amount end
-    assert.is_not_nil(names[CAN], "the launch charge must consume an aluminium can (cargo container)")
+    -- The launch vehicle is assembled INSIDE the silo from raw materials fed straight
+    -- in, exactly as a vanilla silo builds its rocket -- not from a pre-pressed can.
+    assert.is_not_nil(names[ALUMINIUM],
+      "the launch charge must consume RAW aluminium (the vehicle body, assembled internally)")
+    assert.is_nil(names[CAN],
+      "the launch charge must NOT consume a pre-crafted aluminium can (ci-loa)")
     assert.is_not_nil(names[ROCKET_FUEL],
       "the launch charge must consume vanilla rocket-fuel (Cindra's aluminium-made propellant, ci-519)")
-    assert.are.equal(2, #charge.ingredients, "the launch cost is exactly the can + rocket-fuel")
+    assert.are.equal(2, #charge.ingredients, "the launch cost is exactly raw aluminium + rocket-fuel")
+  end)
+
+  it("SUPPORTS PRODUCTIVITY MODULES: module slots + productivity allowed (ci-loa)", function()
+    local e = prototypes.entity[DRIVER]
+    -- A real rocket-silo keeps its module bay: the driver must have module slots.
+    assert.is_true(e.module_inventory_size ~= nil and e.module_inventory_size > 0,
+      "the mass driver must have module slots (it is a rocket-silo), got "
+        .. tostring(e.module_inventory_size))
+    -- Productivity must be an allowed effect on the entity.
+    assert.is_not_nil(e.allowed_effects, "the driver must declare allowed module effects")
+    assert.is_true(e.allowed_effects["productivity"],
+      "the mass driver must ALLOW productivity modules (ci-loa)")
+    -- And the internal launch-vehicle build must accept a productivity bonus (the
+    -- runtime exposes a recipe's permitted module effects as `allowed_effects`).
+    local charge_effects = prototypes.recipe[CHARGE].allowed_effects
+    assert.is_not_nil(charge_effects, "the launch-charge recipe must permit module effects")
+    assert.is_true(charge_effects["productivity"],
+      "the launch-charge recipe must allow productivity so prod modules actually apply")
   end)
 
   it("costs a SHITTON of power: a huge crafting draw over a long craft", function()
@@ -128,15 +153,21 @@ end)
 -- The launch chain: aluminium -> can / powder -> fuel, all petrochemical-free
 -- ============================================================================
 describe("cindra mass driver (launch chain is petrochemical-free)", function()
-  it("adds the can + powder items and the can/powder/fuel recipes", function()
-    -- Items: can + powder are Cindra-exclusive. There is deliberately NO custom fuel
-    -- item -- the propellant is the vanilla rocket-fuel item.
-    for _, n in ipairs({ CAN, POWDER }) do
-      assert.is_not_nil(prototypes.item[n], n .. " item must exist")
-      assert.is_not_nil(prototypes.recipe[n], n .. " recipe must exist")
-    end
+  it("adds the powder item and the powder/fuel recipes", function()
+    -- Item: powder is Cindra-exclusive. There is deliberately NO custom fuel item
+    -- (the propellant is the vanilla rocket-fuel item) and NO can item (ci-loa: raw
+    -- aluminium is fed straight into the silo's internal launch-vehicle build).
+    assert.is_not_nil(prototypes.item[POWDER], POWDER .. " item must exist")
+    assert.is_not_nil(prototypes.recipe[POWDER], POWDER .. " recipe must exist")
     assert.is_not_nil(prototypes.recipe[FUEL_RECIPE], "the Solid rocket fuel recipe must exist")
     assert.is_not_nil(prototypes.item[ROCKET_FUEL], "vanilla rocket-fuel item must exist")
+  end)
+
+  it("has NO aluminium-can item or recipe -- raw materials only (ci-loa)", function()
+    assert.is_nil(prototypes.item[CAN],
+      "the pre-crafted aluminium-can item must be gone -- the silo builds from raw materials")
+    assert.is_nil(prototypes.recipe[CAN],
+      "the aluminium-can recipe must be gone -- no intermediate cargo container is pressed")
   end)
 
   -- === ci-519: the core requirement ==========================================
@@ -169,10 +200,13 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
   end)
 
   it("the launch consumables trace back to Cindra aluminium, not chemistry", function()
-    -- can <- aluminium
-    local can = prototypes.recipe[CAN]
-    assert.are.equal("cindra-aluminium", can.ingredients[1].name,
-      "the aluminium can is pressed from Cindra aluminium")
+    -- The launch charge takes raw aluminium directly (the vehicle body, ci-loa).
+    local charge_uses_aluminium = false
+    for _, ing in pairs(prototypes.recipe[CHARGE].ingredients) do
+      if ing.name == ALUMINIUM then charge_uses_aluminium = true end
+    end
+    assert.is_true(charge_uses_aluminium,
+      "the launch charge is built from raw Cindra aluminium (fed straight in)")
     -- powder <- aluminium ; fuel <- powder  (so the propellant is native metal)
     assert.are.equal("cindra-aluminium", prototypes.recipe[POWDER].ingredients[1].name,
       "aluminium powder is ground from Cindra aluminium")
@@ -181,7 +215,7 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
   end)
 
   it("nothing the launch touches uses vanilla petrochemistry/oil-rocketry", function()
-    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL_RECIPE, CHARGE }) do
+    for _, rname in ipairs({ DRIVER, POWDER, FUEL_RECIPE, CHARGE }) do
       local recipe = prototypes.recipe[rname]
       for _, ing in pairs(recipe.ingredients) do
         assert.is_falsy(FORBIDDEN[ing.name],
@@ -191,7 +225,7 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
   end)
 
   it("all launch recipes are GATED (disabled by default, not free)", function()
-    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL_RECIPE, CHARGE }) do
+    for _, rname in ipairs({ DRIVER, POWDER, FUEL_RECIPE, CHARGE }) do
       assert.is_false(prototypes.recipe[rname].enabled,
         rname .. " recipe must be disabled by default -- unlocked by research, not free")
     end
@@ -251,10 +285,13 @@ describe("cindra mass driver (tech gating)", function()
       if effect.type == "unlock-recipe" then unlocked[effect.recipe] = true end
     end
     -- Unlocks the driver + the whole launch-fuel chain (the charge is the silo's
-    -- fixed_recipe -- auto-crafted, so it is NOT and need NOT be a tech unlock).
-    for _, rname in ipairs({ DRIVER, CAN, POWDER, FUEL_RECIPE }) do
+    -- fixed_recipe -- auto-crafted, so it is NOT and need NOT be a tech unlock; the
+    -- launch vehicle's raw aluminium is unlocked by the aluminium tech, not here).
+    for _, rname in ipairs({ DRIVER, POWDER, FUEL_RECIPE }) do
       assert.is_true(unlocked[rname], "the tech must unlock the " .. rname .. " recipe")
     end
+    assert.is_nil(unlocked[CAN],
+      "the tech must NOT unlock an aluminium-can recipe -- it no longer exists (ci-loa)")
     assert.is_nil(unlocked["cindra-mass-driver-catcher"],
       "the tech must NOT unlock a catcher -- it does not exist")
 
@@ -297,6 +334,27 @@ describe("cindra mass driver (runtime)", function()
     assert.are.equal(DRIVER, d.name)
     assert.are.equal("rocket-silo", d.type,
       "the built entity is a working rocket-silo (native launch + delivery)")
+    d.destroy()
+  end)
+
+  it("accepts a productivity module in-machine: the bonus actually applies (ci-loa)", function()
+    -- Beyond the prototype-shape proof, drive the real building: insert a
+    -- productivity module into the placed silo and confirm it reports a LIVE
+    -- productivity bonus. A rocket-silo always runs its fixed_recipe (the launch
+    -- charge), so the effect only appears when that recipe allows productivity --
+    -- proving the flag reaches the machine, not just the prototype.
+    local ground = H.cindra_surface()
+    local d = ground.create_entity({ name = DRIVER, position = { 0, 0 }, force = "player" })
+    local modules = d.get_module_inventory()
+    assert.is_not_nil(modules, "the mass driver must have a module inventory")
+    local inserted = modules.insert({ name = "productivity-module", count = 1 })
+    assert.are.equal(1, inserted, "a productivity module must go into the mass driver")
+
+    local effects = d.effects
+    assert.is_not_nil(effects, "the silo must report module effects (its fixed_recipe is always set)")
+    assert.is_not_nil(effects.productivity, "the productivity effect must be present")
+    assert.is_true(effects.productivity > 0,
+      "the productivity bonus must be live (the launch-charge recipe allows productivity)")
     d.destroy()
   end)
 

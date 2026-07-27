@@ -55,12 +55,13 @@ require("prototypes.aluminium")
 -- (flare sink, nightside warmth, water boil-off, safe dissipation).
 require("prototypes.electric-heater")
 
--- §15-11 mass driver: a RESKINNED ROCKET-SILO (ci-o39), gated behind the
--- cindra-orbital-launch tech. A launch consumes an aluminium can + vanilla rocket-fuel
+-- §15-11 mass driver: a RESKINNED ROCKET-SILO (ci-o39, ci-loa), gated behind the
+-- cindra-orbital-launch tech. It supports PRODUCTIVITY MODULES and assembles its
+-- launch vehicle INTERNALLY from RAW MATERIALS -- raw aluminium + vanilla rocket-fuel
 -- (minted from aluminium by the "Solid rocket fuel" recipe, ci-519) + a shitton of
--- power (petrochemical-free), and the vanilla
--- rocket path delivers cargo to the space platform hub -- no catcher, no runtime
--- loop. Loads after aluminium (its can/fuel chain reads cindra-aluminium).
+-- power (petrochemical-free), no pre-crafted can. The vanilla rocket path delivers
+-- cargo to the space platform hub -- no catcher, no runtime loop. Loads after
+-- aluminium (its material/fuel chain reads cindra-aluminium).
 require("prototypes.mass-driver")
 
 -- Worldgen track (§15 items 2-3): the two lethal-edge damage types, and the
