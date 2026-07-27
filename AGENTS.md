@@ -22,6 +22,27 @@ All paths relative to repo root.
    feel, multiplayer) MUST get a checklist entry here.
 4. **`git log --oneline -20`** — commit bodies explain why.
 
+## 🚨 Definition of Done / pre-submit self-check
+
+Before running `gt done` or submitting an MR, STOP and re-read the bead you were
+assigned. Then self-check every mandatory item. Premature bead-close (shipping a
+partial, or weakening a test to make a skipped requirement pass) is the single
+most common cause of a rejected MR.
+
+- **Re-read the whole bead and enumerate its mandatory items** — every `TEST:`,
+  `DO:`, enumerated fix, and acceptance criterion. Confirm each one is actually
+  done. A bead with 8 enumerated fixes needs all 8.
+- **Do NOT close or submit if ANY mandatory item is unmet.** Partial work is not
+  done. The only exception is an explicit deferral agreed with the mayor.
+- **NEVER delete, weaken, or rewrite a mandatory guard TEST** to make a skipped
+  requirement pass. If two requirements seem to conflict, mail the mayor — do
+  not unilaterally drop one.
+- **If a mandatory item is genuinely blocked or infeasible**, mail the mayor and
+  keep the bead `in_progress`. Do not silently ship a partial.
+- **Nothing ships without its tests.** Every change needs a test (see
+  Conventions). The fix for a bug MUST add a test that fails on main and passes
+  on the fix.
+
 ## 🚨 ALWAYS PREFER TESTS OVER PLAYTEST
 
 Tests are FIRST CHOICE. PLAYTEST.md is the LAST RESORT when no test path exists.
