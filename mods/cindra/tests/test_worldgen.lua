@@ -18,10 +18,10 @@ local worldgen = require("scripts.worldgen")
 -- ---------------------------------------------------------------------------
 describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function()
   local CFG = { safe_half_width = 24, lethal_at = 96, wall_at = 128 }
-  -- A tall, narrow work strip far from any other test, covering both lethal edges
-  -- and the wall on the Y axis. Wide in X so the sparse rock scatter reliably
-  -- lands at least one rock inside the sampled area.
-  local X1, X2 = 2000, 2120
+  -- A tall work strip far from any other test, covering both lethal edges and the
+  -- wall on the Y axis. Wide in X so the sparse, clumped rock scatter reliably lands
+  -- plenty of rocks inside the sampled area (enough to judge the scatter pattern).
+  local X1, X2 = 2000, 2360
   local Y1, Y2 = -140, 140
   local AREA = { left_top = { x = X1, y = Y1 }, right_bottom = { x = X2, y = Y2 } }
   local s
@@ -35,7 +35,7 @@ describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function(
     end
     -- Generate the chunks under the strip, then clear + pave to clean land so
     -- placement is deterministic (nothing pre-placed).
-    s.request_to_generate_chunks({ (X1 + X2) / 2, 0 }, 6)
+    s.request_to_generate_chunks({ (X1 + X2) / 2, 0 }, 8)
     s.force_generate_chunk_requests()
     local box = { { X1, Y1 }, { X2, Y2 } }
     for _, e in pairs(s.find_entities_filtered({ area = box })) do
@@ -68,8 +68,33 @@ describe("cindra worldgen: hard wall + bootstrap rocks (§15-2, §6)", function(
 
   it("scatters finite bootstrap rocks around the terminator only", function()
     worldgen.place_bootstrap_rocks(s, AREA, CFG)
-    assert.is_true(count(field.ROCK, -24, 24) > 0, "rocks near the terminator")
+    assert.is_true(count(field.ROCK, -30, 30) > 0, "rocks near the terminator")
     assert.are.equal(0, count(field.ROCK, 50, Y2), "no rocks out in the damage margin")
+  end)
+
+  it("places rocks OFF a fixed lattice (natural scatter, no visible grid)", function()
+    -- Regression for ci-fs4: the old placement dropped every rock at (k*STEP+0.5)
+    -- on BOTH axes, so every rock sat exactly on a grid node -- a visible lattice.
+    -- Natural scatter jitters each rock across its cell, so rocks land off-grid.
+    worldgen.place_bootstrap_rocks(s, AREA, CFG)
+    local rocks = s.find_entities_filtered({ name = field.ROCK, area = { { X1, -30 }, { X2, 30 } } })
+    assert.is_true(#rocks >= 8, "enough rocks to judge the pattern")
+    -- Distance from a coord to the nearest OLD lattice node (k*STEP + 0.5). The old
+    -- gridded code made this exactly 0 for every rock on both axes; jitter makes it
+    -- span the cell, so the MEAN displacement is large (~JITTER/2).
+    local function lattice_dist(coord)
+      local r = (coord - 0.5) % worldgen.STEP
+      if r < 0 then r = r + worldgen.STEP end
+      return math.min(r, worldgen.STEP - r)
+    end
+    local sum, n = 0, 0
+    for _, rk in ipairs(rocks) do
+      sum = sum + lattice_dist(rk.position.x) + lattice_dist(rk.position.y)
+      n = n + 2
+    end
+    -- Old code => mean 0 (fails). Jittered scatter => mean well off the grid.
+    assert.is_true(sum / n > 0.75,
+      "rocks are displaced off the lattice on average, not snapped to a grid")
   end)
 
   it("keeps the richest nodes at the lethal margins (edge-pushing geometry)", function()
