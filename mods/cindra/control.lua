@@ -61,6 +61,10 @@ if script.active_mods["factorio-test"] then
     -- §15-12 the headline Cindra science pack + power-hungry starforge + the
     -- folded tech tree (petrochemical-free, native inputs, a real power sink).
     "tests/test_science",
+    -- §15-1 / ci-uex: the whole planet is bootstrappable from NOTHING -- land
+    -- with only stone + hand-minable rocks and reach a self-sustaining
+    -- lava->metal economy, with no chicken-and-egg and no soft-lock.
+    "tests/test_bootstrap",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the
