@@ -48,6 +48,9 @@ function H.power_reset()
   storage.cindra_driver_enabled = false
   storage.cindra_consumption_w = nil
   storage.cindra_flare = nil
+  -- Clear the sporadic-flare schedule so each test starts clean and can pin its
+  -- own deterministic anchor via flare.set_schedule.
+  storage.cindra_flare_sched = nil
 end
 
 function H.set_consumption(w)

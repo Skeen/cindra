@@ -101,12 +101,22 @@ merge queue.
     and a balance-pass call (ci-63d), not part of shipping the signature building.
 - [x] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
   dark-weighted daylight curve; telegraph / fast-ramp / plateau / fast-decay;
-  regular cadence; ~100× peak. Replaced the placeholder baseline in
+  ~100× peak. Replaced the placeholder baseline in
   `prototypes/planet.lua` (`solar-power` = 10000, the ~100× surface multiplier;
   the flare swing is the frozen daylight curve, `scripts/flare.lua`). Integrated
   from the proven flare-poc (ci-zg3). Tested: `tests/test_flare.lua` +
   `unit-tests/test_flare.lua` (pure schedule) + `tests/test_catchability.lua`
   (never 100%-catchable). Cadence magnitudes are (tune) → §15-14.
+  - **`ci-2ba` (sporadic timing, landed):** flare *timing* is now SPORADIC, not a
+    fixed metronome — the calm gap before each event is a random draw in
+    `[CALM_MIN_TICKS, CALM_MAX_TICKS]` (mean = the old fixed calm), so the next
+    flare is unpredictable by clock. The telegraph, ramp/plateau/decay shape, and
+    ~100× magnitude are unchanged (capacity sizing still matters; every event is
+    still reactable). Scheduling is a deterministic, save/load-stable Lehmer PRNG
+    in `storage` (not `math.random`). The environmental scanner (ci-3o3) reads the
+    new `cindra-flare` remote interface (`flare.forecast`) and so becomes a
+    REACTIVE early-warning device: forecast only while a flare telegraphs/is
+    active, `nil` (calm) otherwise.
 - [x] **§15-8 — Panel damage.** `ci-9ay` — disposal-deficit rule, degrade-before-
   death, self-correcting (negative feedback), dissipator-as-fuse. `scripts/panels.lua`
   (edge-bias reads the ribbon sunward axis). Tested: `tests/test_panel_damage.lua`,

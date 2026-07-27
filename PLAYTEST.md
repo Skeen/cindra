@@ -145,7 +145,20 @@ this list is the last resort when no test path exists.
   telegraph/alarm/countdown UI yet (the `warning` phase is exposed in
   `flare.state` but not surfaced to the player). A sky-brightening cue + a
   countdown alarm are a follow-up art/UI pass. Cadence magnitudes are (tune)
-  (§15-14): the test-scale period is a flare every ~22 s; real play scales it up.
+  (§15-14): the test-scale event is ~12 s; real play scales it up.
+
+- [ ] **Sporadic flare timing FEELS fair, not punishing (ci-2ba).** Flare
+  *timing* is now randomized (calm gap drawn from a band, mean = the old fixed
+  cadence); the event shape and ~100× magnitude are unchanged. That the gaps are
+  randomized-within-band, that every event is still telegraphed, and that the
+  scanner only forecasts during the window are all tested (`test_flare` sporadic +
+  forecast blocks). *Look for (feel, cannot be asserted):* the randomness reads as
+  "unpredictable but fair" — you are never starved for minutes nor hit back-to-back
+  with no time to recover; the warning window is long enough to react per event
+  when you could NOT see it coming on a clock; riding flares still feels like a
+  windfall you respond to, not a survival timer. Tune `CALM_MIN_TICKS`/
+  `CALM_MAX_TICKS` (and the warning length) if it feels starved, clustered, or
+  un-reactable. Ties into the §15-14 balance pass (ci-63d).
 
 - [ ] **Panel damage reads as degrade-before-death (§15-8).** Undisposed flare
   surplus degrades the most-sunward panels first (recoverable), then destroys them
@@ -192,7 +205,10 @@ this list is the last resort when no test path exists.
   renamed combinator body and reused base signal icons; bespoke art is a
   follow-up bead, do not file as a bug); wiring the scanner's `env-daylight` /
   `env-flare-countdown` to a lamp or combinator visibly tracks the day and, on a
-  Cindra save with the flare system loaded, counts down to the next flare.
+  Cindra save with the flare system loaded, acts as a REACTIVE early warning
+  (ci-2ba): the flare signals are ABSENT during calm and only appear — countdown,
+  phase, intensity — once a sporadic flare enters its warning window, since timing
+  is no longer predictable by clock.
 
 - [ ] **Sunward-position solar output has no visual band cue (ci-9ht).** Solar
   panels only really work on the sunny (sunward, +Y) part of the ribbon: a placed
