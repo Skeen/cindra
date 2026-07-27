@@ -92,10 +92,23 @@ is an optional dependency and is not vendored; the with-APS suite needs a local
 checkout (from the mod portal) pointed at by `APS_PATH`, while the without-APS
 suite needs no external mod.
 
+### Playtesting the start chain with `./play.sh`
+
+`./play.sh` launches the full playtest set: `cindra` + the APS start chain
+(`any-planet-start` + `cindra-start` + `cindra-dev-default`) + `helmod` (recipe
+math). APS and Helmod are still un-vendored; play.sh finds each one, in order,
+from `$APS_PATH` / `$HELMOD_ZIP`, a local `.play-cache/`, or the Factorio
+install's `mods/` folder, and as a last resort **fetches** it from the mod
+portal into `.play-cache/` (using the install's `player-data.json` credentials,
+so log into factorio.com in-game once). Set `PLAY_NO_FETCH=1` to stay offline —
+play.sh then launches with whatever it found and skips any missing mod. A shared
+install that already ships `helmod_*.zip` in its `mods/` needs no download.
+
 ## Regenerated automatically — do NOT add these manually
 
 - `factorio-test-data-dir/` — created/refreshed by `cindra-test` each run
   (including the `factorio-test_<version>` symlink into the nix store).
 - `mods-bundle/` — created by `play.sh` each run.
+- `.play-cache/` — mods `play.sh` fetched from the portal (APS / Helmod).
 - `node_modules/`, `package-lock.json` — from `npm install`.
 - `result` — a `nix build` output symlink (only if you run `nix build`).
