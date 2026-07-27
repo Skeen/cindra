@@ -7,7 +7,6 @@
   "description": "Standalone proof-of-concept: an electric mass driver that launches cargo to orbit using essentially only electricity (plus an optional native-metal projectile shell), caught by a platform-side catcher. No rocket fuel, no chemistry.",
   "dependencies": [
     "base >= 2.1",
-    "space-age >= 2.1",
-    "? factorio-test"
+    "space-age >= 2.1"
   ]
 }

@@ -83,12 +83,18 @@ sizes) should be validated against the real lava recipe's energy cost (§10:
 
 ## Running the tests
 
-The Factorio install, `node_modules`, and vendored `factorio-test` are gitignored
-(see the sibling repo's `SETUP.md`). Point the runner's `--mod-path` at this mod:
+The Factorio install and `node_modules` are gitignored (see the repo-root
+`SETUP.md`); `factorio-test` is built by the repo `flake.nix` and exposed in the
+dev shell as `$FACTORIO_TEST_MOD`. Inside `nix develop`, seed it and point the
+runner's `--mod-path` at this mod:
 
 ```sh
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
+mkdir -p factorio-test-data-dir/mods
+ver=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$FACTORIO_TEST_MOD/info.json" | head -1)
+ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
+
+./node_modules/.bin/factorio-test run \
+  --factorio-path "${FACTORIO_PATH:-./factorio/bin/x64/factorio}" \
   --data-directory ./factorio-test-data-dir \
   --mod-path <path>/mods/flare-poc \
   --mods space-age quality elevated-rails recycler

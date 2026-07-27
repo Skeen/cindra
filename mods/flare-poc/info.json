@@ -7,7 +7,6 @@
   "description": "Standalone proof-of-concept for Cindra's signature power mechanic: telegraphed solar flares (engine daylight curve + high surface solar multiplier, ~100x peak) and the disposal-deficit panel-damage rule, with a two-tier storage + dissipator sink web. Runs in isolation on its own scratch surface; touches no other planet. See planet_design.md sections 10, 12, 16.",
   "dependencies": [
     "base >= 2.1",
-    "? space-age",
-    "? factorio-test"
+    "? space-age"
   ]
 }

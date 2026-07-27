@@ -106,12 +106,18 @@ unused. Keep two-distinct-fluids in reserve for the advanced circulating-loop ti
 
 ## How to run the proof
 
-From the repo checkout that carries the Factorio 2.1 install + vendored
-`factorio-test` (the full scaffold lives untracked in the sibling working copy):
+`factorio-test` is built by the repo `flake.nix` (exposed as
+`$FACTORIO_TEST_MOD`); the Factorio 2.1 install is a local, gitignored install
+(see the repo-root `SETUP.md`). Inside `nix develop`, seed the runner and point
+`--mod-path` at this mod:
 
 ```sh
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
+mkdir -p factorio-test-data-dir/mods
+ver=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$FACTORIO_TEST_MOD/info.json" | head -1)
+ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
+
+./node_modules/.bin/factorio-test run \
+  --factorio-path "${FACTORIO_PATH:-./factorio/bin/x64/factorio}" \
   --data-directory ./factorio-test-data-dir \
   --mod-path <path-to>/mods/quench-poc \
   --mods space-age quality elevated-rails recycler

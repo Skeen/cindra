@@ -6,11 +6,32 @@
 set -eu
 cd "$(dirname "$0")"
 
+# Resolve the Factorio binary. The ~4GB install is gitignored, so a fresh clone
+# has none; point one of these at a SHARED install to avoid a copy per clone:
+#   FACTORIO_PATH  full path to the binary        (highest priority)
+#   FACTORIO_DIR   install root (binary at $FACTORIO_DIR/bin/x64/factorio)
+# Default is the in-repo ./factorio (real dir or symlink to a shared install).
+if [ -n "${FACTORIO_PATH:-}" ]; then
+  FACTORIO_BIN="$FACTORIO_PATH"
+elif [ -n "${FACTORIO_DIR:-}" ]; then
+  FACTORIO_BIN="$FACTORIO_DIR/bin/x64/factorio"
+else
+  FACTORIO_BIN="./factorio/bin/x64/factorio"
+fi
+
+if [ ! -x "$FACTORIO_BIN" ]; then
+  echo "Factorio binary not found at: $FACTORIO_BIN" >&2
+  echo "The game is a manual, local install (gitignored, see SETUP.md)." >&2
+  echo "Set FACTORIO_PATH (binary) or FACTORIO_DIR (install root) to a shared install," >&2
+  echo "or extract one to ./factorio." >&2
+  exit 1
+fi
+
 # Guard: if the binary lost its RUNPATH (steam update, fresh extraction, etc.)
 # SDL will crash deep in SDLWindow.cpp with the misleading "No available video
 # device". Catch it here with a clear pointer to the fix.
 if command -v readelf >/dev/null 2>&1 \
-   && ! readelf -d factorio/bin/x64/factorio 2>/dev/null | grep -q 'R\(UN\)\?PATH'; then
+   && ! readelf -d "$FACTORIO_BIN" 2>/dev/null | grep -q 'R\(UN\)\?PATH'; then
   echo "Factorio binary has no RUNPATH; SDL will fail to find libX11/libXss/libGL." >&2
   echo "Re-patchelf it with: ./scripts/patchelf-factorio.sh" >&2
   exit 1
@@ -64,4 +85,4 @@ $APS_LINES
 }
 JSON
 
-exec ./factorio/bin/x64/factorio --mod-directory "$MODS" "$@"
+exec "$FACTORIO_BIN" --mod-directory "$MODS" "$@"

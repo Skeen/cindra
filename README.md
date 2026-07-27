@@ -27,10 +27,13 @@ or safe waste before it burns your own solar farm down.
   optional dependency) to let you start a new game directly on Cindra when it is
   installed.
 - `mods/cindra-dev-default/` — dev-only: defaults the planet-picker to Cindra.
-- `vendor/` — bundled dependencies (`factorio-test`). `any-planet-start` is NOT
-  vendored; install it from the mod portal to use the Cindra start chain.
+- `flake.nix` — dev/test shell: builds `factorio-test` from its upstream source
+  (no longer vendored) and provides the art + test toolchain. `any-planet-start`
+  is NOT provided here; install it from the mod portal to use the Cindra start
+  chain.
 - `scripts/` — project tooling.
-- `factorio/` — local Factorio 2.1.9 install (gitignored).
+- `factorio/` — local Factorio 2.1.9 install (gitignored; shareable via
+  `FACTORIO_PATH` / `FACTORIO_DIR`, see [`SETUP.md`](SETUP.md)).
 
 ## Quick start
 
@@ -43,20 +46,25 @@ After a fresh clone, provide the gitignored pieces (Factorio install, node deps)
 
 ## Running the test suite
 
+The toolchain (including `factorio-test`, built from upstream) lives in the
+flake dev shell. Enter it, install the CLI once, then run `cindra-test`:
+
 ```sh
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
-  --data-directory ./factorio-test-data-dir \
-  --mod-path ./mods/cindra \
-  --mods space-age quality elevated-rails recycler
+nix develop
+npm install          # one-time: fetch factorio-test-cli
+cindra-test          # full integration suite
 ```
 
-`recycler` became a required built-in DLC in Factorio 2.1 (`quality` /
-`space-age` depend on it), so it must be in the `--mods` list. Plain-Lua unit
-tests run without Factorio:
+`cindra-test` symlinks the flake-built factorio-test into the data dir and runs
+the CLI with the DLC set the suite needs — `recycler` is a required built-in DLC
+in Factorio 2.1 (`quality` / `space-age` depend on it). It resolves the Factorio
+binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio` (see
+[`SETUP.md`](SETUP.md)). Plain-Lua unit tests run without Factorio:
 
 ```sh
-cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_ribbon.lua
+npm run test:unit                    # all unit-tests/test_*.lua
+# or a single one:
+cd mods/cindra && lua unit-tests/test_ribbon.lua
 ```
 
 ### Companion mods (Any-Planet-Start chain)
@@ -66,33 +74,33 @@ the companion mods (`cindra-start` + `cindra-dev-default`) must load clean both
 with and without it. There are two suites, and control.lua registers exactly one
 based on whether APS is active:
 
+`cindra-test` forwards any extra args straight to the CLI (appended after the
+base DLC `--mods`), so both suites run by seeding the companion mods into the
+data dir and passing them to `cindra-test`. Run these from inside `nix develop`.
+
 **Without APS — `test_aps_absent` (no external mod needed).** Proves the
 companion mods load clean and register nothing when APS is absent (the guarded
 APS calls are skipped, no data-stage error). Symlink only the in-repo companion
 mods:
 
 ```sh
+mkdir -p factorio-test-data-dir/mods
 for m in cindra-start cindra-dev-default; do
   ln -sfn "../../mods/$m" "factorio-test-data-dir/mods/$m"
 done
 
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
-  --data-directory ./factorio-test-data-dir \
-  --mod-path ./mods/cindra \
-  --mods space-age quality elevated-rails recycler \
-         cindra-start cindra-dev-default \
-  -- "cindra companion mods without any-planet-start"
+cindra-test cindra-start cindra-dev-default
 ```
 
 **With APS — `test_aps_start`.** Proves the companion mods wire Cindra into APS
 end-to-end (add_choice / set_default_choice / add_planet) and the full set loads
-clean headless with the picker defaulting to Cindra. APS is no longer vendored:
+clean headless with the picker defaulting to Cindra. APS is not vendored:
 install it from the [mod portal](https://mods.factorio.com/mod/any-planet-start)
 and point `APS_PATH` at that checkout so it can be linked into the data dir:
 
 ```sh
 : "${APS_PATH:?set APS_PATH to a local any-planet-start checkout}"
+mkdir -p factorio-test-data-dir/mods
 ln -sfn "$(realpath "$APS_PATH")" factorio-test-data-dir/mods/any-planet-start
 for m in cindra-start cindra-dev-default; do
   ln -sfn "../../mods/$m" "factorio-test-data-dir/mods/$m"
@@ -100,13 +108,7 @@ done
 # fresh mod-settings so the picker regenerates its default (cindra-dev-default -> "cindra")
 rm -f factorio-test-data-dir/mods/mod-settings.dat factorio-test-data-dir/mod-settings.dat
 
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
-  --data-directory ./factorio-test-data-dir \
-  --mod-path ./mods/cindra \
-  --mods space-age quality elevated-rails recycler \
-         any-planet-start cindra-start cindra-dev-default \
-  -- "cindra APS start chain"
+cindra-test any-planet-start cindra-start cindra-dev-default
 ```
 
 That mod set rewrites Cindra's discovery tech (APS treats it as the start

@@ -17,6 +17,10 @@ fbsr-renderer/
 # Python bytecode cache (from the importable art pipeline + its pixel test).
 __pycache__/
 
+# nix build output symlinks (`nix build` writes ./result -> /nix/store/...).
+result
+result-*
+
 # Gas Town / agent runtime state (local only).
 .beads/
 .claude/

@@ -99,14 +99,20 @@ unit-tests/test_readings.lua  plain-Lua unit test of the pure maths
 Plain-Lua unit tests (pure logic, no Factorio):
 
 ```sh
-cd mods/env-scanner && nix shell nixpkgs#lua -c lua unit-tests/test_readings.lua
+cd mods/env-scanner && lua unit-tests/test_readings.lua   # inside `nix develop`
 ```
 
-factorio-test integration suite (from the repo root, with the standard runner):
+factorio-test integration suite. `cindra-test` targets `mods/cindra`, so this
+standalone mod uses the CLI directly with the flake-built factorio-test seeded
+into the data dir. From the repo root, inside `nix develop`:
 
 ```sh
-nix shell nixpkgs#nodejs -c ./node_modules/.bin/factorio-test run \
-  --factorio-path ./factorio/bin/x64/factorio \
+mkdir -p factorio-test-data-dir/mods
+ver=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$FACTORIO_TEST_MOD/info.json" | head -1)
+ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
+
+./node_modules/.bin/factorio-test run \
+  --factorio-path "${FACTORIO_PATH:-./factorio/bin/x64/factorio}" \
   --data-directory ./factorio-test-data-dir \
   --mod-path ./mods/env-scanner \
   --mods space-age quality elevated-rails recycler
