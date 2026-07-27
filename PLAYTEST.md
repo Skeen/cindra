@@ -21,6 +21,17 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Reach & map view
 
+- [ ] **[LANDED] `./play.sh` launches the full playtest set (ci-7s3).** *Repro:*
+  `./play.sh` on an install logged into factorio.com (first run fetches
+  any-planet-start + helmod into `.play-cache/`). *Look for:* the game boots with
+  no missing-dependency errors; the Mods screen lists **cindra, any-planet-start,
+  cindra-start, cindra-dev-default, helmod** all enabled; **New Game** opens the
+  Any-Planet-Start picker defaulted to **Cindra**; the **Helmod** button appears
+  in the toolbar. *Fallback:* `tests/play-sh.test.sh` already proves play.sh wires
+  all five into `mods-bundle/mod-list.json` with resolving symlinks; this entry is
+  only the interactive "the real game loads them and the start chain lands on
+  Cindra" confirmation.
+
 - [ ] **[LANDED] Reach and stand on Cindra (smoke test).** *Repro:* `./play.sh`
   -> New Game with `cindra-dev-default` enabled (Any-Planet-Start lands on
   Cindra), or research `planet-discovery-cindra` from an existing save and travel
