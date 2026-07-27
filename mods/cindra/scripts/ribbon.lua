@@ -1,17 +1,23 @@
 -- The ribbon temperature axis (§4, §15 item 1) — the geometric heart of Cindra.
 --
--- Cindra's map is a 1D RIBBON: long east-west along the terminator (the X axis),
--- shallow north-south perpendicular to it (the Y axis = the sunward-nightward
--- axis). The whole planet's identity is "hot vs cold," and that tension is a
--- function of ONE coordinate: how far a point sits from the terminator centre
--- along Y.
+-- Cindra's map is a 1D RIBBON: a long survivable strip with a shallow perpendicular
+-- (sunward-nightward) axis. The whole planet's identity is "hot vs cold," and that
+-- tension is a function of ONE coordinate: the signed PERPENDICULAR coordinate `p`,
+-- how far a point sits from the terminator centre toward the sun (or the night).
 --
---   +Y  ->  SUNWARD   (ENERGY / heat)  : temperature RISES, lethal by heat
+--   +p  ->  SUNWARD   (ENERGY / heat)  : temperature RISES, lethal by heat
 --    0      TERMINATOR (temperate)      : the survivable ribbon, no damage
---   -Y  ->  NIGHTWARD  (MATTER / cold)  : temperature FALLS, lethal by cold
+--   -p  ->  NIGHTWARD  (MATTER / cold)  : temperature FALLS, lethal by cold
+--
+-- Which WORLD axis (x or y) that coordinate maps to is an ORIENTATION choice made
+-- once in scripts/axis.lua (DEFAULT: vertical ribbon, hot on the LEFT / west, so
+-- p = -x). This module never sees x/y; callers hand it p. Older comments/tests
+-- that say "+Y" describe the legacy horizontal orientation -- the maths is the
+-- same, only which axis is perpendicular differs.
 --
 -- This module is DELIBERATELY PURE: no `game.*` / `prototypes.*` access. It maps
--- a Y coordinate to a temperature and a damage profile, nothing more. That keeps
+-- a perpendicular coordinate to a temperature and a damage profile, nothing more.
+-- That keeps
 -- the axis maths fast, deterministic, and testable in plain Lua (unit-tests/),
 -- and lets every downstream system (lethal-edge damage §15-2, nightside heat,
 -- resource placement, edge-pushing rewards) read the SAME single source of truth

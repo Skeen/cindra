@@ -26,14 +26,15 @@
 -- band boundaries + gradient; keep them in lockstep.
 
 local ribbon = require("scripts.ribbon")
+local axis = require("scripts.axis")
 
 local M = {}
 
--- The perpendicular (sunward-nightward) axis variable, as named in the Factorio
--- noise-expression DSL. Cindra's ribbon runs east-west (long X), so "hot vs cold"
--- is the Y coordinate -- the same axis scripts/ribbon.lua reads. One constant so
--- the band masks never re-derive the orientation.
-M.PERP_AXIS = "y"
+-- The perpendicular (sunward-nightward) axis, as a Factorio noise-expression
+-- string. The ORIENTATION (scripts/axis.lua) decides whether "hot vs cold" is x
+-- or y; the band masks read this ONE expression so they never re-derive it. In
+-- the default vertical orientation this is "(0 - x)" (hot on the left / west).
+M.PERP_AXIS = axis.perp_expr()
 
 -- Cindra resource / entity prototype names (defined in prototypes/resources.lua).
 M.STONE = "cindra-stone"
@@ -121,7 +122,8 @@ local function num(v)
   return string.format("%.6g", v)
 end
 
-local Y = "y" -- M.PERP_AXIS; local alias for the emitters below.
+local Y = M.PERP_AXIS -- the sunward-positive perpendicular axis expression.
+local NY = axis.perp_neg_expr() -- the nightward-positive axis (-perp), for cold bands.
 
 -- Stone: present from the nightward edge of the safe band out to the sunward
 -- lethal edge, i.e. y in [-safe_half_width, lethal_at].
@@ -163,14 +165,14 @@ end
 function M.ice_richness_mult_expr(cfg)
   cfg = ribbon.resolve(cfg)
   local span = math.max(1, cfg.wall_at - cfg.safe_half_width)
-  local frac = "(-" .. Y .. " - " .. num(cfg.safe_half_width) .. ") / " .. num(span)
+  local frac = "(" .. NY .. " - " .. num(cfg.safe_half_width) .. ") / " .. num(span)
   return lerp_expr(1, M.ICE_PEAK / M.ICE_BASE, frac)
 end
 
 function M.volatiles_richness_mult_expr(cfg)
   cfg = ribbon.resolve(cfg)
   local span = math.max(1, cfg.wall_at - cfg.lethal_at)
-  local frac = "(-" .. Y .. " - " .. num(cfg.lethal_at) .. ") / " .. num(span)
+  local frac = "(" .. NY .. " - " .. num(cfg.lethal_at) .. ") / " .. num(span)
   return lerp_expr(1, M.VOLATILES_PEAK / M.VOLATILES_BASE, frac)
 end
 

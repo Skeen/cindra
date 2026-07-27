@@ -30,7 +30,9 @@ describe("nightside building-heat (§15-2)", function()
   end)
 
   it("cold-damages an unheated machine in the cold nightside", function()
-    local m = s.create_entity({ name = "assembling-machine-2", position = { 0, -40 }, force = "player" })
+    -- Default vertical orientation: cold is the nightward (+x / east) side; the
+    -- perpendicular coordinate is -x, so x = 40 sits deep in the cold band.
+    local m = s.create_entity({ name = "assembling-machine-2", position = { 40, 0 }, force = "player" })
     local full = m.health
     heat.sweep(s, CFG)
     assert.is_true(m.health < full, "an unheated cold-nightside machine takes cold damage")
@@ -46,14 +48,15 @@ describe("nightside building-heat (§15-2)", function()
   end)
 
   it("spares a machine once an active heat source arrives", function()
-    local m = s.create_entity({ name = "assembling-machine-2", position = { 0, -40 }, force = "player" })
+    local m = s.create_entity({ name = "assembling-machine-2", position = { 40, 0 }, force = "player" })
     local full = m.health
     heat.sweep(s, CFG)
     local after_cold = m.health
     assert.is_true(after_cold < full, "took cold damage while unheated")
 
-    -- Drop a heat pipe inside the heat radius; further sweeps must not hurt it.
-    local pipe = s.create_entity({ name = "heat-pipe", position = { 5, -40 }, force = "player" })
+    -- Drop a heat pipe inside the heat radius (5 tiles along the long axis);
+    -- further sweeps must not hurt it.
+    local pipe = s.create_entity({ name = "heat-pipe", position = { 40, 5 }, force = "player" })
     assert.is_not_nil(pipe, "heat pipe must place")
     heat.sweep(s, CFG)
     assert.are.equal(after_cold, m.health, "a heated machine takes no further cold damage")

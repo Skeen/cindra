@@ -360,3 +360,29 @@ of the current build; they are listed so "not built yet" is distinguishable from
   planet display name currently reads **"Cindra - The Ribbon World"**; the target is
   a bare **"Cindra"** (with the tagline kept as the description). Not yet changed on
   `main`.
+- [ ] **Ribbon terrain gradient reads as the temperature axis (ci-6c9).** The
+  default orientation is now VERTICAL: the ribbon runs bottom-to-top, so the
+  hot↔cold gradient runs left↔right with HOT on the LEFT (west). `scripts/worldgen.lua`
+  paints the vanilla terrain to match: from the left/hot edge inward `lava-hot` →
+  `lava` → `volcanic-cracks-hot` → a sand fringe → the temperate spawn band, mirrored
+  on the right/cold side `snow` → `ice-smooth` → `ice-rough` → `ammoniacal-ocean` (the
+  frozen "ice wall"). The tile bands, the wall void, and the fire/freeze damage
+  alignment are all integration-tested (`tests/test_worldgen.lua`,
+  `tests/test_edge_damage.lua`); only the *visual read* and *interactive feel* are the
+  playtest. *Look for:* (1) landing on the wide temperate band at spawn with molten
+  ground visibly to the WEST and ice to the EAST; (2) walking west, the ground shifts
+  volcanic-cracks-hot → lava at the same point the heat damage bites, and the `lava` /
+  `lava-hot` tiles are IMPASSABLE (like water) so you cannot walk into the molten edge
+  — the visible terrain IS the damage boundary and wall; (3) walking east mirrors it into ice,
+  with `ammoniacal-ocean` the impassable frozen edge; (4) tile transitions look sane
+  (no jarring seams) and the set_tiles gradient does not tank chunk-gen performance as
+  you explore along the ribbon.
+
+- [ ] **Deep-edge resources under impassable tiles (ci-6c9).** The very deepest ice
+  (`> edge_mid` nightward) and any resource in the outermost hot band fall under the
+  impassable `ammoniacal-ocean` / `lava-hot` tiles. This is intended (the absolute edge
+  is a molten/frozen wall), but the reachable edge-pushing reward is the band just
+  inside it (walkable `ice-rough` / `volcanic-cracks-hot`). *Look for:* the richest
+  reachable ice/volatiles sit at the walkable/impassable boundary and mining feels like
+  a graded risk, not a dead cliff; confirm no resource is stranded such that the
+  economy is starved.

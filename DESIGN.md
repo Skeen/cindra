@@ -40,13 +40,25 @@ into productive sinks, storage, or safe waste.
 
 ## 3. Geography & the ribbon (§4) — IMPLEMENTED (item 1)
 
-The map is a 1D **ribbon**: long east–west along the terminator (X axis), shallow
-perpendicular (Y axis = the sunward–nightward temperature axis). Expansion is
-mostly lateral; scarcity is on the perpendicular axis.
+The map is a 1D **ribbon**: long along the terminator, shallow perpendicular to it
+(the sunward–nightward temperature axis). Expansion is mostly lateral; scarcity is
+on the perpendicular axis.
+
+**Orientation** (setting `cindra-ribbon-orientation`, `scripts/axis.lua`): the
+DEFAULT is **vertical** — the ribbon runs bottom-to-top (long **Y**), so the hot–cold
+gradient runs left↔right (perpendicular **X**) with **HOT on the LEFT (west)**, cold
+on the right. `horizontal` keeps the legacy layout (long east–west, gradient on Y,
+hot sunward). Every band/damage/resource/terrain system reads the perpendicular
+coordinate from `axis.perp`, so both orientations are correct and nothing
+re-derives the direction. The **terrain tiles are the gradient** (`scripts/terrain.lua`):
+from the hot edge inward — `lava-hot` → `lava` → `volcanic-cracks-hot` → temperate
+land; mirrored on the cold side `ice-smooth` → `ice-rough` → `ammoniacal-ocean` (the
+frozen "ice wall"). The three hot tiles sit exactly in the fire-damage zone, so the
+visible terrain change lands on the damage boundary.
 
 `mods/cindra/scripts/ribbon.lua` is the **single source of truth** for the
-hot–cold axis. It is a pure module (no `game.*` / `prototypes.*`) mapping a Y
-coordinate to:
+hot–cold axis. It is a pure module (no `game.*` / `prototypes.*`) mapping a
+perpendicular coordinate to:
 
 - **temperature(y)** — °C, `temp_center` (25) at Y=0, rising linearly to
   `temp_hot_max` (1500) sunward and falling to `temp_cold_min` (−270) nightward,
@@ -79,9 +91,11 @@ recommendation — both **IMPLEMENTED (item 2)**:
   prototype at application time. Character resistances (gear) mitigate, never
   zero, the geography — that is edge-pushing.
 - **Hard wall** — `scripts/worldgen.lua` voids every tile at/beyond `wall_at`
-  (`out-of-map`) as chunks generate, so the playable map is a finite-width ribbon:
-  constrained on the Y axis, infinite east–west. The damage ramp teaches; the void
-  is the bulletproof floor.
+  perpendicular distance (`out-of-map`) as chunks generate, so the playable map is
+  a finite-width ribbon: constrained on the perpendicular axis, infinite along the
+  ribbon. The molten `lava`/`lava-hot` and frozen `ammoniacal-ocean` edge tiles are
+  impassable, forming a natural wall just inside the void. The damage ramp teaches;
+  the void is the bulletproof floor.
 - **Nightside building-heat** — `scripts/building-heat.lua` ticks `cindra-cold`
   damage on unheated machines past the cold threshold (axis temperature <
   `freeze_temp`, default −30 °C). A heat source (heat pipe / reactor / heat

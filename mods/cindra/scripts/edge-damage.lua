@@ -15,6 +15,7 @@
 -- player is the teacher here).
 
 local ribbon = require("scripts.ribbon")
+local axis = require("scripts.axis")
 
 local M = {}
 
@@ -61,10 +62,14 @@ function M.sweep(surface, interval_ticks, cfg)
   if not (surface and surface.valid) or surface.name ~= "cindra" then return end
   interval_ticks = interval_ticks or M.DAMAGE_INTERVAL
   cfg = cfg or settings_cfg()
+  -- Resolve the orientation once per sweep; the perpendicular coordinate (which
+  -- world axis is "hot vs cold") comes from scripts/axis.lua, never re-derived.
+  local orient = axis.orientation()
 
   for _, char in pairs(surface.find_entities_filtered({ type = "character" })) do
     if char.valid then
-      local amount, dtype = M.damage_for(char.position.y, interval_ticks, cfg)
+      local p = axis.perp(char.position.x, char.position.y, orient)
+      local amount, dtype = M.damage_for(p, interval_ticks, cfg)
       if amount > 0 and dtype then
         -- The character's own force + resistances apply, so heat/cold-shielded
         -- gear mitigates the damage (edge-pushing), never zeroing the geography.

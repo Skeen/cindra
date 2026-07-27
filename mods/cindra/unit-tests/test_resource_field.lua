@@ -85,20 +85,22 @@ end)
 -- describe the same boundaries as the numeric richness_* fns above: stone on the
 -- ribbon+hot margin [-safe, lethal], ice nightward (-safe .. -wall), volatiles in
 -- the deep cold-lethal band (-lethal .. -wall). Pinning the exact string catches
--- any boundary / orientation drift.
+-- any boundary drift. The DEFAULT orientation is vertical (hot on the LEFT), so
+-- the sunward-positive perpendicular axis is "(0 - x)" and its negation is "x";
+-- scripts/axis.lua proves both orientations of that mapping.
 
-test("stone mask spans the ribbon + hot margin on the Y axis", function()
-  assert_eq("(y >= -24) * (y <= 96)", field.stone_mask_expr(), "default stone band")
+test("stone mask spans the ribbon + hot margin on the perpendicular axis", function()
+  assert_eq("((0 - x) >= -24) * ((0 - x) <= 96)", field.stone_mask_expr(), "default stone band")
   -- Honours a config override (settings-driven tuning).
-  assert_eq("(y >= -4) * (y <= 50)", field.stone_mask_expr({ safe_half_width = 4, lethal_at = 50 }))
+  assert_eq("((0 - x) >= -4) * ((0 - x) <= 50)", field.stone_mask_expr({ safe_half_width = 4, lethal_at = 50 }))
 end)
 
 test("ice mask covers the nightside in to the wall", function()
-  assert_eq("(y < -24) * (y > -128)", field.ice_mask_expr(), "default ice band")
+  assert_eq("((0 - x) < -24) * ((0 - x) > -128)", field.ice_mask_expr(), "default ice band")
 end)
 
 test("volatiles mask covers only the deep cold-lethal band", function()
-  assert_eq("(y <= -96) * (y > -128)", field.volatiles_mask_expr(), "default volatiles band")
+  assert_eq("((0 - x) <= -96) * ((0 - x) > -128)", field.volatiles_mask_expr(), "default volatiles band")
 end)
 
 test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins", function()
@@ -106,9 +108,11 @@ test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins",
   local mult = field.stone_richness_mult_expr()
   assert_true(mult:find("lerp%(1, ", 1) ~= nil, "starts at 1x at the near edge")
   assert_true(mult:find("clamp%(", 1) ~= nil, "clamped to the band fraction")
-  -- Ice / volatiles multipliers reference the negated Y (deeper = colder = richer).
-  assert_true(field.ice_richness_mult_expr():find("%-y", 1) ~= nil, "ice ramps with depth")
-  assert_true(field.volatiles_richness_mult_expr():find("%-y", 1) ~= nil, "volatiles ramp with depth")
+  -- Ice / volatiles multipliers ramp on the nightward axis ("x" by default:
+  -- deeper nightward = colder = richer). Pin the depth term so a boundary or
+  -- orientation drift is caught.
+  assert_true(field.ice_richness_mult_expr():find("%(x %- 24%)", 1) ~= nil, "ice ramps with nightward depth")
+  assert_true(field.volatiles_richness_mult_expr():find("%(x %- 96%)", 1) ~= nil, "volatiles ramp with nightward depth")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

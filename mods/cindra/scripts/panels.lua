@@ -14,10 +14,10 @@
 --     converges to "alive panels <= disposal capacity" and then stops - it does
 --     NOT death-spiral to zero (a dead panel removes the cause of the overload).
 --   * Edge-biased: the most-SUNWARD panels take the deficit first, so die-off has
---     a front and placement matters. "Sunward" is read from the ribbon axis
---     (scripts/ribbon.lua, the single source of truth: +Y is sunward/hot), so the
---     die-off front follows the planet's real temperature gradient, not an
---     arbitrary axis.
+--     a front and placement matters. "Sunward" is the ribbon temperature at the
+--     panel's PERPENDICULAR coordinate (scripts/ribbon.lua via scripts/axis.lua,
+--     the single source of truth; hotter = more sunward), so the die-off front
+--     follows the planet's real temperature gradient in either orientation.
 --   * Dissipator is the fuse: its capacity is counted in `capture` before any
 --     panel is touched (scripts/sinks.lua), so disposal-first scaling = zero loss.
 --
@@ -26,6 +26,7 @@
 
 local C = require("scripts.flare-config")
 local ribbon = require("scripts.ribbon")
+local axis = require("scripts.axis")
 local flare = require("scripts.flare")
 local sinks = require("scripts.sinks")
 local panel_solar = require("scripts.panel-solar")
@@ -45,11 +46,15 @@ function M.panels(surface, network_id)
       list[#list + 1] = p
     end
   end
+  local orient = axis.orientation()
   table.sort(list, function(a, b)
-    local ta = ribbon.temperature(a.position.y)
-    local tb = ribbon.temperature(b.position.y)
+    local ta = ribbon.temperature(axis.perp(a.position.x, a.position.y, orient))
+    local tb = ribbon.temperature(axis.perp(b.position.x, b.position.y, orient))
     if ta ~= tb then return ta > tb end
-    return a.position.x > b.position.x
+    -- Tie (same perpendicular coordinate): break on the LONG (along-ribbon) axis
+    -- so the order is fully deterministic in either orientation.
+    if orient == axis.HORIZONTAL then return a.position.x > b.position.x end
+    return a.position.y > b.position.y
   end)
   return list
 end
@@ -81,8 +86,9 @@ end
 function M.reconcile_variants(surface)
   if surface.name ~= C.SURFACE then return 0 end
   local todo = {}
+  local orient = axis.orientation()
   for _, p in pairs(surface.find_entities_filtered({ name = panel_solar.all_names() })) do
-    local target = panel_solar.variant_for_y(p.position.y)
+    local target = panel_solar.variant_for_y(axis.perp(p.position.x, p.position.y, orient))
     if p.name ~= target then todo[#todo + 1] = { entity = p, target = target } end
   end
   local morphed = 0

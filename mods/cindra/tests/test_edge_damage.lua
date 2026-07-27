@@ -33,9 +33,12 @@ describe("lethal-edge damage (§15-2)", function()
     local s = H.cindra_surface()
     storage.cindra_driver_enabled = false -- only our explicit sweep applies
 
+    -- Default orientation is vertical (hot on the LEFT / west): the perpendicular
+    -- coordinate is -x, so the sunward margin sits at negative x and the nightward
+    -- margin at positive x (see scripts/axis.lua). y is the safe long axis.
     local safe = s.create_entity({ name = "character", position = { 0, 0 }, force = "player" })
-    local warm = s.create_entity({ name = "character", position = { 10, 40 }, force = "player" })
-    local cold = s.create_entity({ name = "character", position = { -10, -40 }, force = "player" })
+    local warm = s.create_entity({ name = "character", position = { -40, 10 }, force = "player" })
+    local cold = s.create_entity({ name = "character", position = { 40, -10 }, force = "player" })
     assert.is_not_nil(safe); assert.is_not_nil(warm); assert.is_not_nil(cold)
 
     local h_safe, h_warm, h_cold = safe.health, warm.health, cold.health
