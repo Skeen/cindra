@@ -111,7 +111,7 @@ end)
 test("§3 codex/lore section carries all five entries, each substantial", function()
   local lore = cfg["cindra-lore"]
   assert_true(lore ~= nil, "[cindra-lore] section must exist")
-  for _, key in ipairs({ "discovery", "ribbon", "flare", "nightside", "alloy" }) do
+  for _, key in ipairs({ "discovery", "ribbon", "flare", "nightside", "aluminium" }) do
     assert_true(lore[key] ~= nil, "missing lore entry: cindra-lore." .. key)
     assert_true(#lore[key] > 40, "lore entry too short to be real prose: " .. key)
   end

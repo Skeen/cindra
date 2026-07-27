@@ -181,19 +181,6 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   modules are allowed on the lava recipe (ci-095). Balance the ruinous 40 MW draw against
   the flare/solar numbers (ci-9k6, ci-63d).
 
-- [ ] **[LANDED] Cryo-quench signature build + hot-pipe read (§15-6, ci-gd4).**
-  *Repro:* research `cindra-cryo-quenching`, build a `cindra-cryo-quench`, pipe
-  `lava` into its input fluid box and belt in `cindra-cryo-coolant`. *Look for:* it
-  reads as a two-temperature forge (not a chemical plant), the hot-fluid input
-  connects and drains, and `cindra-cryo-hardened-alloy` comes out on the item side;
-  feed cold stock and nothing crafts. Recipe shape, temperature gate, category
-  isolation, and the both-inputs-required craft are integration-tested
-  (`tests/test_cryo_alloy.lua`). *Note:* the cryo-quench is still the landed
-  signature building AND still the ingredient for Cindra science. Dropping it in
-  favour of aluminium-as-signature is IN-FLIGHT (ci-wfv); until that lands, the
-  quench is live and part of the science chain. Art is a v1 placeholder single
-  frame (no craft-time "quench flash"); do not file that as a bug.
-
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh).** The signature material:
   native stone + calcite -> alumina -> aluminium (electrolysis cell, ruinous power,
   petrochemical-free), gated behind ONE tech (prereqs `cindra-lava` +
@@ -204,12 +191,13 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   read as distinct materials (calcite tinted white / steel-plate tinted cool silver,
   v1 placeholders). The full chain, gating, cell power draw, and a powered cell
   smelting are integration-tested (`tests/test_aluminium.lua`). Aluminium is
-  consumed by the flare **capacitor** (as its plates) and by the **mass driver**
+  consumed by the flare **capacitor** (as its plates), by the **mass driver**
   (pressed into the launch CAN and ground into the aluminium-powder SOLID ROCKET
-  FUEL). *Note:* on `main` aluminium COEXISTS with the cryo-quench chain; the plan to
-  make aluminium the sole signature (retiring cryo-quench, re-basing science) is
-  IN-FLIGHT. Productivity is OFF on the electrolysis recipe (power stays the honest
-  cost).
+  FUEL), and by the **Cindra science pack** (its signature input). *Note:*
+  aluminium is now Cindra's SOLE signature product + primary export (ci-84s):
+  the cryo-quench / cryo-hardened-alloy chain is retired and Cindra science is
+  re-based onto aluminium. Productivity is OFF on the electrolysis recipe (power
+  stays the honest cost).
 
 ## Power (signature)
 
@@ -317,10 +305,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   starforge reads as a special building, not just another assembler (currently the
   assembling-machine-3 sprite). Functionality is fully test-covered
   (`tests/test_science.lua`), including a powered starforge that only progresses
-  with power. *Note:* the pack recipe currently consumes the signature
-  **cryo-hardened alloy** + deep-nightside volatiles + calcite (petrochemical-free).
-  Re-basing the pack onto aluminium (retiring the alloy) is IN-FLIGHT; until then
-  the alloy is a hard prerequisite for science.
+  with power. *Note:* the pack recipe consumes the signature
+  **aluminium** + deep-nightside volatiles + calcite (petrochemical-free); it was
+  re-based off the retired cryo-hardened alloy by ci-84s.
 
 - [ ] **[LANDED] Starforge power draw feels like a real sink (§15-12, feel).** The
   starforge draws ~10 MW active (a `(tune)` value). *Look for:* running an array
@@ -372,7 +359,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   + item still reuse the vanilla ice icon. Bespoke Cindra resource art is a later
   pass.
 
-- [ ] **[LANDED] Signature-building art is placeholder.** The cryo-quench, aluminium
+- [ ] **[LANDED] Signature-building art is placeholder.** The aluminium
   electrolysis cell, lava manufacturer, electric heater, starforge, and mass driver
   reuse vanilla-derived sprites/icons (see `graphics/ART-MANIFEST.md`). Bespoke and
   animated art is tracked across ci-z94, ci-eb9, ci-kuu, and ci-wfv. Do not file
@@ -402,14 +389,14 @@ of the current build; they are listed so "not built yet" is distinguishable from
   *Status:* on `main` there is NO on-screen damage feedback at all (the banner rides
   in with ci-i8a). Damage still applies; you just will not see a screen cue yet.
 
-- [ ] **[IN-FLIGHT] Aluminium becomes the sole signature; cryo-quench dropped
-  (ci-wfv).** The design is pivoting so aluminium (electrolysis caster) is the
-  signature building - modelled on Hurricane's arc/glass furnace (CC-BY) - and the
-  cryo-quench / cryo-hardened-alloy chain is retired, with Cindra science re-based
-  onto aluminium. *Status:* on `main` the cryo-quench is fully present and IS the
-  science ingredient; aluminium coexists as a second chain. The building-art bead
-  is parked pending the pivot bead and the asset. Until this lands, playtest the
-  cryo-quench and the current (alloy-based) science pack as the live systems.
+- [ ] **[LANDED] Aluminium is the sole signature; cryo-quench dropped (ci-84s).**
+  Aluminium (the electrolysis cell) is now Cindra's signature product + primary
+  export, and the cryo-quench / cryo-hardened-alloy chain is fully removed with
+  Cindra science re-based onto aluminium. Prototype removal + re-base are
+  test-covered (`tests/test_pivot.lua`, `tests/test_science.lua`); no cryo
+  prototype survives. Bespoke signature building art (electrolysis caster,
+  modelled on Hurricane's arc/glass furnace, CC-BY) remains a separate art bead
+  (ci-wfv) - a v1 electric-furnace placeholder ships in the meantime.
 
 - [ ] **Ribbon terrain gradient reads as the temperature axis (ci-6c9).** The
   default orientation is now VERTICAL: the ribbon runs bottom-to-top, so the

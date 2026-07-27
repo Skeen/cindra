@@ -123,7 +123,7 @@ end)
 -- ===========================================================================
 describe("cindra bootstrap: the stone->lava->metal spine turns on (runtime)", function()
   -- A cheat electric source + a substation so machines on the Cindra surface
-  -- share a network and actually run headless. Mirrors the ice/quench tests.
+  -- share a network and actually run headless. Mirrors the ice/aluminium tests.
   local function powered_surface()
     local s = H.cindra_surface()
     s.create_entity({ name = "substation", position = { 8, 8 }, force = "player" })
@@ -217,11 +217,14 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     { r = "molten-iron-from-lava",           m = "foundry" },              -- lava + calcite -> molten iron
     { r = "casting-iron",                    m = "foundry" },              -- molten iron -> iron plate
     { r = "iron-gear-wheel",                 m = "hand" },                 -- iron plate -> gears
-    { r = "cindra-cryo-quench",              m = "hand" },                 -- build the quench
-    { r = "cindra-cryo-coolant",             m = "hand" },                 -- ice -> coolant
-    { r = "cindra-cryo-hardened-alloy",      m = "cindra-cryo-quench" },   -- lava + coolant -> alloy
+    { r = "molten-copper-from-lava",         m = "foundry" },              -- lava + calcite -> molten copper
+    { r = "casting-copper",                  m = "foundry" },              -- molten copper -> copper plate
+    { r = "copper-cable",                    m = "hand" },                 -- copper plate -> copper cable
+    { r = "cindra-alumina",                  m = "hand" },                 -- stone + calcite -> alumina
+    { r = "cindra-electrolysis-cell",        m = "hand" },                 -- build the electrolysis cell
+    { r = "cindra-aluminium",                m = "cindra-electrolysis-cell" }, -- alumina + [power] -> aluminium
     { r = "cindra-starforge",                m = "hand" },                 -- build the starforge
-    { r = "cindra-science-pack",             m = "cindra-starforge" },     -- alloy + volatiles + calcite -> pack
+    { r = "cindra-science-pack",             m = "cindra-starforge" },     -- aluminium + volatiles + calcite -> pack
   }
 
   -- Fixpoint over PRODUCTIONS. `seed` is a set {name -> true}. Returns the closed
@@ -260,7 +263,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
 
   -- The FINITE brought bootstrap seed a post-Vulcanus arrival carries. A foundry
   -- (imported, per DESIGN §8) plus a little metal stock to build the FIRST
-  -- crusher/quench/forge before the local metal loop ramps. These are one-time
+  -- crusher/cell/forge before the local metal loop ramps. These are one-time
   -- costs: the solver proves below they become locally renewable.
   local BROUGHT_SEED = {
     ["foundry"] = true,
@@ -278,7 +281,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     return out
   end
 
-  it("reaches the WHOLE chain (lava -> metal -> alloy -> science) from hand roots + a finite seed", function()
+  it("reaches the WHOLE chain (lava -> metal -> aluminium -> science) from hand roots + a finite seed", function()
     local have = reach(merged(HAND_ROOTS, BROUGHT_SEED))
     -- Each milestone reachable == its recipe's inputs were satisfiable from
     -- earlier steps only. If any needed itself, the fixpoint would omit it.
@@ -287,7 +290,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
       "molten-iron",                   -- metal economy on
       "iron-plate",                    -- fabricable metal
       "water", "calcite",              -- ice chain
-      "cindra-cryo-hardened-alloy",    -- the signature product
+      "cindra-aluminium",              -- the signature product
       "cindra-science-pack",           -- headline science: the chain closes
     }) do
       assert.is_true(have[milestone] == true,
@@ -320,7 +323,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     for _, recipe in ipairs({
       "cindra-lava", "molten-iron-from-lava",
       "cindra-ice-crushing", "cindra-ice-crushing-calcite", "cindra-ice-melting",
-      "cindra-cryo-hardened-alloy", "cindra-science-pack",
+      "cindra-alumina", "cindra-aluminium", "cindra-science-pack",
     }) do
       for _, ing in ipairs(ingredient_names(recipe)) do
         assert.is_falsy(rock_metal[ing],

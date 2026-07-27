@@ -19,10 +19,10 @@
 -- (the never-mutate-other-planets invariant).
 --
 -- NATIVE-INGREDIENT GATE (partial): the design wants this gated behind a native
--- Cindra material so it is awkward to build off-world. The signature native
--- material (the cryo-hardened alloy, ci-gd4) does not exist yet, so the recipe
--- is built from vanilla intermediates for now and unlocked by a dedicated tech.
--- TODO(ci-gd4): fold cryo-alloy into the ingredient list once it lands.
+-- Cindra material so it is awkward to build off-world. For now the recipe is
+-- built from vanilla intermediates and unlocked by a dedicated tech.
+-- TODO(ci-txh): fold the signature aluminium into the ingredient list to make
+-- the "clumsy off-world" import gate real (the old cryo-alloy plan is dropped).
 
 local HEAT_CAP = 600 -- C, (tune) §7: below a reactor (1000), above steam boil.
 local DRAW = "40MW" -- (tune) §7: the "uncapped" electric draw (no artificial cap).

@@ -51,7 +51,6 @@ if script.active_mods["factorio-test"] then
     "tests/test_heater",
     "tests/test_ice_processing",
     "tests/test_lava",
-    "tests/test_cryo_alloy",
     "tests/test_aluminium",
     "tests/test_edge_damage",
     "tests/test_worldgen",
@@ -71,6 +70,10 @@ if script.active_mods["factorio-test"] then
     -- §15-12 the headline Cindra science pack + power-hungry starforge + the
     -- folded tech tree (petrochemical-free, native inputs, a real power sink).
     "tests/test_science",
+    -- ci-84s signature PIVOT: aluminium is the signature product; the cryo-quench
+    -- + cryo-hardened alloy are GONE. Guards that no cryo prototype survives and
+    -- that aluminium carries the signature (science input + mass-driver export).
+    "tests/test_pivot",
     -- §15-1 / ci-uex: the whole planet is bootstrappable from NOTHING -- land
     -- with only stone + hand-minable rocks and reach a self-sustaining
     -- lava->metal economy, with no chicken-and-egg and no soft-lock.

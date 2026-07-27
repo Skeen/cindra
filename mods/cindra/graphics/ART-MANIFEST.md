@@ -47,8 +47,8 @@ picture = {
 
 | Building / item            | Icon                              | Entity sprite | Owning bead(s)        |
 |----------------------------|-----------------------------------|:-------------:|-----------------------|
-| Cryo-quench machine ⭐      | `icons/cryo-quench.png`           | ✔ `entity/cryo-quench/`         | **ci-gd4** (§15-6 quench) |
-| Cryo-hardened alloy (item) | `icons/cryo-hardened-alloy.png`   | —             | **ci-gd4** |
+| Electrolysis cell ⭐        | (v1: reused electric-furnace)     | (v1 reuse)    | **ci-txh** (signature aluminium); art **ci-wfv** |
+| Aluminium (item)           | (v1: steel-plate, cool silver)    | —             | **ci-txh** |
 | Lava-manufacture building  | `icons/lava-manufacturer.png`     | —             | **ci-8mw** (§15-5 lava recipe) |
 | Ice crusher / processor    | `icons/ice-crusher.png`           | —             | **ci-rgv** (§15-4 ice processing) |
 | Ice (item)                 | `icons/ice.png`                   | —             | **ci-rgv** / **ci-l72** (resources) |
@@ -60,14 +60,16 @@ picture = {
 | Dissipator (heat sink)     | `icons/dissipator.png`            | ✔ `entity/dissipator/`          | **ci-tii** / **ci-9ay** (panel damage) |
 | Cindra science pack        | `icons/cindra-science-pack.png`   | —             | **ci-3or** (§15-12 science/tech) |
 
-⭐ = signature building. Priority buildings (mass driver, cryo-quench,
-flare-PoC storage/dissipator) all have both an icon and an entity sprite. Cindra
-reuses the plain vanilla solar panel (ci-8al), so there is no custom panel art.
+⭐ = signature building (the aluminium electrolysis cell, ci-84s pivot; bespoke
+art tracked in ci-wfv, v1 reuses the electric-furnace sprite). Priority buildings
+(mass driver, flare-PoC storage/dissipator) all have both an icon and an entity
+sprite. Cindra reuses the plain vanilla solar panel (ci-8al), so there is no
+custom panel art.
 
 ## Scope / known limits (honest first pass)
 
 - **Entity sprites are single static frames**, not directional or animated.
-  Machines that want a working animation (e.g. quench flash, driver charge
+  Machines that want a working animation (e.g. electrolysis glow, driver charge
   cycle) should treat this as the idle base layer and add emission/animation
   layers later, or commission bespoke art. Filed as follow-up: see the bead.
 - **Naming is provisional.** Rename files to match final prototype names before

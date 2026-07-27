@@ -21,22 +21,29 @@ ice.** Every system must express this one idea:
 
 - **Sunward edge = ENERGY** (solar, flares, the power that makes lava). Lethal by
   heat.
-- **Nightward edge = MATTER** (ice → water, calcite, coolant, volatiles). Lethal
+- **Nightward edge = MATTER** (ice → water, calcite, volatiles). Lethal
   by cold.
 - **Temperate ribbon (middle) = COMBINATION** (manufacture lava, process to
-  metal, quench to alloy). The only survivable zone.
+  metal, electrolyse to aluminium). The only survivable zone.
 
-Every signature craft reaches toward **both** lethal edges. The player's core
-skill is **conducting the flare**: catching a periodic power surge and routing it
-into productive sinks, storage, or safe waste.
+The core thesis is **power-manufactured aluminium + flare mastery**: the planet's
+signature product is a metal torn out of rock and ice by brute electricity, so
+mastering it *is* mastering the star's surplus. The player's core skill is
+**conducting the flare**: catching a periodic power surge and routing it into
+productive sinks (aluminium chief among them), storage, or safe waste. (The fire/
+ice terrain remains as a survival hazard and the water source, not a two-
+temperature craft: the earlier cryo-quench thesis is retired, ci-84s.)
 
 ## 2. The four-part "well-formed planet" checklist (verify at the end, §14)
 
-- **Signature building:** the cryo-quench (two-temperature) machine.
+- **Signature building:** the aluminium electrolysis cell (the power-manufactured
+  metal). **Signature product:** aluminium (the primary mass-driver export).
 - **Central intermediate:** manufactured lava (everything routes through it).
-- **Headline science:** Cindra science pack (petrochemical-free recipe).
+- **Headline science:** Cindra science pack (petrochemical-free recipe, built on
+  the signature aluminium).
 - **Distinctive metal/chemistry solution:** *manufacture* lava from stone with
-  power; launch with a mass driver so oil/coal chemistry → **zero**.
+  power and *electrolyse* aluminium from rock+ice with power; launch with a mass
+  driver so oil/coal chemistry → **zero**.
 
 ## 3. Geography & the ribbon (§4) — IMPLEMENTED (item 1)
 
@@ -164,7 +171,7 @@ track's files or a shared file.**
   not own) `scripts/ribbon.lua`.
 - **Mechanics/economy track (`ci-4xj`):** the recipe / building / tech / power
   files — e.g. `prototypes/ice-processing.lua`, `prototypes/lava.lua`,
-  `prototypes/cryo-alloy.lua`, `prototypes/flare.lua`, `prototypes/storage.lua`,
+  `prototypes/aluminium.lua`, `prototypes/flare.lua`, `prototypes/storage.lua`,
   `prototypes/electric-heater.lua`, `prototypes/mass-driver.lua`,
   `prototypes/science.lua`, and their runtime. Consumes the worldgen resources
   (`stone` / `ice` / `cindra-volatiles`) and registers heat sources by adding
@@ -187,9 +194,14 @@ machines feed a foundry (a **single-digit** count, vs ~100 on the plain
 foundry), while its draw is pinned proportional to that speed so **energy per
 unit lava is unchanged and ruinous**. Machine count and per-lava energy are the
 same knob on a single machine type, so lava gets its OWN machine to decouple
-them. The signature product is the **cryo-hardened alloy**, forged in a
-**two-temperature quench** (hot molten input + cold cryo-coolant input in the
-same craft) — impossible on Vulcanus (no cold) or Aquilo (no lava).
+them. The signature product is **aluminium** (ci-txh), electrolysed from
+rock+ice feedstock (`stone + calcite → alumina → [ruinous power] → aluminium`) in
+a **dedicated high-draw electrolysis cell** — the planet's biggest continuous
+power sink and its primary mass-driver export. Aluminium carries the core thesis
+(power-manufactured metal, petrochemical-free) and is the input to the headline
+science pack. (The earlier signature — a cryo-hardened alloy forged in a
+two-temperature quench — is retired, ci-84s: the fire/ice terrain stays as a
+hazard and water source, not a craft.)
 
 Power is **high-intensity solar via the daylight curve**: a dark-weighted cycle
 whose night floor ≈ Nauvis full day (runs the factory) and whose day peak ≈ the
@@ -220,11 +232,12 @@ planet thesis (§1) in the player's largest standing activity: **research is a
 power sink.**
 
 - **Petrochemical-free, native inputs only.** The recipe consumes the signature
-  `cindra-cryo-hardened-alloy` (fire quenched by ice), deep-nightside
+  `cindra-aluminium` (the power-manufactured metal), deep-nightside
   `cindra-volatiles`, and ice-chain `calcite` — no oil/coal/plastic/sulfur
   anywhere. You cannot make Cindra science without already commanding both lethal
-  edges. This is the §2 "petrochemical-free headline science" requirement, locked
-  by a blacklist **and** a native-only allowlist in tests.
+  edges (power-manufactured aluminium reaches toward fire/power; the volatiles
+  toward cold). This is the §2 "petrochemical-free headline science" requirement,
+  locked by a blacklist **and** a native-only allowlist in tests.
 - **A significant power sink.** Two honest levers: a long craft
   (`energy_required`) run in a dedicated **`cindra-starforge`** (a clone of
   assembling-machine-3 with a ~10 MW active draw, far above a normal assembler).
@@ -238,7 +251,7 @@ power sink.**
   researched at all (research is force-wide; there is no per-surface lab-inputs
   API). Tested behaviourally: a lab accepts the Cindra pack and refuses a non-pack.
 - **The folded tech tree.** `cindra-science` (the pack-unlock) is gated behind the
-  signature **cryo-quench** (which itself needs both lava and ice) and is
+  signature **aluminium** tech (which itself needs both lava and ice) and is
   researched with the **brought** vanilla packs — paying for the pack-unlock with
   the pack itself would be a soft-lock (§15-13). Every DEEPER unlock then costs the
   Cindra pack: **orbital launch (§15-11)** is folded in as the first, now branching

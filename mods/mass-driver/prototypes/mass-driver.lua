@@ -87,7 +87,7 @@ driver_item.order = "z[mass-driver]-a[driver]"
 
 -- The projectile shell: option A -- a consumable made of native metal, so the
 -- recurring launch cost lands on local metallurgy, NOT on chemistry. steel-plate
--- stands in for Cindra's cryo-hardened alloy in this standalone PoC.
+-- stands in for Cindra's signature aluminium in this standalone PoC.
 local shell_item = util.table.deepcopy(data.raw.item["steel-plate"])
 shell_item.name = M.SHELL
 shell_item.place_result = nil

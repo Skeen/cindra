@@ -77,28 +77,19 @@ merge queue.
   `tests/test_ice_processing.lua` (category isolation, crusher has NO fluid output,
   melter water output box, ground-placeability, recipe shapes/ratio, no vanilla
   leak, tech gating, and an end-to-end powered crush ice → shards → water on Cindra).
-- [x] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — `prototypes/cryo-alloy.lua`: the
-  SIGNATURE two-temperature quench. A `cindra-cryo-quench` building (chemical-plant
-  clone, electric, single hot-fluid input, private `cindra-quenching` category, re-
-  skinned with the delivered signature art) crafts `cindra-cryo-hardened-alloy` from
-  a HOT half + a COLD half in one recipe: `lava` fluid gated with
-  `minimum_temperature` (500 C, so "hot" is engine-enforced, not nominal) + a
-  `cindra-cryo-coolant` consumed item (packed from nightside `ice`). Ships the PoC's
-  recommended model (item + fluid, temperature-gated; ci-o4r). Gated behind the
-  `cindra-cryo-quenching` tech, whose prerequisites are BOTH `cindra-lava` (hot) and
-  `cindra-ice-processing` (cold) — the "needs 4 + 5" mechanic expressed as a tech
-  dependency. Tested: `tests/test_cryo_alloy.lua` (recipe shape + temperature gate,
-  electric fluid-crafter, private-category isolation + no chemical-plant leak, lava
-  fluid unmutated, coolant recipe, gating, tech dual-prereq, and an end-to-end
-  powered craft that produces alloy ONLY when both hot and cold inputs are present).
-  The advanced circulating-coolant variant (a second, max-temperature-gated cold
-  FLUID) is deferred. *Needs 4 + 5.*
-  - Follow-up (unblocked, tracked in-code): the `TODO(ci-gd4)` notes in
-    `prototypes/electric-heater.lua` and `prototypes/mass-driver.lua` want the
-    cryo-hardened alloy folded into their recipes to make the native-ingredient
-    import gate real. Left out of this bead: routing the heater/shell through the
-    full quench chain is a progression/bootstrap decision (soft-lock risk, ci-uex)
-    and a balance-pass call (ci-63d), not part of shipping the signature building.
+- [x] **§15-6 — Cryo-hardened alloy. DROPPED (superseded by `ci-84s`).** The
+  original signature was a two-temperature quench (`prototypes/cryo-alloy.lua`,
+  `ci-gd4`): a `cindra-cryo-quench` building crafting `cindra-cryo-hardened-alloy`
+  from a hot `lava` fluid + a cold `cindra-cryo-coolant` item in one recipe. The
+  `ci-84s` PIVOT retired that whole two-temperature thesis: **aluminium** (ci-txh)
+  is now the signature product + primary export, and the headline science is
+  re-based onto it. Removed cleanly (no dangling refs): the quench building,
+  cryo-coolant + cryo-hardened-alloy items/recipes, the `cindra-cryo-quenching`
+  tech, the private `cindra-quenching` category, and `tests/test_cryo_alloy.lua`.
+  The fire/ice terrain remains as a survival hazard + water source, not a craft.
+  Guarded by `tests/test_pivot.lua` (no cryo prototype survives; science + export
+  are aluminium-based). The `TODO(ci-gd4)` native-ingredient notes in
+  `prototypes/electric-heater.lua` now point at aluminium (`TODO(ci-txh)`).
 - [x] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
   dark-weighted daylight curve; telegraph / fast-ramp / plateau / fast-decay;
   ~100× peak. Replaced the placeholder baseline in
@@ -134,8 +125,9 @@ merge queue.
     tech (variant of the heating-tower tech). Tested: `tests/test_heater.lua`
     (heat cap, electric-not-burner, situational-not-strictly-better vs heating
     tower §12, gated recipe/tech, runtime placement on Cindra).
-  - TODO(ci-gd4): swap the vanilla recipe ingredients for the native cryo-alloy
-    once it lands, to make the "clumsy off-world" import gate real.
+  - TODO(ci-txh): swap the vanilla recipe ingredients for the signature aluminium
+    to make the "clumsy off-world" import gate real (the old cryo-alloy plan is
+    dropped, ci-84s).
 - [x] **§15-11 — Mass driver.** `ci-r10`, `ci-98r`, `ci-o39` — the DEFINITIVE spec:
   a **reskinned rocket-silo**. Launch + cross-surface delivery are the ENGINE's
   vanilla behaviour (no runtime loop, no platform-side catcher — cargo lands in the
@@ -160,12 +152,13 @@ merge queue.
     pack (an advanced, headline-gated export capability).
 - [x] **§15-12 — Cindra science pack + tech tree.** `ci-3or` — the HEADLINE
   science, `prototypes/science.lua`: a petrochemical-free `cindra-science-pack`
-  (native inputs only — the signature cryo-hardened alloy + deep-nightside
-  volatiles + ice-chain calcite) crafted in a dedicated power-hungry `cindra-
-  starforge` (~10 MW draw, long craft), so the largest continuous activity is
-  another flare-timed power sink (ties to ci-9k6 / ci-63d). Gated behind the
-  signature cryo-quench (`cindra-science` tech, researched with brought packs to
-  avoid a soft-lock), and it FOLDS orbital launch into the tree as the first
+  (native inputs only — the signature aluminium + deep-nightside volatiles +
+  ice-chain calcite; re-based off the retired cryo-hardened alloy by ci-84s)
+  crafted in a dedicated power-hungry `cindra-starforge` (~10 MW draw, long
+  craft), so the largest continuous activity is another flare-timed power sink
+  (ties to ci-9k6 / ci-63d). Gated behind the signature aluminium tech
+  (`cindra-science` tech, researched with brought packs to avoid a soft-lock),
+  and it FOLDS orbital launch into the tree as the first
   downstream unlock. Pack appended to the labs' inputs (additive, safe). Tested:
   `tests/test_science.lua` (petrochemical-free/native-only, high energy cost,
   electric high-draw machine that only crafts when powered, private category, tech
@@ -206,7 +199,5 @@ merge queue.
 - **Optional self-sufficiency mode (§11).** CO₂ + water + power → carbon →
   plastic/sulfur synthesis, as an optional flare-timed endgame flex. Ship
   zero-chemistry/import first; not required for v1.
-- **Advanced cryo heat-sink loop (§8).** Circulating coolant that re-chills on the
-  nightside, as an optional depth variant over the consumed-material default.
 - **Flare-response circuit building (§12-8).** Power-grid sensor / priority-switch
   for first-class flare automation.

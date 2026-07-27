@@ -16,7 +16,7 @@ local PACK = "cindra-science-pack"
 local FORGE = "cindra-starforge"
 local CATEGORY = "cindra-science"
 local TECH = "cindra-science"
-local ALLOY = "cindra-cryo-hardened-alloy"
+local ALUMINIUM = "cindra-aluminium"
 local VOLATILES = "cindra-volatiles"
 
 -- Anything whose lineage passes through oil, coal, or biology. The pack must
@@ -72,11 +72,11 @@ describe("cindra science pack: petrochemical-free, native inputs only", function
     end
   end)
 
-  it("is built on the SIGNATURE product (fire+ice) -- the planet's identity distilled", function()
+  it("is built on the SIGNATURE product (aluminium) -- the planet's identity distilled", function()
     local names = {}
     for _, ing in pairs(prototypes.recipe[PACK].ingredients) do names[ing.name] = ing.amount end
-    assert.is_true((names[ALLOY] or 0) > 0,
-      "the headline science must consume the signature cryo-hardened alloy")
+    assert.is_true((names[ALUMINIUM] or 0) > 0,
+      "the headline science must consume the signature aluminium (the power-manufactured metal)")
     assert.is_true((names[VOLATILES] or 0) > 0,
       "and the deep-nightside volatiles -- both lethal edges in one pack")
   end)
@@ -130,7 +130,7 @@ describe("cindra science pack: the tech tree (headline science + folded unlocks)
     assert.is_false(prototypes.recipe[FORGE].enabled, "the starforge recipe must be gated")
   end)
 
-  it("is unlocked by cindra-science, gated behind the signature cryo-quench", function()
+  it("is unlocked by cindra-science, gated behind the signature aluminium", function()
     local tech = prototypes.technology[TECH]
     assert.is_not_nil(tech, "the cindra-science technology must exist")
     assert.is_true(tech.valid, "the tech must load (icon + prerequisites resolve)")
@@ -143,9 +143,10 @@ describe("cindra science pack: the tech tree (headline science + folded unlocks)
     assert.is_true(unlocked[FORGE], "the tech unlocks the starforge recipe")
 
     -- Gated behind the signature apex -> you cannot make Cindra science until you
-    -- already command BOTH fire (lava) and ice (via the cryo-quench).
-    assert.is_not_nil(tech.prerequisites["cindra-cryo-quenching"],
-      "gated behind the signature cryo-quench (which itself needs both lava and ice)")
+    -- already command BOTH fire (lava) and ice, via the aluminium tech (which
+    -- itself requires both cindra-lava and cindra-ice-processing).
+    assert.is_not_nil(tech.prerequisites["cindra-aluminium"],
+      "gated behind the signature aluminium (which itself needs both lava and ice)")
 
     -- Researched with BROUGHT packs, never the Cindra pack itself: paying for the
     -- pack-unlock with the pack would be a soft-lock (§15-13).
@@ -192,7 +193,7 @@ end)
 
 describe("cindra starforge runtime: consumes power to produce", function()
   -- A powered starforge on a clean Cindra surface, recipe set, ingredients for a
-  -- single craft loaded. Same headless power pattern as the cryo-quench suite.
+  -- single craft loaded. Same headless power pattern as the aluminium suite.
   local function make_forge(powered)
     local s = H.cindra_surface()
     s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
@@ -210,7 +211,7 @@ describe("cindra starforge runtime: consumes power to produce", function()
     local m = s.create_entity({ name = FORGE, position = { 0, 0 }, force = "player" })
     assert.is_not_nil(m, "the starforge must be placeable on Cindra")
     m.set_recipe(PACK)
-    m.insert({ name = ALLOY, count = 1 })
+    m.insert({ name = ALUMINIUM, count = 1 })
     m.insert({ name = VOLATILES, count = 3 })
     m.insert({ name = "calcite", count = 4 })
     return m
@@ -223,7 +224,7 @@ describe("cindra starforge runtime: consumes power to produce", function()
       assert.is_true(m.valid)
       assert.is_true(m.crafting_progress > 0,
         "a powered starforge must make crafting progress (it is drawing power to craft)")
-      assert.are.equal(0, m.get_item_count(ALLOY),
+      assert.are.equal(0, m.get_item_count(ALUMINIUM),
         "the native inputs are consumed once the craft starts (proving real production)")
       m.destroy()
       done()

@@ -16,7 +16,7 @@ or safe waste before it burns your own solar farm down.
 
 > **Status: foundation.** The planet is reachable, landable, and its ribbon
 > temperature axis is implemented and tested. The rest of the systems (lava,
-> cryo-quench, flares, storage, mass driver, science) are the backlog — see
+> aluminium, flares, storage, mass driver, science) are the backlog — see
 > [`DESIGN.md`](DESIGN.md) and [`TODO.md`](TODO.md).
 
 ## Repo layout
@@ -124,8 +124,8 @@ Cindra is a 1D **ribbon**: long east–west along the terminator, shallow
 perpendicular (the sunward–nightward temperature axis). Push sunward and heat
 kills you; push nightward and cold does. The factory lives in the seam.
 Manufactured **lava** (`1 stone + ruinous power → 5 lava`) is the central
-intermediate; the signature product is a **cryo-hardened alloy** forged in a
-two-temperature quench (hot molten input + cold cryo-coolant in one craft) that
-is impossible anywhere else. Goods leave by a power-hungry **mass driver**, not a
-rocket, so the planet's oil/coal chemistry footprint is **zero**. See
-[`DESIGN.md`](DESIGN.md) for the complete spec.
+intermediate; the signature product is **aluminium**, electrolysed from rock+ice
+feedstock with brute electricity (`stone + calcite → alumina → ruinous power →
+aluminium`) — the planet's biggest power sink and its primary export. Goods leave
+by a power-hungry **mass driver**, not a rocket, so the planet's oil/coal
+chemistry footprint is **zero**. See [`DESIGN.md`](DESIGN.md) for the complete spec.

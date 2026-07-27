@@ -6,8 +6,8 @@ not strictly-better than a clock combinator: valuable where a daylight or flare
 rhythm drives your factory, unremarkable where it does not.
 
 Realizes `planet_design.md` §12 item 8 ("circuit-logic building"). Built as its
-own independent mod (the same standalone pattern as `mass-driver`, `flare-poc`,
-`quench-poc`), so it can ship in parallel and has no shared-file conflict with
+own independent mod (the same standalone pattern as `mass-driver` and
+`flare-poc`), so it can ship in parallel and has no shared-file conflict with
 `mods/cindra`.
 
 ## What it does
@@ -57,7 +57,7 @@ makes the scanner valuable: it is an **early-warning device**, not a clock.
 
 This is the planet's Fulgora-accumulator-rhythm equivalent, but **event-driven**:
 when the block appears, wire the countdown + phase to drive the flare-response
-ladder per event (fill capacitors → overclock lava/quench/boil-off → dump to
+ladder per event (fill capacitors → overclock lava/aluminium/boil-off → dump to
 dissipators). Because timing is random, the circuit must REACT to this signal
 rather than anticipate a fixed cadence.
 

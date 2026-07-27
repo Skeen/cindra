@@ -10,10 +10,11 @@
 --
 -- 1. PETROCHEMICAL-FREE, NATIVE INPUTS ONLY. No oil/coal/plastic/sulfur anywhere
 --    in the recipe. It is built from Cindra's own materials: the signature
---    cryo-hardened alloy (fire+ice in one item), deep-nightside frozen volatiles,
---    and calcite from the ice chain. This is the planet's whole identity distilled
+--    aluminium (the ruinous-power metal), deep-nightside frozen volatiles, and
+--    calcite from the ice chain. This is the planet's whole identity distilled
 --    into one item -- you cannot make Cindra science without commanding both
---    lethal edges.
+--    lethal edges (power-manufactured aluminium reaches toward the fire/power
+--    side; the deep-nightside volatiles toward the cold).
 --
 -- 2. A SIGNIFICANT POWER SINK. Power is Cindra's real resource (§1), so its
 --    largest continuous activity -- researching -- must be another flare-timed
@@ -25,6 +26,11 @@
 -- 3. A REAL SCIENCE PACK. It is a `tool` (like every vanilla pack) and is appended
 --    to the shared labs' accepted inputs so the force can actually research with
 --    it. See the lab note below for why that shared-prototype touch is safe.
+--
+-- SIGNATURE: aluminium is Cindra's signature product (§14; prototypes/aluminium.lua),
+-- and the headline science is built on it -- the planet's power-manufactured metal
+-- distilled into research. Cindra's core thesis is power-manufactured aluminium +
+-- flare mastery; this pack is where that thesis becomes the tech tree's spine.
 --
 -- 🚨 NEVER MUTATE OTHER PLANETS: the pack (cloned from automation-science-pack),
 -- the starforge (cloned from assembling-machine-3) and its recipe are all fresh
@@ -54,12 +60,12 @@ local PACK_SECONDS = 60
 
 -- (tune) §15-14. Per-craft native inputs. Every one is a Cindra material with no
 -- petrochemical anywhere in its own lineage:
---   * cryo-hardened alloy -- the signature product (fire quenched by ice).
---   * frozen volatiles     -- harvested from the deep, cold-lethal nightside.
---   * calcite              -- the ice chain's mineral output.
-local ALLOY = "cindra-cryo-hardened-alloy"
+--   * aluminium         -- the signature product (power-manufactured metal).
+--   * frozen volatiles  -- harvested from the deep, cold-lethal nightside.
+--   * calcite           -- the ice chain's mineral output.
+local ALUMINIUM = "cindra-aluminium"
 local VOLATILES = "cindra-volatiles"
-local ALLOY_PER_PACK = 1
+local ALUMINIUM_PER_PACK = 1
 local VOLATILES_PER_PACK = 3
 local CALCITE_PER_PACK = 4
 local PACK_PER_CRAFT = 1
@@ -129,7 +135,7 @@ local pack_recipe = {
   enabled = false, -- gated: unlocked by the cindra-science tech, never free.
   energy_required = PACK_SECONDS,
   ingredients = {
-    { type = "item", name = ALLOY, amount = ALLOY_PER_PACK },
+    { type = "item", name = ALUMINIUM, amount = ALUMINIUM_PER_PACK },
     { type = "item", name = VOLATILES, amount = VOLATILES_PER_PACK },
     { type = "item", name = "calcite", amount = CALCITE_PER_PACK },
   },
@@ -141,7 +147,7 @@ local pack_recipe = {
 }
 
 -- Recipe to BUILD the starforge (gated behind the tech). Native/brought metal +
--- a little of the signature alloy, so the machine itself is a Cindra artifact.
+-- a little of the signature aluminium, so the machine itself is a Cindra artifact.
 local forge_build_recipe = {
   type = "recipe",
   name = FORGE,
@@ -150,16 +156,16 @@ local forge_build_recipe = {
   ingredients = {
     { type = "item", name = "steel-plate", amount = 30 },
     { type = "item", name = "iron-gear-wheel", amount = 30 },
-    { type = "item", name = ALLOY, amount = 5 },
+    { type = "item", name = ALUMINIUM, amount = 5 },
   },
   results = { { type = "item", name = FORGE, amount = 1 } },
 }
 
 -- === Technology =============================================================
 -- The unlock for the headline science. Gated behind the SIGNATURE apex
--- (cindra-cryo-quenching), which itself needs BOTH the lava spine and ice
--- processing -- so you cannot make Cindra science until you already command both
--- fire and ice. Researched with the BROUGHT vanilla packs (you cannot pay for the
+-- (cindra-aluminium), which itself needs BOTH the lava spine and ice processing
+-- -- so you cannot make Cindra science until you already command both fire and
+-- ice. Researched with the BROUGHT vanilla packs (you cannot pay for the
 -- pack-unlock with the pack itself -- that would be a soft-lock, §15-13); every
 -- DEEPER Cindra unlock then costs the Cindra pack (see the fold in mass-driver.lua).
 local technology = {
@@ -172,7 +178,7 @@ local technology = {
     { type = "unlock-recipe", recipe = PACK },
     { type = "unlock-recipe", recipe = FORGE },
   },
-  prerequisites = { "cindra-cryo-quenching" },
+  prerequisites = { "cindra-aluminium" },
   unit = {
     count = 300,
     ingredients = {

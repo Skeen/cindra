@@ -52,7 +52,7 @@ destination platform or no shell, nothing is consumed (payload preserved).
 
 - **Option A (implemented, preferred):** each shot spends a **projectile shell
   made of native metal** (`mass-driver-shell`, from `steel-plate`, standing in
-  for Cindra's cryo-hardened alloy). Puts the recurring launch cost on **local
+  for Cindra's signature aluminium). Puts the recurring launch cost on **local
   metallurgy**, off chemistry.
 - **Option B (not implemented):** no consumable projectile — cargo pods caught
   and returned, launch cost = pure electricity + minor upkeep. To switch, set

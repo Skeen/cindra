@@ -6,7 +6,7 @@
 --
 --   require("prototypes.ice-processing")  -- §15-4  ice -> water (+ calcite)
 --   require("prototypes.lava")            -- §15-5  1 stone + power -> 5 lava
---   require("prototypes.cryo-alloy")      -- §15-6  two-temperature quench
+--   require("prototypes.aluminium")       -- signature: power-manufactured metal
 --   require("prototypes.flare")           -- §15-7  solar + flare event
 --   require("prototypes.storage")         -- §15-9  capacitor + molten-salt battery
 --   require("prototypes.electric-heater") -- §15-10
@@ -39,17 +39,14 @@ require("prototypes.lava")
 -- its tech in. Requires resources.lua's bootstrap-rock coal, required below.
 require("prototypes.lubricant")
 
--- §15-6 cryo-hardened alloy: the SIGNATURE two-temperature quench. One craft that
--- needs a HOT input (the manufactured `lava` fluid, temperature-gated) and a COLD
--- input (cryo-coolant packed from nightside ice) at once -> cryo-hardened alloy.
--- Impossible off-world; gated behind BOTH the lava and ice-processing techs.
-require("prototypes.cryo-alloy")
-
--- Manufactured aluminium (ci-txh): the ruinous-power material. Native
--- Hall-Heroult chain (stone + calcite -> alumina -> [huge power] -> aluminium) in
--- a dedicated high-draw electrolysis cell -- another flare-timed power sink.
--- Consumed by the flare capacitor (see storage.lua) and exportable via the mass
--- driver. Required BEFORE storage.lua, which reads aluminium as a capacitor input.
+-- Manufactured aluminium (ci-txh): Cindra's SIGNATURE product + primary export.
+-- Native Hall-Heroult chain (stone + calcite -> alumina -> [huge power] ->
+-- aluminium) in a dedicated high-draw electrolysis cell -- the planet's biggest
+-- flare-timed power sink. It is petrochemical-free and power-intensive, so it
+-- carries the core thesis (power-manufactured metal); gated behind BOTH the lava
+-- and ice-processing techs. Consumed by the flare capacitor (see storage.lua) and
+-- exported via the mass driver; also the input to the headline science pack.
+-- Required BEFORE storage.lua, which reads aluminium as a capacitor input.
 require("prototypes.aluminium")
 
 -- §15-10 electric heater: capped-heat / uncapped-electric-draw surplus sink
@@ -82,9 +79,9 @@ require("prototypes.storage")
 -- §15-12 Cindra science: the HEADLINE science pack (petrochemical-free, native
 -- inputs only) crafted in a dedicated power-hungry "starforge" -- the largest
 -- continuous activity is another flare-timed power sink. Its tech is gated behind
--- the signature cryo-quench (which needs both lava and ice), and it folds the
+-- the signature aluminium (which needs both lava and ice), and it folds the
 -- launch tech into the Cindra tree so the pack has real downstream unlocks.
--- Consumes the cryo-hardened alloy (prototypes/cryo-alloy.lua), so it loads after.
+-- Consumes the signature aluminium (prototypes/aluminium.lua), so it loads after.
 require("prototypes.science")
 
 -- Graphics guard (ci-sop): MUST be last -- audits every registered Cindra entity

@@ -190,8 +190,8 @@ local cell_recipe = {
 -- Gated behind BOTH parent chains -- `cindra-lava` (the metal economy + the power
 -- to run electrolysis) AND `cindra-ice-processing` (the calcite the refine step
 -- needs) -- so aluminium is unreachable until the player commands both rock and
--- ice, exactly like the signature quench. The full Cindra tree (ci-3or) folds it
--- in later.
+-- ice. As the signature apex (ci-84s) it gates the headline science tech, and the
+-- full Cindra tree (ci-3or) folds it in.
 local technology = {
   type = "technology",
   name = TECH,
