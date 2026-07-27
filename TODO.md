@@ -148,9 +148,16 @@ merge queue.
   electric high-draw machine that only crafts when powered, private category, tech
   gating + fold, a lab actually accepts the pack). Balance of amounts/draw is
   `(tune)` → §15-14.
-- [ ] **§15-13 — Bootstrap traversal check.** `ci-uex` — verify landing → first
-  foundry is traversable: no chicken-and-egg, no soft-lock; bootstrap-rock output
-  is a one-time/durable cost only. *Needs 5.*
+- [x] **§15-13 — Bootstrap traversal check.** `ci-uex` — `tests/test_bootstrap.lua`
+  proves landing → self-sustaining lava→metal economy is traversable: the fire
+  spine is driven end-to-end (stone→lava→molten-iron + stone loop-back), a
+  reachability solver over the real recipes shows no chicken-and-egg up to the
+  Cindra science pack (seed materials become locally renewable), and the finite
+  bootstrap rock is asserted to never be a per-craft loop input. **Remaining:**
+  the start-on-Cindra (any-planet-start) run from ABSOLUTE zero still soft-locks
+  at the foundry (needs lubricant) — the solver documents this as a tripwire; the
+  lubricant-free/kitted APS foundry is `ci-arw`, and the end-to-end APS-mods
+  bootstrap proof is a follow-up (blocked on `ci-arw`).
 - [ ] **§15-14 — Balance pass.** `ci-63d` — tune all `(tune)` values against the
   lava energy cost; verify exportable buildings are **situational-not-strictly-
   better** than vanilla (§12 guardrail).
