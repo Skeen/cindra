@@ -49,18 +49,33 @@ C.SF_PEAK = 1.0
 C.SF_FLOOR = C.BASELINE_INTENSITY / C.SOLAR_MULT
 
 -- === Flare schedule (ticks) ==================================================
--- Telegraphed and regular so capture/dump capacity can be engineered against a
--- known magnitude and cadence (spec: the flare is NOT random). These are the
--- flare-poc's compressed values (one flare every 22 s) so the tests stay fast;
--- real play scales the whole schedule up ~10-30x (a flare every few minutes)
--- once the sky-telegraph visuals exist. (tune) -- final cadence is §15-14.
-C.CALM_TICKS = 600     -- quiet stretch on baseline solar (safe, no damage risk)
+-- SPORADIC timing (ci-2ba, overrides the old fixed cadence in DESIGN §10): the
+-- WHEN of a flare is unpredictable - the calm stretch between events is a random
+-- draw in [CALM_MIN_TICKS, CALM_MAX_TICKS], so you cannot forecast the next flare
+-- by clock. What stays FIXED is the flare EVENT itself: it is always telegraphed
+-- (a WARNING window that lets the player react and circuit-automate per event),
+-- always the same telegraph -> fast ramp -> plateau -> fast decay shape, and
+-- always ~100x peak. So capacity SIZING still matters (magnitude is consistent);
+-- only the timing, plus the reaction window, is the sporadic hazard/windfall.
+--
+-- These are the flare-poc's compressed durations (a ~12 s event) so the tests
+-- stay fast; real play scales the whole schedule up ~10-30x (events minutes
+-- apart) once the sky-telegraph visuals exist. (tune) -- final cadence is §15-14.
 C.WARNING_TICKS = 180  -- telegraph: alarm + countdown, power still at baseline
 C.RAMP_TICKS = 120     -- fast ramp baseline -> peak
 C.PLATEAU_TICKS = 300  -- sustained peak
 C.DECAY_TICKS = 120    -- fast ramp peak -> baseline
-C.PERIOD_TICKS = C.CALM_TICKS + C.WARNING_TICKS + C.RAMP_TICKS
-  + C.PLATEAU_TICKS + C.DECAY_TICKS
+-- One flare EVENT (fixed length): telegraph through decay. The random calm sits
+-- BEFORE it, so there is no fixed period any more (that was the old model).
+C.EVENT_TICKS = C.WARNING_TICKS + C.RAMP_TICKS + C.PLATEAU_TICKS + C.DECAY_TICKS
+
+-- Random calm band between flares (ticks). Bounded so timing is neither
+-- clustered-to-death (a real gap always separates events: MIN > 0) nor starved
+-- (MAX caps the drought). The MEAN gap ((MIN+MAX)/2 = 600) matches the old fixed
+-- calm, so average cadence - and the balance math (ci-63d) built on it - is
+-- preserved on average; only any single gap is unpredictable. (tune).
+C.CALM_MIN_TICKS = 300
+C.CALM_MAX_TICKS = 900
 
 -- === Panel damage (§15-8 "disposal-deficit rule") ============================
 -- Cindra uses the plain VANILLA solar panel (ci-8al): the flare behaviour comes

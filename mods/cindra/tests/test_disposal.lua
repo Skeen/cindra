@@ -87,9 +87,11 @@ describe("disposal", function()
       assert.is_true(info.capture.storage > 0, "storage must be capturing")
       assert.is_true(info.deficit <= 0, "sufficient disposal -> no surplus with nowhere to go")
 
-      -- Run a whole flare cycle through the damage sweep: no panel may be lost.
-      for t = 0, C.PERIOD_TICKS, 30 do
-        panels.sweep(s, flare.state(t).intensity)
+      -- Run a whole flare event (plus the calm on either side) through the damage
+      -- sweep: no panel may be lost. Anchor the event at offset 0 and sweep from
+      -- the calm before it, across the ramp/plateau/decay, to the calm after.
+      for off = -60, C.EVENT_TICKS + 60, 30 do
+        panels.sweep(s, flare.state(off, 0).intensity)
       end
       for i, p in ipairs(col) do
         assert.is_true(p.valid, "panel " .. i .. " must survive the flare")

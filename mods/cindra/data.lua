@@ -19,9 +19,10 @@
 -- temperature-axis framing.
 require("prototypes.planet")
 
--- §15-4 ice processing: a ground crusher (asteroid-crushing model, relocated)
--- that grinds nightside ice into water, or water + calcite -- the player picks
--- the ratio by choosing the recipe.
+-- §15-4 ice processing: a two-stage chain (asteroid-crushing model, relocated).
+-- A ground crusher grinds nightside ice into crushed-ice shards (solid->solid,
+-- or shards + calcite -- the player picks the ratio), then a separate melter
+-- turns the shards into water. Only the melt step makes fluid (ci-4or).
 require("prototypes.ice-processing")
 
 -- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 5

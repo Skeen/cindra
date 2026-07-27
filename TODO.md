@@ -62,16 +62,21 @@ merge queue.
     balance pass's, flagged in `lava.lua`.
 
 ## Backlog (§15 order)
-- [x] **§15-4 — Ice processing.** `ci-rgv` — `prototypes/ice-processing.lua`: a
-  ground-standing `cindra-ice-crusher` (clone of the space crusher; drops the
-  zero-gravity gate + space-platform heating draw, gains a water output fluid box)
-  plus two recipes the player picks between — `cindra-ice-crushing` (ice → water)
-  and `cindra-ice-crushing-calcite` (ice → water + calcite, trading water for
-  calcite). A private `cindra-ice-crushing` recipe category keeps the recipes off
-  vanilla space crushers (and vice versa); gated behind the `cindra-ice-processing`
-  tech. Tested: `tests/test_ice_processing.lua` (category isolation, water fluid
-  box, ground-placeability, recipe shapes/ratio, no vanilla-crusher leak, tech
-  gating, and an end-to-end powered crush of ice → water on Cindra).
+- [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or` —
+  `prototypes/ice-processing.lua`: a **two-stage** chain, faithful to the
+  item-only space crusher. Stage 1 `cindra-ice-crusher` (clone of the space
+  crusher; drops the zero-gravity gate + space-platform heating draw, SOLID →
+  SOLID, no fluid) runs the two crush recipes the player picks between —
+  `cindra-ice-crushing` (ice → crushed-ice) and `cindra-ice-crushing-calcite`
+  (ice → crushed-ice + calcite, trading shards for calcite). Stage 2
+  `cindra-ice-melter` (chemical-plant clone) runs `cindra-ice-melting`
+  (crushed-ice → water) — the only step that makes fluid (ci-4or). Private
+  `cindra-ice-crushing` / `cindra-ice-melting` categories keep the recipes off
+  vanilla space crushers + chemical plants (and vice versa); the
+  `cindra-ice-processing` tech unlocks both machines + all three recipes. Tested:
+  `tests/test_ice_processing.lua` (category isolation, crusher has NO fluid output,
+  melter water output box, ground-placeability, recipe shapes/ratio, no vanilla
+  leak, tech gating, and an end-to-end powered crush ice → shards → water on Cindra).
 - [x] **§15-6 — Cryo-hardened alloy.** `ci-gd4` — `prototypes/cryo-alloy.lua`: the
   SIGNATURE two-temperature quench. A `cindra-cryo-quench` building (chemical-plant
   clone, electric, single hot-fluid input, private `cindra-quenching` category, re-
@@ -96,12 +101,22 @@ merge queue.
     and a balance-pass call (ci-63d), not part of shipping the signature building.
 - [x] **§15-7 — Solar + flare.** `ci-9k6` — high surface solar multiplier +
   dark-weighted daylight curve; telegraph / fast-ramp / plateau / fast-decay;
-  regular cadence; ~100× peak. Replaced the placeholder baseline in
+  ~100× peak. Replaced the placeholder baseline in
   `prototypes/planet.lua` (`solar-power` = 10000, the ~100× surface multiplier;
   the flare swing is the frozen daylight curve, `scripts/flare.lua`). Integrated
   from the proven flare-poc (ci-zg3). Tested: `tests/test_flare.lua` +
   `unit-tests/test_flare.lua` (pure schedule) + `tests/test_catchability.lua`
   (never 100%-catchable). Cadence magnitudes are (tune) → §15-14.
+  - **`ci-2ba` (sporadic timing, landed):** flare *timing* is now SPORADIC, not a
+    fixed metronome — the calm gap before each event is a random draw in
+    `[CALM_MIN_TICKS, CALM_MAX_TICKS]` (mean = the old fixed calm), so the next
+    flare is unpredictable by clock. The telegraph, ramp/plateau/decay shape, and
+    ~100× magnitude are unchanged (capacity sizing still matters; every event is
+    still reactable). Scheduling is a deterministic, save/load-stable Lehmer PRNG
+    in `storage` (not `math.random`). The environmental scanner (ci-3o3) reads the
+    new `cindra-flare` remote interface (`flare.forecast`) and so becomes a
+    REACTIVE early-warning device: forecast only while a flare telegraphs/is
+    active, `nil` (calm) otherwise.
 - [x] **§15-8 — Panel damage.** `ci-9ay` — disposal-deficit rule, degrade-before-
   death, self-correcting (negative feedback), dissipator-as-fuse. `scripts/panels.lua`
   (edge-bias reads the ribbon sunward axis). Tested: `tests/test_panel_damage.lua`,

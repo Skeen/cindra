@@ -206,8 +206,10 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
   -- Ordering is emergent from the fixpoint, not hard-coded here.
   local PRODUCTIONS = {
     { r = "cindra-ice-crusher",              m = "hand" },                 -- build the crusher
-    { r = "cindra-ice-crushing",             m = "cindra-ice-crusher" },   -- ice -> water
-    { r = "cindra-ice-crushing-calcite",     m = "cindra-ice-crusher" },   -- ice -> water + calcite
+    { r = "cindra-ice-melter",               m = "hand" },                 -- build the melter
+    { r = "cindra-ice-crushing",             m = "cindra-ice-crusher" },   -- ice -> crushed-ice
+    { r = "cindra-ice-crushing-calcite",     m = "cindra-ice-crusher" },   -- ice -> crushed-ice + calcite
+    { r = "cindra-ice-melting",              m = "cindra-ice-melter" },    -- crushed-ice -> water
     { r = "cindra-lava",                     m = "foundry" },              -- stone -> lava
     { r = "molten-iron-from-lava",           m = "foundry" },              -- lava + calcite -> molten iron
     { r = "casting-iron",                    m = "foundry" },              -- molten iron -> iron plate
@@ -314,7 +316,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     end
     for _, recipe in ipairs({
       "cindra-lava", "molten-iron-from-lava",
-      "cindra-ice-crushing", "cindra-ice-crushing-calcite",
+      "cindra-ice-crushing", "cindra-ice-crushing-calcite", "cindra-ice-melting",
       "cindra-cryo-hardened-alloy", "cindra-science-pack",
     }) do
       for _, ing in ipairs(ingredient_names(recipe)) do

@@ -24,6 +24,17 @@ driver.register()
 local mass_driver = require("scripts.mass-driver")
 mass_driver.register()
 
+-- Cross-mod flare forecast (the `cindra-flare` remote interface, ci-2ba/ci-3o3).
+-- The standalone environmental scanner calls `forecast(surface_index)` to act as
+-- a REACTIVE early-warning device: because flares are sporadic (no clock to read
+-- them off), it gets a live forecast ONLY while a flare is telegraphing/active,
+-- and nil ('calm') otherwise. Registered at load (interfaces re-register every
+-- load); the scanner degrades gracefully when this mod is absent.
+local flare = require("scripts.flare")
+remote.add_interface("cindra-flare", {
+  forecast = function(surface_index) return flare.forecast(surface_index) end,
+})
+
 local function on_init()
   driver.init()
   mass_driver.init()
