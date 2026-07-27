@@ -166,9 +166,14 @@ impossible on Vulcanus (no cold) or Aquilo (no lava).
 
 Power is **high-intensity solar via the daylight curve**: a dark-weighted cycle
 whose night floor ≈ Nauvis full day (runs the factory) and whose day peak ≈ the
-**solar flare** (~100× baseline). The flare is **telegraphed and regular**, must
-**never be 100%-catchable**, and undisposed surplus **damages the panels
-producing it** (self-correcting, dissipator-as-fuse, degrade-before-death).
+**solar flare** (~100× baseline). The flare is **sporadic but telegraphed**
+(ci-2ba, overriding the old "regular/predictable cadence" of §10): its *timing*
+is randomized within a band so you cannot predict the next one by clock, yet
+every event is still preceded by a **warning window** (alarm + countdown) so you
+can react and circuit-automate a response per event, and the magnitude stays
+~100× so capacity sizing still matters. It must **never be 100%-catchable**, and
+undisposed surplus **damages the panels producing it** (self-correcting,
+dissipator-as-fuse, degrade-before-death).
 Storage is a two-tier puzzle: **capacitor** (fast spike) + **molten-salt battery**
 (bulk plateau, heat-upkeep). The **electric heater** (capped heat / uncapped
 draw) is the flare sink + water boil-off + nightside warmth. Goods leave by
