@@ -224,3 +224,16 @@ this list is the last resort when no test path exists.
   gradient itself, the morph, flare composition, and the damage-model tie are all
   integration-tested (`tests/test_panel_solar.lua`); only the "which band am I in"
   visual read and overall balance *feel* are the playtest.
+
+- [ ] **Manufactured-lava recipe icon tint reads distinct at icon size (ci-e8a).**
+  The `cindra-lava` recipe icon is the vanilla lava sprite color-layered warmer
+  (`prototypes/lava-icon.lua`) so manufactured lava reads distinct from the
+  natural Vulcanus pour. The tint data (layered, non-neutral, semi-transparent,
+  applied to the RECIPE icon only, never the shared `lava` fluid) is
+  integration-tested (`tests/test_lava.lua`); only the *visual read* is a
+  playtest. *Look for:* in the foundry recipe picker the manufactured-lava icon
+  is recognisably lava but visibly warmer/brighter than the plain `lava` fluid
+  icon shown elsewhere, and stays readable at icon size (placeholder tint --
+  bespoke art is a later pass, do not file as a bug). The throughput rescale
+  itself (100 stone -> 500 lava, single-digit foundries feed one melt, ruinous
+  power) is fully test-covered, not a playtest item.

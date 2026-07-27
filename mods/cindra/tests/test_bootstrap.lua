@@ -142,11 +142,13 @@ describe("cindra bootstrap: the stone->lava->metal spine turns on (runtime)", fu
 
     local foundry = s.create_entity({ name = "foundry", position = { 0, 0 }, force = "player" })
     foundry.set_recipe("cindra-lava")
-    -- Stone is the ONLY input the player has hand-mined at this point.
-    foundry.insert({ name = "stone", count = 50 })
+    -- Stone is the ONLY input the player has hand-mined at this point. The recipe
+    -- ships BATCHED (100 stone -> 500 lava, ci-e8a), so hand a couple batches of
+    -- stone and give the ~32 s cast time room to finish one.
+    foundry.insert({ name = "stone", count = 250 })
 
-    async(1800)
-    after_ticks(900, function()
+    async(3000)
+    after_ticks(2400, function()
       assert.is_true(foundry.valid)
       local lava = foundry.get_fluid_count("lava")
       assert.is_true(lava > 0,

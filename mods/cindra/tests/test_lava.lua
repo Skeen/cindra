@@ -8,6 +8,7 @@
 -- their canonical values (we cloned nothing, mutated nothing).
 
 local H = require("tests.helpers")
+local lava_icon = require("prototypes.lava-icon")
 
 local RECIPE = "cindra-lava"
 
@@ -29,26 +30,37 @@ local function contains(list, v)
 end
 
 describe("cindra manufactured lava", function()
-  it("is 1 stone + power -> 5 lava (ratio fixed per spec, §7)", function()
+  it("is stone + power -> lava at the fixed 1:5 ratio, BATCHED (§7, ci-e8a rescale)", function()
     local recipe = prototypes.recipe[RECIPE]
     assert.is_not_nil(recipe, "cindra-lava recipe must exist")
 
-    -- Exactly one ingredient, and it is stone: the material cost is a single
-    -- rock, so power (below) is the real cost.
+    -- Exactly one ingredient, and it is stone: the material cost is only rock,
+    -- so power (below) is the real cost.
     local n_ingredients = 0
     for _ in pairs(recipe.ingredients) do n_ingredients = n_ingredients + 1 end
     assert.are.equal(1, n_ingredients, "the only ingredient is stone -- no fuel, no carrier")
-    assert.are.equal(1, amount_of(recipe.ingredients, "stone"), "1 stone in (spec ratio)")
 
-    -- One product: 5 lava fluid.
-    assert.are.equal(5, amount_of(recipe.products, "lava"), "5 lava out (spec ratio)")
+    local stone = amount_of(recipe.ingredients, "stone")
+    local lava = amount_of(recipe.products, "lava")
+    assert.is_not_nil(stone, "stone is the input")
+    assert.is_not_nil(lava, "lava is the output")
+
+    -- THE RATIO IS FIXED PER SPEC: exactly 1 stone : 5 lava, whatever the batch.
+    assert.are.equal(stone * 5, lava,
+      "ratio must stay 1 stone : 5 lava (got " .. stone .. ":" .. lava .. ")")
+
+    -- BATCHED UP (the rescale): one craft yields a foundry-relevant amount, so it
+    -- is NOT the old tiny 5-lava batch that forced ~100 machines per foundry.
+    assert.is_true(lava >= 500,
+      "one craft must yield a foundry-relevant batch (>=500 lava = one melt's feed), got " .. lava)
   end)
 
   it("makes power the lever, and allows productivity as an intermediate reward", function()
     local recipe = prototypes.recipe[RECIPE]
     -- energy_required is the dominant cost knob; it must be a real, nontrivial time
-    -- so the foundry's electric draw dominates (ruinous power).
-    assert.is_true(recipe.energy >= 10,
+    -- so the foundry's electric draw dominates (ruinous power). A batched craft is
+    -- a multi-second cast, not an instant tap.
+    assert.is_true(recipe.energy >= 60,
       "lava must cost real crafting time (the power lever), got " .. tostring(recipe.energy))
     -- Productivity is allowed: lava is the central intermediate + ruinous power
     -- cost, so a prod bonus is a fair reward and matches vanilla intermediate
@@ -57,6 +69,87 @@ describe("cindra manufactured lava", function()
       "productivity must be ON: lava is an intermediate; a prod bonus is a fair reward")
     assert.is_true(prototypes.recipe["molten-iron-from-lava"].allowed_effects.productivity,
       "sanity: the downstream melt also allows productivity (consistent intermediate convention)")
+  end)
+
+  it("a SINGLE-DIGIT count of lava foundries sustains one melting foundry (ci-e8a)", function()
+    -- THE user complaint: pre-rescale it took ~100 lava foundries to keep one
+    -- melting foundry fed (unusable). Compute the sustaining count LIVE from the
+    -- shipped prototypes so the assertion tracks the real recipes, not a guess.
+    --
+    -- Both recipes run on the same foundry, so its crafting speed cancels:
+    --   lava produced / s   = LAVA_OUT       / lava_energy   * speed
+    --   lava consumed / s   = lava_per_melt  / melt_energy   * speed
+    --   N = consumed / produced = (lava_per_melt * lava_energy)
+    --                             / (melt_energy   * LAVA_OUT)
+    local lava = prototypes.recipe[RECIPE]
+    local melt = prototypes.recipe["molten-iron-from-lava"]
+
+    local lava_out = amount_of(lava.products, "lava")
+    local lava_energy = lava.energy
+    local lava_per_melt = amount_of(melt.ingredients, "lava")
+    local melt_energy = melt.energy
+
+    local n = (lava_per_melt * lava_energy) / (melt_energy * lava_out)
+    assert.is_true(n >= 1 and n <= 9,
+      "a single-digit lava-foundry count must sustain one melt (got " .. string.format("%.2f", n) .. ")")
+    -- And it is a real fix, not a marginal trim off ~100.
+    assert.is_true(n < 20,
+      "must be far below the pre-rescale ~100 machines (got " .. string.format("%.2f", n) .. ")")
+  end)
+
+  it("keeps power RUINOUS: feeding one melt is still a serious electric sink (§7)", function()
+    -- Power stays the real cost. The aggregate draw of the lava foundries needed
+    -- to feed ONE melting foundry must remain a serious sink -- many MW, so at
+    -- base scale lava rivals/exceeds baseline solar (§10). Read the foundry's
+    -- draw live rather than hard-coding 2.5 MW.
+    local lava = prototypes.recipe[RECIPE]
+    local melt = prototypes.recipe["molten-iron-from-lava"]
+    local foundry = prototypes.entity["foundry"]
+
+    local lava_out = amount_of(lava.products, "lava")
+    local lava_per_melt = amount_of(melt.ingredients, "lava")
+    local n = (lava_per_melt * lava.energy) / (melt.energy * lava_out)
+
+    -- energy_usage is per-TICK Joules; * 60 ticks/s -> Watts (foundry = 2.5 MW).
+    assert.is_not_nil(foundry.energy_usage, "the foundry must report an electric draw")
+    local draw_w = foundry.energy_usage * 60
+    assert.is_true(n * draw_w >= 10e6,
+      "feeding one melt must draw >=10 MW of lava foundries (ruinous power), got "
+        .. string.format("%.1f MW", n * draw_w / 1e6))
+  end)
+
+  it("has a DISTINCT tint on the recipe icon, never on the shared lava fluid", function()
+    -- The recipe icon is color-layered so manufactured lava reads distinct from
+    -- the natural Vulcanus pour. The runtime API does not expose recipe icons, so
+    -- (space-appearance convention) we assert the PURE module the data stage uses.
+    local layers = lava_icon.build()
+    assert.is_true(#layers >= 2, "icon must be layered (base + a tinted copy)")
+
+    -- Base layer: the vanilla lava sprite, UNtinted -- so it still reads as lava.
+    local base = layers[1]
+    assert.are.equal(lava_icon.BASE_ICON, base.icon, "base layer is the vanilla lava icon")
+    assert.is_nil(base.tint, "base layer stays untinted (readable silhouette)")
+
+    -- A tinted layer exists, and the tint is a REAL colour shift (not neutral
+    -- grey/white) and semi-transparent (subtle, not a full recolour).
+    local tint
+    for i = 2, #layers do
+      if layers[i].tint then tint = layers[i].tint end
+    end
+    assert.is_not_nil(tint, "a tinted layer must exist")
+    local spread = math.max(tint.r, tint.g, tint.b) - math.min(tint.r, tint.g, tint.b)
+    assert.is_true(spread >= 0.2,
+      "the tint must be a real colour (not neutral grey/white), channel spread " .. string.format("%.2f", spread))
+    assert.is_true(tint.a ~= nil and tint.a < 1.0,
+      "the tint is a semi-transparent overlay so the shift stays subtle/readable")
+
+    -- The tint lives on the RECIPE only: the recipe still outputs the shared
+    -- vanilla `lava` fluid (no retinted Cindra fluid clone -- that would leak
+    -- onto Vulcanus). Guard both halves of that.
+    assert.is_not_nil(amount_of(prototypes.recipe[RECIPE].products, "lava"),
+      "the recipe outputs the shared vanilla `lava` fluid, tint or not")
+    assert.is_nil(prototypes.fluid["cindra-lava"],
+      "there must be NO cindra-specific lava fluid -- we tint the recipe icon, never the fluid")
   end)
 
   it("is gated: disabled by default, unlocked only by its own tech", function()
