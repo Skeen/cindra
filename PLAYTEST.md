@@ -40,6 +40,19 @@ this list is the last resort when no test path exists.
   the right; the globe does NOT rotate (tidally locked) while the terminator
   steam band and the solar flares off the fire limb animate in place.
 
+- [ ] **Star-map icon faces the fiery dayside at the sun (tidal-lock orientation,
+  ci-2sr).** As a tidally-locked world the fiery dayside must point TOWARD the
+  star. The engine's default aims the icon's top sunward, which left the baked
+  fire limb ~90deg off. planet.lua now sets `starmap_icon_orientation =
+  (orientation - 0.25) = 0.8` so the fire limb points at the star. The prototype
+  value is asserted in `tests/test_planet.lua`, but the resulting on-screen
+  rotation is a render only the engine can show. *Repro:* `./play.sh`, open the
+  system/star-map view and look at Cindra. *Look for:* the FIERY (warm orange)
+  hemisphere faces toward the central star and the icy nightside faces away; the
+  fire/ice terminator is roughly perpendicular to the planet→sun line. If the ICY
+  side faces the sun instead, the orientation is a half-turn off (add 0.5); if the
+  terminator points at the sun, it is a quarter-turn off (adjust by ±0.25).
+
 - [ ] **Electric heater reads as electric, not a furnace (§15-10).** The building
   reuses vanilla heating-tower art with the burner fire-glow removed. *Repro:*
   research `cindra-electric-heating`, build a `cindra-electric-heater`, wire it to

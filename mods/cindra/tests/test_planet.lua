@@ -57,6 +57,25 @@ describe("cindra planet", function()
     assert.is_true(tech.valid, "discovery tech must load (its icon present)")
   end)
 
+  it("points the fiery dayside at the star (tidal lock orientation, ci-2sr)", function()
+    local loc = prototypes.space_location["cindra"]
+
+    -- The star-map icon bakes the FIRE hemisphere on its left limb and the icy
+    -- nightside on the right. The engine's default (unset) aims the icon's TOP
+    -- at the sun, leaving that fiery limb ~90deg off sunward. planet.lua rotates
+    -- the icon so the fire limb points at the star:
+    --   starmap_icon_orientation = (orientation - 0.25) mod 1 = (0.05 - 0.25) = 0.8
+    local expected = (0.05 - 0.25) % 1
+    assert.is_true(math.abs(loc.starmap_icon_orientation - expected) < 1e-6,
+      "tidally-locked fiery dayside must face the star; got " ..
+        tostring(loc.starmap_icon_orientation) .. " expected " .. tostring(expected))
+
+    -- Guard the regression: it must NOT be the ~sunward default (top-at-sun,
+    -- orientation + 0.5 = 0.55), which is the ~90deg-off orientation this fixes.
+    assert.is_true(math.abs(loc.starmap_icon_orientation - ((0.05 + 0.5) % 1)) > 1e-6,
+      "orientation must be corrected away from the default top-at-sun (fiery limb was ~90deg off)")
+  end)
+
   it("map gen produces NO vanilla ores, biters, worms, trees or rocks", function()
     local surface = H.cindra_surface()
     surface.request_to_generate_chunks({ 300, 300 }, 3)

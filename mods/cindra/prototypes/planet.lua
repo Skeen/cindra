@@ -98,6 +98,20 @@ data:extend({
     -- Innermost world of the system: Cindra hugs the star, sunward of Vulcanus.
     distance = 6,
     orientation = 0.05,
+    -- TIDAL LOCK: the fiery dayside must face the star (ci-2sr). The star-map
+    -- icon is a fixed bake (space-appearance.lua) with the FIRE hemisphere on
+    -- the sprite's LEFT limb and the icy nightside on the right. Left unset, the
+    -- engine defaults starmap_icon_orientation to "pointing at the sun" by
+    -- aiming the icon's TOP sunward, which leaves the fiery LEFT limb ~90deg off
+    -- the sunward direction. Rotate the icon so the FIRE limb -- not the top --
+    -- points at the star.
+    --
+    -- Geometry (RealOrientation: 0 = up, increasing clockwise). The sun sits
+    -- opposite the planet's orbital angle, at (orientation + 0.5). The fire limb
+    -- is a quarter-turn (0.25) counter-clockwise of the icon's top, so aiming it
+    -- sunward means orienting the icon's top to (orientation + 0.5 - 0.75) =
+    -- (orientation - 0.25). For orientation 0.05 this is 0.8.
+    starmap_icon_orientation = (0.05 - 0.25) % 1,
     magnitude = 1.2,
     order = "a[cindra]",
     subgroup = "planets",
