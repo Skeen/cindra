@@ -55,7 +55,6 @@ picture = {
 | Cindra stone (item)        | `icons/cindra-stone.png`          | —             | **ci-l72** (§15-3 resources) |
 | Electric heater            | `icons/electric-heater.png`       | —             | **ci-f5l** (§15-10 heater) |
 | Mass driver                | `icons/mass-driver.png`           | ✔ `entity/mass-driver/`         | **ci-r10** (§15-11); PoC **ci-epp** |
-| Mass-driver catcher (platform) | `icons/mass-driver-catcher.png` | —           | **ci-r10** / **ci-epp** |
 | Capacitor (fast storage)   | `icons/capacitor.png`             | ✔ `entity/capacitor/`           | **ci-tii** (§15-9 storage) |
 | Molten-salt battery (bulk) | `icons/molten-salt-battery.png`   | ✔ `entity/molten-salt-battery/` | **ci-tii** |
 | Dissipator (heat sink)     | `icons/dissipator.png`            | ✔ `entity/dissipator/`          | **ci-tii** / **ci-9ay** (panel damage) |

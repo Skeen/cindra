@@ -121,16 +121,19 @@ merge queue.
     tower §12, gated recipe/tech, runtime placement on Cindra).
   - TODO(ci-gd4): swap the vanilla recipe ingredients for the native cryo-alloy
     once it lands, to make the "clumsy off-world" import gate real.
-- [x] **§15-11 — Mass driver.** `ci-r10` — launch = power (bursty, flare-timed) +
-  platform-side catcher; optional native projectile shell (A) vs pure-electric
-  pods (B). Removes launch chemistry entirely.
+- [x] **§15-11 — Mass driver.** `ci-r10`, `ci-98r` — launch = power (bursty,
+  flare-timed) + optional native projectile shell (A) vs pure-electric pods (B).
+  Removes launch chemistry entirely. NO platform-side catcher (ci-98r): cargo
+  lands in the space platform hub like normal rocket cargo, reusing the vanilla
+  launch-to-platform destination.
   - Landed: `prototypes/mass-driver.lua` (driver container + hidden accumulator
-    charger + orbital catcher + native shell item; delivered art wired) and
-    `scripts/mass-driver.lua` (charge→fire→deliver loop, fire tick N=31, distinct
-    from edge-damage/building-heat). Recipes gated behind a dedicated
+    charger + native shell item; delivered art wired) and
+    `scripts/mass-driver.lua` (charge→fire→deliver-to-hub loop, fire tick N=31,
+    distinct from edge-damage/building-heat). Recipes gated behind a dedicated
     `cindra-orbital-launch` tech (option A, native shell). Tested:
     `tests/test_mass_driver.lua` (prototype shape, gating, chemistry-free,
-    proto/runtime drift, full cross-surface launch loop + preconditions).
+    no-catcher assertion, proto/runtime drift, full launch loop delivering to a
+    real space platform hub + preconditions).
   - TODO(ci-gd4): swap the shell recipe input to cryo-hardened-alloy once it
     lands (currently steel-plate stand-in, still zero-chemistry).
   - DONE(ci-3or): folded into the Cindra science tree — `cindra-orbital-launch`

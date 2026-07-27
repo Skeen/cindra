@@ -2,10 +2,10 @@
 -- standalone PoC (mods/mass-driver, ci-epp).
 --
 -- Goods leave Cindra by ELECTRICITY, not chemistry. The mass driver flings cargo
--- to an orbital catcher spending only a charged electric buffer plus one optional
--- native-metal projectile shell -- no rocket fuel, no plastic, no acid. That is
--- what makes the planet's launch footprint zero (the whole point of §11): the
--- recurring launch cost lands on local metallurgy + power, never petrochemistry.
+-- to an orbiting space platform spending only a charged electric buffer plus one
+-- optional native-metal projectile shell -- no rocket fuel, no plastic, no acid.
+-- That is what makes the planet's launch footprint zero (the whole point of §11):
+-- the recurring launch cost lands on local metallurgy + power, never petrochemistry.
 --
 -- The launch building is a COMPOSITE of two prototypes:
 --   * cindra-mass-driver          a visible container (holds the cargo payload and
@@ -21,8 +21,11 @@
 -- (accumulator) is the only way to get both on one building: no single vanilla
 -- entity type exposes an item inventory AND a chargeable, readable buffer.
 --
--- The orbit side is a one-time cindra-mass-driver-catcher container (models a
--- cargo-landing-pad on a space platform).
+-- THERE IS NO PLATFORM-SIDE STRUCTURE (ci-98r). A launch behaves like a vanilla
+-- rocket delivering to a platform: the payload lands directly in the space
+-- platform hub's inventory (defines.inventory.hub_main), the same place normal
+-- rocket cargo arrives. We reuse the vanilla launch-to-platform destination
+-- rather than shipping a bespoke "catcher" building the player has to place.
 --
 -- 🚨 NEVER MUTATE OTHER PLANETS: every prototype here is a fresh clone (deep-copied
 -- via util.table.deepcopy before any nested edit); no shared vanilla table is
@@ -47,7 +50,6 @@ local util = require("util")
 local M = {}
 M.DRIVER = "cindra-mass-driver"
 M.CHARGER = "cindra-mass-driver-charger"
-M.CATCHER = "cindra-mass-driver-catcher"
 M.SHELL = "cindra-mass-driver-shell"
 M.TECH = "cindra-orbital-launch"
 
@@ -64,8 +66,7 @@ local EMPTY_SPRITE = {
 }
 
 -- Delivered art (graphics/ART-MANIFEST.md, ci-pru): a 64px mipmap icon strip and a
--- 256x256 static entity sprite + shadow for the driver. The catcher has an icon but
--- no bespoke entity sprite yet, so it keeps a tinted-chest in-world look.
+-- 256x256 static entity sprite + shadow for the driver.
 local function set_icon(proto, name)
   proto.icon = "__cindra__/graphics/icons/" .. name .. ".png"
   proto.icon_size = 64
@@ -119,25 +120,6 @@ charger.chargable_graphics = { picture = EMPTY_SPRITE }
 charger.water_reflection = nil
 charger.default_output_signal = nil
 
--- === Orbit-side catcher: a one-time container on the space platform ==========
-local catcher = util.table.deepcopy(data.raw.container["steel-chest"])
-catcher.name = M.CATCHER
-catcher.minable = { mining_time = 0.5, result = M.CATCHER }
-catcher.inventory_size = 80
-catcher.next_upgrade = nil
-set_icon(catcher, "mass-driver-catcher")
--- No bespoke entity sprite for the catcher yet: tint the chest amber so it reads
--- as the landing side of the launch pair.
-if catcher.picture and catcher.picture.layers then
-  for _, layer in pairs(catcher.picture.layers) do
-    layer.tint = { r = 1.0, g = 0.75, b = 0.4, a = 1.0 }
-  end
-elseif catcher.picture then
-  catcher.picture.tint = { r = 1.0, g = 0.75, b = 0.4, a = 1.0 }
-end
-catcher.localised_name = { "entity-name.cindra-mass-driver-catcher" }
-catcher.localised_description = { "entity-description.cindra-mass-driver-catcher" }
-
 -- === Items ===================================================================
 local driver_item = util.table.deepcopy(data.raw.item["steel-chest"])
 driver_item.name = M.DRIVER
@@ -146,14 +128,6 @@ driver_item.order = "z[cindra-mass-driver]-a[driver]"
 set_icon(driver_item, "mass-driver")
 driver_item.localised_name = { "item-name.cindra-mass-driver" }
 driver_item.localised_description = { "item-description.cindra-mass-driver" }
-
-local catcher_item = util.table.deepcopy(data.raw.item["steel-chest"])
-catcher_item.name = M.CATCHER
-catcher_item.place_result = M.CATCHER
-catcher_item.order = "z[cindra-mass-driver]-b[catcher]"
-set_icon(catcher_item, "mass-driver-catcher")
-catcher_item.localised_name = { "item-name.cindra-mass-driver-catcher" }
-catcher_item.localised_description = { "item-description.cindra-mass-driver-catcher" }
 
 -- The projectile shell (option A): a consumable made of native metal, so the
 -- recurring launch cost lands on local metallurgy, NOT on chemistry. steel-plate
@@ -182,18 +156,6 @@ local driver_recipe = {
     { type = "item", name = "copper-cable", amount = 40 },
   },
   results = { { type = "item", name = M.DRIVER, amount = 1 } },
-}
-
-local catcher_recipe = {
-  type = "recipe",
-  name = M.CATCHER,
-  enabled = false,  -- unlocked by cindra-orbital-launch
-  energy_required = 5,
-  ingredients = {
-    { type = "item", name = "steel-plate", amount = 50 },
-    { type = "item", name = "iron-gear-wheel", amount = 10 },
-  },
-  results = { { type = "item", name = M.CATCHER, amount = 1 } },
 }
 
 -- Shell recipe: pure native metal. No plastic, no sulfuric acid, no rocket fuel.
@@ -226,7 +188,6 @@ local technology = {
   icon_mipmaps = 4,
   effects = {
     { type = "unlock-recipe", recipe = M.DRIVER },
-    { type = "unlock-recipe", recipe = M.CATCHER },
     { type = "unlock-recipe", recipe = M.SHELL },
   },
   prerequisites = { "planet-discovery-cindra", "cindra-science" },
@@ -244,9 +205,9 @@ local technology = {
 }
 
 data:extend({
-  driver, charger, catcher,
-  driver_item, catcher_item, shell_item,
-  driver_recipe, catcher_recipe, shell_recipe,
+  driver, charger,
+  driver_item, shell_item,
+  driver_recipe, shell_recipe,
   technology,
 })
 
