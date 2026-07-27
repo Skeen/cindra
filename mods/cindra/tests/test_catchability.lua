@@ -30,6 +30,19 @@ end
 
 describe("catchability", function()
   it("peak overflows storage at every scale (capture rate < delivery rate)", function()
+    -- The tiny-buffer capacitors (0.5 MJ at 50 MW) saturate within ~10 ms of a
+    -- plateau, so across a SUSTAINED flare their contribution to disposal is a
+    -- one-shot buffer fill, not their flow -- only the slow battery trickle keeps
+    -- catching. We model that steady plateau by topping off the capacitors (as a
+    -- real flare does near-instantly) before measuring; the point of the invariant
+    -- is the SUSTAINED overflow, not the sub-tick leading edge a capacitor is built
+    -- to swallow. With capacitors saturated, the peak still overflows at any scale.
+    local function saturate_capacitors(surface)
+      for _, c in pairs(surface.find_entities_filtered({ name = C.CAPACITOR })) do
+        c.energy = c.electric_buffer_size
+      end
+    end
+
     -- Small build.
     local s = H.cindra_surface()
     H.power_reset()
@@ -38,6 +51,7 @@ describe("catchability", function()
 
     async(240)
     after_ticks(6, function()
+      saturate_capacitors(s)
       local si = panels.deficit(s, small[1].electric_network_id, PEAK)
       local small_frac = si.capture.storage / si.potential
       assert.is_true(si.deficit > 0, "small build: peak must overflow storage")
@@ -48,6 +62,7 @@ describe("catchability", function()
       H.set_consumption(0)
       local large = scaled(s2, 8, 34)
       after_ticks(6, function()
+        saturate_capacitors(s2)
         local li = panels.deficit(s2, large[1].electric_network_id, PEAK)
         local large_frac = li.capture.storage / li.potential
         assert.is_true(li.deficit > 0, "large build: peak must STILL overflow storage")

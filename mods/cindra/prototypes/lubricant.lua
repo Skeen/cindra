@@ -122,9 +122,12 @@ local field_foundry = {
   order = "z[cindra]-c[field-foundry]",
   enabled = false,
   energy_required = 30,
+  -- No tungsten-carbide: Cindra ships no tungsten (ci-2tz), so the field foundry
+  -- is built from the metals the local loop actually makes. The tungsten the
+  -- vanilla recipe would use is replaced by extra steel, keeping this path
+  -- deliberately costlier (in bulk structural metal + power) than an import.
   ingredients = {
-    { type = "item", name = "tungsten-carbide", amount = 50 },
-    { type = "item", name = "steel-plate", amount = 80 },
+    { type = "item", name = "steel-plate", amount = 150 },
     { type = "item", name = "electronic-circuit", amount = 40 },
     { type = "item", name = "refined-concrete", amount = 40 },
     { type = "fluid", name = "lubricant", amount = 40 },

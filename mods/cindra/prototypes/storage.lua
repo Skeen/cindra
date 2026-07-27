@@ -73,7 +73,12 @@ capacitor.localised_description = { "entity-description." .. C.CAPACITOR }
 local capacitor_item = util.table.deepcopy(data.raw["item"]["accumulator"])
 capacitor_item.name = C.CAPACITOR
 capacitor_item.place_result = C.CAPACITOR
-capacitor_item.order = "b[cindra]-b[capacitor]"
+-- Sit next to the vanilla accumulator in the crafting tab (ci-wcu): same
+-- "energy" subgroup (inherited from the accumulator item deepcopy), ordered
+-- right after it. The vanilla accumulator is "e[accumulator]-a[accumulator]";
+-- capacitor/battery follow as -b/-c and the dissipator closes the group as -d.
+capacitor_item.subgroup = "energy"
+capacitor_item.order = "e[accumulator]-b[capacitor]"
 set_icon(capacitor_item, "capacitor")
 capacitor_item.localised_name = { "item-name." .. C.CAPACITOR }
 capacitor_item.localised_description = { "item-description." .. C.CAPACITOR }
@@ -121,20 +126,25 @@ battery.localised_description = { "entity-description." .. C.BATTERY }
 local battery_item = util.table.deepcopy(data.raw["item"]["accumulator"])
 battery_item.name = C.BATTERY
 battery_item.place_result = C.BATTERY
-battery_item.order = "b[cindra]-c[molten-salt-battery]"
+battery_item.subgroup = "energy"
+battery_item.order = "e[accumulator]-c[molten-salt-battery]"
 set_icon(battery_item, "molten-salt-battery")
 battery_item.localised_name = { "item-name." .. C.BATTERY }
 battery_item.localised_description = { "item-description." .. C.BATTERY }
 
+-- CHEAP recipe (ci-wcu): a molten-salt battery is a THERMAL store -- a tank of
+-- salt, no chemical cells. It deliberately uses NO `battery` item (unlike the
+-- vanilla accumulator and the capacitor), so it is markedly cheaper than either;
+-- that cheapness is its whole identity (large-ish, slow, cheap, leaky).
 local battery_recipe = {
   type = "recipe",
   name = C.BATTERY,
   enabled = false,
-  energy_required = 12,
+  energy_required = 8,
   ingredients = {
-    { type = "item", name = "steel-plate", amount = 20 },
-    { type = "item", name = "battery", amount = 40 },
-    { type = "item", name = "pipe", amount = 10 },
+    { type = "item", name = "steel-plate", amount = 4 },
+    { type = "item", name = "stone", amount = 10 },
+    { type = "item", name = "pipe", amount = 4 },
   },
   results = { { type = "item", name = C.BATTERY, amount = 1 } },
 }
@@ -142,6 +152,8 @@ local battery_recipe = {
 -- === Dissipator: infinite safe waste, rate-limited (the fuse) ================
 -- A pure consumer (electric-energy-interface). Its rated draw is the reliable
 -- disposal floor and the sacrificial fuse: counted before any panel is damaged.
+-- TODO(ci-wcu FUTURE, not implemented): decide dissipator control -- gate its
+-- draw via a circuit connection vs a power switch. Note only for now.
 local dissipator = {
   type = "electric-energy-interface",
   name = C.DISSIPATOR,
@@ -175,7 +187,8 @@ local dissipator_item = {
   icon_size = 64,
   icon_mipmaps = 4,
   subgroup = "energy",
-  order = "b[cindra]-d[dissipator]",
+  -- Last in the accumulator group (ci-wcu): after capacitor (-b) and battery (-c).
+  order = "e[accumulator]-d[dissipator]",
   stack_size = 20,
   place_result = C.DISSIPATOR,
   localised_name = { "item-name." .. C.DISSIPATOR },

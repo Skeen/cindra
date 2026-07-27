@@ -72,4 +72,30 @@ describe("storage", function()
     assert.are.equal(cap.electric_buffer_size, cap.energy,
       "capacitor has no heat upkeep and must not self-discharge")
   end)
+
+  it("molten-salt battery fully self-drains its 2.5 MJ in ~5-10 min unpowered (ci-wcu)", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    local bat = H.battery(s, { -6, 10 })
+    bat.energy = bat.electric_buffer_size
+
+    -- Upkeep is applied once per flare-driver tick (every C.FLARE_INTERVAL game
+    -- ticks). Convert the 5-min and 10-min bounds to a whole number of upkeep
+    -- applications and drive the real drain that many times.
+    local function upkeep_ticks(minutes)
+      return math.floor(minutes * 60 * 60 / C.FLARE_INTERVAL)
+    end
+    local five_min = upkeep_ticks(5)
+    local ten_min = upkeep_ticks(10)
+
+    -- At the 5-minute mark it must NOT yet be empty (drain is not too fast).
+    for _ = 1, five_min do sinks.apply_battery_upkeep(s) end
+    assert.is_true(bat.energy > 0,
+      "battery must still hold charge at 5 min (self-drain not too fast): energy=" .. bat.energy)
+
+    -- By the 10-minute mark it must be fully drained (drain is not too slow).
+    for _ = five_min + 1, ten_min do sinks.apply_battery_upkeep(s) end
+    assert.are.equal(0, bat.energy,
+      "battery must be fully drained by 10 min unpowered: energy=" .. bat.energy)
+  end)
 end)

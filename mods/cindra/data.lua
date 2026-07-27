@@ -78,8 +78,8 @@ require("prototypes.flare")
 require("prototypes.storage")
 
 -- §15-12 Cindra science: the HEADLINE science pack (petrochemical-free, native
--- inputs only) crafted in a dedicated power-hungry "starforge" -- the largest
--- continuous activity is another flare-timed power sink. Its tech is gated behind
+-- inputs only) crafted in an ordinary assembling machine -- its energy cost rides
+-- on a long craft plus the power-hungry aluminium input. Its tech is gated behind
 -- the signature aluminium (which needs both lava and ice), and it folds the
 -- launch tech into the Cindra tree so the pack has real downstream unlocks.
 -- Consumes the signature aluminium (prototypes/aluminium.lua), so it loads after.

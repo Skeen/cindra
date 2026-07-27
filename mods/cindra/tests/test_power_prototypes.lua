@@ -75,40 +75,60 @@ describe("power system prototypes", function()
   -- (buffer size) plus the config-level flow/upkeep facts. The flow numbers
   -- themselves are locked by scripts/flare-config.lua and exercised live by the
   -- storage + catchability tests.
-  it("registers the capacitor as a SPIKE catcher (situational vs a vanilla accumulator)", function()
+  it("registers the capacitor as a TINY, very-high-rate spike catcher (ci-wcu tuning)", function()
     local cap = prototypes.entity[C.CAPACITOR]
     assert.is_not_nil(cap, "cindra-capacitor entity must exist")
     assert.are.equal("accumulator", cap.type)
 
-    local mine = cap.electric_energy_source_prototype.buffer_capacity
+    -- Exact ci-wcu tuning: storage 0.5 MJ; max charge AND discharge 50 MW.
+    assert.are.equal(0.5e6, C.CAPACITOR_BUFFER_J, "capacitor buffer must be 0.5 MJ")
+    assert.are.equal(50e6, C.CAPACITOR_FLOW_W, "capacitor flow must be 50 MW")
+    assert.are.equal(0.5e6, cap.electric_energy_source_prototype.buffer_capacity,
+      "capacitor prototype buffer must be 0.5 MJ")
+
     local vanilla = prototypes.entity["accumulator"].electric_energy_source_prototype.buffer_capacity
-    -- Situational-not-strictly-better (§12): a SMALLER buffer than a plain
-    -- accumulator (a poor reservoir), traded for a much higher flow (the config
-    -- spike-catcher upside, verified live in test_storage).
-    assert.is_true(mine < vanilla,
+    -- Situational-not-strictly-better (§12): a far SMALLER buffer than a plain
+    -- accumulator (a poor reservoir), traded for a much higher flow (verified
+    -- live in test_storage). Tiny, very high rate.
+    assert.is_true(C.CAPACITOR_BUFFER_J < vanilla,
       "capacitor buffer must be SMALLER than a vanilla accumulator's (not a reservoir)")
-    assert.is_true(C.CAPACITOR_FLOW_W > C.CAPACITOR_BUFFER_J / 1e6 * 1e6,
-      "capacitor flow (spike) is large relative to its buffer")
+    assert.is_true(C.CAPACITOR_FLOW_W > C.CAPACITOR_BUFFER_J,
+      "capacitor flow (spike) must dwarf its buffer")
   end)
 
-  it("registers the molten-salt battery as a BULK reserve (situational vs a vanilla accumulator)", function()
+  it("registers the molten-salt battery as large-ish/slow/CHEAP/LEAKY (ci-wcu tuning)", function()
     local bat = prototypes.entity[C.BATTERY]
     assert.is_not_nil(bat, "cindra-molten-salt-battery entity must exist")
     assert.are.equal("accumulator", bat.type)
 
-    local mine = bat.electric_energy_source_prototype.buffer_capacity
+    -- Exact ci-wcu tuning: storage 2.5 MJ; max inflow AND discharge 150 kW.
+    assert.are.equal(2.5e6, C.BATTERY_BUFFER_J, "battery buffer must be 2.5 MJ")
+    assert.are.equal(150e3, C.BATTERY_FLOW_W, "battery flow must be 150 kW")
+    assert.are.equal(2.5e6, bat.electric_energy_source_prototype.buffer_capacity,
+      "battery prototype buffer must be 2.5 MJ")
+
     local vanilla = prototypes.entity["accumulator"].electric_energy_source_prototype.buffer_capacity
-    -- Situational-not-strictly-better (§12): a huge buffer (bulk), traded for an
-    -- intrinsically LOWER throughput (config: BATTERY_FLOW_W < the capacitor's,
-    -- verified live in test_catchability) PLUS a heat-upkeep self-discharge
-    -- (scripts/sinks.lua, verified in test_storage) that a vanilla accumulator
-    -- never pays.
-    assert.is_true(mine > vanilla,
-      "battery buffer must dwarf a vanilla accumulator's (bulk reserve)")
+    -- Situational-not-strictly-better (§12): its buffer AND its flow are BOTH
+    -- below a vanilla accumulator's, so on raw specs it is strictly worse. Its
+    -- upside is a CHEAP recipe (asserted below) and its downside a heat-upkeep
+    -- self-discharge (scripts/sinks.lua, verified live in test_storage).
+    assert.is_true(C.BATTERY_BUFFER_J < vanilla,
+      "battery buffer must be below a vanilla accumulator's (not bulk-superior)")
+    assert.is_true(C.BATTERY_FLOW_W < 300e3,
+      "battery throughput must be below a vanilla accumulator's 300 kW (slow)")
     assert.is_true(C.BATTERY_FLOW_W < C.CAPACITOR_FLOW_W,
       "battery throughput must be lower than the capacitor's (slow, not a spike buffer)")
     assert.is_true(C.BATTERY_UPKEEP_FRACTION > 0,
       "battery must pay a heat-upkeep self-discharge (a downside vanilla lacks)")
+
+    -- CHEAP: the molten-salt battery is a thermal store and uses NO chemical
+    -- `battery` item, unlike the vanilla accumulator (2 iron + 5 battery) and the
+    -- capacitor. That is what makes it the cheap budget option.
+    local recipe = prototypes.recipe[C.BATTERY]
+    for _, ing in pairs(recipe.ingredients) do
+      assert.are_not.equal("battery", ing.name,
+        "the cheap molten-salt battery must not require chemical `battery` items")
+    end
   end)
 
   it("registers the dissipator as a pure power consumer (the safe-waste fuse)", function()
@@ -116,6 +136,30 @@ describe("power system prototypes", function()
     assert.is_not_nil(d, "cindra-dissipator entity must exist")
     assert.are.equal("electric-energy-interface", d.type)
     assert.is_not_nil(d.electric_energy_source_prototype, "the dissipator draws electricity")
+  end)
+
+  it("places capacitor + battery next to the vanilla accumulator, dissipator last (ci-wcu)", function()
+    local acc = prototypes.item["accumulator"]
+    local cap = prototypes.item[C.CAPACITOR]
+    local bat = prototypes.item[C.BATTERY]
+    local diss = prototypes.item[C.DISSIPATOR]
+
+    -- Same crafting-tab subgroup as the vanilla accumulator, so they sit in one
+    -- group in the production tab.
+    local sub = acc.subgroup.name
+    assert.are.equal(sub, cap.subgroup.name, "capacitor must share the accumulator subgroup")
+    assert.are.equal(sub, bat.subgroup.name, "molten-salt battery must share the accumulator subgroup")
+    assert.are.equal(sub, diss.subgroup.name, "dissipator must share the accumulator subgroup")
+
+    -- Ordered right after the accumulator: accumulator < capacitor < battery, and
+    -- the dissipator closes the group (last of the four).
+    assert.is_true(acc.order < cap.order, "capacitor must sort after the accumulator")
+    assert.is_true(cap.order < bat.order, "battery must sort after the capacitor")
+    assert.is_true(bat.order < diss.order, "dissipator must sort after the battery")
+    for _, other in ipairs({ acc, cap, bat }) do
+      assert.is_true(other.order < diss.order,
+        "dissipator must be LAST in the group (after " .. other.name .. ")")
+    end
   end)
 
   it("gates all three storage/disposal buildings behind one tech (not free)", function()

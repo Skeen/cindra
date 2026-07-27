@@ -67,8 +67,8 @@ if script.active_mods["factorio-test"] then
     "tests/test_storage",
     "tests/test_catchability",
     "tests/test_power_prototypes",
-    -- §15-12 the headline Cindra science pack + power-hungry starforge + the
-    -- folded tech tree (petrochemical-free, native inputs, a real power sink).
+    -- §15-12 the headline Cindra science pack (crafted in a stock assembler) + the
+    -- folded tech tree (petrochemical-free, native inputs, a real energy cost).
     "tests/test_science",
     -- ci-84s signature PIVOT: aluminium is the signature product; the cryo-quench
     -- + cryo-hardened alloy are GONE. Guards that no cryo prototype survives and
