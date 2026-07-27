@@ -31,10 +31,11 @@
 --     capacitor is optional recoverable storage (the dissipator, not the
 --     capacitor, is the panel-damage safety floor), so this creates demand
 --     WITHOUT gating flare survival behind aluminium -- no soft-lock.
---   * EXPORT: aluminium is a clean, high-value bulk good the mass driver can fling
---     to orbit on pure power + a native shell (ci-epp) -- a petrochemical-free
---     export that lands its whole cost on local metallurgy and the star. No recipe
---     is needed for that; the driver ships any item. Documented here as intent.
+--   * EXPORT: aluminium is a clean, high-value bulk good, AND the very stuff the
+--     mass driver (ci-o39) burns to launch -- it presses the aluminium CAN (cargo
+--     container) and grinds into the aluminium-powder SOLID ROCKET FUEL. So the
+--     petrochemical-free launch chain lands its whole recurring cost back on this
+--     ruinous-power metal + power: local metallurgy and the star, never chemistry.
 --
 -- 🚨 NEVER MUTATE OTHER PLANETS: every prototype here is brand new or a fresh
 -- deep-copy (util.table.deepcopy) before any nested edit. The shared vanilla
@@ -64,11 +65,11 @@ local REFINE_SECONDS = 2
 
 -- THE POWER LEVER. Aluminium's cost is a LARGE building draw times a LONG craft:
 --   CELL_DRAW (50 MW) * (ELECTROLYSIS_SECONDS / cell crafting_speed 2) = ~400 MJ
---   per craft => ~200 MJ per aluminium. That is ~5x a manufactured-lava craft and
---   comparable to a mass-driver shot (500 MJ), so aluminium genuinely competes for
---   flare energy with the other big sinks. 50 MW is the largest single-building
---   draw on Cindra (above the electric heater's 40 MW), so it reads as the ruinous
---   one. Productivity is OFF (see recipe): power stays the honest cost.
+--   per craft => ~200 MJ per aluminium. That is ~5x a manufactured-lava craft, so
+--   aluminium genuinely competes for flare energy with the other big sinks. 50 MW
+--   is the largest CONTINUOUS single-building draw on Cindra (above the electric
+--   heater's 40 MW); only the mass driver's bursty per-launch charge (ci-o39) costs
+--   more, and briefly. Productivity is OFF (see recipe): power stays the honest cost.
 local CELL_DRAW = "50MW"
 local ELECTROLYSIS_SECONDS = 16
 local ALUMINA_PER_ELECTROLYSIS = 4

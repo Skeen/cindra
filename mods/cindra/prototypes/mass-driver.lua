@@ -1,178 +1,241 @@
--- The Cindra mass driver (§15-11; DESIGN.md §5, §11). Integrated from the proven
--- standalone PoC (mods/mass-driver, ci-epp).
+-- The Cindra mass driver (§15-11; DESIGN.md §5, §11). DEFINITIVE SPEC (ci-o39):
+-- the mass driver is a RESKINNED ROCKET-SILO, not a chest.
 --
--- Goods leave Cindra by ELECTRICITY, not chemistry. The mass driver flings cargo
--- to an orbiting space platform spending only a charged electric buffer plus one
--- optional native-metal projectile shell -- no rocket fuel, no plastic, no acid.
--- That is what makes the planet's launch footprint zero (the whole point of §11):
--- the recurring launch cost lands on local metallurgy + power, never petrochemistry.
+-- WHY A ROCKET-SILO TYPE. The earlier composite (a container + a hidden
+-- accumulator + a scripted fire loop, ci-epp/ci-98r) hand-rolled cross-surface
+-- delivery. A `rocket-silo` prototype gives that delivery NATIVELY: the vanilla
+-- launch path lifts cargo to an orbiting space platform's hub with no bespoke
+-- catcher and no runtime loop to maintain. So the driver is a full deep-copy of
+-- the vanilla rocket-silo -- keeping its `rocket_entity` (and therefore the
+-- hub-accepted vanilla cargo pod) intact -- reskinned with the mass-driver icon
+-- and re-fuelled on Cindra's own economy.
 --
--- The launch building is a COMPOSITE of two prototypes:
---   * cindra-mass-driver          a visible container (holds the cargo payload and
---                                 the projectile shells) that inserters/belts load.
---   * cindra-mass-driver-charger  a HIDDEN accumulator, spawned by the runtime at
---                                 the driver's tile, that charges from the grid and
---                                 holds the per-shot energy. Empty collision mask so
---                                 it overlaps the container; the runtime reads its
---                                 .energy to know when the shot is charged, and its
---                                 output_flow_limit is 0 so energy only ever leaves
---                                 as a launch, never back to the grid.
--- Splitting inventory (container) from a script-readable electric buffer
--- (accumulator) is the only way to get both on one building: no single vanilla
--- entity type exposes an item inventory AND a chargeable, readable buffer.
+-- WHAT A LAUNCH COSTS (still PETROCHEMICAL-FREE, the whole point of §11). The silo
+-- builds ONE launch charge (its `fixed_recipe`) before it can fire, and that
+-- charge consumes:
+--   * 1 ALUMINIUM CAN         the cargo container, pressed from Cindra aluminium.
+--   * SOLID ROCKET FUEL       aluminium-POWDER based -- metallic aluminium is the
+--                             energetic fuel, so the propellant is native metal,
+--                             NOT oil/coal/plastic. (Real composite propellants
+--                             burn aluminium powder; here it stands in for the lot.)
+--   * a SHITTON of POWER      the silo's crafting draw (a large continuous load)
+--                             times a long charge craft => a huge per-launch energy.
+-- That drops vanilla rocket-parts / LDS / processing-units / liquid rocket fuel
+-- entirely: the recurring launch cost lands on local metallurgy + power, never
+-- petrochemistry. The can + fuel chain is added here (aluminium -> can; aluminium
+-- -> powder -> solid fuel), gated behind the same launch tech.
 --
--- THERE IS NO PLATFORM-SIDE STRUCTURE (ci-98r). A launch behaves like a vanilla
--- rocket delivering to a platform: the payload lands directly in the space
--- platform hub's inventory (defines.inventory.hub_main), the same place normal
--- rocket cargo arrives. We reuse the vanilla launch-to-platform destination
--- rather than shipping a bespoke "catcher" building the player has to place.
+-- CARGO DELIVERY. A launch behaves like a vanilla rocket: the payload lands in the
+-- space platform hub (the standard rocket destination). There is NO platform-side
+-- catcher building (ci-98r) -- that trait is inherited for free from the silo type.
 --
 -- 🚨 NEVER MUTATE OTHER PLANETS: every prototype here is a fresh clone (deep-copied
--- via util.table.deepcopy before any nested edit); no shared vanilla table is
--- touched. These are Cindra-exclusive entities/items/recipes.
+-- via util.table.deepcopy before any nested edit) or brand new; no shared vanilla
+-- table is touched. The launch charge lives in a PRIVATE recipe category so only
+-- this driver ever crafts it -- vanilla Nauvis silos (fixed_recipe = rocket-part)
+-- are completely unaffected.
 --
--- SITUATIONAL-NOT-STRICTLY-BETTER (§12 guardrail): the driver is not a free rocket.
--- Its cost is bursty power (charge a 500 MJ buffer, then fire) plus a native shell,
--- so it is superb only where power overflows (Cindra at flare) and clumsy where you
--- would rather burn fuel and launch continuously.
+-- SITUATIONAL-NOT-STRICTLY-BETTER (§12 guardrail): it is not a free rocket. It eats
+-- a huge slug of power per launch, so it is superb only where power overflows
+-- (Cindra at flare) and clumsy where you would rather burn cheap fuel elsewhere.
 --
--- NATIVE-INGREDIENT GATE (partial): the design wants the shell forged from Cindra's
--- signature cryo-hardened alloy. That material (ci-gd4) does not exist yet, so the
--- shell is steel-plate for now (still pure native metal, zero chemistry).
--- TODO(ci-gd4): swap the shell recipe input to cryo-hardened-alloy once it lands.
+-- v1 ART: the driver reuses the vanilla rocket-silo animation set (a full silo
+-- reskin is a later art pass -- see PLAYTEST.md); only its inventory ICON is the
+-- delivered mass-driver art. The launch consumables reuse tinted vanilla icons.
 
 local util = require("util")
 
--- Tuning knobs (all `(tune)` starting points, DESIGN.md §7 / PoC README). Exposed
--- on the returned module so the runtime + tests can read the same numbers.
--- 🚨 The runtime (scripts/mass-driver.lua) mirrors the NAMES + SHOT_CAPACITY /
--- SHELL_PER_SHOT constants; keep the two in sync (a test cross-checks them).
+-- Tuning knobs (all `(tune)` starting points, DESIGN.md §7). Exposed on the
+-- returned module so tests can read the same numbers.
 local M = {}
-M.DRIVER = "cindra-mass-driver"
-M.CHARGER = "cindra-mass-driver-charger"
-M.SHELL = "cindra-mass-driver-shell"
-M.TECH = "cindra-orbital-launch"
+M.DRIVER = "cindra-mass-driver"            -- the reskinned rocket-silo
+M.TECH = "cindra-orbital-launch"           -- the unlock tech (folded into the Cindra tree)
+M.CAN = "cindra-aluminium-can"             -- cargo container (aluminium)
+M.POWDER = "cindra-aluminium-powder"       -- metallic aluminium powder (the fuel base)
+M.FUEL = "cindra-solid-rocket-fuel"        -- aluminium-powder solid propellant
+M.CHARGE = "cindra-launch-charge"          -- the silo's rocket-part analog (internal)
+M.CHARGE_CATEGORY = "cindra-mass-driver-charge"  -- PRIVATE: only the driver crafts the charge
 
-M.SHOT_ENERGY = "500MJ"   -- energy per shot (the charger's buffer capacity)
-M.CHARGE_RATE = "10MW"    -- how fast a shot charges from the grid (~50 s => bursty)
-M.SHOT_CAPACITY = 100     -- cargo items delivered per shot
-M.SHELL_PER_SHOT = 1      -- native projectile shells consumed per shot
+M.SILO_DRAW = "60MW"        -- crafting draw while building a launch charge (a large load)
+M.SILO_LAUNCH_DRAW = "100MW" -- extra draw during the launch sequence (the burst)
+M.CHARGE_SECONDS = 30       -- long charge craft: SILO_DRAW * CHARGE_SECONDS ~= 1.8 GJ / launch
+M.CAN_PER_LAUNCH = 1        -- one aluminium can (cargo container) per launch
+M.FUEL_PER_LAUNCH = 10      -- solid rocket fuel per launch
 
-local EMPTY_SPRITE = {
-  filename = "__core__/graphics/empty.png",
-  priority = "very-low",
-  width = 1,
-  height = 1,
-}
-
--- Delivered art (graphics/ART-MANIFEST.md, ci-pru): a 64px mipmap icon strip and a
--- 256x256 static entity sprite + shadow for the driver.
-local function set_icon(proto, name)
-  proto.icon = "__cindra__/graphics/icons/" .. name .. ".png"
+-- Delivered mass-driver icon (graphics/ART-MANIFEST.md, ci-pru): a 64px mipmap strip.
+local function set_driver_icon(proto)
+  proto.icon = "__cindra__/graphics/icons/mass-driver.png"
   proto.icon_size = 64
   proto.icon_mipmaps = 4
   proto.icons = nil  -- drop any inherited layered icon so our single icon wins
 end
 
--- === Visible launch building: a container that holds cargo + shells ==========
-local driver = util.table.deepcopy(data.raw.container["steel-chest"])
+-- Retint a reused vanilla icon so a launch consumable reads distinctly.
+local function set_icon(proto, icon, tint)
+  proto.icon = nil
+  proto.icons = { { icon = icon, icon_size = 64, tint = tint } }
+  proto.icon_size = 64
+  proto.icon_mipmaps = nil
+end
+
+-- === The launch building: a reskinned rocket-silo ============================
+-- Full deep-copy keeps every silo field the engine needs (rocket_entity, cargo
+-- pod, launch graphics, cargo_station_parameters, launch_to_space_platforms), so
+-- delivery-to-platform is inherited unchanged. We only re-point the recipe, crank
+-- the power, and swap the inventory icon.
+local driver = util.table.deepcopy(data.raw["rocket-silo"]["rocket-silo"])
 driver.name = M.DRIVER
-driver.minable = { mining_time = 0.5, result = M.DRIVER }
-driver.inventory_size = 40
+driver.minable = { mining_time = 1, result = M.DRIVER }
 driver.next_upgrade = nil
-set_icon(driver, "mass-driver")
--- Wear the delivered mass-driver sprite (idle base layer + soft ground shadow).
-driver.picture = {
-  layers = {
-    {
-      filename = "__cindra__/graphics/entity/mass-driver/mass-driver.png",
-      width = 256, height = 256, scale = 0.5, shift = { 0, -0.3 },
-    },
-    {
-      filename = "__cindra__/graphics/entity/mass-driver/mass-driver-shadow.png",
-      width = 256, height = 256, scale = 0.5, shift = { 0.3, 0 }, draw_as_shadow = true,
-    },
-  },
-}
+driver.fast_replaceable_group = nil
+-- Fire on ONE charge craft: a mass driver flings a single payload, then rebuilds
+-- its charge. The private category means only this driver runs the charge recipe.
+driver.crafting_categories = { M.CHARGE_CATEGORY }
+driver.fixed_recipe = M.CHARGE
+driver.rocket_parts_required = 1
+driver.rocket_parts_storage_cap = 1
+driver.energy_usage = M.SILO_DRAW
+driver.active_energy_usage = M.SILO_LAUNCH_DRAW
+driver.launch_to_space_platforms = true  -- deliver cargo to platforms (Space Age)
+set_driver_icon(driver)
 driver.localised_name = { "entity-name.cindra-mass-driver" }
 driver.localised_description = { "entity-description.cindra-mass-driver" }
 
--- === Hidden per-shot energy buffer: an accumulator overlapping the driver ====
-local charger = util.table.deepcopy(data.raw.accumulator["accumulator"])
-charger.name = M.CHARGER
-charger.hidden = true
-charger.flags = {
-  "not-blueprintable", "not-deconstructable", "not-on-map",
-  "placeable-off-grid", "not-upgradable", "hide-alt-info",
-}
-charger.selectable_in_game = false
-charger.minable = nil
-charger.next_upgrade = nil
-charger.collision_mask = { layers = {} }  -- overlap the container tile
-charger.energy_source = {
-  type = "electric",
-  usage_priority = "tertiary",
-  buffer_capacity = M.SHOT_ENERGY,
-  input_flow_limit = M.CHARGE_RATE,
-  output_flow_limit = "0W",  -- energy goes into the shot, never back to the grid
-}
-charger.chargable_graphics = { picture = EMPTY_SPRITE }
-charger.water_reflection = nil
-charger.default_output_signal = nil
-
 -- === Items ===================================================================
-local driver_item = util.table.deepcopy(data.raw.item["steel-chest"])
+local driver_item = util.table.deepcopy(data.raw.item["rocket-silo"])
 driver_item.name = M.DRIVER
 driver_item.place_result = M.DRIVER
-driver_item.order = "z[cindra-mass-driver]-a[driver]"
-set_icon(driver_item, "mass-driver")
+driver_item.order = "z[cindra-mass-driver]"
+set_driver_icon(driver_item)
+-- Inherit the rocket-silo item's SUBGROUP so the driver lands in the SPACE
+-- crafting tab (where the vanilla silo lives), not Logistics.
 driver_item.localised_name = { "item-name.cindra-mass-driver" }
 driver_item.localised_description = { "item-description.cindra-mass-driver" }
 
--- The projectile shell (option A): a consumable made of native metal, so the
--- recurring launch cost lands on local metallurgy, NOT on chemistry. steel-plate
--- stands in for the cryo-hardened alloy until ci-gd4 lands. No bespoke icon yet;
--- tint the steel-plate icon cool so it reads as a launch shell.
-local shell_item = util.table.deepcopy(data.raw.item["steel-plate"])
-shell_item.name = M.SHELL
-shell_item.place_result = nil
-shell_item.stack_size = 100
-shell_item.order = "z[cindra-mass-driver]-c[shell]"
-if shell_item.icons then
-  for _, ic in pairs(shell_item.icons) do ic.tint = { r = 0.7, g = 0.85, b = 1.0, a = 1.0 } end
-end
-shell_item.localised_name = { "item-name.cindra-mass-driver-shell" }
-shell_item.localised_description = { "item-description.cindra-mass-driver-shell" }
+-- Aluminium can: the cargo container, pressed from Cindra aluminium.
+local can_item = util.table.deepcopy(data.raw.item["steel-plate"])
+can_item.name = M.CAN
+can_item.place_result = nil
+can_item.stack_size = 100
+can_item.order = "z[cindra-mass-driver]-a[can]"
+set_icon(can_item, "__base__/graphics/icons/steel-plate.png", { r = 0.75, g = 0.82, b = 0.95, a = 1.0 })
+can_item.localised_name = { "item-name.cindra-aluminium-can" }
+can_item.localised_description = { "item-description.cindra-aluminium-can" }
 
--- === Recipes (all chemistry-free; GATED behind the tech below, not free) ======
+-- Aluminium powder: metallic aluminium ground fine -- the energetic fuel base.
+local powder_item = util.table.deepcopy(data.raw.item["calcite"])
+powder_item.name = M.POWDER
+powder_item.stack_size = 100
+powder_item.order = "z[cindra-mass-driver]-b[powder]"
+set_icon(powder_item, "__space-age__/graphics/icons/calcite.png", { r = 0.72, g = 0.78, b = 0.88, a = 1.0 })
+powder_item.localised_name = { "item-name.cindra-aluminium-powder" }
+powder_item.localised_description = { "item-description.cindra-aluminium-powder" }
+
+-- Solid rocket fuel: aluminium-powder propellant. Cloned from rocket-fuel for its
+-- icon, but stripped of fuel props -- it is a launch INGREDIENT, not a burner fuel.
+local fuel_item = util.table.deepcopy(data.raw.item["rocket-fuel"])
+fuel_item.name = M.FUEL
+fuel_item.fuel_category = nil
+fuel_item.fuel_value = nil
+fuel_item.fuel_acceleration_multiplier = nil
+fuel_item.fuel_top_speed_multiplier = nil
+fuel_item.fuel_emissions_multiplier = nil
+fuel_item.burnt_result = nil
+fuel_item.stack_size = 100
+fuel_item.order = "z[cindra-mass-driver]-c[fuel]"
+set_icon(fuel_item, "__base__/graphics/icons/rocket-fuel.png", { r = 0.80, g = 0.86, b = 0.96, a = 1.0 })
+fuel_item.localised_name = { "item-name.cindra-solid-rocket-fuel" }
+fuel_item.localised_description = { "item-description.cindra-solid-rocket-fuel" }
+
+-- The launch charge: the silo's internal "rocket part". Hidden -- the player never
+-- handles it; the driver builds one from a can + fuel, then launches.
+local charge_item = util.table.deepcopy(data.raw.item["rocket-part"])
+charge_item.name = M.CHARGE
+charge_item.hidden = true
+charge_item.order = "z[cindra-mass-driver]-d[charge]"
+charge_item.localised_name = { "item-name.cindra-launch-charge" }
+charge_item.localised_description = { "item-description.cindra-launch-charge" }
+
+-- === Recipe category (PRIVATE: only the driver crafts the charge) ============
+local charge_category = { type = "recipe-category", name = M.CHARGE_CATEGORY }
+
+-- === Recipes (all PETROCHEMICAL-FREE; gated behind the launch tech) ==========
+-- Aluminium -> can (the cargo container).
+local can_recipe = {
+  type = "recipe",
+  name = M.CAN,
+  enabled = false,
+  energy_required = 1,
+  ingredients = {
+    { type = "item", name = "cindra-aluminium", amount = 2 },
+  },
+  results = { { type = "item", name = M.CAN, amount = 1 } },
+}
+
+-- Aluminium -> powder (grind metallic aluminium fine).
+local powder_recipe = {
+  type = "recipe",
+  name = M.POWDER,
+  enabled = false,
+  energy_required = 1,
+  ingredients = {
+    { type = "item", name = "cindra-aluminium", amount = 1 },
+  },
+  results = { { type = "item", name = M.POWDER, amount = 2 } },
+}
+
+-- Aluminium powder -> solid rocket fuel. Single native input: no oil, no coal,
+-- no plastic, no acid -- the propellant is the metal itself.
+local fuel_recipe = {
+  type = "recipe",
+  name = M.FUEL,
+  enabled = false,
+  energy_required = 2,
+  ingredients = {
+    { type = "item", name = M.POWDER, amount = 3 },
+  },
+  results = { { type = "item", name = M.FUEL, amount = 1 } },
+}
+
+-- The launch charge (the silo's fixed_recipe): { 1 can + solid rocket fuel } over a
+-- LONG craft. `enabled=false` is fine -- a rocket-silo always runs its fixed_recipe
+-- regardless, so this is never hand/assembler craftable. The dominant cost is the
+-- silo's power draw across the long craft (SILO_DRAW * CHARGE_SECONDS per launch).
+local charge_recipe = {
+  type = "recipe",
+  name = M.CHARGE,
+  categories = { M.CHARGE_CATEGORY },
+  enabled = false,
+  hidden = true,
+  energy_required = M.CHARGE_SECONDS,
+  ingredients = {
+    { type = "item", name = M.CAN, amount = M.CAN_PER_LAUNCH },
+    { type = "item", name = M.FUEL, amount = M.FUEL_PER_LAUNCH },
+  },
+  results = { { type = "item", name = M.CHARGE, amount = 1 } },
+  allow_productivity = false,   -- a launch charge is not an intermediate to farm
+}
+
+-- Recipe to BUILD the driver (gated behind the tech). Native metal + electronics +
+-- Cindra aluminium; deliberately no plastic/processing-units (petrochemical-free).
 local driver_recipe = {
   type = "recipe",
   name = M.DRIVER,
-  enabled = false,  -- unlocked by cindra-orbital-launch
-  energy_required = 5,
+  enabled = false,
+  energy_required = 30,
   ingredients = {
-    { type = "item", name = "steel-plate", amount = 50 },
-    { type = "item", name = "iron-gear-wheel", amount = 20 },
-    { type = "item", name = "copper-cable", amount = 40 },
+    { type = "item", name = "steel-plate", amount = 200 },
+    { type = "item", name = "concrete", amount = 100 },
+    { type = "item", name = "cindra-aluminium", amount = 50 },
+    { type = "item", name = "iron-gear-wheel", amount = 100 },
+    { type = "item", name = "copper-cable", amount = 100 },
   },
   results = { { type = "item", name = M.DRIVER, amount = 1 } },
 }
 
--- Shell recipe: pure native metal. No plastic, no sulfuric acid, no rocket fuel.
-local shell_recipe = {
-  type = "recipe",
-  name = M.SHELL,
-  enabled = false,  -- unlocked by cindra-orbital-launch
-  energy_required = 2,
-  ingredients = {
-    { type = "item", name = "steel-plate", amount = 5 },
-  },
-  results = { { type = "item", name = M.SHELL, amount = 1 } },
-}
-
 -- === Technology: an ADVANCED unlock in the folded Cindra science tree =========
 -- FOLDED INTO THE CINDRA TREE (ci-3or, §15-12): orbital launch is an advanced
--- capability, so it now (a) branches off `cindra-science` -- you must master the
+-- capability, so it (a) branches off `cindra-science` -- you must master the
 -- headline science before you can export -- and (b) is RESEARCHED WITH the Cindra
 -- science pack, making the pack's downstream unlocks real. The `planet-discovery-
 -- cindra` prereq is kept so the tech still reads as Cindra's own signature
@@ -188,7 +251,9 @@ local technology = {
   icon_mipmaps = 4,
   effects = {
     { type = "unlock-recipe", recipe = M.DRIVER },
-    { type = "unlock-recipe", recipe = M.SHELL },
+    { type = "unlock-recipe", recipe = M.CAN },
+    { type = "unlock-recipe", recipe = M.POWDER },
+    { type = "unlock-recipe", recipe = M.FUEL },
   },
   prerequisites = { "planet-discovery-cindra", "cindra-science" },
   unit = {
@@ -205,9 +270,10 @@ local technology = {
 }
 
 data:extend({
-  driver, charger,
-  driver_item, shell_item,
-  driver_recipe, shell_recipe,
+  charge_category,
+  driver,
+  driver_item, can_item, powder_item, fuel_item, charge_item,
+  driver_recipe, can_recipe, powder_recipe, fuel_recipe, charge_recipe,
   technology,
 })
 

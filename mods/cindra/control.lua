@@ -18,11 +18,10 @@
 local driver = require("scripts.driver")
 driver.register()
 
--- §15-11 mass-driver launch loop. Its own track: build/remove events + a distinct
--- fire tick (N=31), disjoint from the worldgen driver's handlers. Registered here
--- alongside the worldgen driver; the single on_init below fans out to both.
-local mass_driver = require("scripts.mass-driver")
-mass_driver.register()
+-- §15-11 mass driver: a reskinned ROCKET-SILO (prototypes/mass-driver.lua, ci-o39).
+-- It launches and delivers cargo to orbit via the NATIVE vanilla rocket path, so it
+-- needs NO runtime loop here -- the old scripted fire/charge loop was removed with
+-- the composite-container design.
 
 -- Cross-mod flare forecast (the `cindra-flare` remote interface, ci-2ba/ci-3o3).
 -- The standalone environmental scanner calls `forecast(surface_index)` to act as
@@ -37,7 +36,6 @@ remote.add_interface("cindra-flare", {
 
 local function on_init()
   driver.init()
-  mass_driver.init()
 end
 script.on_init(on_init)
 script.on_configuration_changed(on_init)
