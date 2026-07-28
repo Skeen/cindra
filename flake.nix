@@ -143,6 +143,8 @@
           pkgs.lua # plain-Lua unit tests (unit-tests/test_*.lua)
           pkgs.git
           pkgs.patchelf # scripts/patchelf-factorio.sh (NixOS)
+          pkgs.jq # play.sh -> scripts/fetch-mod.sh (mod-portal JSON)
+          pkgs.curl # play.sh -> scripts/fetch-mod.sh (mod-portal download)
           cindra-test
         ];
       in

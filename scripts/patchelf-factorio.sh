@@ -18,7 +18,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-BIN=factorio/bin/x64/factorio
+# Target binary. Defaults to the in-repo install, but play.sh passes the
+# resolved binary path so a FACTORIO_PATH / FACTORIO_DIR override gets patched
+# too. An absolute path is used as-is; a relative one resolves against the repo
+# root (this script cd'd there above).
+BIN=${1:-factorio/bin/x64/factorio}
 if [ ! -f "$BIN" ]; then
   echo "Factorio binary not found at $BIN" >&2
   exit 1

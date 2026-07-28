@@ -6,7 +6,7 @@
     "test:integration": "cindra-test",
     "test:integration:graphics": "cindra-test -g",
     "test:unit": "cd mods/cindra && for f in unit-tests/test_*.lua; do echo \"# $f\" && lua \"$f\" || exit 1; done",
-    "test:play": "bash tests/play-sh.test.sh",
+    "test:play": "bash tests/play-sh.test.sh && bash tests/play-patchelf.test.sh",
     "test": "npm run test:unit && npm run test:play && npm run test:integration"
   },
   "devDependencies": {

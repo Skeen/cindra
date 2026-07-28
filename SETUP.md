@@ -2,8 +2,8 @@
 
 The repo is self-contained for **source and the dev/test toolchain**: a
 `flake.nix` provides factorio-test (built from upstream, no longer vendored)
-plus node, lua, python+numpy+pillow, imagemagick, blender, patchelf, and a
-`cindra-test` runner. Two things are **not** in the flake and must be provided
+plus node, lua, python+numpy+pillow, imagemagick, blender, patchelf, jq + curl
+(for `play.sh`'s mod fetch), and a `cindra-test` runner. Two things are **not** in the flake and must be provided
 locally after a fresh clone: the Factorio game binary (licensing) and the node
 package for `factorio-test-cli`.
 
@@ -51,12 +51,20 @@ To create a fresh install:
    ```
 3. **On NixOS**, patch the binary so graphics work:
    ```sh
-   ./scripts/patchelf-factorio.sh
+   ./scripts/patchelf-factorio.sh          # patches ./factorio by default
+   ./scripts/patchelf-factorio.sh /path/to/other/bin/x64/factorio   # or a specific binary
    ```
    Sets a concrete nix-store glibc ELF interpreter **and** the RUNPATH so SDL can
    find libX11 / libGL at runtime. **Required after every fresh extraction** — a
-   stock tarball ships the FHS interpreter, which crashes SDL with the misleading
+   stock tarball ships the FHS interpreter, which gives "cannot execute: required
+   file not found" on NixOS, and its empty RUNPATH crashes SDL with the misleading
    "No available video device" even on a machine with a display.
+
+   You usually don't need to run this by hand: **`./play.sh` auto-detects an
+   unpatched binary** (a missing interpreter, or on NixOS a missing RUNPATH) and
+   runs this script on the binary it resolved — including one pointed at via
+   `FACTORIO_PATH` / `FACTORIO_DIR` — before launching. Set `PLAY_NO_PATCHELF=1`
+   to skip the auto-run and just be told the exact command.
 
 Verify:
 
@@ -103,6 +111,12 @@ portal into `.play-cache/` (using the install's `player-data.json` credentials,
 so log into factorio.com in-game once). Set `PLAY_NO_FETCH=1` to stay offline —
 play.sh then launches with whatever it found and skips any missing mod. A shared
 install that already ships `helmod_*.zip` in its `mods/` needs no download.
+
+Run `./play.sh` **from inside `nix develop`**: the fetch fallback needs `jq` and
+`curl` (both provided by the dev shell), and on NixOS play.sh auto-runs
+`patchelf-factorio.sh` (which needs `patchelf` + `nix`) on an unpatched binary
+before launching. Outside the shell, install those tools yourself or the fetch /
+auto-patch steps are skipped with a warning.
 
 ## Regenerated automatically — do NOT add these manually
 

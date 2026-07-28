@@ -31,19 +31,50 @@ if [ ! -x "$FACTORIO_BIN" ]; then
   exit 1
 fi
 
+# Resolve to an absolute, symlink-free path so the patchelf step below (and the
+# FACTORIO_ROOT derivation) work regardless of how we were pointed at the binary
+# (relative ./factorio, a symlink to a shared install, FACTORIO_DIR override).
+FACTORIO_BIN=$(realpath "$FACTORIO_BIN")
+
 # The install root holds mods/ and player-data.json (bin/x64/factorio -> root).
 FACTORIO_ROOT=$(cd "$(dirname "$FACTORIO_BIN")/../.." && pwd)
 
-# Guard: if the binary lost its RUNPATH (steam update, fresh extraction, etc.)
-# SDL will crash deep in SDLWindow.cpp with the misleading "No available video
-# device". Catch it here with a clear pointer to the fix. Only enforced for a
-# real dynamic ELF, so a test stub (plain script) sails through.
-if command -v readelf >/dev/null 2>&1 \
-   && readelf -d "$FACTORIO_BIN" 2>/dev/null | grep -q 'Dynamic section' \
-   && ! readelf -d "$FACTORIO_BIN" 2>/dev/null | grep -q 'R\(UN\)\?PATH'; then
-  echo "Factorio binary has no RUNPATH; SDL will fail to find libX11/libXss/libGL." >&2
-  echo "Re-patchelf it with: ./scripts/patchelf-factorio.sh" >&2
-  exit 1
+# On NixOS a freshly extracted Factorio binary won't launch as-is: its ELF
+# interpreter points at /lib64/ld-linux (absent on NixOS -> "cannot execute:
+# required file not found"), and it carries no RUNPATH, so SDL later dies deep
+# in SDLWindow.cpp with the misleading "No available video device".
+# scripts/patchelf-factorio.sh bakes concrete nix-store paths in to fix both.
+# Detect an unpatched binary and auto-run the patcher on it (set
+# PLAY_NO_PATCHELF=1 to skip and just be told the command). Only a real dynamic
+# ELF is inspected, so a plain-script test stub sails through. A missing
+# interpreter is fatal on any distro, so that check is unconditional; the
+# empty-RUNPATH check is gated on NixOS, since an FHS distro's Factorio has no
+# RUNPATH yet finds its libs via the standard loader search.
+PATCHELF_SCRIPT=${PLAY_PATCHELF_CMD:-scripts/patchelf-factorio.sh}
+if command -v patchelf >/dev/null 2>&1; then
+  interp=$(patchelf --print-interpreter "$FACTORIO_BIN" 2>/dev/null || true)
+  if [ -n "$interp" ]; then   # empty => not an ELF (e.g. a test stub) => nothing to patch
+    rpath=$(patchelf --print-rpath "$FACTORIO_BIN" 2>/dev/null || true)
+    needs_patch=0
+    [ -e "$interp" ] || needs_patch=1                          # loader missing -> can't exec anywhere
+    [ -e /etc/NIXOS ] && [ -z "$rpath" ] && needs_patch=1      # no RUNPATH -> SDL fails on NixOS
+    if [ "$needs_patch" = 1 ]; then
+      if [ "${PLAY_NO_PATCHELF:-0}" = 1 ]; then
+        echo "Factorio binary at $FACTORIO_BIN looks unpatched for NixOS (interpreter/RUNPATH)." >&2
+        echo "Patch it with: ./scripts/patchelf-factorio.sh \"$FACTORIO_BIN\"" >&2
+        exit 1
+      fi
+      echo "Factorio binary looks unpatched for NixOS; running patchelf-factorio.sh on it..." >&2
+      "$PATCHELF_SCRIPT" "$FACTORIO_BIN" || {
+        echo "patchelf-factorio.sh failed (see output above). Retry manually with:" >&2
+        echo "  ./scripts/patchelf-factorio.sh \"$FACTORIO_BIN\"" >&2
+        exit 1
+      }
+    fi
+  fi
+else
+  echo "patchelf not on PATH; skipping the NixOS binary check." >&2
+  echo "If the game won't launch, enter 'nix develop' and/or run ./scripts/patchelf-factorio.sh." >&2
 fi
 
 # Cache for mods fetched from the portal (APS / Helmod). Gitignored; reused
