@@ -159,10 +159,24 @@ describe("cindra worldgen: a real noise-driven ribbon world (§4, §15-2; ci-3yl
       assert.are.equal("resource", ctrl.category, n .. " is a resource slider")
     end
     assert.is_nil(prototypes.autoplace_control["cindra-volatiles"],
-      "the standalone volatiles resource slider is gone (volatiles come from the ice chain)")
+      "the standalone volatiles resource slider is gone (volatiles come from a processing recipe)")
     assert.is_nil(prototypes.entity["cindra-volatiles"],
       "there is no standalone volatiles resource entity")
-    -- The volatiles ITEM survives (a science-pack input from the ice chain).
+    -- The volatiles ITEM survives (a science-pack input from a processing recipe).
     assert.is_not_nil(prototypes.item["cindra-volatiles"], "the volatiles item survives")
+  end)
+
+  it("the ice field is a single-product drop: ONLY the oxide chunk, no volatiles (ci-4xx)", function()
+    -- ci-4xx relocated volatiles from a mining yield to a processing recipe. The
+    -- field must now drop ONLY the vanilla oxide chunk; nothing on the resource
+    -- may yield cindra-volatiles.
+    local products = prototypes.entity["cindra-ice"].mineable_properties.products
+    local names = {}
+    for _, p in ipairs(products) do names[p.name] = true end
+    assert.is_true(names["oxide-asteroid-chunk"], "the ice field still yields the vanilla oxide chunk")
+    assert.is_nil(names["cindra-volatiles"],
+      "mining the ice field must NOT drop volatiles -- they are a processing output now")
+    assert.are.equal(1, #products,
+      "the ice field is a single-product resource (just the oxide chunk)")
   end)
 end)

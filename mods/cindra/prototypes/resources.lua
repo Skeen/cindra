@@ -2,11 +2,12 @@
 --
 -- The resource LIST and where each lives on the ribbon axis:
 --   stone      -> the ribbon surface (feedstock for manufactured lava)
---   ice field  -> the nightside; yields the vanilla `oxide-asteroid-chunk` that the
---                 vanilla crush -> melt chain turns into water / calcite (ci-3mx),
---                 AND a chance of the frozen volatiles the science pack needs, so
---                 there is NO standalone volatiles resource or map-gen slider
---                 (ci-3yl): deep-nightside ice IS the volatiles chain.
+--   ice field  -> the nightside; yields ONLY the vanilla `oxide-asteroid-chunk`
+--                 that the vanilla crush -> melt chain turns into water / calcite
+--                 (ci-3mx). There is NO standalone volatiles resource or map-gen
+--                 slider (ci-3yl) and volatiles are NOT a mining yield (ci-4xx):
+--                 the frozen volatiles the science pack needs come from PROCESSING
+--                 the chunk (prototypes/ice-processing.lua), not from the field.
 --   bootstrap rocks -> scattered near the terminator, hand-gathered, FINITE
 --                 (the landing-tier trickle of metal, §6)
 --
@@ -44,11 +45,13 @@ local function ribbon_cfg()
 end
 local CFG = ribbon_cfg()
 
--- The deep-nightside frozen volatiles, a science-pack input. It is NO LONGER a
--- standalone mined resource with its own map-gen slider (ci-3yl); the ITEM
--- survives and is obtained from the deep-nightside ICE chain (mining ice yields a
--- chance of volatiles, see cindra_ice_resource below). Placeholder icon reuses the
--- vanilla ice item art (bespoke art is a later pass).
+-- The deep-nightside frozen volatiles, a science-pack input. It is NOT a mined
+-- resource: it has no map-gen slider (ci-3yl) and is NO LONGER a mining yield of
+-- the ice field either (ci-4xx). The ITEM survives and is obtained from a
+-- PROCESSING recipe -- crushing the deep-nightside oxide chunks in the ice crusher
+-- sublimes out the frozen volatile fraction (prototypes/ice-processing.lua, per
+-- DESIGN §11). Mining the ice field yields ONLY the vanilla oxide chunk.
+-- Placeholder icon reuses the vanilla ice item art (bespoke art is a later pass).
 data:extend({
   {
     type = "item",
@@ -117,27 +120,18 @@ end
 -- The vanilla ice-chunk item a Cindra ice field yields (ci-3mx): the whole ice
 -- chain reuses vanilla recipes (crush -> ice + calcite, melt -> water).
 local ICE_ITEM = "oxide-asteroid-chunk"
--- Chance a mined ice node also yields a unit of frozen volatiles. Deep-nightside
--- ice is the volatiles chain (ci-3yl), so ice mining is where volatiles come from.
-local VOLATILES_FROM_ICE_PROBABILITY = 0.4
 
--- The Cindra ice resource: ice-chunk patches that ALSO yield frozen volatiles when
--- mined. Built on the shared `cindra_resource` clone, then its single-product
--- mining is swapped for a multi-product drop (the vanilla ice chunk + a chance of
--- volatiles) so the science pack's volatiles come from working the nightside ice,
--- with no standalone volatiles ore or map-gen slider.
+-- The Cindra ice resource: ice-chunk patches that yield ONLY the vanilla
+-- oxide chunk (ci-4xx). Frozen volatiles are NOT a mining yield any more -- they
+-- come from a PROCESSING recipe (crushing the chunk, prototypes/ice-processing.lua),
+-- so mining the field is a single-product drop of the vanilla chunk that the crush
+-- -> melt chain (ci-3mx) turns into ice / calcite / water.
 local function cindra_ice_resource()
-  local r = cindra_resource("cindra-ice", ICE_ITEM, { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
+  return cindra_resource("cindra-ice", ICE_ITEM, { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
     banded_autoplace("cindra-ice",
       { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/ice.png")
-  r.minable.result = nil
-  r.minable.results = {
-    { type = "item", name = ICE_ITEM, amount = 1 },
-    { type = "item", name = "cindra-volatiles", amount = 1, independent_probability = VOLATILES_FROM_ICE_PROBABILITY },
-  }
-  return r
 end
 
 -- Autoplace-controls: one per resource so the new-game map-gen screen shows real
@@ -175,14 +169,15 @@ data:extend({
       { order = "a", base_density = 8, base_spots_per_km2 = 2.5, has_starting_area_placement = true },
       field.stone_mask_expr(CFG), field.stone_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/cindra-stone.png"),
-  -- Ice: the nightside's single signature raw, and the SOURCE of the deep-nightside
-  -- frozen volatiles the science pack needs (ci-3yl: no standalone volatiles
-  -- resource). It yields the VANILLA `oxide-asteroid-chunk` so the whole ice chain
-  -- reuses vanilla recipes (crush -> ice + calcite, melt -> water; ci-3mx) AND a
-  -- chance of frozen volatiles. Cold blue; patches nightward of the safe band,
-  -- richer the deeper (colder) they sit, with a starting patch near the terminator.
-  -- The DEPOSIT reads as "Ice field" (entity-name.cindra-ice); the mined items are
-  -- the vanilla chunk + the Cindra volatiles item (we never rename the vanilla item).
+  -- Ice: the nightside's single signature raw. It yields ONLY the VANILLA
+  -- `oxide-asteroid-chunk` (ci-4xx) so the whole ice chain reuses vanilla recipes
+  -- (crush -> ice + calcite, melt -> water; ci-3mx). The frozen volatiles the
+  -- science pack needs are NOT a mining yield: they come from PROCESSING the chunk
+  -- (prototypes/ice-processing.lua), not from the field. Cold blue; patches
+  -- nightward of the safe band, richer the deeper (colder) they sit, with a
+  -- starting patch near the terminator. The DEPOSIT reads as "Ice field"
+  -- (entity-name.cindra-ice); the mined item is the vanilla chunk (we never rename
+  -- the vanilla item).
   cindra_ice_resource(),
 })
 

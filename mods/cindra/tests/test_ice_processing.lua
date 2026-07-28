@@ -16,7 +16,9 @@ local CRUSHER = "cindra-ice-crusher"
 local R_OXIDE = "oxide-asteroid-crushing"
 local R_OXIDE_ADV = "advanced-oxide-asteroid-crushing"
 local R_MELT = "ice-melting"
+local R_VOLATILES = "cindra-volatiles"
 local CHUNK = "oxide-asteroid-chunk"
+local VOLATILES = "cindra-volatiles"
 
 local function products(recipe)
   local out = {}
@@ -163,6 +165,65 @@ describe("cindra ice processing: the nightside deposit + tech unlock", function(
     local item = prototypes.item[CRUSHER]
     assert.is_not_nil(item, "the crusher item must exist")
     assert.are.equal(CRUSHER, item.place_result.name, "the item places the crusher")
+  end)
+end)
+
+describe("cindra volatiles: a PROCESSING recipe on the crusher, not a mining yield (ci-4xx)", function()
+  it("the volatiles recipe is a crushing recipe: oxide chunk -> cindra-volatiles", function()
+    local r = prototypes.recipe[R_VOLATILES]
+    assert.is_not_nil(r, "the cindra-volatiles processing recipe must exist")
+    assert.is_true(in_category(R_VOLATILES, "crushing"),
+      "it must be a `crushing` recipe so the ground crusher runs it (reuse the ice crusher)")
+    assert.is_true((ingredients(R_VOLATILES)[CHUNK] or 0) > 0,
+      "it consumes the deep-nightside oxide chunk (the field's only yield now)")
+    assert.is_true((products(R_VOLATILES)[VOLATILES] or 0) > 0,
+      "it produces the frozen volatiles the science pack needs")
+  end)
+
+  it("the crusher can run it (the volatiles recipe is in the crusher's crafting categories)", function()
+    assert.is_true(prototypes.entity[CRUSHER].crafting_categories["crushing"],
+      "the ice crusher crafts `crushing` recipes, so it runs the volatiles extraction too")
+  end)
+
+  it("planet-discovery-cindra unlocks the volatiles recipe (reachable with the rest of the chain)", function()
+    local tech = prototypes.technology["planet-discovery-cindra"]
+    local unlocked = {}
+    for _, effect in pairs(tech.effects) do
+      if effect.type == "unlock-recipe" then unlocked[effect.recipe] = true end
+    end
+    assert.is_true(unlocked[R_VOLATILES],
+      "discovery unlocks the volatiles processing recipe (no chicken-and-egg for the science pack)")
+    assert.is_false(prototypes.recipe[R_VOLATILES].enabled,
+      "the volatiles recipe is unlocked by research, not free")
+  end)
+
+  it("end-to-end: the Cindra crusher turns chunks into volatiles (runtime)", function()
+    local s = H.cindra_surface()
+    s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
+    local power = s.create_entity({
+      name = "electric-energy-interface", position = { 4, 0 }, force = "player",
+    })
+    power.power_production = 10000000
+    power.electric_buffer_size = 10000000
+    power.energy = 10000000
+
+    game.forces["player"].recipes[R_VOLATILES].enabled = true
+
+    local crusher = s.create_entity({ name = CRUSHER, position = { 0, 0 }, force = "player" })
+    crusher.set_recipe(R_VOLATILES)
+    crusher.insert({ name = CHUNK, count = 10 })
+
+    async(2400)
+    after_ticks(900, function()
+      assert.is_true(crusher.valid)
+      local vol = crusher.get_item_count(VOLATILES)
+      assert.is_true(vol > 0,
+        "the crusher must have produced volatiles from oxide chunks (got " .. vol
+          .. ", chunks left " .. crusher.get_item_count(CHUNK) .. ")")
+      power.destroy()
+      crusher.destroy()
+      done()
+    end)
   end)
 end)
 

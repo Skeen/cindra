@@ -113,16 +113,26 @@ describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", funct
     -- The stone resource yields the vanilla `stone` item that the lava spine eats.
     assert.are.equal("stone", prototypes.entity["cindra-stone"].mineable_properties.products[1].name,
       "the Cindra stone resource must yield the `stone` item (the lava recipe's input)")
-    -- Volatiles are no longer a standalone resource; the deep-nightside ICE chain
-    -- yields them, so hand-mining ice is the hand-root for volatiles. Prove ice
-    -- drops both the vanilla ice chunk (crush->melt chain, ci-3mx) and the volatiles item.
+    -- The ice field yields ONLY the vanilla ice chunk (ci-4xx): volatiles are no
+    -- longer a mining yield. The chunk feeds the crush->melt chain (ci-3mx) AND the
+    -- volatiles-extraction recipe (below); mining the field is a single-product drop.
     local ice_products = {}
     for _, p in ipairs(prototypes.entity["cindra-ice"].mineable_properties.products) do
       ice_products[p.name] = true
     end
     assert.is_true(ice_products["oxide-asteroid-chunk"], "the ice field yields the vanilla ice chunk")
-    assert.is_true(ice_products["cindra-volatiles"],
-      "the ice field ALSO yields frozen volatiles (the deep-nightside volatiles source)")
+    assert.is_nil(ice_products["cindra-volatiles"],
+      "the ice field must NOT yield volatiles any more -- they come from a PROCESSING recipe (ci-4xx)")
+
+    -- Volatiles are now a PROCESSING output: a recipe produces them from the chunk,
+    -- so working the mined chunk (not the mining drop) is the root for volatiles.
+    local vol_recipe = prototypes.recipe["cindra-volatiles"]
+    assert.is_not_nil(vol_recipe, "a processing recipe must produce cindra-volatiles (ci-4xx)")
+    local makes_volatiles = false
+    for _, p in pairs(vol_recipe.products) do
+      if p.name == "cindra-volatiles" then makes_volatiles = true end
+    end
+    assert.is_true(makes_volatiles, "the cindra-volatiles recipe must actually produce the volatiles item")
   end)
 end)
 

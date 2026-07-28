@@ -9,9 +9,10 @@ in-repo condensation plus the concrete decisions taken during implementation.
 > **Status: foundation + worldgen + ice processing + headline science.** §15 items 1–4 are
 > implemented and tested: the planet + surface + ribbon temperature axis (item 1),
 > the lethal edges — gradient damage, hard-wall backstop, nightside building-heat
-> (item 2), the world resources — stone / ice / volatiles / bootstrap rocks
+> (item 2), the world resources — stone / ice / bootstrap rocks
 > (item 3), and ice processing — the ground crusher + the vanilla oxide-crushing →
-> `ice` (+ calcite) and chemical-plant `ice-melting` → water recipes (item 4, §5a).
+> `ice` (+ calcite), chemical-plant `ice-melting` → water, and the
+> `oxide-chunk → cindra-volatiles` extraction recipes (item 4, §5a).
 > The remaining §15 items (5–14) are the backlog in
 > [`TODO.md`](TODO.md), each tracked by a follow-up bead (prefix `ci-`).
 
@@ -157,12 +158,14 @@ near spawn. Each is banded to the ribbon by a perpendicular-axis mask emitted fr
 | Resource (`cindra-*`) | Band on the axis | Richness | Yields |
 |---|---|---|---|
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
-| ice field | nightside (`Y < −safe`) | richer deeper (colder) | `oxide-asteroid-chunk` (vanilla; crushed → `ice` + `calcite`, ci-3mx) **+ a chance of `cindra-volatiles`** |
+| ice field | nightside (`Y < −safe`) | richer deeper (colder) | `oxide-asteroid-chunk` **only** (vanilla; crushed → `ice` + `calcite`, ci-3mx) |
 | bootstrap rock | terminator scatter, finite disk near spawn (`|Y| ≤ safe`, `distance < range`) | n/a (finite) | `stone` + `iron-ore` + `copper-ore` + `coal` |
 
-There is **no standalone volatiles resource or map-gen slider** (ci-3yl): the
-frozen volatiles the science pack needs come from mining the deep-nightside ice
-field (which also drops the vanilla ice chunk). The `cindra-volatiles` item
+There is **no standalone volatiles resource or map-gen slider** (ci-3yl), and the
+ice field is a **single-product drop of the vanilla oxide chunk** — mining it no
+longer yields volatiles (ci-4xx). The frozen volatiles the science pack needs come
+from a **processing recipe** (`oxide-asteroid-chunk → cindra-volatiles`, crushed in
+the ice crusher; §5a, DESIGN §11), not from the field. The `cindra-volatiles` item
 survives as a science input.
 
 The best of everything sits at the lethal margins (edge-pushing reward). Every
@@ -199,7 +202,8 @@ track's files or a shared file.**
   `prototypes/aluminium.lua`, `prototypes/flare.lua`, `prototypes/storage.lua`,
   `prototypes/electric-heater.lua`, `prototypes/mass-driver.lua`,
   `prototypes/science.lua`, and their runtime. Consumes the worldgen resources
-  (`stone` / `ice` / `cindra-volatiles`) and registers heat sources by adding
+  (`stone` / `ice`; `cindra-volatiles` is a processing output of the ice chain, not
+  a mined resource) and registers heat sources by adding
   their name to `building-heat.HEAT_SOURCE_NAMES`.
 - **Companion mods (`ci-27s`):** `mods/cindra-start`, `mods/cindra-dev-default`.
 - **Foundation-owned, shared (edit minimally, additively):** `data.lua`,
@@ -316,6 +320,16 @@ prototype — the ground crusher — and nothing else.
 - **Melt = the vanilla `ice-melting` in the vanilla chemical plant.** The vanilla
   `chemical-plant` (category `chemistry`, placeable on any gravity) runs the vanilla
   `ice-melting` recipe (`ice` → `water`). No custom melter is cloned at all.
+- **Extract volatiles = the one Cindra recipe here (ci-4xx).** The frozen volatiles
+  the science pack needs are a **processing output, not a mining yield**: the ice
+  field drops only the oxide chunk (§4a), and a new `crushing` recipe on the same
+  ground crusher sublimes the volatile fraction out of the chunk
+  (`oxide-asteroid-chunk → cindra-volatiles`). It is petrochemical-free (solid in,
+  solid out) and is unlocked by the same `planet-discovery-cindra` tech as the rest
+  of the chain, so volatiles are already producible by the time the science pack
+  (gated far downstream behind `cindra-aluminium`) is researchable — no
+  chicken-and-egg, science stays craftable end-to-end. This relocates the old
+  ci-3yl mining-yield source onto an honest processing step (DESIGN §11).
 - **No new/equivalent tech.** The whole chain (the crusher build recipe + the three
   vanilla recipes) is unlocked by the existing **`planet-discovery-cindra`** tech
   (we append the unlock effects to it). Normal play researches discovery to reach
@@ -326,8 +340,10 @@ prototype — the ground crusher — and nothing else.
 
 Tested end-to-end in `tests/test_ice_processing.lua`: a powered crush of
 `oxide-asteroid-chunk` → `ice` on the Cindra crusher, then `ice` → `water` in a
-chemical plant on the Cindra surface, plus guards that no custom ice
-item/recipe/melter/tech survives and the vanilla prototypes are unchanged.
+chemical plant on the Cindra surface, a powered crush of `oxide-asteroid-chunk` →
+`cindra-volatiles` (the extraction recipe), plus guards that no custom ice
+item/recipe/melter/tech survives, that the ice field drops only the oxide chunk
+(no volatiles), and that the vanilla prototypes are unchanged.
 
 ### 5b. Start-on-Cindra foundry bootstrap — IMPLEMENTED (ci-arw)
 

@@ -74,6 +74,49 @@ describe("cindra science pack: petrochemical-free, native inputs only", function
       "and the deep-nightside volatiles -- both lethal edges in one pack")
   end)
 
+  it("sources its volatiles from a PROCESSING recipe, not a mining yield (ci-4xx)", function()
+    -- ci-4xx relocated volatiles off the ice field's mining drop and onto a
+    -- processing recipe. Prove the science-pack input is obtainable that way:
+    -- (1) a recipe produces cindra-volatiles, (2) it consumes only native inputs
+    -- (petrochemical-free like the pack itself), (3) the ice field does NOT drop
+    -- volatiles, and (4) the recipe is reachable (unlocked before/with the pack).
+    local vr = prototypes.recipe[VOLATILES]
+    assert.is_not_nil(vr, "a recipe named cindra-volatiles must exist (the processing source)")
+
+    local makes = false
+    for _, p in pairs(vr.products) do if p.name == VOLATILES then makes = true end end
+    assert.is_true(makes, "the recipe must actually produce the volatiles item")
+
+    assert.is_true(#vr.ingredients > 0, "volatiles must cost a real input (a worked output, not free)")
+    for _, ing in pairs(vr.ingredients) do
+      assert.is_nil(PETROCHEMICAL[ing.name],
+        "volatiles-processing input '" .. ing.name .. "' must be petrochemical-free")
+    end
+
+    -- The field itself must NOT drop volatiles any more (the whole point of ci-4xx).
+    local field = prototypes.entity["cindra-ice"]
+    if field then
+      for _, p in ipairs(field.mineable_properties.products) do
+        assert.are_not.equal(VOLATILES, p.name,
+          "mining the ice field must not yield volatiles -- they are a processing output now")
+      end
+    end
+
+    -- Reachable: the recipe is research-gated (never free) and unlocked by the
+    -- Cindra discovery tech -- which is transitively required before the pack tech
+    -- (cindra-science -> cindra-aluminium -> the discovery-gated ice chain), so the
+    -- science pack stays craftable end-to-end with no chicken-and-egg.
+    assert.is_false(vr.enabled, "the volatiles recipe is unlocked by research, not free")
+    local discovery = prototypes.technology["planet-discovery-cindra"]
+    assert.is_not_nil(discovery, "the Cindra discovery tech must exist")
+    local unlocks_volatiles = false
+    for _, e in pairs(discovery.effects) do
+      if e.type == "unlock-recipe" and e.recipe == VOLATILES then unlocks_volatiles = true end
+    end
+    assert.is_true(unlocks_volatiles,
+      "planet-discovery-cindra must unlock the volatiles recipe (reachable with the rest of the ice chain)")
+  end)
+
   it("produces a real science-pack item (in the science-pack subgroup)", function()
     local item = prototypes.item[PACK]
     assert.is_not_nil(item, "the cindra-science-pack item must exist")
