@@ -94,6 +94,22 @@ describe("power system prototypes", function()
       "capacitor buffer must be SMALLER than a vanilla accumulator's (not a reservoir)")
     assert.is_true(C.CAPACITOR_FLOW_W > C.CAPACITOR_BUFFER_J,
       "capacitor flow (spike) must dwarf its buffer")
+
+    -- The capacitor also self-discharges when idle (ci-411), but only a SLIGHT
+    -- trickle -- much gentler than the battery's punishing heat upkeep. Verified
+    -- live in test_storage; here we lock the config-level ordering.
+    assert.is_true(C.CAPACITOR_UPKEEP_FRACTION > 0,
+      "capacitor must pay a slight self-discharge leak when idle")
+    assert.is_true(C.CAPACITOR_UPKEEP_FRACTION < C.BATTERY_UPKEEP_FRACTION,
+      "capacitor leak fraction must be well below the battery's (much gentler)")
+    -- Gentler still in absolute energy terms: the capacitor's per-tick bleed
+    -- (fraction * its small buffer) must be far below the battery's, so its real
+    -- self-discharge rate is milder both as a fraction AND as raw watts.
+    local cap_bleed = C.CAPACITOR_UPKEEP_FRACTION * C.CAPACITOR_BUFFER_J
+    local bat_bleed = C.BATTERY_UPKEEP_FRACTION * C.BATTERY_BUFFER_J
+    assert.is_true(cap_bleed * 5 < bat_bleed,
+      "capacitor's absolute per-tick self-discharge must be far below the battery's: cap="
+      .. cap_bleed .. " bat=" .. bat_bleed)
   end)
 
   it("registers the molten-salt battery as large-ish/slow/CHEAP/LEAKY (ci-wcu tuning)", function()

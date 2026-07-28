@@ -85,17 +85,31 @@ function M.capture(surface, network_id)
   }
 end
 
--- Heat upkeep for molten-salt batteries: they bleed a small fraction of their
--- capacity per flare-driver tick when idle, so the battery is itself a mild
--- power sink and thrives here / is awkward elsewhere. The capacitor has no such
--- drain. Per-surface only.
-function M.apply_battery_upkeep(surface)
-  for _, b in pairs(surface.find_entities_filtered({ name = C.BATTERY })) do
-    local drain = b.electric_buffer_size * C.BATTERY_UPKEEP_FRACTION
-    if b.energy > 0 then
-      b.energy = math.max(0, b.energy - drain)
+-- Idle self-discharge shared by both storage tiers: an accumulator of `name`
+-- bleeds `fraction` of its capacity per flare-driver tick when it holds charge.
+-- Per-surface only (the caller passes a Cindra surface).
+local function apply_upkeep(surface, name, fraction)
+  for _, a in pairs(surface.find_entities_filtered({ name = name })) do
+    local drain = a.electric_buffer_size * fraction
+    if a.energy > 0 then
+      a.energy = math.max(0, a.energy - drain)
     end
   end
+end
+
+-- Heat upkeep for molten-salt batteries: they bleed a small fraction of their
+-- capacity per flare-driver tick when idle, so the battery is itself a mild
+-- power sink and thrives here / is awkward elsewhere. This is the battery's
+-- signature downside (a punishing full-drain in ~5-10 min). Per-surface only.
+function M.apply_battery_upkeep(surface)
+  apply_upkeep(surface, C.BATTERY, C.BATTERY_UPKEEP_FRACTION)
+end
+
+-- The capacitor leaks too (ci-411), but MUCH more gently than the battery -- a
+-- slight trickle (~15-20 min to empty from full), not a punishing drain. Same
+-- upkeep mechanism, far lower rate. Per-surface only.
+function M.apply_capacitor_upkeep(surface)
+  apply_upkeep(surface, C.CAPACITOR, C.CAPACITOR_UPKEEP_FRACTION)
 end
 
 return M

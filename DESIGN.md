@@ -242,8 +242,10 @@ can react and circuit-automate a response per event, and the magnitude stays
 ~100× so capacity sizing still matters. It must **never be 100%-catchable**, and
 undisposed surplus **damages the panels producing it** (self-correcting,
 dissipator-as-fuse, degrade-before-death).
-Storage is a two-tier puzzle: **capacitor** (fast spike) + **molten-salt battery**
-(bulk plateau, heat-upkeep). The **electric heater** (capped heat / uncapped
+Storage is a two-tier puzzle: **capacitor** (fast spike, slight self-discharge
+leak) + **molten-salt battery** (bulk plateau, punishing heat-upkeep leak). Both
+bleed when idle; the capacitor only a gentle trickle (~15-20 min to empty), the
+battery far worse (~5-10 min). The **electric heater** (capped heat / uncapped
 draw) is the flare sink + water boil-off + nightside warmth. Goods leave by
 **mass driver** — a reskinned rocket-silo that **supports productivity modules** and
 assembles its launch vehicle **internally from raw materials** (raw **aluminium** +

@@ -1,8 +1,9 @@
 -- PROOF: storage charges on the flare and discharges after (§15-9; DESIGN.md §5).
 -- Live engine test: real panels drive real accumulators. The capacitor (fast,
 -- small) fills the spike quickly; the battery (bulk, slow) soaks more slowly.
--- After the flare, a load drains both. The molten-salt battery also self-
--- discharges from heat upkeep; the capacitor does not. Integrated from flare-poc.
+-- After the flare, a load drains both. Both tiers also self-discharge when idle:
+-- the molten-salt battery punishingly (heat upkeep, ~5-10 min), the capacitor
+-- much more gently (~15-20 min, ci-411). Integrated from flare-poc.
 
 local H = require("tests.helpers")
 local C = require("scripts.flare-config")
@@ -56,7 +57,7 @@ describe("storage", function()
     end)
   end)
 
-  it("molten-salt battery self-discharges from heat upkeep; capacitor does not", function()
+  it("both tiers self-discharge when idle, but the capacitor far more gently than the battery (ci-411)", function()
     local s = H.cindra_surface()
     H.power_reset()
     H.grid(s, 6, 10)
@@ -64,13 +65,20 @@ describe("storage", function()
     local bat = H.battery(s, { -6, 10 })
     cap.energy = cap.electric_buffer_size
     bat.energy = bat.electric_buffer_size
-    local bat0 = bat.energy
+    local cap0, bat0 = cap.energy, bat.energy
 
     sinks.apply_battery_upkeep(s)
+    sinks.apply_capacitor_upkeep(s)
 
-    assert.is_true(bat.energy < bat0, "battery must bleed energy to heat upkeep when idle")
-    assert.are.equal(cap.electric_buffer_size, cap.energy,
-      "capacitor has no heat upkeep and must not self-discharge")
+    local bat_drop = bat0 - bat.energy
+    local cap_drop = cap0 - cap.energy
+    -- Both leak, so neither stays full.
+    assert.is_true(bat_drop > 0, "battery must bleed energy to heat upkeep when idle")
+    assert.is_true(cap_drop > 0, "capacitor must also bleed a slight self-discharge leak when idle")
+    -- The capacitor's leak is MUCH milder: far less energy lost per upkeep tick.
+    assert.is_true(cap_drop * 5 < bat_drop,
+      "capacitor leak must be far gentler than the battery's: cap_drop=" .. cap_drop
+      .. " bat_drop=" .. bat_drop)
   end)
 
   it("molten-salt battery fully self-drains its 2.5 MJ in ~5-10 min unpowered (ci-wcu)", function()
@@ -97,5 +105,61 @@ describe("storage", function()
     for _ = five_min + 1, ten_min do sinks.apply_battery_upkeep(s) end
     assert.are.equal(0, bat.energy,
       "battery must be fully drained by 10 min unpowered: energy=" .. bat.energy)
+  end)
+
+  it("idle capacitor self-drains its 0.5 MJ in ~15-20 min unpowered -- far slower than the battery (ci-411)", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    local cap = H.capacitor(s, { -6, 6 })
+    cap.energy = cap.electric_buffer_size
+
+    -- Upkeep is applied once per flare-driver tick (every C.FLARE_INTERVAL game
+    -- ticks). Convert the 15-min and 20-min bounds to a whole number of upkeep
+    -- applications and drive the real drain that many times.
+    local function upkeep_ticks(minutes)
+      return math.floor(minutes * 60 * 60 / C.FLARE_INTERVAL)
+    end
+    local fifteen_min = upkeep_ticks(15)
+    local twenty_min = upkeep_ticks(20)
+
+    -- At the 15-minute mark it must NOT yet be empty (leak is a gentle trickle,
+    -- not punishing) -- this is well past the battery's ~5-10 min full-drain, so
+    -- the capacitor's leak is demonstrably far slower.
+    for _ = 1, fifteen_min do sinks.apply_capacitor_upkeep(s) end
+    assert.is_true(cap.energy > 0,
+      "capacitor must still hold charge at 15 min (leak is a slight trickle): energy=" .. cap.energy)
+
+    -- By the 20-minute mark it must be fully drained (leak is not so slow it never
+    -- empties): the ~15-20 min self-discharge window from the bead.
+    for _ = fifteen_min + 1, twenty_min do sinks.apply_capacitor_upkeep(s) end
+    assert.are.equal(0, cap.energy,
+      "capacitor must be fully drained by 20 min unpowered: energy=" .. cap.energy)
+  end)
+
+  it("a fed capacitor stays charged -- the gentle leak is overwhelmed by active charging (ci-411)", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    flare.set_schedule(WS)
+    H.grid(s, 6, 14)
+    H.panel_col(s, 4, 6)                     -- 24 MW surplus at peak feeds the grid
+    local cap = H.capacitor(s, { -6, 6 })
+    cap.energy = 0                           -- start empty; the flare must fill it
+
+    -- Hold the flare at peak: the panels far outproduce the trickle leak.
+    flare.apply(s, PEAK_TICK)
+    async(600)
+    after_ticks(300, function()
+      -- The flare charged the empty capacitor to (near) full despite the leak.
+      assert.is_true(cap.energy > 0.9 * cap.electric_buffer_size,
+        "a fed capacitor must charge to near full: energy=" .. cap.energy)
+      -- Bleed a full flare tick's worth of upkeep, then let the flare re-feed it:
+      -- the trickle leak is instantly overwhelmed by active charging.
+      sinks.apply_capacitor_upkeep(s)
+      after_ticks(60, function()
+        assert.is_true(cap.energy > 0.9 * cap.electric_buffer_size,
+          "the gentle leak must be overwhelmed by feeding: energy=" .. cap.energy)
+        done()
+      end)
+    end)
   end)
 end)
