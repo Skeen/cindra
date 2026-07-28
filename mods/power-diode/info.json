@@ -1,0 +1,11 @@
+{
+  "name": "power-diode",
+  "version": "0.1.0",
+  "title": "Power Diode (PoC)",
+  "author": "cindra",
+  "factorio_version": "2.1",
+  "description": "Standalone proof-of-concept: a 'power diode' that transfers electricity ONE WAY between two otherwise-isolated electric networks. Energy flows A->B up to a configurable rate cap and NEVER B->A. Bridges two networks with a scripted buffer pair (input accumulator on net A, output accumulator on net B). This later enables topologies like capacitor-dumps-into-battery where power must not flow back.",
+  "dependencies": [
+    "base >= 2.1"
+  ]
+}
