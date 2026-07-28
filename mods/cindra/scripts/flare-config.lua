@@ -128,6 +128,15 @@ C.DISSIPATOR_DRAW_W = 20e6 -- 20 MW per building
 C.CAPACITOR = "cindra-capacitor"
 C.CAPACITOR_BUFFER_J = 0.5e6 -- 0.5 MJ (1/10th a vanilla accumulator's 5 MJ)
 C.CAPACITOR_FLOW_W = 50e6    -- 50 MW  (charge AND discharge; >> accumulator 300 kW)
+-- Self-discharge: like the battery, the capacitor bleeds a fraction of its
+-- capacity per flare-driver tick when idle, but MUCH more gently (ci-411) -- a
+-- slight trickle, not the battery's punishing drain. Reuses the same upkeep
+-- mechanism (scripts/sinks.lua) at a far lower rate. Sized so a full 0.5 MJ
+-- capacitor bleeds empty in ~15-20 min unpowered: full-drain takes 1/FRACTION
+-- flare ticks = (1/FRACTION) * FLARE_INTERVAL / 60 seconds. At 0.00037 that is
+-- ~2703 ticks -> ~1036 s (~17.3 min), i.e. ~0.48 kW self-discharge -- roughly an
+-- order of magnitude gentler than the battery's ~5.5 kW.
+C.CAPACITOR_UPKEEP_FRACTION = 0.00037
 
 -- Molten-salt battery: large-ish, SLOW, CHEAP, LEAKY (ci-wcu). A moderate buffer
 -- with a trickle flow -> soaks a sustained plateau across an array but can never

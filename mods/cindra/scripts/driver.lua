@@ -66,13 +66,15 @@ local function on_building_heat_tick()
   for_each_cindra(function(s) building_heat.sweep(s) end)
 end
 
--- Advance the flare (daytime + multiplier along the curve) and bleed the
--- molten-salt batteries' idle heat upkeep.
+-- Advance the flare (daytime + multiplier along the curve) and bleed both
+-- storage tiers' idle self-discharge: the molten-salt battery's punishing heat
+-- upkeep and the capacitor's much gentler trickle (ci-411).
 local function on_flare_tick(event)
   if not driver_enabled() then return end
   for_each_cindra(function(s)
     flare.apply(s, event.tick)
     sinks.apply_battery_upkeep(s)
+    sinks.apply_capacitor_upkeep(s)
   end)
 end
 
