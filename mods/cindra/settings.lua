@@ -77,3 +77,43 @@ data:extend({
     order = "e-freeze-temp",
   },
 })
+
+-- PER-ZONE TERRAIN WIDTHS (ci-a35). Each visible terrain band (scripts/terrain.lua
+-- M.ZONES) has its OWN width, in tiles, from the sunward (hot) edge inward to the
+-- nightward (cold) edge. The generated world's perpendicular (across-ribbon) extent
+-- is the SUM of every zone width, so changing one width changes both that band AND
+-- the total ribbon width. These REPLACE the old single "ribbon width" as the map's
+-- perpendicular size (the map-gen `width`/`height`). Functional names, no "Ribbon".
+--
+-- The hot-lava band (band #1) always generates at the sunward extreme: its floor is
+-- 1 tile (terrain.HOT_LAVA_MIN_WIDTH) and its noise expression reaches the map edge.
+-- Ordered "f-zone-<nn>" so they group together below the ribbon-axis knobs, hot ->
+-- cold. Defaults mirror scripts/terrain.lua M.ZONES; all are (tune) starts (§16).
+local ZONE_WIDTH_DEFAULTS = {
+  { key = "hot-lava",              default = 8,  min = 1 },
+  { key = "lava",                  default = 10, min = 0 },
+  { key = "volcanic-cracks-hot",   default = 12, min = 0 },
+  { key = "volcanic-cracks-warm",  default = 12, min = 0 },
+  { key = "volcanic-cracks-plain", default = 12, min = 0 },
+  { key = "jagged",                default = 14, min = 0 },
+  { key = "dry-dirt",              default = 14, min = 0 },
+  { key = "dirt",                  default = 14, min = 0 },
+  { key = "sand",                  default = 48, min = 8 }, -- the temperate spawn centre
+  { key = "aquilo-dust",           default = 32, min = 0 },
+  { key = "rough-ice",             default = 32, min = 0 },
+  { key = "smooth-ice",            default = 32, min = 0 },
+}
+
+local zone_settings = {}
+for i, z in ipairs(ZONE_WIDTH_DEFAULTS) do
+  zone_settings[i] = {
+    type = "int-setting",
+    name = "cindra-zone-width-" .. z.key,
+    setting_type = "startup",
+    default_value = z.default,
+    minimum_value = z.min,
+    maximum_value = 512,
+    order = string.format("f-zone-%02d-%s", i, z.key),
+  }
+end
+data:extend(zone_settings)

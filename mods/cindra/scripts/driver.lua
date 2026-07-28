@@ -34,9 +34,9 @@ local M = {}
 -- per-chunk void surgery -- no chunk is deleted, no tile is scripted.
 local function enforce_finite(surface)
   if not (surface and surface.valid) or surface.name ~= "cindra" then return end
-  local s = settings and settings.startup
-  local cfg = s and s["cindra-ribbon-wall-at"] and { wall_at = s["cindra-ribbon-wall-at"].value } or nil
-  local d = terrain.finite_dimension(cfg)
+  -- The perpendicular extent is the SUM of the per-zone widths (ci-a35), which
+  -- terrain.finite_dimension reads straight from the mod settings.
+  local d = terrain.finite_dimension()
   local mg = surface.map_gen_settings
   if mg[d.key] ~= d.value then
     mg[d.key] = d.value

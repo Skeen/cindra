@@ -1,11 +1,11 @@
 -- Proof: the lethal Cindra tiles damage EVERYTHING standing on them -- the player
 -- AND machines/entities alike (§4, §15-2; ci-3yl "a tile that damages everything").
 --
--- scripts/tile-damage.lua reads the VISIBLE ground: only the lava (heat) and
--- deep-ice (cold) tiles bite; the walkable molten-rock / frost margins and the
--- terminator centre are safe. This is the tile-based area damage the design calls
--- for (Factorio has no native per-tick damaging-tile field). It replaces the old
--- coordinate-ramp, character-only edge damage.
+-- scripts/tile-damage.lua reads the VISIBLE ground: only the molten edge (hot-lava
+-- + lava = heat) and the deep smooth-ice (cold) tiles bite; the walkable volcanic /
+-- dirt / frost margins and the sand centre are safe. This is the tile-based area
+-- damage the design calls for (Factorio has no native per-tick damaging-tile field).
+-- It replaces the old coordinate-ramp, character-only edge damage.
 --
 -- Scoped to the "cindra" surface; a sweep on any other planet is a no-op.
 
@@ -65,7 +65,7 @@ describe("tile-based lethal-edge damage (§15-2; ci-3yl)", function()
   end)
 
   it("freezes a machine on a deep-ice tile (cold damage type)", function()
-    pave("cindra-deep-ice", 0, YL)
+    pave("cindra-smooth-ice", 0, YL)
     local mach = s.create_entity({ name = "assembling-machine-1", position = { 0, YL }, force = "player" })
     assert.is_not_nil(mach)
     local hm = mach.health
@@ -74,8 +74,8 @@ describe("tile-based lethal-edge damage (§15-2; ci-3yl)", function()
     mach.destroy()
   end)
 
-  it("leaves the walkable molten-rock / frost margins and the terminator SAFE", function()
-    for _, safe in ipairs({ "cindra-molten-rock", "cindra-frost", "cindra-terminator" }) do
+  it("leaves the walkable volcanic / frost margins and the sand centre SAFE", function()
+    for _, safe in ipairs({ "cindra-volcanic-cracks-hot", "cindra-aquilo-dust", "cindra-sand" }) do
       pave(safe, 0, YS)
       local char = s.create_entity({ name = "character", position = { -3, YS }, force = "player" })
       local mach = s.create_entity({ name = "assembling-machine-1", position = { 3, YS }, force = "player" })

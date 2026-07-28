@@ -19,18 +19,6 @@ local util = require("util")
 local terrain = require("scripts.terrain")
 local tile_collision_masks = require("__base__.prototypes.tile.tile-collision-masks")
 
--- Ribbon geometry (startup settings, available at the data stage): the band noise
--- expressions read these so the tile bands line up with the damage axis.
-local function ribbon_cfg()
-  local s = settings.startup
-  return {
-    safe_half_width = s["cindra-ribbon-safe-half-width"].value,
-    lethal_at = s["cindra-ribbon-lethal-at"].value,
-    wall_at = s["cindra-ribbon-wall-at"].value,
-  }
-end
-local CFG = ribbon_cfg()
-
 -- The item-subgroup the Cindra tiles sit in (under the vanilla "tiles" group),
 -- so they list cleanly in Factoriopedia alongside the other planets' tiles.
 data:extend({
@@ -41,8 +29,12 @@ data:extend({
 -- draw ordering); the exact values only matter relative to each other.
 local base_layer = 60
 
+-- One cindra-* tile per zone in the hot->cold gradient (scripts/terrain.lua
+-- M.ZONES). Each borrows a vanilla tile's art but carries its OWN noise-expression
+-- autoplace keyed to the per-zone width layout (ci-a35); the widths come from the
+-- mod settings, read inside terrain.probability_expr.
 local tiles = {}
-for i, spec in ipairs(terrain.TILES) do
+for i, spec in ipairs(terrain.ZONES) do
   local src = data.raw.tile[spec.clone_from]
   if not src then
     error("cindra tiles: missing clone source tile " .. tostring(spec.clone_from))
@@ -50,14 +42,14 @@ for i, spec in ipairs(terrain.TILES) do
   local t = util.table.deepcopy(src)
   t.name = spec.name
   t.subgroup = "cindra-tiles"
-  t.order = string.format("a[cindra]-%s[%s]", string.char(96 + i), spec.role)
+  t.order = string.format("a[cindra]-%02d[%s]", i, spec.key)
   t.localised_name = { "tile-name." .. spec.name }
   -- Every Cindra tile is buildable + walkable ground. The lethal edges stay
   -- ground (not impassable lava/water) precisely so machines can be placed on
   -- them and be damaged; the void beyond the ribbon is the impassable backstop.
   t.collision_mask = tile_collision_masks.ground()
   -- The clone carries its own noise-expression autoplace keyed to the ribbon axis.
-  t.autoplace = { probability_expression = terrain.probability_expr(spec.name, CFG) }
+  t.autoplace = { probability_expression = terrain.probability_expr(spec.name) }
   t.layer = base_layer + i
   -- A cloned fluid tile (lava) would otherwise behave like a liquid (unbuildable,
   -- offshore-pump target). Strip the fluid so it is solid, buildable lethal ground.
