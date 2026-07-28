@@ -91,13 +91,15 @@ test("ice mask covers the nightside in to the wall", function()
   assert_eq("((0 - x) < -24) * ((0 - x) > -128)", field.ice_mask_expr(), "default ice band")
 end)
 
-test("bootstrap-rock autoplace masks to the terminator band AND a finite spawn disk", function()
+test("bootstrap-rock autoplace masks to the terminator band across the WHOLE ribbon", function()
   local expr = field.rock_probability_expr()
   -- Confined to the safe band on the perpendicular axis (|perp| <= safe_half_width).
   assert_true(expr:find("(0 - x) < 24", 1, true) ~= nil, "capped sunward of the safe band")
   assert_true(expr:find("(0 - x) > -24", 1, true) ~= nil, "capped nightward of the safe band")
-  -- FINITE: zero probability beyond a bounded disk around spawn.
-  assert_true(expr:find("distance < ", 1, true) ~= nil, "rocks stop beyond a spawn-radius disk (finite)")
+  -- BAND-WIDE, not a spawn disk (ci-9bb): NO `distance` cutoff -- rocks generate
+  -- along the whole ribbon. Finiteness is per-rock (a mined simple-entity is
+  -- destroyed), not a bounded placement region.
+  assert_true(expr:find("distance", 1, true) == nil, "no spawn-radius cutoff (rocks span the whole ribbon)")
 end)
 
 test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins", function()

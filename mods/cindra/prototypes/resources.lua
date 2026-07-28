@@ -13,10 +13,11 @@
 --
 -- EVERYTHING is NATIVE map-gen (ci-3yl): stone + ice are placed by the core
 -- resource-autoplace / spot-noise library (same as nauvis/vulcanus ores) so they
--- form irregular NATURAL PATCHES of varying size/richness, and the finite
--- bootstrap ROCKS are a native simple-entity autoplace confined to a bounded disk
--- near spawn. Each patch is CONSTRAINED to its ribbon band by multiplying its
--- autoplace probability/richness by the perpendicular-axis mask emitted from
+-- form irregular NATURAL PATCHES of varying size/richness, and the bootstrap
+-- ROCKS are a native simple-entity autoplace scattered across the whole ribbon
+-- terminator band (finite per-rock; ci-9bb). Each patch is CONSTRAINED to its
+-- ribbon band by multiplying its autoplace probability/richness by the
+-- perpendicular-axis mask emitted from
 -- scripts/resource-field.lua (the one band-geometry source of truth). Native
 -- autoplace also gives real Frequency/Size/Richness map-gen sliders for free (via
 -- the autoplace-controls below). There is NO on_chunk_generated placement any more.
@@ -46,17 +47,18 @@ end
 local CFG = ribbon_cfg()
 
 -- The deep-nightside frozen volatiles, a science-pack input. It is NOT a mined
--- resource: it has no map-gen slider (ci-3yl) and is NO LONGER a mining yield of
--- the ice field either (ci-4xx). The ITEM survives and is obtained from a
--- PROCESSING recipe -- crushing the deep-nightside oxide chunks in the ice crusher
--- sublimes out the frozen volatile fraction (prototypes/ice-processing.lua, per
--- DESIGN §11). Mining the ice field yields ONLY the vanilla oxide chunk.
--- Placeholder icon reuses the vanilla ice item art (bespoke art is a later pass).
+-- resource: no map-gen slider (ci-3yl) and NO LONGER a mining yield of the ice
+-- field (ci-4xx). The ITEM survives and comes from a PROCESSING recipe -- crushing
+-- the deep-nightside oxide chunks in the ice crusher sublimes out the frozen
+-- volatile fraction (prototypes/ice-processing.lua, per DESIGN §11). It has its OWN
+-- distinct icon (a violet-frost gas vial, ci-9bb): the old placeholder reused the
+-- vanilla ice item art, so the volatiles read as plain "ice cubes". The bespoke
+-- icon reads as frozen volatile gases, not ice.
 data:extend({
   {
     type = "item",
     name = "cindra-volatiles",
-    icon = "__space-age__/graphics/icons/ice.png",
+    icon = "__cindra__/graphics/icons/cindra-volatiles.png",
     icon_size = 64,
     icon_mipmaps = 4,
     subgroup = "raw-resource",
@@ -121,17 +123,45 @@ end
 -- chain reuses vanilla recipes (crush -> ice + calcite, melt -> water).
 local ICE_ITEM = "oxide-asteroid-chunk"
 
--- The Cindra ice resource: ice-chunk patches that yield ONLY the vanilla
--- oxide chunk (ci-4xx). Frozen volatiles are NOT a mining yield any more -- they
--- come from a PROCESSING recipe (crushing the chunk, prototypes/ice-processing.lua),
--- so mining the field is a single-product drop of the vanilla chunk that the crush
--- -> melt chain (ci-3mx) turns into ice / calcite / water.
+-- The Cindra ice resource: ice-chunk patches that yield ONLY the vanilla oxide
+-- chunk (ci-4xx). Frozen volatiles are NOT a mining yield any more -- they come
+-- from a PROCESSING recipe (crushing the chunk, prototypes/ice-processing.lua), so
+-- mining the field is a single-product drop of the vanilla chunk that the crush ->
+-- melt chain (ci-3mx) turns into ice / calcite / water.
+--
+-- Icy world sprite (ci-9bb): the deep-copied vanilla `stone` resource carries the
+-- warm-tan stone rubble stage sheet, so the ice deposit READ as a stone patch. v1
+-- reuses vanilla art (per DESIGN.md), so rather than author a new stage sheet we
+-- multiply the inherited stone stages by a pale frost-blue tint -- the ore patch
+-- now reads as ICE/frost, not rock, and is distinct from the warm stone patch. The
+-- mining particle burst is tinted icy too.
+local ICE_STAGE_TINT = { r = 0.60, g = 0.80, b = 1.0, a = 1.0 } -- pale frost-blue multiply
+local ICE_MINING_TINT = { r = 0.80, g = 0.94, b = 1.0, a = 1.0 } -- icy particle burst
+-- Paler CYAN / frosted-ice map tone (ci-9bb): kept light blue (players liked it)
+-- but shifted brighter and cyan-ward so it never reads as vanilla IRON ORE
+-- (a darker steel-blue {0.415, 0.525, 0.580}); still clearly distinct from the
+-- warm stone patch. Runtime-queryable via `prototypes.entity[..].map_color`.
+local ICE_MAP_COLOR = { 0.62, 0.90, 0.95 }
+
+-- Tint every stage sheet of a resource's `stages` in place (handles the single
+-- `sheet` form the vanilla stone resource uses and the `sheets` array form).
+local function tint_stages(stages, tint)
+  if not stages then return end
+  if stages.sheet then stages.sheet.tint = tint end
+  if stages.sheets then
+    for _, s in ipairs(stages.sheets) do s.tint = tint end
+  end
+end
+
 local function cindra_ice_resource()
-  return cindra_resource("cindra-ice", ICE_ITEM, { 0.55, 0.75, 0.95 }, "b[cindra-ice]",
+  local r = cindra_resource("cindra-ice", ICE_ITEM, ICE_MAP_COLOR, "b[cindra-ice]",
     banded_autoplace("cindra-ice",
       { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/ice.png")
+  tint_stages(r.stages, ICE_STAGE_TINT)
+  r.mining_visualisation_tint = ICE_MINING_TINT
+  return r
 end
 
 -- Autoplace-controls: one per resource so the new-game map-gen screen shows real
@@ -197,9 +227,13 @@ data:extend({
 -- ci-uex); kept small and finite so they can never replace the main loop.
 local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
 rock.name = "cindra-bootstrap-rock"
--- NATIVE autoplace (ci-3yl): a sparse per-tile scatter confined to the terminator
--- safe band AND a bounded disk around spawn (scripts/resource-field), so the rocks
--- stay FINITE without any on_chunk_generated script. The map-gen places them.
+-- NATIVE autoplace (ci-3yl, ci-9bb): a sparse per-tile scatter across the WHOLE
+-- terminator safe band, appearing in new chunks as you explore the ribbon (NOT a
+-- spawn-only disk -- playtest wanted them everywhere along the ribbon). Finiteness
+-- comes from the ENTITY, not the placement: a mined simple-entity is destroyed, so
+-- each rock is one-shot and can never become a per-craft supply of the main loop
+-- (the §6 no-soft-lock rule holds because the drop stays off every loop recipe --
+-- see test_bootstrap.lua). No on_chunk_generated script; the map-gen places them.
 rock.autoplace = { probability_expression = field.rock_probability_expr(CFG) }
 rock.order = "a[cindra]-a[bootstrap-rock]"
 rock.map_color = { 0.55, 0.45, 0.35 }

@@ -491,6 +491,39 @@ def icon_item_stone():
     return img
 
 
+def icon_item_volatiles():
+    """Frozen volatiles (a science input): a sealed vial of violet-cyan frozen
+    gas. Deliberately NOT an ice crystal -- the old placeholder reused the ice
+    icon, so a mined ice field looked like it dropped plain ice cubes. A vial of
+    captured gas reads as its own thing (ci-9bb)."""
+    S = ICON * SS
+    img = blank(S)
+    d = ImageDraw.Draw(img)
+    # A LOCAL rng (not the shared global RNG): consuming the global stream here
+    # would shift every icon/sprite generated after this one, spuriously changing
+    # already-committed art. A private seed keeps this icon deterministic while
+    # leaving the rest of the pipeline byte-stable.
+    rng = np.random.default_rng(0xC0_1A_71)
+    body_box = [int(S*0.28), int(S*0.30), int(S*0.72), int(S*0.82)]  # bulbous base
+    neck = [int(S*0.42), int(S*0.16), int(S*0.58), int(S*0.36)]      # narrow neck
+    bmask = Lm(S); bd = ImageDraw.Draw(bmask)
+    bd.ellipse(body_box, fill=255)
+    bd.rectangle(neck, fill=255)
+    # Frozen gas: violet at the cold base, cyan toward the top.
+    paste_gradient(img, bmask, VIOLET_LIT, CRYO, 90)
+    add_glow(img, bmask, (int(S*0.5), int(S*0.58)), int(S*0.24), VIOLET, 120)
+    # Suspended gas bubbles (frost highlights) -- reads as captured gas, not ice.
+    for _ in range(5):
+        px = int(rng.uniform(S*0.36, S*0.64)); py = int(rng.uniform(S*0.44, S*0.76))
+        rr = int(rng.uniform(S*0.015, S*0.04))
+        d.ellipse([px-rr, py-rr, px+rr, py+rr], outline=FROST_WHITE, width=max(2, S//200))
+    # Glass rim + metal stopper.
+    d.ellipse(body_box, outline=ICE_PALE, width=max(3, S//120))
+    d.rectangle(neck, outline=ICE_PALE, width=max(2, S//150))
+    d.rectangle([int(S*0.40), int(S*0.10), int(S*0.60), int(S*0.18)], fill=STEEL_LIGHT)
+    return img
+
+
 def icon_item_alloy():
     """Cryo-hardened alloy (signature product): a metal ingot, fire+ice sheen."""
     S = ICON * SS
@@ -656,6 +689,7 @@ ICONS = {
     "cindra-solar-panel":  icon_solar_panel,
     "ice":                 icon_item_ice,
     "cindra-stone":        icon_item_stone,
+    "cindra-volatiles":    icon_item_volatiles,
     "cryo-hardened-alloy": icon_item_alloy,
     "cindra-science-pack": icon_science_pack,
 }

@@ -82,19 +82,16 @@ function M.ice_richness(y, cfg)
   return math.floor(lerp(M.ICE_BASE, M.ICE_PEAK, f))
 end
 
--- Bootstrap rocks scatter around the terminator only (inside the safe band, so
--- they are reachable at landing with no damage). Boolean: is `y` in the scatter
--- band. Finiteness comes from being confined to a bounded disk near spawn (see
--- rock_probability_expr) AND from the entity (a mined rock is destroyed).
+-- Bootstrap rocks scatter along the terminator (inside the safe band, so they are
+-- reachable with no damage) across the WHOLE ribbon, not just near spawn. Boolean:
+-- is `y` in the scatter band. Finiteness is a property of the ENTITY, not the
+-- placement: a mined rock is a destroyed simple-entity, so each rock is one-shot
+-- and its metal trickle never feeds a per-craft loop (§6, guarded in tests).
 function M.rock_zone(y, cfg)
   cfg = ribbon.resolve(cfg)
   return math.abs(y) <= cfg.safe_half_width
 end
 
--- How far from spawn (tiles) bootstrap rocks scatter along the ribbon. Beyond
--- this the native autoplace probability is zero, so the rocks are FINITE (a
--- bounded disk near the landing terminator), never an infinite metal supply. (tune)
-M.ROCK_SPAWN_RANGE = 130
 -- Per-tile spawn probability inside the rock band (sparse hand-gathered scatter).
 M.ROCK_PROBABILITY = 0.006
 
@@ -137,17 +134,19 @@ function M.ice_mask_expr(cfg)
 end
 
 -- Bootstrap rocks: a native simple-entity autoplace, confined to the terminator
--- safe band (|perp| <= safe_half_width) AND to a bounded disk of radius
--- ROCK_SPAWN_RANGE around spawn (`distance` = tiles from the nearest starting
--- point), so the scatter is FINITE. A comparison yields 1/0, so the product is a
--- logical AND masking the constant per-tile probability. This replaces the old
--- on_chunk_generated script scatter (ci-3yl): the whole ribbon is now map-gen.
+-- safe band (|perp| <= safe_half_width) but present along the WHOLE ribbon -- they
+-- appear in new chunks as you explore, not just around spawn (ci-9bb: playtest
+-- wanted them everywhere along the ribbon, not a spawn-only disk). There is NO
+-- `distance` cutoff: finiteness is a property of the ENTITY (a mined rock is a
+-- destroyed simple-entity, one-shot, off every loop recipe), not of a bounded
+-- spawn disk. A comparison yields 1/0, so the product is a logical AND masking the
+-- constant per-tile probability to the band. Replaces the old on_chunk_generated
+-- script scatter (ci-3yl): the whole ribbon is map-gen.
 function M.rock_probability_expr(cfg)
   cfg = ribbon.resolve(cfg)
   local S = cfg.safe_half_width
   return "(" .. Y .. " < " .. num(S) .. ")" ..
          " * (" .. Y .. " > " .. num(-S) .. ")" ..
-         " * (distance < " .. num(M.ROCK_SPAWN_RANGE) .. ")" ..
          " * " .. num(M.ROCK_PROBABILITY)
 end
 

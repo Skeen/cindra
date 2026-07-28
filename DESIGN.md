@@ -148,9 +148,11 @@ recommendation — both **IMPLEMENTED (item 2)**:
 ## 4a. Resources & worldgen — IMPLEMENTED (item 3; rewritten ci-3yl)
 
 Everything is NATIVE map-gen — there is no runtime placement. Stone + ice are
-placed by the core resource-autoplace spot-noise library, and the finite
-bootstrap rocks by a native simple-entity autoplace confined to a bounded disk
-near spawn. Each is banded to the ribbon by a perpendicular-axis mask emitted from
+placed by the core resource-autoplace spot-noise library, and the bootstrap rocks
+by a native simple-entity autoplace scattered across the whole ribbon terminator
+band (they appear in new chunks as you explore, not just near spawn); each rock is
+finite per-rock, being a mined simple-entity that is destroyed on mining. Each is
+banded to the ribbon by a perpendicular-axis mask emitted from
 `scripts/resource-field.lua` (the *pure*, unit-testable band geometry — no
 `game.*`). The map-gen screen shows real Frequency/Size/Richness sliders for
 **Stone** and **Ice** only, grouped below Aquilo.
@@ -159,7 +161,7 @@ near spawn. Each is banded to the ribbon by a perpendicular-axis mask emitted fr
 |---|---|---|---|
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
 | ice field | nightside (`Y < −safe`) | richer deeper (colder) | `oxide-asteroid-chunk` **only** (vanilla; crushed → `ice` + `calcite`, ci-3mx) |
-| bootstrap rock | terminator scatter, finite disk near spawn (`|Y| ≤ safe`, `distance < range`) | n/a (finite) | `stone` + `iron-ore` + `copper-ore` + `coal` |
+| bootstrap rock | terminator scatter across the whole ribbon band (`|Y| ≤ safe`) | n/a (finite per-rock) | `stone` + `iron-ore` + `copper-ore` + `coal` |
 
 There is **no standalone volatiles resource or map-gen slider** (ci-3yl), and the
 ice field is a **single-product drop of the vanilla oxide chunk** — mining it no
