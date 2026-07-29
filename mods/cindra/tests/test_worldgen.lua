@@ -310,6 +310,58 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     assert.are.equal(0, cliffs(210, 450), "the deep-ice cap is cliff-free")
   end)
 
+  -- 5a. BURNED VOLCANIC ROCKS in the hot/lava region (ci-qy0, re-banded ci-da2) --
+  -- Charred Vulcanus-style boulders generate in the HOT region only, clustered
+  -- toward the lava, and mining one yields STONE + COAL ONLY. ci-da2 re-bands them
+  -- to the zone geometry: perp in (building_half=100, hot_edge=350] -> x in
+  -- [-350, -100) (the walkable hot margin, from the building band's hot edge out to
+  -- the lava-crust edge, never into the building band, the cold cap, or the
+  -- impassable lava wall). Placement is native worldgen autoplace, not a script.
+  local function count_burned(x1, x2)
+    local n = 0
+    for _, name in ipairs(field.burned_rock_names()) do
+      n = n + s.count_entities_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
+    end
+    return n
+  end
+
+  it("generates burned volcanic rocks in the hot/lava region via worldgen (ci-qy0)", function()
+    -- Present across the hot margin (west, out toward the lava wall).
+    assert.is_true(count_burned(-350, -110) > 0,
+      "burned volcanic rocks generate in the hot region (the lava areas)")
+    -- Clustered toward the lava: more rocks in the outer (lava-crust) band than the
+    -- inner (building-adjacent) band of the hot margin.
+    local near_lava = count_burned(-350, -250)
+    local inner = count_burned(-200, -110)
+    assert.is_true(near_lava >= inner,
+      "burned rocks cluster toward the lava side (near_lava=" .. near_lava .. ", inner=" .. inner .. ")")
+  end)
+
+  it("keeps burned volcanic rocks OUT of the temperate/building and ice zones (ci-qy0)", function()
+    -- Temperate/building band (|x| <= building_half = 100): none.
+    assert.are.equal(0, count_burned(-90, 90),
+      "no burned rocks in the temperate/building band")
+    -- Cold/ice zone (east of the divider): none.
+    assert.are.equal(0, count_burned(110, 450),
+      "no burned rocks in the ice/cold zone")
+  end)
+
+  it("mining a burned volcanic rock yields STONE + COAL ONLY (ci-qy0)", function()
+    for _, name in ipairs(field.burned_rock_names()) do
+      local rock = prototypes.entity[name]
+      assert.is_not_nil(rock, name .. " must exist")
+      -- Finite like the bootstrap rock: a simple-entity destroyed when mined, so
+      -- the coal is a one-shot trickle, never a per-craft loop input.
+      assert.are.equal("simple-entity", rock.type, name .. " must be a finite simple-entity")
+      local results = rock.mineable_properties.products
+      local names = {}
+      for _, r in ipairs(results) do names[r.name] = true end
+      assert.is_true(names["stone"], name .. " must yield stone")
+      assert.is_true(names["coal"], name .. " must yield coal")
+      assert.are.equal(2, #results, name .. " must yield ONLY stone + coal (no ore/tungsten)")
+    end
+  end)
+
   it("bounds the REAL cindra planet surface at creation (the runtime hook works)", function()
     local live = game.surfaces["cindra"]
       or (game.planets["cindra"] and game.planets["cindra"].create_surface())

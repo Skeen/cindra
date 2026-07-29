@@ -23,6 +23,14 @@
 -- building area stays workable. Keyed to the SAME perpendicular axis as the tiles
 -- (scripts/axis.lua), gated to the exact volcanic zone span (scripts/terrain.lua
 -- M.cliff_band), so cliffs and the tile gradient share one geometry.
+--
+-- `cindra_decorative_peaks`: a smooth high-frequency peaks field (0..~1) that
+-- modulates the zone-appropriate decorative scatter (ci-6fq, scripts/decorative-
+-- field.lua) so the ice/snow and rock/crater decals CLUMP naturally instead of
+-- spreading uniformly. Same multioctave formula Aquilo uses for its own decal
+-- density ("do as Aquilo does"), but Cindra-owned so the decoratives never depend on
+-- an Aquilo-internal named expression. Uses only core noise + map_seed, so it
+-- evaluates on the Cindra surface with no Vulcanus/Aquilo biome inputs.
 local axis = require("scripts.axis")
 local terrain = require("scripts.terrain")
 local cb = terrain.cliff_band()
@@ -48,5 +56,10 @@ data:extend({
     type = "noise-expression",
     name = "cindra_cliff_elevation",
     expression = "(" .. cliff_mask .. ") * " .. cliff_field,
+  },
+  {
+    type = "noise-expression",
+    name = "cindra_decorative_peaks",
+    expression = "abs(multioctave_noise{x = x, y = y, persistence = 0.85, seed0 = map_seed, seed1 = 1, octaves = 3, input_scale = 1/6})",
   },
 })

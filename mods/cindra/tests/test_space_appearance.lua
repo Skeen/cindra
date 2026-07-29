@@ -144,6 +144,15 @@ describe("cindra space appearance (art wiring, ci-94v)", function()
       "positive emission scalar so the molten/sandy glow reads")
   end)
 
+  -- ci-fg6: the from-space graphic was too DULL. Guard the two vividness knobs so
+  -- a later tweak cannot quietly flatten the glow/shimmer (mirrors the unit test).
+  it("dayside glows STRONGLY and the ice SHIMMERS in orbit (vividness knobs)", function()
+    local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+    assert.is_true(b.emission_scalar >= 2.0, "strong emissive dayside glow (>= 2.0)")
+    assert.is_true(b.specular_intensity ~= nil and b.specular_intensity >= 0.85,
+      "shimmery icy specular sheen (>= 0.85)")
+  end)
+
   -- THE cross-planet invariant: build_render_parameters must deep-copy the passed
   -- nauvis params and override only Cindra's backdrop, never mutating the shared
   -- nauvis table. This runs under Factorio's REAL util.table.deepcopy.

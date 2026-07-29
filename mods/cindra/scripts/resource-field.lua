@@ -41,6 +41,19 @@ M.STONE = "cindra-stone"
 M.ICE = "cindra-ice"
 M.ROCK = "cindra-rock"
 
+-- Burned volcanic rocks (ci-qy0): charred Vulcanus-style boulders that generate in
+-- the HOT / lava region only, clustered toward the lava edge so they read as "in
+-- the lava areas". Two size variants for visual variety; both are finite
+-- simple-entities that yield STONE + COAL only (see prototypes/resources.lua).
+-- The names live here (with the other Cindra worldgen entity names) so
+-- prototypes/resources.lua, prototypes/planet.lua's autoplace allow-list, and the
+-- tests all read the SAME list.
+M.BURNED_ROCK = "cindra-volcanic-rock"
+M.BURNED_ROCK_HUGE = "cindra-volcanic-rock-huge"
+function M.burned_rock_names()
+  return { M.BURNED_ROCK, M.BURNED_ROCK_HUGE }
+end
+
 -- Node richness (resource `amount`) starting points, all (tune).
 M.STONE_BASE = 600
 M.STONE_PEAK = 5000     -- at the hot (lava-crust) margin (best stone)
@@ -113,6 +126,24 @@ end
 -- Per-tile spawn probability inside the rock band (sparse hand-gathered scatter).
 M.ROCK_PROBABILITY = 0.006
 
+-- Burned volcanic rocks (ci-qy0) live in the HOT region only, re-banded to the
+-- ci-da2 zone geometry: from the building band's hot (sunward) edge out to the
+-- walkable hot margin (the lava-crust edge, terrain.resource_bounds.hot_edge). This
+-- EXCLUDES the temperate/building band (|p| <= building_half) and the ENTIRE
+-- cold/ice zone, and stops at the walkable hot edge (never into the impassable lava
+-- wall, where a simple-entity could not place), so they read as "in the lava areas"
+-- and never clutter the buildable ribbon or the nightside. Boolean, pure.
+function M.burned_rock_zone(y, cfg)
+  local b = bounds(cfg)
+  return y > b.building_half and y <= b.hot_edge
+end
+
+-- Per-tile spawn probability at the two ends of the hot region: sparse at the
+-- inner (safe-band) edge, densest toward the lava (lethal) edge and beyond, so the
+-- rocks cluster where the lava is. The emitter below ramps between them.
+M.BURNED_ROCK_PROBABILITY_MIN = 0.003
+M.BURNED_ROCK_PROBABILITY_MAX = 0.02
+
 -- ---------------------------------------------------------------------------
 -- Native-autoplace band masks (§15-v2 item 1: patches, not a grid).
 --
@@ -161,9 +192,33 @@ function M.rock_probability_expr(cfg)
          " * " .. num(M.ROCK_PROBABILITY)
 end
 
--- Edge-pushing richness multiplier (>= 1): scales the native patch richness so the
--- BEST nodes sit at the lethal margins, honouring the planet's thesis. The ramp
--- shape mirrors the numeric richness_* gradients (peak/base ratio).
+-- Burned volcanic rocks (ci-qy0): a native simple-entity autoplace confined to the
+-- HOT region (sunward of the safe band, in to the wall) and CLUSTERED toward the
+-- lava. Encodes M.burned_rock_zone as a noise-expression string (a comparison
+-- yields 1/0, so the product is a logical AND masking probability to the band),
+-- then ramps the per-tile probability from MIN at the inner (safe-band) edge to
+-- MAX at the lethal lava edge and beyond -- so density rises toward the lava and
+-- the rocks read as "in the lava areas". The mask zeroes probability across the
+-- temperate/building band and the whole cold/ice zone, so burned rocks can NEVER
+-- generate there (matches M.burned_rock_zone; keep the two in lockstep).
+function M.burned_rock_probability_expr(cfg)
+  local b = bounds(cfg)
+  local S, L = b.building_half, b.hot_edge
+  local in_zone = "(" .. Y .. " > " .. num(S) .. ")" ..
+                  " * (" .. Y .. " <= " .. num(L) .. ")"
+  -- Fraction of the way from the building band's hot edge to the walkable lava edge
+  -- (clamped), so density ramps from sparse near the ribbon to densest at the lava.
+  local span = math.max(1, L - S)
+  local frac = "clamp((" .. Y .. " - " .. num(S) .. ") / " .. num(span) .. ", 0, 1)"
+  local prob = "lerp(" .. num(M.BURNED_ROCK_PROBABILITY_MIN) .. ", " ..
+               num(M.BURNED_ROCK_PROBABILITY_MAX) .. ", " .. frac .. ")"
+  return "(" .. in_zone .. ") * (" .. prob .. ")"
+end
+
+-- Edge-pushing richness multiplier (>= 1): scales the native patch richness so
+-- the BEST nodes sit at the lethal margins, honouring the planet's thesis. The
+-- ramp shape mirrors the numeric richness_* gradients (peak/base ratio), so a
+-- patch at the hot/cold edge is richer than one near the terminator.
 local function lerp_expr(from, to, frac_expr)
   return "lerp(" .. num(from) .. ", " .. num(to) .. ", clamp(" .. frac_expr .. ", 0, 1))"
 end

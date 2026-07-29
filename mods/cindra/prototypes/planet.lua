@@ -23,6 +23,8 @@
 local asteroid_util = require("__space-age__.prototypes.planet.asteroid-spawn-definitions")
 local space = require("prototypes.space-appearance")
 local terrain = require("scripts.terrain")
+local field = require("scripts.resource-field")
+local decorative_field = require("scripts.decorative-field")
 
 local minute = 60 * 60
 
@@ -69,7 +71,8 @@ local NO_DAY_NIGHT_CYCLE = 300000 * minute
 --     perpendicular axis (scripts/terrain.lua). Band boundaries carry a smooth
 --     basis-noise wiggle, so they are ORGANIC curves, never raw straight lines.
 --   * ZERO NAUVIS LEAKAGE: only Cindra tiles are placement candidates -- NO grass,
---     no water, no vanilla terrain. No trees / enemies / decoratives. Cliffs DO
+--     no water, no vanilla terrain. No trees / enemies. Decoratives are Cindra-only
+--     clones, zone-gated to the gradient (ci-6fq, prototypes/decoratives). Cliffs DO
 --     generate, but only Vulcanus-style cliffs gated to the volcanic zones (ci-da2).
 --   * ELEVATION: pinned flat (prototypes/noise.lua) so no lake is ever carved.
 --
@@ -82,6 +85,27 @@ local function cindra_map_gen()
 
   local tile_settings = {}
   for _, name in ipairs(terrain.tile_names()) do tile_settings[name] = {} end
+
+  -- The entity autoplace allow-list: ONLY these Cindra entities generate (with
+  -- treat_missing_as_default = false, an entity absent here never autoplaces). The
+  -- resources + the finite bootstrap rocks, plus the hot-region burned volcanic
+  -- rocks (ci-qy0). Names come from scripts/resource-field.lua so this list can
+  -- never drift from the prototypes it gates.
+  local entity_autoplace_settings = {
+    [field.STONE] = {},
+    [field.ICE] = {},
+    [field.ROCK] = {},
+  }
+  for _, name in ipairs(field.burned_rock_names()) do
+    entity_autoplace_settings[name] = {}
+  end
+
+  -- Zone-appropriate decoratives (ci-6fq): ONLY Cindra's own cloned decals are
+  -- candidates -- rocks/craters/pebbles on the hot half, ice/snow on the cold half,
+  -- each gated to its ribbon zone (scripts/decorative-field.lua). No Nauvis/Gleba
+  -- grass or bush can leak in (they are not in the set).
+  local decorative_settings = {}
+  for _, name in ipairs(decorative_field.decorative_names()) do decorative_settings[name] = {} end
 
   local mg = {
     -- Finite perpendicular to the ribbon (the ribbon planet), infinite lateral.
@@ -110,14 +134,11 @@ local function cindra_map_gen()
       -- Entities: only the Cindra resources + the finite rocks autoplace.
       entity = {
         treat_missing_as_default = false,
-        settings = {
-          ["cindra-stone"] = {},
-          ["cindra-ice"] = {},
-          ["cindra-rock"] = {},
-        },
+        settings = entity_autoplace_settings,
       },
-      -- No decoratives (no Nauvis grass tufts etc.).
-      decorative = { treat_missing_as_default = false, settings = {} },
+      -- Zone-appropriate decoratives ONLY (ci-6fq): the Cindra rock/crater/pebble +
+      -- ice/snow clones, each gated to its gradient zone. No Nauvis grass tufts.
+      decorative = { treat_missing_as_default = false, settings = decorative_settings },
     },
     -- CLIFFS (ci-da2): Vulcanus-style cliffs in the volcanic zones only. The
     -- cindra_cliff_elevation field is 0 outside the volcanic band, so cliffs appear

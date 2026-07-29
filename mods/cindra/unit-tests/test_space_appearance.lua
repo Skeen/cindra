@@ -152,6 +152,16 @@ test("emission self-glow always shows -> the sandy middle is never black in orbi
   assert_true(b.emission_scalar and b.emission_scalar > 0, "positive emission scalar so the glow reads")
 end)
 
+-- ci-fg6: the orbital backdrop was too DULL. The dayside must GLOW STRONGLY and
+-- the icy nightside must SHIMMER. Guard the two vividness knobs so a later tweak
+-- cannot quietly flatten them back: a strong emissive dayside glow and a high
+-- specular icy sheen (both well above the old 1.5 / 0.6 baseline).
+test("dayside glows STRONGLY and the ice SHIMMERS in orbit (vividness knobs)", function()
+  local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+  assert_true(b.emission_scalar >= 2.0, "strong emissive dayside glow (>= 2.0)")
+  assert_true(b.specular_intensity and b.specular_intensity >= 0.85, "shimmery icy specular sheen (>= 0.85)")
+end)
+
 test("REGRESSION: build_render_parameters never mutates the passed nauvis params", function()
   local input = fake_nauvis_params()
   local before = snapshot(input)

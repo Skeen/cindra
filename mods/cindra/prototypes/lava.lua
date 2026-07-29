@@ -109,9 +109,14 @@
 -- doubled LAVA_OUT and energy_required together, so N and energy-per-lava are both
 -- exactly as ci-e8a left them; only the stone:lava material ratio changed.)
 --
--- v1 ART: the vanilla lava fluid icon, color-layered warmer (prototypes/
--- lava-icon.lua) on BOTH the recipe and the Cindra fluid. The machine reuses the
--- foundry art.
+-- ART. The manufactured-lava RECIPE uses the vanilla lava fluid icon, color-
+-- layered warmer so the pour reads distinct from natural Vulcanus lava
+-- (prototypes/lava-icon.lua), on BOTH the recipe and the Cindra fluid. The
+-- MACHINE (cindra-lava-manufacturer) wears the user-supplied "glass-furnace" set
+-- by Hurricane046 (CC-BY) -- an animated body, a ground shadow, and an emissive
+-- molten glow that fits a stone->lava melter. See
+-- graphics/entity/lava-manufacturer/ATTRIBUTION.md (and CREDITS.md) for the
+-- per-asset record; wiring is in the "glass-furnace art" block below.
 local util = require("util")
 local lava_icon = require("prototypes.lava-icon")
 
@@ -185,12 +190,109 @@ manufacturer.heating_energy = nil
 manufacturer.localised_name = { "entity-name.cindra-lava-manufacturer" }
 manufacturer.localised_description = { "entity-description.cindra-lava-manufacturer" }
 
--- Item: clone the foundry item for a valid subgroup + vanilla icon (v1 art),
--- pointed at our entity.
+-- === Glass-furnace art (user-supplied; Hurricane046 / CC-BY) ================
+-- The deep-copied foundry brings the foundry's OWN graphics_set (and directional
+-- working_visualisations). Replace it wholesale with the glass-furnace set so the
+-- lava-manufacturer reads as its own machine, not a reskinned foundry. Attribution:
+-- graphics/entity/lava-manufacturer/ATTRIBUTION.md + mods/cindra/CREDITS.md.
+local ENTITY_GFX = "__cindra__/graphics/entity/lava-manufacturer/"
+local ICON = "__cindra__/graphics/icons/glass-furnace-icon.png"
+
+-- The body + emission are a TWO-PART animation sheet: 80 frames of 270x310 px
+-- laid out 8-per-row. Part 1 (2160x2480) holds 8 rows = 64 frames; part 2
+-- (2160x620) holds the final 2 rows = 16 frames. Factorio stitches the two files
+-- via `filenames` + `lines_per_file` (rows read from each file before spilling
+-- into the next), so the pair renders as one continuous 80-frame animation.
+local FRAME_W, FRAME_H = 270, 310
+local FRAME_COUNT = 80
+local LINE_LENGTH = 8   -- frames per row
+local LINES_PER_FILE = 8 -- rows in part 1; the remainder spill into part 2
+-- HR (double-resolution) art: scale ~0.5 is the HR convention. Exact scale/shift
+-- against the foundry-sized footprint is a visual tune -- see PLAYTEST.md.
+local BODY_SCALE = 0.5
+local BODY_SHIFT = util.by_pixel(0, -24)
+
+local body_animation_files = {
+  ENTITY_GFX .. "glass-furnace-hr-animation-1.png",
+  ENTITY_GFX .. "glass-furnace-hr-animation-2.png",
+}
+local emission_animation_files = {
+  ENTITY_GFX .. "glass-furnace-hr-emission1-1.png",
+  ENTITY_GFX .. "glass-furnace-hr-emission1-2.png",
+}
+
+-- A single Animation (with layers) applies to every direction: the glass furnace
+-- reads the same from all sides, matching the foundry-clone footprint. Body +
+-- shadow + always-on emissive molten glow.
+manufacturer.graphics_set = {
+  animation = {
+    layers = {
+      { -- animated furnace body
+        filenames = body_animation_files,
+        width = FRAME_W,
+        height = FRAME_H,
+        frame_count = FRAME_COUNT,
+        line_length = LINE_LENGTH,
+        lines_per_file = LINES_PER_FILE,
+        scale = BODY_SCALE,
+        shift = BODY_SHIFT,
+        animation_speed = 0.5,
+      },
+      { -- ground shadow: one static image. All layers of a layered Animation
+        -- must share a frame count, so repeat_count holds this single frame for
+        -- the body's whole 80-frame cycle (1 * repeat_count == FRAME_COUNT).
+        filename = ENTITY_GFX .. "glass-furnace-hr-shadow.png",
+        width = 500,
+        height = 350,
+        frame_count = 1,
+        repeat_count = FRAME_COUNT,
+        scale = BODY_SCALE,
+        shift = util.by_pixel(24, 8),
+        draw_as_shadow = true,
+      },
+      { -- emissive molten glow: stays lit in the dark (fits a lava melter)
+        filenames = emission_animation_files,
+        width = FRAME_W,
+        height = FRAME_H,
+        frame_count = FRAME_COUNT,
+        line_length = LINE_LENGTH,
+        lines_per_file = LINES_PER_FILE,
+        scale = BODY_SCALE,
+        shift = BODY_SHIFT,
+        animation_speed = 0.5,
+        draw_as_glow = true,
+      },
+    },
+  },
+}
+-- Drop foundry-specific overlays that would render the foundry's own working
+-- effects on top of the glass-furnace body.
+manufacturer.graphics_set_flipped = nil
+manufacturer.working_visualisations = nil
+-- The inherited foundry fluid_boxes enable working visualisations BY NAME
+-- ("input-pipe"/"output-pipe"); those live in the graphics_set we just replaced,
+-- so the names now dangle and the load errors. Drop the references (the pipes,
+-- covers, and connections still render and function -- only the foundry-shaped
+-- pipe glow overlay goes).
+if manufacturer.fluid_boxes then
+  for _, fb in pairs(manufacturer.fluid_boxes) do
+    if type(fb) == "table" then fb.enable_working_visualisations = nil end
+  end
+end
+manufacturer.icon = ICON
+manufacturer.icon_size = 64
+manufacturer.icons = nil -- clear any inherited layered icon; single icon above
+
+-- Item: clone the foundry item for a valid subgroup, then wear the glass-furnace
+-- icon (matching the entity) instead of the inherited foundry icon.
 local manufacturer_item = util.table.deepcopy(data.raw["item"]["foundry"])
 manufacturer_item.name = "cindra-lava-manufacturer"
 manufacturer_item.place_result = "cindra-lava-manufacturer"
 manufacturer_item.order = "b[cindra]-d[lava-manufacturer]"
+manufacturer_item.icon = ICON
+manufacturer_item.icon_size = 64
+manufacturer_item.icons = nil -- clear inherited layered icon; single icon above
+manufacturer_item.pictures = nil -- drop foundry belt-immunity/pictures variants
 manufacturer_item.localised_name = { "item-name.cindra-lava-manufacturer" }
 manufacturer_item.localised_description = { "item-description.cindra-lava-manufacturer" }
 

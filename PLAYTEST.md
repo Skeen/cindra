@@ -63,8 +63,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   nightside); it does NOT rotate (tidally locked) while the terminator steam band
   and the flares off the fire limb animate in place. The baked star-map sprite
   split is verified off-game (`unit-tests/test_planet_maps.py`: centre ~RGB
-  [139,108,61] sandy, fire limb ~[244,168,137], ice limb ~[40,57,77]); only the
-  LIVE orbital backdrop is the playtest.
+  [185,150,88] sandy, fire limb ~[189,73,20] molten orange, ice limb ~[57,93,135]
+  icy blue); only the LIVE orbital backdrop is the playtest.
+
+- [ ] **[LANDED] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
+  earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
+  *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
+  then navigate/travel to it). *Look for:* the LAVA hemisphere (left limb, sunward
+  per tidal lock) reads as **strongly GLOWING** radiant molten orange/red with a
+  soft bloom halo bleeding off the fire limb and bright magma veins; the ICE
+  hemisphere (right limb) reads as a **shimmery cool BLUE** frozen vault with icy
+  glints catching the light, NOT flat grey/navy; the sandy terminator band down
+  the centre is now a **THIN sliver** (slimmed ~10x per the space-view
+  refinement) so the disc reads as mostly FIERY + ICY hemispheres, NOT thirds.
+  The whole planet stays DARK (glow/shimmer are accents on a dark base, not an
+  overall wash-out). Fire faces the star, ice faces away
+  (orientation preserved). *Fallback:* the baked star-map sprite is verified
+  off-game (`unit-tests/test_planet_maps.py` guards the strongly-glowing dayside,
+  the visible icy-blue shimmer, and the thin sandy terminator; `unit-tests/test_space_appearance.lua` guards
+  the orbital backdrop's boosted emission_scalar + specular sheen). This entry is
+  only the "the glow/shimmer looks vivid on the live orbital backdrop, bloom and
+  all" confirmation a still-image test cannot judge. Re-bake via
+  `scripts/render-planet.sh` (tunes: gen-planet-maps.py emission/albedo,
+  bake-starmap.py Standard view transform + Emission Strength + Glare bloom +
+  cold-blue fill, space-appearance.lua emission_scalar/specular_intensity).
 
 - [ ] **[LANDED] Mod thumbnail reads as Cindra (ci-06j).** *Repro:* open the
   in-game mod manager (or the mod portal listing) and find **Cindra** by **Vuza**.
@@ -206,6 +228,21 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   dies, and reads as "drag heat with you," not "instant loss." If a reversible
   freeze feels better, that is a future refinement, not a v1 bug.
 
+- [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
+  decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the
+  hot (west) rocky/lava half, **ice + light-snow** decals on the cold (east) icy
+  half, keyed to the ribbon X-gradient. *Repro:* explore the ribbon west and east of
+  the terminator on Cindra. *Look for:* (1) the hot half is strewn with occasional
+  volcanic rocks and the odd crater (scatter, NOT a carpet); (2) the cold half reads
+  as a frosted/snowy ground (ice + snow decals, denser, like Aquilo); (3) NO rocks
+  or craters on the icy ground and NO snow/ice decals in the rocky/lava region (no
+  bleed across the terminator); (4) the temperate terminator spawn band stays clean
+  (no decals); (5) decal sprites sit sensibly on the terrain (no jarring seams), and
+  the densities feel right (tune the biases in `scripts/decorative-field.lua` if the
+  rocks read too sparse/dense). *Fallback:* `tests/test_decoratives.lua` proves the
+  zone placement + purity (rocks only on the hot half, ice/snow only on the cold
+  half, none on the terminator) on the live map; only the *look* is the playtest.
+
 ## Bootstrap from nothing
 
 - [ ] **[LANDED] From-nothing bootstrap start works (ci-8nh / ci-fs4 / §6).**
@@ -259,12 +296,32 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   for molten metal. *Look for:* (1) the `cindra-lava` recipe icon is the vanilla lava
   sprite under a warm amber-tinted layer - it reads a touch hotter/brighter than natural
   Vulcanus lava at icon size, still obviously lava (placeholder tint, do not file as a
-  bug); (2) the manufacturer reuses the vanilla foundry sprite (v1 art reuse) so it looks
-  like a foundry in world/toolbar - intentional for v1, bespoke art is a follow-up bead;
+  bug); (2) the manufacturer now wears the bespoke glass-furnace art (Hurricane046 /
+  CC-BY, ci-oi8) instead of the foundry sprite - see the dedicated art entry below;
   (3) the *feel*: ~6 manufacturers visibly feed one melting foundry without an absurd
   machine wall, at a visibly heavy grid draw ("power is the lever"), and productivity
   modules are allowed on the lava recipe (ci-095). Balance the ruinous 40 MW draw against
   the flare/solar numbers (ci-9k6, ci-63d).
+
+- [ ] **[LANDED] Lava-manufacturer glass-furnace art looks right (ci-oi8).** The
+  `cindra-lava-manufacturer` wears the user-supplied Hurricane046 **glass-furnace**
+  set (CC-BY): an animated furnace body, a ground shadow, and an always-on emissive
+  molten glow, wired into the assembling-machine `graphics_set.animation` (replacing
+  the inherited foundry art + its pipe working-visualisations). *Repro:* build a
+  `cindra-lava-manufacturer` and run it. *Look for:* the machine shows the glass-furnace
+  building (not a foundry, not an invisible/placeholder box) and its body visibly
+  **animates** (the 80-frame furnace loop); the emissive layer **glows** (reads as a lit
+  molten furnace, especially in the dark); a ground **shadow** casts correctly; the
+  item/entity **icon** is the glass-furnace icon in the inventory, build preview, and
+  factoriopedia; and the inherited foundry **pipe glow overlay is gone** (no stray
+  foundry-shaped effects near the fluid connections). *Judge the tuning:* `BODY_SCALE`
+  / `BODY_SHIFT` in `mods/cindra/prototypes/lava.lua` place the furnace on the
+  foundry-sized footprint - confirm the base sits on the tiles (not floating, buried,
+  or oversized) and the shadow lands under the body. The geometry (270x310 frames,
+  two-part 80-frame sheet, 8-wide), layer wiring, dropped foundry overlays, and icon
+  are test-covered (`unit-tests/test_lava_graphics.lua`, and the mod-loads +
+  runtime-craft checks in `tests/test_lava.lua` / `tests/test_bootstrap.lua`); only
+  the on-screen look/scale/shift and animation feel need eyes.
 
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh).** The signature material:
   native stone + calcite -> alumina -> aluminium (electrolysis cell, ruinous power,
@@ -520,3 +577,18 @@ of the current build; they are listed so "not built yet" is distinguishable from
   reachable ice/volatiles sit at the walkable/impassable boundary and mining feels like
   a graded risk, not a dead cliff; confirm no resource is stranded such that the
   economy is starved.
+
+- [ ] **Burned volcanic rocks read as charred boulders in the lava areas (ci-qy0).**
+  Charred Vulcanus-style boulders (the `big-`/`huge-volcanic-rock` art) generate by
+  worldgen across the HOT region, clustered toward the lava edge; mining one yields
+  stone + coal only. Placement confinement (hot region only, never temperate/ice),
+  the density-toward-lava ramp, and the stone+coal drop are all integration-tested
+  (`tests/test_worldgen.lua`) plus the pure autoplace geometry
+  (`unit-tests/test_resource_field.lua`); only the *visual read* is the playtest.
+  *Look for:* (1) walking WEST from spawn toward the molten ground, dark volcanic
+  boulders appear on the walkable `molten-rock` band and get denser the closer you
+  get to the impassable lava; (2) they look distinctly charred/volcanic (reused
+  Vulcanus rock art), visually separable from the pale hand-minable terminator
+  `rock`; (3) none appear in the temperate spawn band or anywhere on the cold/ice
+  side; (4) they never spawn ON the impassable lava tiles (collision keeps them on
+  solid ground), so they read as "at the lava's edge," not floating in it.

@@ -62,6 +62,7 @@ if script.active_mods["factorio-test"] then
     "tests/test_aluminium",
     "tests/test_tile_damage",
     "tests/test_worldgen",
+    "tests/test_decoratives",
     "tests/test_building_heat",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
