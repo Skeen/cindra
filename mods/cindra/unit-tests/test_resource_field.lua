@@ -64,6 +64,41 @@ test("bootstrap rocks scatter only around the terminator", function()
   assert_true(not field.rock_zone(-40), "no rocks deep nightward")
 end)
 
+-- Zone purity (ci-7w0): the mutually-exclusive placement rule proven off the game.
+-- STONE must NEVER be placeable in the icy (cold) zone; ICE must NEVER be placeable
+-- in the hot zone. Prove it across the WHOLE perpendicular axis, not just sampled
+-- points, so a boundary drift or an off-by-one in either mask is caught.
+test("stone is NEVER placeable in the icy (cold) zone; ice NEVER in the hot zone", function()
+  local S, W, L = 24, 128, 96 -- defaults: safe_half_width, wall_at, lethal_at
+  for y = -W - 20, L + 20 do
+    -- Cold/icy zone is y < -S. Stone must be absent there.
+    if y < -S then
+      assert_eq(0, field.stone_richness(y), "stone leaked into the icy zone at y=" .. y)
+      assert_true(not field.stone_zone(y), "stone_zone true in the icy zone at y=" .. y)
+    end
+    -- Hot + temperate zone is y >= -S. Ice must be absent there (never sunward of
+    -- the safe-band edge, so never in the hot zone).
+    if y >= -S then
+      assert_eq(0, field.ice_richness(y), "ice leaked into the hot/temperate zone at y=" .. y)
+      assert_true(not field.ice_zone(y), "ice_zone true sunward of the icy zone at y=" .. y)
+    end
+    -- The two placement zones NEVER overlap: no tile is both stone- and ice-eligible.
+    assert_true(not (field.stone_zone(y) and field.ice_zone(y)),
+      "stone and ice zones overlap at y=" .. y)
+  end
+end)
+
+test("zone purity holds under a settings-driven config override too", function()
+  -- A narrower ribbon must keep the same guarantee, keyed off the (smaller) divider.
+  local cfg = { safe_half_width = 8, lethal_at = 60, wall_at = 100 }
+  for y = -120, 80 do
+    if y < -8 then assert_eq(0, field.stone_richness(y, cfg), "stone in icy zone at y=" .. y) end
+    if y >= -8 then assert_eq(0, field.ice_richness(y, cfg), "ice in hot/temperate zone at y=" .. y) end
+    assert_true(not (field.stone_zone(y, cfg) and field.ice_zone(y, cfg)),
+      "zones overlap under override at y=" .. y)
+  end
+end)
+
 test("bands honour a partial config override (settings-driven tuning)", function()
   local cfg = { safe_half_width = 4 }
   -- Narrower safe band -> rocks only very close to centre.

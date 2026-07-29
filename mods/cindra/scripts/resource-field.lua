@@ -59,12 +59,37 @@ local function lerp(a, b, t)
   return a + (b - a) * t
 end
 
+-- The mutually-exclusive placement RULE (ci-7w0), the single source of truth for
+-- "may this resource generate here": stone on the temperate ribbon + hot margin,
+-- ice on the nightside, and both keyed off the SAME divider at the safe-band edge
+-- (-safe_half_width). Because the two zones share that one divider and never
+-- overlap it, STONE can NEVER generate in the icy (cold) zone and ICE can NEVER
+-- generate in the hot zone -- the purity guarantee, expressed as pure geometry.
+-- The richness fns below early-return 0 outside these zones, and the band-mask
+-- emitters (stone_mask_expr / ice_mask_expr) encode the SAME boundaries as
+-- noise-expression strings, so the numeric geometry, the live map-gen, and the
+-- runtime damage axis all agree. Keep the three in lockstep.
+--
+-- `y` is the signed perpendicular coordinate (sunward-positive); the cold/icy zone
+-- is y < -safe_half_width, the hot zone is y > safe_half_width, and |y| <= safe is
+-- the temperate ribbon where stone (the ribbon feedstock) lives but ice never does.
+function M.stone_zone(y, cfg)
+  cfg = ribbon.resolve(cfg)
+  return y >= -cfg.safe_half_width and y <= cfg.lethal_at
+end
+
+function M.ice_zone(y, cfg)
+  cfg = ribbon.resolve(cfg)
+  return y < -cfg.safe_half_width and y > -cfg.wall_at
+end
+
 -- Stone: present from just nightward of the safe band out to the sunward lethal
 -- edge (the whole ribbon surface + the hot margin), richest toward the HOT edge
--- so pushing sunward is rewarded. Returns 0 where stone should not appear.
+-- so pushing sunward is rewarded. Returns 0 where stone should not appear (the
+-- icy/cold zone and past the hot lethal edge), via M.stone_zone.
 function M.stone_richness(y, cfg)
   cfg = ribbon.resolve(cfg)
-  if y < -cfg.safe_half_width or y > cfg.lethal_at then return 0 end
+  if not M.stone_zone(y, cfg) then return 0 end
   -- Fraction of the way from the nightward edge of the stone band to the hot edge.
   local span = cfg.lethal_at + cfg.safe_half_width
   local f = clamp((y + cfg.safe_half_width) / span, 0, 1)
@@ -72,10 +97,11 @@ function M.stone_richness(y, cfg)
 end
 
 -- Ice: nightward of the safe band, richer the DEEPER (colder) you go, up to the
--- wall. Returns 0 on the sunward side / inside the safe band.
+-- wall. Returns 0 on the sunward side / inside the safe band (the hot + temperate
+-- zones) and beyond the wall, via M.ice_zone.
 function M.ice_richness(y, cfg)
   cfg = ribbon.resolve(cfg)
-  if y > -cfg.safe_half_width then return 0 end
+  if not M.ice_zone(y, cfg) then return 0 end
   local depth = -y - cfg.safe_half_width           -- tiles past the safe band, nightward
   local span = cfg.wall_at - cfg.safe_half_width
   local f = clamp(depth / span, 0, 1)
@@ -119,7 +145,9 @@ local Y = M.PERP_AXIS -- the sunward-positive perpendicular axis expression.
 local NY = axis.perp_neg_expr() -- the nightward-positive axis (-perp), for cold bands.
 
 -- Stone: present from the nightward edge of the safe band out to the sunward
--- lethal edge, i.e. y in [-safe_half_width, lethal_at].
+-- lethal edge, i.e. y in [-safe_half_width, lethal_at]. Encodes M.stone_zone as a
+-- noise-expression string, so the map-gen zeroes stone probability/richness in the
+-- icy (cold) zone -- stone can never generate there (ci-7w0).
 function M.stone_mask_expr(cfg)
   cfg = ribbon.resolve(cfg)
   return "(" .. Y .. " >= " .. num(-cfg.safe_half_width) .. ")" ..
@@ -127,6 +155,9 @@ function M.stone_mask_expr(cfg)
 end
 
 -- Ice: nightward of the safe band, in to the wall, i.e. y in [-wall_at, -safe).
+-- Encodes M.ice_zone as a noise-expression string, so the map-gen zeroes ice
+-- probability/richness across the whole hot + temperate zone -- ice can never
+-- generate in the hot zone (ci-7w0).
 function M.ice_mask_expr(cfg)
   cfg = ribbon.resolve(cfg)
   return "(" .. Y .. " < " .. num(-cfg.safe_half_width) .. ")" ..
