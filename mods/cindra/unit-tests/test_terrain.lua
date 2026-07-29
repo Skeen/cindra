@@ -116,9 +116,10 @@ test("only the two lava tiles are impassable; every other tile is walkable groun
   assert_eq(nil, terrain.is_walkable("cindra-not-a-tile"), "unknown tile -> nil")
 end)
 
-test("DAMAGE is positional: heat over zones 1+2+3, cold over zone 11, middle safe", function()
-  -- Spec: DAMAGE = zones 1+2+3 (heat) + zone 11 (cold). Zones mix shared tiles, so
-  -- lethality is keyed to POSITION on the perpendicular axis, not the tile.
+test("zone-geometry damage bounds: heat over zones 1+2+3, cold over zone 11, middle safe", function()
+  -- damage_bounds / lethal_at describe which BAND is heat/cold (worldgen geometry);
+  -- ci-4jl moved the RUNTIME damage to per-tile intensity (terrain.tile_damage),
+  -- but these positional descriptors remain and the worldgen tests still read them.
   local db = terrain.damage_bounds()
   assert_eq(300, db.hot_from, "heat band starts at the cold edge of zone 3 (lava-crust)")
   assert_eq(-200, db.cold_from, "cold band starts at the hot edge of zone 11 (deep-ice cap)")
@@ -129,6 +130,46 @@ test("DAMAGE is positional: heat over zones 1+2+3, cold over zone 11, middle saf
   assert_eq(nil, terrain.lethal_at(275), "zone 4 (volcanic-warm) is safe")
   assert_eq(nil, terrain.lethal_at(-175), "zone 10 (rough ice) is safe")
   assert_eq(nil, terrain.lethal_at(0), "the building centre is safe")
+end)
+
+test("per-tile damage: intensity RAMPS by tile, safe tiles are 0 (ci-4jl)", function()
+  -- Spec: HEAT ramp hot-lava(max) > lava > cracks-hot > warm crust; COLD ramp
+  -- smooth-ice(max) > rough-ice; every other tile is 0. Keyed to the ACTUAL tile
+  -- under an entity, so the depth ramp emerges from the noisy zone mixes and a
+  -- machine overlapping a lava tile burns (scripts/tile-damage.lua reads this).
+  local function intensity(name)
+    local i = select(1, terrain.tile_damage(name))
+    return i
+  end
+  local function kind(name)
+    return select(2, terrain.tile_damage(name))
+  end
+
+  -- HEAT ramp is strictly monotonic and peaks at 1.0.
+  assert_eq(1.0, intensity("cindra-lava-hot"), "hot-lava is the peak heat (1.0)")
+  assert_eq("heat", kind("cindra-lava-hot"), "hot-lava is heat")
+  assert_true(intensity("cindra-lava-hot") > intensity("cindra-lava"), "hot-lava > lava")
+  assert_true(intensity("cindra-lava") > intensity("cindra-volcanic-cracks-hot"), "lava > cracks-hot")
+  assert_true(intensity("cindra-volcanic-cracks-hot") > intensity("cindra-volcanic-cracks-warm"),
+    "cracks-hot > warm crust")
+  assert_true(intensity("cindra-volcanic-cracks-warm") > 0, "warm crust still burns a little")
+  assert_eq("heat", kind("cindra-volcanic-cracks-warm"), "warm crust is heat")
+  -- The warm smooth-stone member matches the warm crust (both are the low rung).
+  assert_eq(intensity("cindra-volcanic-cracks-warm"),
+    intensity("cindra-volcanic-smooth-stone-warm"), "warm members share the low intensity")
+
+  -- COLD ramp peaks at the smooth-ice cap.
+  assert_eq(1.0, intensity("cindra-ice-smooth"), "smooth-ice is the peak cold (1.0)")
+  assert_eq("cold", kind("cindra-ice-smooth"), "smooth-ice is cold")
+  assert_true(intensity("cindra-ice-smooth") > intensity("cindra-ice-rough"), "smooth-ice > rough-ice")
+  assert_true(intensity("cindra-ice-rough") > 0, "rough ice freezes a little")
+
+  -- Safe / unknown tiles deal nothing.
+  assert_eq(0, intensity("cindra-sand-1"), "the building sand is safe")
+  assert_eq(nil, kind("cindra-sand-1"), "safe tiles have no damage kind")
+  assert_eq(0, intensity("cindra-volcanic-cracks"), "the safe volcanic-warm member is safe")
+  assert_eq(0, intensity("cindra-not-a-tile"), "unknown tile -> 0")
+  assert_eq(nil, kind("cindra-not-a-tile"), "unknown tile -> no kind")
 end)
 
 test("every tile has a map_color: reds sunward, cyan nightward, neutral building", function()

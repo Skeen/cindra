@@ -15,9 +15,10 @@
 -- ground EXCEPT the two lava tiles (lava-hot, lava), which keep their cloned lava
 -- collision + fluid so they stay IMPASSABLE like Vulcanus lava. That makes zones 1+2
 -- (pure lava) the impassable hot WALL, while zone 3 is mostly walkable crust with
--- occasional impassable lava hazards. Environmental DAMAGE is applied by position at
--- runtime (scripts/tile-damage.lua reads the perpendicular axis), so a machine built
--- in a hot or cold zone burns/freezes regardless of the exact tile under it.
+-- occasional impassable lava hazards. Environmental DAMAGE is applied PER TILE at
+-- runtime (scripts/tile-damage.lua reads terrain.tile_damage for the tile(s) under
+-- an entity), so a machine sitting on hot ground or the ice cap burns/freezes and
+-- one overlapping a lava tile burns -- keyed to the actual tile, not a coordinate.
 
 local util = require("util")
 local terrain = require("scripts.terrain")

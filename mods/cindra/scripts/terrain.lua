@@ -52,11 +52,14 @@
 -- zone 3 is mostly walkable crust with occasional impassable lava hazards, and
 -- every other zone is buildable ground.
 --
--- DAMAGE is POSITIONAL, keyed to the SAME perpendicular axis (ci-da2 redefines the
--- danger as ZONES 1+2+3 heat and zone 11 cold; because those zones mix tiles that
--- also appear in safe neighbours -- cracks-warm is in both hot zone 3 and safe zone
--- 4 -- per-tile lethality is ambiguous, so lethality reads POSITION). See
--- M.damage_bounds / M.lethal_at; scripts/tile-damage.lua consumes them.
+-- DAMAGE is PER TILE (ci-4jl): each damaging tile carries an intensity (0..1) x
+-- peak-dps and a kind (M.TILE_DAMAGE_BY_VANILLA / M.tile_damage), and
+-- scripts/tile-damage.lua burns/freezes an entity from the most-lethal tile under
+-- its footprint. The depth ramp emerges because the ci-da2 zones are noisy MIXES
+-- (warm/low tiles near the safe edge, lava/hot-lava deep in). The POSITIONAL
+-- zone-geometry helpers (M.damage_bounds / M.lethal_at, keyed to the perpendicular
+-- axis) remain as descriptors of which BAND is heat/cold (worldgen tests read
+-- them); they no longer drive runtime damage.
 --
 -- The world is finite PERPENDICULAR to the ribbon via the map-gen's own `width`
 -- (vertical orientation) / `height` (horizontal): the engine fills everything
@@ -148,6 +151,52 @@ M.cindra_name = cindra_name
 
 -- Only the two lava tiles are impassable fluid; every other tile is walkable ground.
 local IMPASSABLE = { ["lava-hot"] = true, ["lava"] = true }
+
+-- ---------------------------------------------------------------------------
+-- Per-TILE environmental damage (ci-4jl). The ribbon's danger is a property of the
+-- ACTUAL tile under an entity, not of its position: scripts/tile-damage.lua reads
+-- the tile(s) an entity's collision footprint covers and burns/freezes from the
+-- MOST-LETHAL one. Each damaging tile carries an INTENSITY (0..1) that scales the
+-- peak damage-per-second (the cindra-ribbon-max-dps setting) and a KIND
+-- ("heat"/"cold"). Every non-listed tile is safe (0).
+--
+--   HEAT ramp (hot -> cool): hot-lava = MAX, lava = high, volcanic-cracks-hot =
+--     medium, the warm crust members (volcanic-cracks-warm / smooth-stone-warm) =
+--     low. Temperate ground = 0.
+--   COLD ramp: smooth-ice = MAX, rough-ice = lower. Everything else = 0.
+--
+-- Because the ci-da2 zones are NOISY MIXES of tiles, the DEPTH RAMP emerges for
+-- free: near the safe edge an entity mostly sits on warm/low-intensity tiles (a
+-- gentle burn), deeper in it sits on lava/hot-lava (max) -- gentle at first,
+-- ramping with depth, exactly the ask. Keying to the tile the player SEES also
+-- fixes the lava-placement exploit: a pump whose footprint overlaps a lava tile
+-- burns, where the old positional model (keyed to a single coordinate) could miss
+-- it. All intensities are (tune) values.
+local function dmg(kind, intensity) return { kind = kind, intensity = intensity } end
+M.TILE_DAMAGE_BY_VANILLA = {
+  ["lava-hot"]                   = dmg("heat", 1.00), -- pure hot lava: peak burn
+  ["lava"]                       = dmg("heat", 0.70), -- molten lava: high
+  ["volcanic-cracks-hot"]        = dmg("heat", 0.40), -- glowing crust: medium
+  ["volcanic-cracks-warm"]       = dmg("heat", 0.15), -- warm crust: low
+  ["volcanic-smooth-stone-warm"] = dmg("heat", 0.15), -- warm stone: low
+  ["ice-smooth"]                 = dmg("cold", 1.00), -- the smooth-ice cap: peak freeze
+  ["ice-rough"]                  = dmg("cold", 0.50), -- rough ice: lower
+}
+
+-- cindra-<vanilla> tile name -> { kind, intensity } for the damaging tiles.
+local TILE_DAMAGE = {}
+for vanilla, d in pairs(M.TILE_DAMAGE_BY_VANILLA) do
+  TILE_DAMAGE[cindra_name(vanilla)] = d
+end
+
+-- Damage INTENSITY (0..1) and KIND ("heat"/"cold") for a Cindra tile NAME, or
+-- (0, nil) for a safe/unknown tile. Pure lookup -- the single source of truth for
+-- "how lethal is this tile" that scripts/tile-damage.lua reads at runtime.
+function M.tile_damage(name)
+  local d = TILE_DAMAGE[name]
+  if d then return d.intensity, d.kind end
+  return 0, nil
+end
 
 -- ---------------------------------------------------------------------------
 -- The concrete TILES (deduplicated across zones), ordered hot -> cold by the first
