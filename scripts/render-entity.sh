@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render a Coercia (or vanilla) entity via the FBSR Nix flake — a
+# Render a Cindra (or vanilla) entity via the FBSR Nix flake — a
 # headless preview of the engine render, no playtest needed. Iteration
 # loop is ~30 seconds once the Maven cache is warm.
 #
@@ -19,13 +19,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO_ROOT=$(pwd)
-# No Coercia entities exist yet — default to a vanilla one so the script
-# works on the empty skeleton. Change this to a Coercia entity once one
+# No Cindra entities exist yet — default to a vanilla one so the script
+# works on the empty skeleton. Change this to a Cindra entity once one
 # exists (e.g. deep-core-miner, induction-boiler).
 ENTITY="${1:-assembling-machine-2}"
 FBSR_FLAKE="${FBSR_FLAKE:-github:Skeen/Factorio-FBSR-nix}"
-DATA="${FBSR_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fbsr-coercia}"
-PROFILE="coercia"
+DATA="${FBSR_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fbsr-cindra}"
+PROFILE="cindra"
 
 # FBSR's profile-test-entity render uses AWT, which throws
 # java.awt.HeadlessException on a headless box. The JVM honours
@@ -84,23 +84,23 @@ cat > "$DATA/build/vanilla/manifest.json" <<'JSON'
 }
 JSON
 
-# ── Coercia profile ─────────────────────────────────────────────────
+# ── Cindra profile ─────────────────────────────────────────────────
 # entity-overrides pins the mod association for entities FBSR can't
 # resolve on its own. FBSR infers an entity's owning mod from a mod-owned
 # graphics filename it references; entities that are pure deep-copies of a
 # vanilla prototype still point all their graphics at __base__/
-# __space-age__, so FBSR finds no coercia file and logs "Entity X has no
+# __space-age__, so FBSR finds no cindra file and logs "Entity X has no
 # mods associated with it in a non-vanilla profile!" which ABORTS the
-# whole profile build. Every deep-copy-based Coercia building will
+# whole profile build. Every deep-copy-based Cindra building will
 # therefore need an entry here, e.g.:
-#   "deep-core-miner": {"mods": ["coercia"]}   (deep-copy of a vanilla model)
-# Empty for now (no Coercia entities yet).
+#   "deep-core-miner": {"mods": ["cindra"]}   (deep-copy of a vanilla model)
+# Empty for now (no Cindra entities yet).
 cat > "$DATA/profiles/$PROFILE/profile.json" <<JSON
 {
   "enabled": true,
   "mods": [
     "base", "space-age", "quality", "elevated-rails",
-    "coercia"
+    "cindra"
   ],
   "mod-overrides": {},
   "entity-overrides": {},
@@ -110,7 +110,7 @@ JSON
 
 # Symlink mods so FBSR's --mod-directory picks them up.
 cd "$DATA/build/$PROFILE/mods"
-ln -sfn "$REPO_ROOT/mods/coercia" coercia_0.1.0
+ln -sfn "$REPO_ROOT/mods/cindra" cindra_0.1.0
 
 cat > mod-list.json <<'JSON'
 {"mods":[
@@ -118,7 +118,7 @@ cat > mod-list.json <<'JSON'
 {"name":"elevated-rails","enabled":true},
 {"name":"quality","enabled":true},
 {"name":"space-age","enabled":true},
-{"name":"coercia","enabled":true}
+{"name":"cindra","enabled":true}
 ]}
 JSON
 
@@ -131,7 +131,7 @@ cat > "$DATA/build/$PROFILE/manifest.json" <<'JSON'
     {"name": "quality", "title": "Quality", "builtin": true},
     {"name": "elevated-rails", "title": "Elevated Rails", "builtin": true},
     {"name": "space-age", "title": "Space Age", "builtin": true},
-    {"name": "coercia", "title": "Coercia", "version": "0.1.0", "category": "content", "tags": [], "downloads": 0, "owner": "you", "updated": "2026-01-01"}
+    {"name": "cindra", "title": "Cindra", "version": "0.1.0", "category": "content", "tags": [], "downloads": 0, "owner": "you", "updated": "2026-01-01"}
   ],
   "zips": {}
 }
@@ -139,10 +139,10 @@ JSON
 
 # Build + render. FBSR's CLI is a stdin REPL (one command per line) —
 # the `--` argv form is rejected. Build the vanilla base profile first
-# (FBSR composes modded assets on top of it), then coercia, then render.
+# (FBSR composes modded assets on top of it), then cindra, then render.
 cd "$DATA"
-echo "==> Building vanilla base + coercia, rendering $ENTITY" >&2
-printf 'build-dump vanilla\nbuild-assets vanilla\nbuild-dump coercia\nbuild-assets coercia -force\nprofile-test-entity coercia %s\nexit\n' "$ENTITY" \
+echo "==> Building vanilla base + cindra, rendering $ENTITY" >&2
+printf 'build-dump vanilla\nbuild-assets vanilla\nbuild-dump cindra\nbuild-assets cindra -force\nprofile-test-entity cindra %s\nexit\n' "$ENTITY" \
   | nix run --extra-experimental-features 'nix-command flakes' "$FBSR_FLAKE"
 
 # NOTE: FBSR renders + saves the PNG, then tries to auto-open it in a

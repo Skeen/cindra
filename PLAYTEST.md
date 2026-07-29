@@ -288,7 +288,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `test_panel_damage_runtime`): driver enabled, a real sporadic flare,
   `panels.sweep()` reading the schedule intensity -- insufficient disposal degrades
   panels, sufficient disposal is zero loss, a near-full buffer raises the alarm
-  (Coercia's "full battery"), only Cindra panels are touched, and it fires with no
+  (Cindra's "full battery"), only Cindra panels are touched, and it fires with no
   day/night cycle (tidal-lock safe). *Look for:* the health read of a panel array
   cooking sunward-first during an over-built flare, and recovering once disposal is
   added. Panels have no bespoke "overheating" visual yet (just the health bar); an

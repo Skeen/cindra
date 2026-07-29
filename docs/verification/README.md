@@ -24,8 +24,8 @@ full 1024x1024 for inspection.
 
 The live orbital backdrop (`platform_surface_render_parameters.platform_backdrop`)
 is drawn by Factorio's expansion-shaders pass, which is disabled on headless /
-0-VRAM machines (see the note carried over from the Coercia tooling in
-`scripts/screenshot-coercia.sh`). A headless in-engine capture therefore cannot
+0-VRAM machines (see the note carried over from the Cindra tooling in
+`scripts/screenshot-cindra.sh`). A headless in-engine capture therefore cannot
 show the globe at all. The Cycles bake is the faithful, deterministic stand-in:
 it is built from the exact same equirectangular maps the engine samples, so it
 reads as the same planet, and it renders identically on any machine.

@@ -117,5 +117,30 @@ test("the old tagline appears in NO tracked file anywhere in the repo", function
       .. "'Cindra'); offending lines:\n" .. hits)
 end)
 
+-- REGRESSION GUARD (ci-oe2): the mod's OLD internal name (the design's former
+-- identifier, spelled below from fragments) must appear in ZERO tracked files
+-- across the WHOLE repo -- info.json, prototype/graphic/locale namespaces,
+-- require paths, scripts, docs, and code comments alike. The internal name is
+-- now 'cindra' everywhere; this guard fails if the old name creeps back.
+--
+-- Like the tagline guard above, the needle is assembled from fragments so this
+-- file does not itself contain the contiguous word it hunts for.
+local FORBIDDEN_NAME = "coer" .. "cia"
+
+test("the old internal name appears in NO tracked file anywhere", function()
+  local root = repo_root()
+  assert_true(root ~= nil,
+    "regression guard needs git (a git working tree) to scan tracked files")
+  -- -I skips binary files, -i is case-insensitive, -n prints line numbers.
+  local cmd = "git -C '" .. root .. "' grep -I -i -n -e '" .. FORBIDDEN_NAME
+    .. "' 2>/dev/null"
+  local f = assert(io.popen(cmd), "could not run git grep")
+  local hits = f:read("*a") or ""
+  f:close()
+  assert_true(hits == "",
+    "the old internal name 'coer".."cia' reappeared in tracked files (the mod "
+      .. "is now 'cindra' everywhere); offending lines:\n" .. hits)
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)
