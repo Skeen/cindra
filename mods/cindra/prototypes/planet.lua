@@ -102,13 +102,13 @@ local function cindra_map_gen()
       -- Tiles: ONLY Cindra tiles are candidates. No grass, no water, no Nauvis
       -- tile can ever be placed (they are not in the set).
       tile = { treat_missing_as_default = false, settings = tile_settings },
-      -- Entities: only the Cindra resources + finite bootstrap rocks autoplace.
+      -- Entities: only the Cindra resources + the finite rocks autoplace.
       entity = {
         treat_missing_as_default = false,
         settings = {
           ["cindra-stone"] = {},
           ["cindra-ice"] = {},
-          ["cindra-bootstrap-rock"] = {},
+          ["cindra-rock"] = {},
         },
       },
       -- No decoratives (no Nauvis grass tufts etc.).

@@ -226,7 +226,10 @@ data:extend({
 -- The amounts are a bootstrap-balance decision (§15-13, coordinate with ci-arw /
 -- ci-uex); kept small and finite so they can never replace the main loop.
 local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
-rock.name = "cindra-bootstrap-rock"
+-- Player-facing name is just "Rock" (locale entity-name.cindra-rock); the
+-- prototype id carries no "bootstrap" either (ci-d2h). The bootstrap ROLE
+-- (finite landing-tier metal) is unchanged -- only the name is plain.
+rock.name = "cindra-rock"
 -- NATIVE autoplace (ci-3yl, ci-9bb): a sparse per-tile scatter across the WHOLE
 -- terminator safe band, appearing in new chunks as you explore the ribbon (NOT a
 -- spawn-only disk -- playtest wanted them everywhere along the ribbon). Finiteness
@@ -235,7 +238,7 @@ rock.name = "cindra-bootstrap-rock"
 -- (the §6 no-soft-lock rule holds because the drop stays off every loop recipe --
 -- see test_bootstrap.lua). No on_chunk_generated script; the map-gen places them.
 rock.autoplace = { probability_expression = field.rock_probability_expr(CFG) }
-rock.order = "a[cindra]-a[bootstrap-rock]"
+rock.order = "a[cindra]-a[rock]"
 rock.map_color = { 0.55, 0.45, 0.35 }
 rock.minable = {
   mining_particle = "stone-particle",

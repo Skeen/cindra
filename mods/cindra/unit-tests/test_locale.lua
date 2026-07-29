@@ -242,5 +242,30 @@ test("every *-description has a sibling *-name (no orphan descriptions)", functi
   assert_true(#orphans == 0, "descriptions with no matching name: " .. table.concat(orphans, ", "))
 end)
 
+-- ci-d2h: the finite landing-tier rock is player-facing "Rock", never
+-- "Bootstrap rock". The gameplay role is unchanged (finite hand-mined metal),
+-- only the NAME is plain. Guard both the specific rock name and the general
+-- rule that no player-facing name (entity-name / item-name) leaks "bootstrap".
+test("the finite rock is player-facing 'Rock', never 'Bootstrap rock' (ci-d2h)", function()
+  local names = cfg["entity-name"] or {}
+  assert_true(names["cindra-rock"] == "Rock",
+    "[entity-name] cindra-rock must read exactly 'Rock'; got " .. tostring(names["cindra-rock"]))
+  assert_true(names["cindra-bootstrap-rock"] == nil,
+    "the old 'cindra-bootstrap-rock' entity-name key must be gone (renamed to cindra-rock)")
+end)
+
+test("no player-facing name (entity/item) contains 'bootstrap' (ci-d2h)", function()
+  local offenders = {}
+  for _, section in ipairs({ "entity-name", "item-name" }) do
+    for key, value in pairs(cfg[section] or {}) do
+      if value:lower():find("bootstrap", 1, true) then
+        offenders[#offenders + 1] = section .. "." .. key .. " = '" .. value .. "'"
+      end
+    end
+  end
+  assert_true(#offenders == 0,
+    "player-facing names must not say 'bootstrap':\n  " .. table.concat(offenders, "\n  "))
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

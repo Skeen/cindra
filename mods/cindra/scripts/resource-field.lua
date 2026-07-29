@@ -41,7 +41,7 @@ M.PERP_AXIS = axis.perp_expr()
 -- resource (ci-3yl). The bootstrap ROCK is a finite simple-entity scatter.
 M.STONE = "cindra-stone"
 M.ICE = "cindra-ice"
-M.ROCK = "cindra-bootstrap-rock"
+M.ROCK = "cindra-rock"
 
 -- Node richness (resource `amount`) starting points, all (tune).
 M.STONE_BASE = 600
