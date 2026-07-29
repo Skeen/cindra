@@ -34,6 +34,14 @@ remote.add_interface("cindra-flare", {
   forecast = function(surface_index) return flare.forecast(surface_index) end,
 })
 
+-- One-way power transfer PoC (ci-gcd): the "power diode". Registered on its OWN
+-- distinct nth-tick (7), disjoint from the driver's periodic systems, because it
+-- is an isolated feasibility spike -- it moves buffered power A->B between the
+-- two poles of a placed diode and touches nothing else. A cheap no-op on any
+-- surface where no diode is placed.
+local diode = require("scripts.diode")
+diode.register()
+
 local function on_init()
   driver.init()
 end
@@ -81,6 +89,9 @@ if script.active_mods["factorio-test"] then
     -- ci-arw start-on-Cindra foundry bootstrap: finite bootstrap coal, native
     -- lubricant (crude + renewable), and the Cindra-buildable field foundry.
     "tests/test_foundry_bootstrap",
+    -- ci-gcd one-way power transfer PoC: energy flows A->B up to a rate cap,
+    -- never B->A; the two networks stay isolated.
+    "tests/test_power_diode",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the

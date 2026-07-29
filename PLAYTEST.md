@@ -429,6 +429,17 @@ These are DESIGNED and beaded but NOT on `main`. Do not expect them in a playtes
 of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
 
+- [ ] **[IN-FLIGHT] Power diode PoC: the two poles are visible and distinct
+  (ci-gcd).** A research spike (one-way power transfer between two networks). Its
+  behaviour -- energy A->B up to a rate cap, never B->A, networks isolated -- is
+  fully test-covered (`tests/test_power_diode.lua`, `unit-tests/test_diode.lua`),
+  so this checkbox is only for the look a test cannot judge. *Repro:* in the
+  editor, place a **Power diode (input)** and a **Power diode (output)** (each on
+  its own pole network). *Look for:* both poles render (they reuse the vanilla
+  accumulator sprite) and are visually distinguishable -- input tinted **green**,
+  output tinted **red** -- and are selectable/minable. *Note:* isolated PoC with
+  no recipe/tech, so it is editor-spawn only; there is no crafting-tab entry yet.
+
 - [ ] **[IN-FLIGHT] Worldgen v2: themed terrain + orientation + size sliders
   (ci-i8a).** A configurable ribbon (default **vertical**, temperature axis
   **hot LEFT -> cold RIGHT**) with a smooth NOISY terrain gradient

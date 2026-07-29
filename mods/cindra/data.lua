@@ -97,6 +97,12 @@ require("prototypes.storage")
 -- Consumes the signature aluminium (prototypes/aluminium.lua), so it loads after.
 require("prototypes.science")
 
+-- One-way power transfer PoC (ci-gcd): the "power diode" -- two electric-energy-
+-- interface poles the runtime bridges to move power A->B between two networks,
+-- never B->A. An ISOLATED feasibility spike: wired into NO recipe / tech /
+-- worldgen, so it loads here without touching the main economy chain.
+require("prototypes.power-diode")
+
 -- Graphics guard (ci-sop): MUST be last -- audits every registered Cindra entity
 -- for a wired render sprite and errors the load on any invisible building. Catches
 -- the class of bug the runtime API cannot see (LuaEntityPrototype has no graphics
