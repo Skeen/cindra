@@ -5,9 +5,19 @@
 -- (no game.* / prototypes.*), so its whole maths surface is reachable here. The
 -- factorio-test in tests/test_ribbon.lua asserts the SAME behaviour under the
 -- real runtime; keep the two in sync.
+--
+-- ci-a35: the temperate reference is the SAND-band centre (`ref`), with asymmetric
+-- reaches to the hot / cold void edge, all derived from the per-zone gradient
+-- (scripts/zones.lua). Player-facing environmental damage is now TILE damage
+-- (scripts/tile-damage.lua), so ribbon no longer exposes an abstract zone()/dps
+-- ramp; it maps a perpendicular coordinate to a temperature and a solar fraction.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local ribbon = require("scripts.ribbon")
+local zones = require("scripts.zones")
+
+local GEO = zones.geometry()
+local REF = GEO.ref
 
 local passed, failed = 0, 0
 
@@ -30,82 +40,55 @@ local function assert_true(x, msg)
   if not x then error(msg or "expected true", 2) end
 end
 
-test("safe band is temperate and damage-free", function()
-  for _, y in ipairs({ -24, -10, 0, 10, 24 }) do
-    assert_eq("safe", ribbon.zone(y), "y=" .. y .. " safe")
-    assert_eq(0, (ribbon.damage_per_second(y)), "y=" .. y .. " no damage")
+test("the sand spawn reference is room temperature", function()
+  assert_eq(25, ribbon.temperature(REF), "the sand-band centre is temperate")
+end)
+
+test("temperature rises sunward, falls nightward of the spawn", function()
+  local center = ribbon.temperature(REF)
+  assert_true(ribbon.temperature(REF + 60) > center, "sunward hotter")
+  assert_true(ribbon.temperature(REF - 60) < center, "nightward colder")
+end)
+
+test("temperature saturates at each void edge (no runaway beyond)", function()
+  assert_eq(ribbon.temperature(GEO.hot_edge_p), ribbon.temperature(GEO.hot_edge_p + 500),
+    "sunward saturates at the hot edge")
+  assert_eq(ribbon.temperature(GEO.cold_edge_p), ribbon.temperature(GEO.cold_edge_p - 500),
+    "nightward saturates at the cold edge")
+  assert_eq(1500, ribbon.temperature(GEO.hot_edge_p), "hot edge = temp_hot_max")
+  assert_eq(-270, ribbon.temperature(GEO.cold_edge_p), "cold edge = temp_cold_min")
+end)
+
+test("temperature is monotonic across the whole axis", function()
+  local prev = math.huge
+  for p = math.floor(GEO.hot_edge_p), math.ceil(GEO.cold_edge_p), -5 do
+    local t = ribbon.temperature(p)
+    assert_true(t <= prev + 1e-9, "temperature falls monotonically from hot to cold at p=" .. p)
+    prev = t
   end
 end)
 
-test("temperature rises sunward, falls nightward", function()
-  local center = ribbon.temperature(0)
-  assert_eq(25, center, "centre is room temperature")
-  assert_true(ribbon.temperature(100) > center, "sunward hotter")
-  assert_true(ribbon.temperature(-100) < center, "nightward colder")
-end)
-
-test("temperature saturates at the wall (no runaway beyond the edge)", function()
-  assert_eq(ribbon.temperature(128), ribbon.temperature(500), "sunward saturates")
-  assert_eq(ribbon.temperature(-128), ribbon.temperature(-500), "nightward saturates")
-end)
-
-test("zones split heat sunward from cold nightward", function()
-  assert_eq("hot_warn", ribbon.zone(60))
-  assert_eq("cold_warn", ribbon.zone(-60))
-  assert_eq("hot_lethal", ribbon.zone(110))
-  assert_eq("cold_lethal", ribbon.zone(-110))
-end)
-
-test("damage types match the edge", function()
-  local _, hot = ribbon.damage_per_second(60)
-  local _, cold = ribbon.damage_per_second(-60)
-  assert_eq("heat", hot)
-  assert_eq("cold", cold)
-end)
-
-test("damage ramps 0 -> max then holds", function()
-  assert_eq(0, (ribbon.damage_per_second(24)), "edge of safe band")
-  local mid = ribbon.damage_per_second(60)
-  local lethal = ribbon.damage_per_second(96)
-  assert_true(mid > 0 and mid < lethal, "ramps in margin")
-  assert_eq(lethal, (ribbon.damage_per_second(1000)), "saturates")
-  assert_eq(200, lethal, "peak dps default (§16)")
-end)
-
-test("damage ramp is exactly linear at the midpoint", function()
-  -- safe=24, lethal=96, max=200: midpoint distance 60 -> t = (60-24)/(96-24) = 0.5
-  local mid = ribbon.damage_per_second(60)
-  assert_eq(100, mid, "half-way through the margin is half the peak dps")
-end)
-
-test("hard-wall backstop bounds the ribbon", function()
-  assert_true(not ribbon.past_wall(120), "inside")
-  assert_true(ribbon.past_wall(128), "at wall")
-  assert_true(ribbon.past_wall(-200), "past wall")
-end)
-
-test("partial config override falls back to defaults for unset keys", function()
-  local cfg = { safe_half_width = 4 }
-  assert_eq("hot_warn", ribbon.zone(10, cfg), "narrower safe band exposes y=10")
-  assert_eq("safe", ribbon.zone(0, cfg), "centre still safe")
-  -- lethal_at unspecified -> default 96 still applies
-  assert_eq("hot_lethal", ribbon.zone(96, cfg))
+test("config override pins the reference and reaches (tunable)", function()
+  local cfg = { ref = 0, hot_reach = 100, cold_reach = 100 }
+  assert_eq(25, ribbon.temperature(0, cfg), "custom reference is temperate")
+  assert_eq(ribbon.temperature(50, cfg), ribbon.temperature(50, cfg), "deterministic")
+  assert_true(ribbon.temperature(-50, cfg) < 25, "nightward of the custom ref is colder")
 end)
 
 -- === Solar output falloff (§ ci-9ht) ======================================
 
-test("solar output is full deep sunward, ~nothing nightward", function()
-  assert_eq(1.0, ribbon.sunward_factor(96), "at the sunward saturation: full sun")
-  assert_eq(1.0, ribbon.sunward_factor(200), "beyond it: held at full")
-  assert_eq(0.0, ribbon.sunward_factor(-24), "at the nightward floor: ~nothing")
-  assert_eq(0.0, ribbon.sunward_factor(-200), "far nightward: held at the floor")
+test("solar output is full deep sunward, ~nothing deep nightward", function()
+  assert_eq(1.0, ribbon.sunward_factor(GEO.hot_damage_start), "at the fire margin: full sun")
+  assert_eq(1.0, ribbon.sunward_factor(GEO.hot_edge_p), "beyond it: held at full")
+  assert_eq(0.0, ribbon.sunward_factor(GEO.cold_damage_start), "at the freeze boundary: floor")
+  assert_eq(0.0, ribbon.sunward_factor(GEO.cold_edge_p), "far nightward: held at the floor")
 end)
 
 test("solar output rises monotonically sunward", function()
   local prev = -1
-  for _, y in ipairs({ -24, -10, 0, 24, 48, 72, 96 }) do
-    local f = ribbon.sunward_factor(y)
-    assert_true(f >= prev, "y=" .. y .. " must not drop below a nightward point")
+  for p = math.floor(GEO.cold_damage_start), math.ceil(GEO.hot_damage_start), 5 do
+    local f = ribbon.sunward_factor(p)
+    assert_true(f >= prev - 1e-9, "solar must not drop going sunward at p=" .. p)
     prev = f
   end
 end)
@@ -113,14 +96,13 @@ end)
 test("solar falloff makes sunward materially beat nightward", function()
   -- The whole point: a sunward panel must out-produce a nightward one, so
   -- placement (build toward the heat) is a real decision.
-  assert_true(ribbon.sunward_factor(48) > 4 * ribbon.sunward_factor(-24) + 0.1,
-    "mid-sunward output dwarfs the nightward floor")
-  assert_true(ribbon.sunward_factor(0) > ribbon.sunward_factor(-12),
-    "the terminator centre still beats a nightward point")
+  local sunward = ribbon.sunward_factor(REF + (GEO.hot_reach * 0.5))
+  local nightward = ribbon.sunward_factor(REF - (GEO.cold_reach * 0.5))
+  assert_true(sunward > nightward + 0.2, "mid-sunward output dwarfs the nightward point")
 end)
 
 test("solar falloff respects a config override (tunable, still clamped)", function()
-  local cfg = { solar_full_at = 48, solar_zero_at = 0, solar_floor = 0.1 }
+  local cfg = { solar_full = 48, solar_zero = 0, solar_floor = 0.1 }
   assert_eq(1.0, ribbon.sunward_factor(48, cfg), "custom full point saturates")
   assert_eq(0.1, ribbon.sunward_factor(0, cfg), "custom zero point holds the floor")
   assert_eq(0.1, ribbon.sunward_factor(-10, cfg), "below the zero point: floor")

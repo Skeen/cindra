@@ -84,11 +84,15 @@ local function cindra_map_gen()
 
   local mg = {
     -- Finite perpendicular to the ribbon (the ribbon world), infinite lateral.
+    -- The extent is the SUM of every per-zone width (ci-a35).
     [finite.key] = finite.value,
-    -- Named noise expression: flat land everywhere (no lakes), the generic
-    -- terrain property Cindra overrides (prototypes/noise.lua).
+    -- Named noise expressions (prototypes/noise.lua): flat land everywhere (no
+    -- lakes); a cliff-elevation ramp + gapless cliffiness so the ICE CLIFF forms a
+    -- single continuous impassable wall on the rough-ice / smooth-ice boundary.
     property_expression_names = {
       elevation = "cindra_ribbon_elevation",
+      cliff_elevation = "cindra_cliff_elevation",
+      cliffiness = "cindra_cliffiness",
     },
     -- ONLY Cindra's own resource controls -> the map-gen screen shows just Stone
     -- and Ice (ordered below Aquilo, see prototypes/resources.lua). No Nauvis
@@ -97,6 +101,8 @@ local function cindra_map_gen()
     autoplace_controls = {
       ["cindra-stone"] = {},
       ["cindra-ice"] = {},
+      -- The ice-cliff control (category "cliff"); gates the cliff wall on.
+      ["cindra-cliff"] = {},
     },
     autoplace_settings = {
       -- Tiles: ONLY Cindra tiles are candidates. No grass, no water, no Nauvis
@@ -114,12 +120,36 @@ local function cindra_map_gen()
       -- No decoratives (no Nauvis grass tufts etc.).
       decorative = { treat_missing_as_default = false, settings = {} },
     },
-    -- No cliffs (push the elevation threshold out of reach; no cliff control).
-    cliff_settings = { name = "cliff", cliff_elevation_0 = 1024, cliff_elevation_interval = 1024 },
+    -- The ICE CLIFF (ci-a35): a single continuous impassable wall on the rough-ice
+    -- / smooth-ice boundary. cliff_elevation (cindra_cliff_elevation) is a ramp
+    -- that is 0 exactly on that boundary; with cliff_elevation_0 = 0 and an
+    -- interval far larger than the whole map, the ONLY in-map cliff contour is that
+    -- boundary line. cliff_smoothing = 0 keeps the wall crisp on the straight-ish
+    -- contour. The cindra_cliffiness constant suppresses the usual passage gaps.
+    cliff_settings = {
+      name = "cindra-ice-cliff",
+      control = "cindra-cliff",
+      cliff_elevation_0 = 0,
+      cliff_elevation_interval = 100000,
+      cliff_smoothing = 0,
+    },
   }
 
   return mg
 end
+
+-- The ice-cliff autoplace-control (category "cliff"). cliff_settings.control
+-- points at this to gate the ice-cliff wall on for the Cindra surface. Hidden
+-- from the map-gen screen (no richness slider) -- the wall is a fixed backstop,
+-- not a tunable resource.
+data:extend({
+  {
+    type = "autoplace-control",
+    name = "cindra-cliff",
+    order = "z[cindra]-c[cliff]",
+    category = "cliff",
+  },
+})
 
 data:extend({
   {

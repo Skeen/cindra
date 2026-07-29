@@ -61,21 +61,23 @@ test("nominal_w scales with the band; unknown names fall back to full", function
 end)
 
 test("a sunward panel snaps to a materially higher band than a nightward one", function()
-  local sunward = panel_solar.band_factor(96)   -- deep sunward
-  local nightward = panel_solar.band_factor(-24) -- nightward floor
+  -- ci-a35: the temperate spawn is off the origin, so "deep nightward" is well
+  -- past the cold-damage boundary (~ -160 by default), not near 0.
+  local sunward = panel_solar.band_factor(120)   -- deep sunward (toward the fire)
+  local nightward = panel_solar.band_factor(-300) -- deep nightward (past the floor)
   assert_eq(1.0, sunward, "deep sunward saturates at the full band")
   assert_true(sunward > 4 * nightward, "sunward output dwarfs nightward: "
     .. sunward .. " vs " .. nightward)
 end)
 
 test("variant_for_y picks the base sunward and a reduced variant nightward", function()
-  assert_eq(C.PANEL, panel_solar.variant_for_y(96), "deep sunward stays the base panel")
-  assert_true(panel_solar.variant_for_y(-24) ~= C.PANEL, "nightward morphs to a reduced variant")
+  assert_eq(C.PANEL, panel_solar.variant_for_y(120), "deep sunward stays the base panel")
+  assert_true(panel_solar.variant_for_y(-300) ~= C.PANEL, "deep nightward morphs to a reduced variant")
 end)
 
 test("band snapping is monotonic: sunward never snaps below nightward", function()
   local prev = -1
-  for _, y in ipairs({ -40, -24, -10, 0, 24, 48, 72, 96 }) do
+  for _, y in ipairs({ -300, -160, -80, -40, 0, 30, 60, 120 }) do
     local b = panel_solar.band_factor(y)
     assert_true(b >= prev, "y=" .. y .. " band must not drop going sunward")
     prev = b

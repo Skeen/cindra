@@ -24,6 +24,13 @@
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local ribbon = require("scripts.ribbon")
+local zones = require("scripts.zones")
+
+-- ci-a35: the temperate reference is the SAND-band centre (`ref`), not the world
+-- origin, and the reaches to each edge are asymmetric. Points are expressed
+-- RELATIVE to ref so the invariant (freeze only nightward of temperate) is what is
+-- actually proven, independent of the concrete zone widths.
+local REF = zones.geometry().ref
 
 local passed, failed = 0, 0
 
@@ -67,31 +74,31 @@ local function perp_of(point, orientation)
   return point.y -- east-west (default)
 end
 
-test("temperate ribbon does NOT freeze (centre and inner band)", function()
-  for _, perp in ipairs({ 0, -10, -20, 10, 20 }) do
-    assert_false(freezes_at(perp), "perp=" .. perp .. " must stay thawed (temperate)")
+test("temperate ribbon does NOT freeze (spawn centre and inner band)", function()
+  for _, off in ipairs({ 0, -10, 10, 20 }) do
+    assert_false(freezes_at(REF + off), "ref" .. off .. " must stay thawed (temperate)")
   end
 end)
 
 test("sunward half NEVER freezes (hot side is not cold at any depth)", function()
-  for _, perp in ipairs({ 24, 30, 60, 96, 127 }) do
-    assert_false(freezes_at(perp), "perp=" .. perp .. " sunward must never freeze")
+  for _, off in ipairs({ 24, 30, 60, 96, 127 }) do
+    assert_false(freezes_at(REF + off), "ref+" .. off .. " sunward must never freeze")
   end
 end)
 
 test("nightward half DOES freeze past the threshold, deepening outward", function()
-  for _, perp in ipairs({ -30, -60, -96, -127 }) do
-    assert_true(freezes_at(perp), "perp=" .. perp .. " nightward must freeze")
+  for _, off in ipairs({ -30, -60, -96 }) do
+    assert_true(freezes_at(REF + off), "ref" .. off .. " nightward must freeze")
   end
 end)
 
-test("the freeze boundary sits just past the safe band, on the nightward side only", function()
-  -- Freeze begins around perp ~= -24 (temperature crosses -30 there) and the
-  -- mirror-image sunward point is warm. This is the "only half the planet" proof:
-  -- the SAME |perp| freezes nightward but not sunward.
-  assert_true(freezes_at(-30), "nightward -30 frozen")
-  assert_false(freezes_at(30), "sunward +30 (mirror) NOT frozen")
-  assert_false(freezes_at(-20), "just inside the safe band stays thawed")
+test("the freeze boundary sits nightward of the spawn, on the nightward side only", function()
+  -- Freeze begins some tiles nightward of the sand spawn (temperature crosses -30
+  -- there) and the mirror-image sunward point is warm. This is the "only half the
+  -- planet" proof: the SAME offset freezes nightward but not sunward.
+  assert_true(freezes_at(REF - 30), "nightward ref-30 frozen")
+  assert_false(freezes_at(REF + 30), "sunward ref+30 (mirror) NOT frozen")
+  assert_false(freezes_at(REF - 10), "just nightward of the spawn stays thawed")
 end)
 
 test("positional freeze is orientation-independent (east-west AND north-south)", function()
@@ -100,9 +107,9 @@ test("positional freeze is orientation-independent (east-west AND north-south)",
   -- axis the ribbon runs along. The far-away along-axis coordinate is irrelevant.
   local cases = {
     -- { east_west point, north_south point, expect_frozen, label }
-    { { x = 9999, y = -80 }, { x = -80, y = 9999 }, true, "deep nightward" },
-    { { x = 9999, y = 80 }, { x = 80, y = 9999 }, false, "deep sunward" },
-    { { x = 9999, y = 0 }, { x = 0, y = 9999 }, false, "temperate centre" },
+    { { x = 9999, y = REF - 80 }, { x = REF - 80, y = 9999 }, true, "deep nightward" },
+    { { x = 9999, y = REF + 80 }, { x = REF + 80, y = 9999 }, false, "deep sunward" },
+    { { x = 9999, y = REF }, { x = REF, y = 9999 }, false, "temperate centre" },
   }
   for _, c in ipairs(cases) do
     local ew, ns, want, label = c[1], c[2], c[3], c[4]
