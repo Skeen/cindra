@@ -85,6 +85,30 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
       + count("cindra-snow-drift-decal", 25, 128) > 0, "light-snow decals present")
   end)
 
+  it("DEBUG dump", function()
+    local msg = "\n"
+    msg = msg .. "EXPR cold[1]=" .. field.probability_expr(field.DECORATIVES[6], { safe_half_width = 24, lethal_at = 96, wall_at = 128 }) .. "\n"
+    msg = msg .. "EXPR hot[1]=" .. field.probability_expr(field.DECORATIVES[1], { safe_half_width = 24, lethal_at = 96, wall_at = 128 }) .. "\n"
+    local function hist(names, tag)
+      for _, nm in ipairs(names) do
+        local ds = s.find_decoratives_filtered({ name = nm })
+        local minx, maxx, cnt = 1e9, -1e9, 0
+        local neg, pos = 0, 0
+        for _, d in ipairs(ds) do
+          local x = d.position.x
+          if x < minx then minx = x end
+          if x > maxx then maxx = x end
+          if x < 0 then neg = neg + 1 else pos = pos + 1 end
+          cnt = cnt + 1
+        end
+        msg = msg .. tag .. " " .. nm .. " n=" .. cnt .. " x=[" .. minx .. "," .. maxx .. "] neg=" .. neg .. " pos=" .. pos .. "\n"
+      end
+    end
+    hist(cold_names, "cold")
+    hist(hot_names, "hot")
+    assert.is_true(false, msg)
+  end)
+
   -- 3. ZONE PURITY: no bleed into the wrong zone ----------------------------------
   it("keeps rock/crater decals OUT of the entire icy (cold) zone (no pebbles on ice)", function()
     assert.are.equal(0, count_any(hot_names, 25, 128),
