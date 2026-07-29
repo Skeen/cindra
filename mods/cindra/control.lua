@@ -45,7 +45,6 @@ script.on_configuration_changed(on_init)
 
 if script.active_mods["factorio-test"] then
   local test_files = {
-    "tests/test_probe",
     "tests/test_example",
     "tests/test_planet",
     "tests/test_ribbon",

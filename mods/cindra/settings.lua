@@ -4,6 +4,15 @@
 -- be balanced live without editing Lua. These mirror scripts/ribbon.lua's
 -- DEFAULTS; the runtime systems that consume the axis (§15 item 2 onward) read
 -- these. All are (tune) starting points (§16).
+--
+-- ci-a35: the world's PERPENDICULAR (across-ribbon) extent is now defined by
+-- PER-ZONE WIDTH settings (one per named band, generated below from
+-- scripts/zones.SPEC). The map width = the SUM of every zone width, so tuning any
+-- band changes both that band AND the total ribbon width. The safe/lethal/wall
+-- knobs below no longer set the map width; they remain the RESOURCE-band geometry
+-- (scripts/resource-field.lua) and the temperature-curve saturation.
+
+local zones = require("scripts.zones")
 
 data:extend({
   -- Ribbon ORIENTATION. Which way the survivable ribbon runs, and therefore which
@@ -77,3 +86,23 @@ data:extend({
     order = "e-freeze-temp",
   },
 })
+
+-- PER-ZONE WIDTH settings (ci-a35): one int-setting per named band, in the
+-- hot->cold gradient order. The world's perpendicular extent = the SUM of these,
+-- so tuning a band changes both that band's width and the total ribbon width.
+-- hot-lava has a minimum of 1 (its spec min) so a hot edge ALWAYS generates.
+-- Functional names only (no "Ribbon"); ordered z-* so the zone widths group
+-- together, in gradient order, below the axis knobs.
+local zone_settings = {}
+for i, spec in ipairs(zones.SPEC) do
+  zone_settings[#zone_settings + 1] = {
+    type = "int-setting",
+    name = zones.setting_name(spec.name),
+    setting_type = "startup",
+    default_value = spec.default,
+    minimum_value = spec.min or 0,
+    maximum_value = 2000,
+    order = string.format("z-zone-%02d-%s", i, spec.name),
+  }
+end
+data:extend(zone_settings)

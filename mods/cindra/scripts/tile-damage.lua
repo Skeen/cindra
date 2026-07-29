@@ -1,12 +1,15 @@
 -- Tile-based lethal-edge damage (§4, §15-2; ci-3yl "a tile that damages EVERYTHING").
 --
--- The ribbon's danger is now FELT through the TERRAIN itself: the lethal lava and
--- deep-ice tiles (scripts/terrain.lua) damage anything standing on them -- the
--- player AND machines/entities alike. The walkable molten-rock and frost margins
--- are safe; ONLY the actual lava (heat) and deep-ice (cold) tiles bite. Because
--- those tiles are placed by the perpendicular ribbon axis, the damage stays keyed
--- to position exactly as before, but it now reads the VISIBLE ground: stand or
--- build on lava and you burn, stand or build on deep ice and you freeze.
+-- The ribbon's danger is now FELT through the TERRAIN itself: the FIRE bands
+-- (hot-lava, lava, cracks-hot) and the deep FREEZE band (smooth-ice, behind the
+-- ice cliff) damage anything standing on them -- the player AND machines alike
+-- (scripts/terrain.lua marks which tiles bite, and how hard). The wide sand spawn
+-- band and every other tile between the fire margin and the ice cliff are SAFE.
+-- The fire damage RAMPS with the tile (hottest at hot-lava, a gentler singe on
+-- cracks-hot) via terrain.fire_intensity; freeze is full. Because those tiles are
+-- placed by the perpendicular ribbon axis, the damage stays keyed to position but
+-- reads the VISIBLE ground: stand or build on hot-lava and you burn hard, on
+-- smooth-ice and you freeze (ci-a35).
 --
 -- Factorio has NO native per-tick damaging-tile field (a tile's trigger_effect
 -- only fires when the engine invokes it, not continuously), so this is a script
@@ -64,7 +67,6 @@ function M.sweep(surface, interval_ticks, dps)
   interval_ticks = interval_ticks or M.DAMAGE_INTERVAL
   dps = dps or settings_dps() or 0
   if dps <= 0 then return end
-  local amount = M.damage_amount(dps, interval_ticks)
   local lethal = terrain.lethal_tiles() -- { tile_name = "heat"/"cold" }
 
   for _, e in pairs(surface.find_entities_filtered({ type = M.DAMAGEABLE_TYPES })) do
@@ -73,9 +75,14 @@ function M.sweep(surface, interval_ticks, dps)
       local tile = surface.get_tile(math.floor(pos.x), math.floor(pos.y))
       local kind = tile and tile.valid and lethal[tile.name]
       if kind then
-        -- The entity's own force + resistances apply, so heat/cold-shielded gear
-        -- or buildings mitigate the burn (edge-pushing), never zeroing geography.
-        e.damage(amount, e.force, M.DAMAGE_TYPE[kind])
+        -- Ramp the FIRE bands so hot-lava bites hardest and cracks-hot only
+        -- singes (terrain.fire_intensity); the freeze band is full intensity.
+        local amount = M.damage_amount(dps * terrain.fire_intensity(tile.name), interval_ticks)
+        if amount > 0 then
+          -- The entity's own force + resistances apply, so heat/cold-shielded gear
+          -- or buildings mitigate the burn (edge-pushing), never zeroing geography.
+          e.damage(amount, e.force, M.DAMAGE_TYPE[kind])
+        end
       end
     end
   end

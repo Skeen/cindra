@@ -25,6 +25,18 @@
 --
 -- Runtime application (ticking the player for damage, freezing nightside
 -- machines) lives in scripts that consume this module; see TODO.md §15 item 2.
+--
+-- ci-a35: the ribbon's perpendicular BAND LAYOUT is now the per-zone gradient in
+-- scripts/zones.lua (an asymmetric hot->cold run of named bands, the SAND spawn
+-- band OFF the geometric centre). So the temperate reference for the temperature
+-- and solar curves is no longer p = 0 but the SAND-band centre (`ref`), with
+-- asymmetric reaches to the hot / cold void edge -- all derived from zones. The
+-- legacy safe_half_width / lethal_at / wall_at knobs remain UNCHANGED as the
+-- resource-band geometry that scripts/resource-field.lua reads; player-facing
+-- environmental damage is now the TILE damage (scripts/tile-damage.lua) keyed to
+-- the visible bands, so the old abstract zone()/damage ramp is gone.
+
+local zones = require("scripts.zones")
 
 local M = {}
 
@@ -37,28 +49,21 @@ local M = {}
 --   (lethal_at .. wall_at]            full lethal damage              (the deep edge)
 --   beyond wall_at                    hard wall backstop (§15-2)      (off the map)
 M.DEFAULTS = {
-  safe_half_width = 24, -- |Y| <= 24: guaranteed-safe temperate band
-  lethal_at       = 96, -- |Y| >= 96: damage has ramped to its maximum
-  wall_at         = 128, -- |Y| >= 128: hard-wall backstop (never walk into instant death)
+  -- RESOURCE-BAND geometry (scripts/resource-field.lua, atom's domain): unchanged
+  -- symmetric knobs about p = 0. NOT the tile-band geometry (that is scripts/zones).
+  safe_half_width = 24, -- resource: rocks scatter within |p| <= 24
+  lethal_at       = 96, -- resource: stone band reaches out to +96 (hot margin)
+  wall_at         = 128, -- resource: ice band reaches out to -128 (deep nightside)
 
-  temp_center  = 25, -- terminator centre: room temperature
+  temp_center  = 25, -- the temperate SAND spawn (ref): room temperature
   temp_hot_max = 1500, -- sunward saturation: manufactured-lava hot
   temp_cold_min = -270, -- nightward saturation: near absolute zero (volatiles freeze out)
 
-  -- Damage-per-second at the lethal saturation point, applied to the player
-  -- (and, later, unshielded buildings). Survivable BRIEFLY with gear so the
-  -- best edge resources are reachable at a cost (§4 edge-pushing).
-  max_dps = 200,
-
   -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht). Solar
-  -- panels only REALLY work on the sunny (sunward, +Y) part of the ribbon: a
-  -- panel's output fraction ramps from `solar_floor` (nightward) up to 1.0
-  -- (deep sunward), so placement is a real decision (build sunward, toward the
-  -- heat/danger, for power). Anchored to the SAME axis as everything else so
-  -- when the axis orientation becomes configurable (worldgen-v2, ci-i8a) this
-  -- follows automatically. (tune) -- balance pass is §15-14.
-  solar_full_at = 96,  -- y >= this (the sunward lethal margin): full output.
-  solar_zero_at = -24, -- y <= this (the nightward safe edge): floor output.
+  -- panels only REALLY work on the sunny (sunward) part of the ribbon: a panel's
+  -- output fraction ramps from `solar_floor` (nightward) up to 1.0 (deep sunward,
+  -- toward the fire bands), so placement is a real decision. The full/zero points
+  -- are derived from the zone gradient (see resolve), so this follows the widths.
   solar_floor   = 0.0, -- output fraction on the far nightward side (~nothing).
 }
 
@@ -74,8 +79,12 @@ local function lerp(a, b, t)
   return a + (b - a) * t
 end
 
--- Fill in any missing config keys from DEFAULTS, so callers can pass a partial
--- override table (or nil) and still get a complete, valid config.
+-- Fill in any missing config keys from DEFAULTS, and layer the zone-derived
+-- geometry (the temperate reference `ref`, the asymmetric reaches to each void
+-- edge, and the solar full/zero landmarks) on top, so callers can pass a partial
+-- override table (or nil) and still get a complete, valid config. Explicit cfg
+-- keys always win (so resource-field's {safe_half_width, lethal_at, wall_at} and
+-- test overrides are honoured verbatim).
 function M.resolve(cfg)
   cfg = cfg or {}
   local out = {}
@@ -83,94 +92,51 @@ function M.resolve(cfg)
     local override = cfg[k]
     out[k] = (override ~= nil) and override or v
   end
+  -- Zone-derived temperate geometry (ci-a35). The SAND-band centre is the
+  -- temperate reference; hot/cold reaches run from it to each void edge; solar is
+  -- full on the hot fire margin and floors at the freeze boundary.
+  local geo = zones.geometry()
+  out.ref         = cfg.ref         or geo.ref
+  out.hot_reach   = cfg.hot_reach   or math.max(1, geo.hot_reach)
+  out.cold_reach  = cfg.cold_reach  or math.max(1, geo.cold_reach)
+  out.solar_full  = cfg.solar_full  or geo.hot_damage_start
+  out.solar_zero  = cfg.solar_zero  or geo.cold_damage_start
   return out
 end
 
--- Temperature (°C) at ribbon coordinate `y`.
---   y = 0            -> temp_center
---   y -> +wall_at    -> temp_hot_max  (sunward)
---   y -> -wall_at    -> temp_cold_min (nightward)
--- Interpolated linearly from the centre to each saturation edge, then held flat
--- beyond it. Symmetric geometry, asymmetric endpoints (fire one way, ice the
--- other) — the planet's whole thesis in one curve.
-function M.temperature(y, cfg)
+-- Temperature (°C) at perpendicular coordinate `p`.
+--   p = ref               -> temp_center      (the SAND spawn: room temperature)
+--   p -> +hot void edge    -> temp_hot_max     (sunward)
+--   p -> -cold void edge   -> temp_cold_min    (nightward)
+-- Interpolated linearly from the temperate reference to each saturation edge,
+-- then held flat beyond it. Asymmetric reaches (the hot side is longer), asymmetric
+-- endpoints (fire one way, ice the other) — the planet's whole thesis in one curve.
+function M.temperature(p, cfg)
   cfg = M.resolve(cfg)
-  local edge = cfg.wall_at
-  if y >= 0 then
-    local t = clamp(y / edge, 0, 1)
+  local d = p - cfg.ref
+  if d >= 0 then
+    local t = clamp(d / cfg.hot_reach, 0, 1)
     return lerp(cfg.temp_center, cfg.temp_hot_max, t)
   else
-    local t = clamp(-y / edge, 0, 1)
+    local t = clamp(-d / cfg.cold_reach, 0, 1)
     return lerp(cfg.temp_center, cfg.temp_cold_min, t)
   end
 end
 
--- Zone classification at coordinate `y`. One of:
---   "safe"        temperate ribbon, no damage
---   "hot_warn"    sunward margin: ticking heat damage, survivable briefly
---   "hot_lethal"  sunward deep edge: full heat damage
---   "cold_warn"   nightward margin: ticking cold damage, survivable briefly
---   "cold_lethal" nightward deep edge: full cold damage
-function M.zone(y, cfg)
+-- Solar output FRACTION (0..1) a panel earns at perpendicular coordinate `p`
+-- (§ ci-9ht). The spatial companion to the flare's temporal curve: the two
+-- MULTIPLY (real output = nominal * intensity * sunward_factor(p)).
+--   p >= solar_full   -> 1.0         (deep sunward, toward the fire margin: full sun)
+--   p <= solar_zero    -> solar_floor (deep nightward: ~nothing; placement matters)
+--   between            -> linear ramp solar_floor -> 1.0
+-- Reads the SAME zone gradient as temperature(), so it never re-derives the axis.
+function M.sunward_factor(p, cfg)
   cfg = M.resolve(cfg)
-  local d = math.abs(y)
-  if d <= cfg.safe_half_width then return "safe" end
-  local sunward = y > 0
-  if d >= cfg.lethal_at then
-    return sunward and "hot_lethal" or "cold_lethal"
-  end
-  return sunward and "hot_warn" or "cold_warn"
-end
-
--- True once past the hard-wall backstop (§15-2): the extreme edge where tiles
--- become impassable so the player can never walk off the usable map into instant
--- death. The damage ramp does the teaching; this is the bulletproof floor.
-function M.past_wall(y, cfg)
-  cfg = M.resolve(cfg)
-  return math.abs(y) >= cfg.wall_at
-end
-
--- Damage-per-second the environment inflicts at coordinate `y`.
---   |y| <= safe_half_width         -> 0                    (the ribbon is safe)
---   safe_half_width < |y| < lethal -> ramps 0 -> max_dps    (the survivable margin)
---   |y| >= lethal_at               -> max_dps               (the lethal deep edge)
--- The ramp is what makes edge-pushing a graded risk rather than a cliff: the
--- best resources sit just inside the lethal band, reachable with mitigation.
--- `damage_type` is "heat" sunward, "cold" nightward (callers pick the matching
--- Factorio damage prototype).
-function M.damage_per_second(y, cfg)
-  cfg = M.resolve(cfg)
-  local d = math.abs(y)
-  local dps
-  if d <= cfg.safe_half_width then
-    dps = 0
-  elseif d >= cfg.lethal_at then
-    dps = cfg.max_dps
-  else
-    local t = (d - cfg.safe_half_width) / (cfg.lethal_at - cfg.safe_half_width)
-    dps = cfg.max_dps * t
-  end
-  local damage_type = (y > 0) and "heat" or "cold"
-  return dps, damage_type
-end
-
--- Solar output FRACTION (0..1) a panel earns at ribbon coordinate `y` (§ ci-9ht).
--- This is the "how sunny is it here" curve, the spatial companion to the flare's
--- temporal curve: the two MULTIPLY (a panel's real output = nominal * intensity
--- * sunward_factor(y)), they don't replace each other.
---   y >= solar_full_at   -> 1.0        (deep sunward: full sun, the reward for
---                                        building toward the heat/danger)
---   y <= solar_zero_at    -> solar_floor (nightward: ~nothing; a panel here is
---                                        near-useless, so placement matters)
---   between               -> linear ramp solar_floor -> 1.0
--- Same +Y-sunward convention as temperature()/zone(): this reads the ONE axis,
--- so it never re-derives the hot-cold orientation.
-function M.sunward_factor(y, cfg)
-  cfg = M.resolve(cfg)
-  local full, zero, floor = cfg.solar_full_at, cfg.solar_zero_at, cfg.solar_floor
-  if y >= full then return 1.0 end
-  if y <= zero then return floor end
-  local t = (y - zero) / (full - zero)
+  local full, zero, floor = cfg.solar_full, cfg.solar_zero, cfg.solar_floor
+  if full <= zero then return floor end
+  if p >= full then return 1.0 end
+  if p <= zero then return floor end
+  local t = (p - zero) / (full - zero)
   return floor + (1 - floor) * t
 end
 
