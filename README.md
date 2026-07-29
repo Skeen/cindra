@@ -1,4 +1,4 @@
-# Cindra — The Ribbon World
+# Cindra
 
 A Factorio 2.1 / Space Age mod adding **Cindra**, a tidally-locked planet
 orbiting perilously close to its star. One hemisphere is a molten dayside, the
