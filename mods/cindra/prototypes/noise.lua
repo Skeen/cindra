@@ -13,10 +13,40 @@
 -- finite perpendicular bound (the void backstop) is the map-gen's own `width` /
 -- `height`, not an elevation trough (Factorio has no elevation->void mapping).
 
+-- `cindra_cliff_elevation`: drives Vulcanus-style CLIFFS as terrain flavour in the
+-- volcanic/rocky zones only (lava-crust .. scorched; ci-da2 cliff comment). Elevation
+-- is pinned flat (no lakes), so cliffs cannot come from it; this SEPARATE cliff-
+-- elevation field is 0 (no cliffs) everywhere EXCEPT the volcanic band, where it is a
+-- medium-frequency basis-noise hump straddling the cliff threshold so the cliff system
+-- draws scattered cliff segments along its contours. The building band, the impassable
+-- lava walls and the icy cap stay flat -> cliff-free, so no zone is walled off and the
+-- building area stays workable. Keyed to the SAME perpendicular axis as the tiles
+-- (scripts/axis.lua), gated to the exact volcanic zone span (scripts/terrain.lua
+-- M.cliff_band), so cliffs and the tile gradient share one geometry.
+local axis = require("scripts.axis")
+local terrain = require("scripts.terrain")
+local cb = terrain.cliff_band()
+local perp = axis.perp_expr()
+
+-- Cliff threshold (must match planet.lua cliff_settings.cliff_elevation_0) and the
+-- noise amplitude that makes the field cross it repeatedly inside the band.
+local CLIFF_BASE = 8
+local CLIFF_NOISE_AMP = 26
+local CLIFF_NOISE_WL = 40
+
+local cliff_mask = "(" .. perp .. " >= " .. cb.lo .. ") * (" .. perp .. " <= " .. cb.hi .. ")"
+local cliff_field = "(" .. CLIFF_BASE .. " + basis_noise{x = x, y = y, seed0 = 1, seed1 = 42, " ..
+  "input_scale = " .. string.format("%.6g", 1 / CLIFF_NOISE_WL) .. ", output_scale = " .. CLIFF_NOISE_AMP .. "})"
+
 data:extend({
   {
     type = "noise-expression",
     name = "cindra_ribbon_elevation",
     expression = "50",
+  },
+  {
+    type = "noise-expression",
+    name = "cindra_cliff_elevation",
+    expression = "(" .. cliff_mask .. ") * " .. cliff_field,
   },
 })

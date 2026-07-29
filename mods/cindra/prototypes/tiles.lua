@@ -1,22 +1,23 @@
 -- Cindra's own terrain tiles (§4, §15-2; ci-3yl real-map-gen rewrite, ci-da2 zones).
 --
 -- The ribbon's ground is painted by REAL noise-driven map-gen, not a script. Each
--- ZONE (scripts/terrain.lua) is a NEW `cindra-*` tile cloned from a vanilla tile
--- purely for its art, then given a Cindra noise-expression autoplace keyed to the
--- perpendicular ribbon axis. We enable ONLY these tiles in the Cindra map-gen
--- (prototypes/planet.lua), so NO vanilla / Nauvis tile (no grass, no water) is ever
--- a placement candidate -- the "zero nauvis terrain leakage" requirement.
+-- concrete TILE (scripts/terrain.lua M.TILES, one per vanilla clone source) is a NEW
+-- `cindra-<vanilla>` tile cloned from a vanilla tile purely for its art, then given
+-- a Cindra noise-expression autoplace that mixes it into every ZONE it is a member
+-- of, keyed to the perpendicular ribbon axis. We enable ONLY these tiles in the
+-- Cindra map-gen (prototypes/planet.lua), so NO un-cloned vanilla / Nauvis tile is
+-- ever a placement candidate -- the "zero nauvis terrain leakage" requirement.
 --
 -- 🚨 We CLONE (deep-copy) the vanilla tiles; we never enable or mutate the shared
 -- vanilla prototype, so no other planet's terrain changes.
 --
--- WALKABILITY (ci-da2): most zones are made BUILDABLE + WALKABLE ground, including
--- the walkable-but-lethal edges (lava-crust heat, deep-ice cold) so a machine can
--- be built on a damaging tile and take damage -- the "tile that damages everything
--- on it" the design calls for (lethality applied at runtime by
--- scripts/tile-damage.lua). The two HOT lava zones (hot-lava, lava) are the
--- exception: they keep their cloned lava collision + fluid so they are IMPASSABLE
--- like Vulcanus lava -- the hot backstop you cannot walk or build into.
+-- WALKABILITY (ci-da2): a per-TILE property. Every tile is made BUILDABLE + WALKABLE
+-- ground EXCEPT the two lava tiles (lava-hot, lava), which keep their cloned lava
+-- collision + fluid so they stay IMPASSABLE like Vulcanus lava. That makes zones 1+2
+-- (pure lava) the impassable hot WALL, while zone 3 is mostly walkable crust with
+-- occasional impassable lava hazards. Environmental DAMAGE is applied by position at
+-- runtime (scripts/tile-damage.lua reads the perpendicular axis), so a machine built
+-- in a hot or cold zone burns/freezes regardless of the exact tile under it.
 
 local util = require("util")
 local terrain = require("scripts.terrain")
@@ -33,7 +34,7 @@ data:extend({
 local base_layer = 60
 
 local tiles = {}
-for i, spec in ipairs(terrain.ZONES) do
+for i, spec in ipairs(terrain.TILES) do
   local src = data.raw.tile[spec.clone_from]
   if not src then
     error("cindra tiles: missing clone source tile " .. tostring(spec.clone_from))
@@ -41,7 +42,7 @@ for i, spec in ipairs(terrain.ZONES) do
   local t = util.table.deepcopy(src)
   t.name = spec.name
   t.subgroup = "cindra-tiles"
-  t.order = string.format("a[cindra]-%s[%s]", string.char(96 + i), spec.role)
+  t.order = string.format("a[cindra]-%03d[%s]", i, spec.clone_from)
   t.localised_name = { "tile-name." .. spec.name }
   t.layer = base_layer + i
   -- Override the inherited (muddy vanilla) map_color with Cindra's danger-zone

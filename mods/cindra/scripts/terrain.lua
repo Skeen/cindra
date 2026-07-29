@@ -4,100 +4,245 @@
 -- script. This module is the single source of truth for the tile ZONES: a full
 -- LEFT->RIGHT gradient across the perpendicular (sunward-nightward) axis, from a
 -- lethal molten HOT edge on the west, through the temperate building ribbon, out
--- to a lethal frozen edge on the east. Each zone is a band of a given WIDTH along
--- the axis, placed by a Factorio NOISE EXPRESSION keyed to that axis; a smooth
--- basis_noise term is added to the coordinate so every band boundary is an ORGANIC
--- wavy curve and adjacent zones interpenetrate as a noisy gradient, never a raw
--- straight stripe.
+-- to a lethal frozen edge on the east.
 --
--- DEFINITIVE zone layout (ci-da2), HOT (west, -X) -> COLD (east, +X):
+-- DEFINITIVE zone layout (ci-da2), HOT (west, -X) -> COLD (east, +X). Each zone is
+-- a band of a given WIDTH along the axis, and -- unlike the earlier one-tile-per-
+-- zone draft -- each zone is a MIX of several tiles blended by noise, so adjacent
+-- tile types interpenetrate as a noisy gradient rather than a hard stripe:
 --
---   1 hot-lava    2 lava    3 lava-crust    4 volcanic-warm    5 basalt
---   6 scorched    7 dry-sand    8 BUILDING (wide safe spawn)    9 cold-dust
---   10 rough-ice    11 deep-ice (the ice cap beyond the cliff)
+--   1  hot_lava   [50]  pure hot lava.
+--   2  lava_mix   [50]  hot-lava -> lava (a molten gradient). WALL (impassable).
+--   3  lava_crust [50]  lava + volcanic-cracks-hot, + some cracks-warm / smooth-
+--                       stone-warm. (heat-lethal margin.)
+--   4  volcanic_warm [50] cracks-warm -> cracks / smooth-stone / soil-dark.
+--   5  basalt     [50]  cracks/smooth-stone/soil-dark -> jagged / soil-light / ash-soil.
+--   6  scorched   [50]  jagged/soil-light/ash-soil -> grass-4 / dry-dirt / dirt-4..7.
+--   7  dry_dirt   [50]  dirt-1..3 / sand-1..3 / red-desert-1..3 (dirt -> sand).
+--   8  building   [200] MAIN BUILDING AREA: sandy soils (sand-1..3) at spawn.
+--   9  cold_dust  [50]  sand -> dust (crests / flat / lumpy / patchy).
+--   10 rough_ice  [50]  dust -> rough ice.
+--   11 deep_ice   [250] the smooth-ice cap beyond the cliff (cold-lethal).
 --
---   * WIDTH per zone (tiles), (tune) defaults 50 each except the 200-wide building
---     area and the 250-wide ice cap. Each width is a mod setting; the TOTAL ribbon
---     width is DERIVED = the SUM of all zone widths (ci-a35 / ci-da2 clarification):
---     changing one zone's width changes only that band and the total, never rescales
---     the others. The whole gradient is centred on the map origin so the building
---     band sits at spawn on the default (balanced) widths.
---   * NOT WALKABLE: hot-lava + lava (impassable like Vulcanus lava; the hot
---     backstop). Every other zone is walkable, buildable ground.
---   * LETHAL (damaging) tiles: hot-lava, lava, lava-crust (heat) and deep-ice
---     (cold). scripts/tile-damage.lua reads M.lethal_kind; the walkable middle is
---     safe. The impassable hot pair can't be stood on, so their lethality is the
---     wall itself; lava-crust + deep-ice are the walkable-but-damaging edges that
---     reward edge-pushing.
+-- MIXING MODEL. Each zone lists its member tiles with a weight at the HOT (hi) and
+-- COLD (lo) edge of its band; the weight is linearly interpolated across the band,
+-- so e.g. hot-lava fades out and lava fades in across zone 2 (the "X -> Y via
+-- noise" the spec asks for). Every concrete tile is cloned ONCE (prototypes/
+-- tiles.lua) as `cindra-<vanilla>`; its autoplace probability is, per point, the
+-- MAX over the zones it belongs to of (a plateau inside that band that falls off
+-- outside it) + its interpolated membership weight, PLUS a per-tile high-frequency
+-- speckle noise. The engine places the highest-probability candidate per tile, so:
+--   * inside a zone many members sit near the plateau and the per-tile speckle
+--     decides the winner tile-by-tile -> the members INTERPENETRATE (a real mix);
+--   * across a boundary two zones' plateaus overlap within a narrow band so their
+--     members blend -> ORGANIC, noisy boundaries, never a raw straight stripe;
+--   * far from a zone the plateau has fallen away so foreign tiles never leak in.
+-- The weights + speckle are tuned so a 50-wide zone's CENTRE is always won by one
+-- of that zone's members (deterministic membership for the regression tests) while
+-- the ~15-tile boundary regions blend.
+--
+-- WIDTHS. Each zone width is a mod setting (settings.lua); the TOTAL ribbon width
+-- is DERIVED = the SUM of all widths (ci-a35 / ci-da2 clarification): changing one
+-- zone's width changes only that band and the total, never rescales the others.
+-- Defaults sum to 900 with the hot side (zones 1-7 = 350) equal to the cold side
+-- (zones 9-11 = 350), so the 200-wide building band straddles the origin (spawn).
+--
+-- WALKABILITY is a per-TILE property: only the two lava tiles (lava-hot, lava) are
+-- impassable fluid, so zones 1+2 (pure lava) are the impassable hot WALL, while
+-- zone 3 is mostly walkable crust with occasional impassable lava hazards, and
+-- every other zone is buildable ground.
+--
+-- DAMAGE is POSITIONAL, keyed to the SAME perpendicular axis (ci-da2 redefines the
+-- danger as ZONES 1+2+3 heat and zone 11 cold; because those zones mix tiles that
+-- also appear in safe neighbours -- cracks-warm is in both hot zone 3 and safe zone
+-- 4 -- per-tile lethality is ambiguous, so lethality reads POSITION). See
+-- M.damage_bounds / M.lethal_at; scripts/tile-damage.lua consumes them.
 --
 -- The world is finite PERPENDICULAR to the ribbon via the map-gen's own `width`
 -- (vertical orientation) / `height` (horizontal): the engine fills everything
--- beyond +/- TOTAL/2 with `out-of-map`, so the void backstop emerges from the
--- map-gen. See M.finite_dimension / prototypes/planet.lua.
+-- beyond +/- TOTAL/2 with `out-of-map`. See M.finite_dimension / prototypes/planet.lua.
 --
--- PURE where it counts: the *_expr emitters, the zone table, the band geometry and
--- lethal_kind are plain string/table logic (no game.* / prototypes.*), so the zones
--- are unit-testable off the game (unit-tests/test_terrain.lua). The clone-source
--- table is consumed only at the data stage (prototypes/tiles.lua). Boundaries read
--- the SAME perpendicular axis as scripts/ribbon.lua, so the VISIBLE terrain and the
--- FELT damage share one axis; scripts/resource-field.lua reads M.resource_bounds so
--- resources band to the SAME zones (stone on the hot ribbon, ice on the cold cap).
+-- PURE where it counts: the zone table, band geometry, membership weights, the
+-- probability/mask emitters and the damage bounds are plain string/table logic (no
+-- game.* / prototypes.*), so they are unit-testable off the game
+-- (unit-tests/test_terrain.lua). Boundaries read the SAME perpendicular axis as
+-- scripts/ribbon.lua and scripts/resource-field.lua, so terrain, damage and
+-- resources all share one axis.
 
 local axis = require("scripts.axis")
 
 local M = {}
 
--- The Cindra tile ZONES, ordered HOT (west) -> COLD (east). Each is a NEW `cindra-*`
--- prototype cloned (prototypes/tiles.lua) from a vanilla tile for its art; we never
--- enable or mutate the vanilla tile itself, so nothing leaks onto Nauvis. Fields:
---   name        the cindra-* tile prototype name
---   clone_from  the vanilla tile whose art it borrows (see the family in the spec)
---   width       default band width in tiles (the mod-setting default); the total
---               ribbon width is the SUM of these
---   setting     the per-zone width mod-setting name (settings.lua)
---   walkable    false => impassable lava (keeps the fluid/lava collision); the two
---               hot lava zones. true => buildable/walkable ground.
---   lethal      "heat" | "cold" | nil: the damage kind tile-damage.lua inflicts.
---   role        stable key used by geometry helpers + resource banding.
---   map_color   {r,g,b} 0..1: the coordinated hot->cold map-view gradient (ci-4h7)
---               so the danger zone reads at a glance (reds sunward, cyan nightward,
---               a neutral sandy building centre between the two coloured edges).
+-- The ordered Cindra tile ZONES, HOT (west) -> COLD (east). Fields:
+--   role     stable key used by geometry helpers, settings + resource banding.
+--   width    default band width in tiles (the mod-setting default); the total
+--            ribbon width is the SUM of these.
+--   setting  the per-zone width mod-setting name (settings.lua).
+--   wall     true => a pure impassable lava wall (zones 1+2); resource banding
+--            stops the walkable hot margin here. (Walkability itself is per-tile.)
+--   damage   "heat" | "cold" | nil: the environmental damage this zone's BAND
+--            inflicts (positional; see M.damage_bounds). Zones 1+2+3 heat, 11 cold.
+--   members  the tiles that mix inside this zone, each { vanilla, hot, cold } where
+--            hot/cold are the relative weights at the band's hot (hi) and cold (lo)
+--            edge (0..1), linearly interpolated across the band. `vanilla` is the
+--            base-game / space-age tile whose art the `cindra-<vanilla>` clone uses.
+local function m(vanilla, hot, cold) return { vanilla = vanilla, hot = hot, cold = cold } end
+
 M.ZONES = {
-  { role = "hot_lava",      name = "cindra-hot-lava",      clone_from = "lava-hot",              width = 50,  setting = "cindra-zone-width-hot-lava",      walkable = false, lethal = "heat", map_color = { 0.98, 0.45, 0.05 } },
-  { role = "lava",          name = "cindra-lava",          clone_from = "lava",                  width = 50,  setting = "cindra-zone-width-lava",          walkable = false, lethal = "heat", map_color = { 0.92, 0.30, 0.05 } },
-  { role = "lava_crust",    name = "cindra-lava-crust",    clone_from = "volcanic-cracks-hot",   width = 50,  setting = "cindra-zone-width-lava-crust",    walkable = true,  lethal = "heat", map_color = { 0.78, 0.22, 0.08 } },
-  { role = "volcanic_warm", name = "cindra-volcanic-warm", clone_from = "volcanic-cracks-warm",  width = 50,  setting = "cindra-zone-width-volcanic-warm", walkable = true,  lethal = nil,    map_color = { 0.60, 0.26, 0.14 } },
-  { role = "basalt",        name = "cindra-basalt",        clone_from = "volcanic-jagged-ground", width = 50, setting = "cindra-zone-width-basalt",        walkable = true,  lethal = nil,    map_color = { 0.42, 0.32, 0.26 } },
-  { role = "scorched",      name = "cindra-scorched-dirt", clone_from = "volcanic-soil-light",   width = 50,  setting = "cindra-zone-width-scorched",      walkable = true,  lethal = nil,    map_color = { 0.52, 0.42, 0.28 } },
-  { role = "dry_sand",      name = "cindra-dry-sand",      clone_from = "red-desert-1",          width = 50,  setting = "cindra-zone-width-dry-sand",      walkable = true,  lethal = nil,    map_color = { 0.66, 0.52, 0.32 } },
-  { role = "terminator",    name = "cindra-terminator",    clone_from = "sand-2",                width = 200, setting = "cindra-zone-width-building",      walkable = true,  lethal = nil,    map_color = { 0.55, 0.50, 0.40 } },
-  { role = "cold_dust",     name = "cindra-cold-dust",     clone_from = "dust-flat",             width = 50,  setting = "cindra-zone-width-cold-dust",     walkable = true,  lethal = nil,    map_color = { 0.60, 0.64, 0.66 } },
-  { role = "rough_ice",     name = "cindra-rough-ice",     clone_from = "ice-rough",             width = 50,  setting = "cindra-zone-width-rough-ice",     walkable = true,  lethal = nil,    map_color = { 0.62, 0.80, 0.88 } },
-  { role = "deep_ice",      name = "cindra-deep-ice",      clone_from = "ice-smooth",            width = 250, setting = "cindra-zone-width-deep-ice",      walkable = true,  lethal = "cold", map_color = { 0.78, 0.95, 1.00 } },
+  { role = "hot_lava", width = 50, setting = "cindra-zone-width-hot-lava", wall = true, damage = "heat",
+    members = { m("lava-hot", 1, 1) } },
+
+  { role = "lava_mix", width = 50, setting = "cindra-zone-width-lava-mix", wall = true, damage = "heat",
+    members = { m("lava-hot", 1, 0.15), m("lava", 0.15, 1) } },
+
+  { role = "lava_crust", width = 50, setting = "cindra-zone-width-lava-crust", damage = "heat",
+    members = { m("volcanic-cracks-hot", 0.4, 1), m("lava", 0.6, 0.12),
+                m("volcanic-cracks-warm", 0, 0.35), m("volcanic-smooth-stone-warm", 0, 0.3) } },
+
+  { role = "volcanic_warm", width = 50, setting = "cindra-zone-width-volcanic-warm",
+    members = { m("volcanic-cracks-warm", 1, 0.3), m("volcanic-cracks", 0.2, 1),
+                m("volcanic-smooth-stone", 0.1, 0.7), m("volcanic-soil-dark", 0, 0.6) } },
+
+  { role = "basalt", width = 50, setting = "cindra-zone-width-basalt",
+    members = { m("volcanic-cracks", 1, 0.2), m("volcanic-smooth-stone", 0.8, 0.25),
+                m("volcanic-soil-dark", 0.6, 0.25), m("volcanic-jagged-ground", 0.2, 1),
+                m("volcanic-soil-light", 0.1, 0.7), m("volcanic-ash-soil", 0, 0.6) } },
+
+  { role = "scorched", width = 50, setting = "cindra-zone-width-scorched",
+    members = { m("volcanic-jagged-ground", 1, 0.2), m("volcanic-soil-light", 0.8, 0.25),
+                m("volcanic-ash-soil", 0.7, 0.25), m("grass-4", 0.1, 0.7),
+                m("dry-dirt", 0.2, 1), m("dirt-4", 0, 0.6), m("dirt-5", 0, 0.6),
+                m("dirt-6", 0, 0.5), m("dirt-7", 0, 0.5) } },
+
+  { role = "dry_dirt", width = 50, setting = "cindra-zone-width-dry-dirt",
+    members = { m("dirt-1", 1, 0.3), m("dirt-2", 0.9, 0.3), m("dirt-3", 0.8, 0.3),
+                m("sand-1", 0.3, 1), m("sand-2", 0.3, 0.9), m("sand-3", 0.3, 0.9),
+                m("red-desert-1", 0.6, 0.5), m("red-desert-2", 0.5, 0.5), m("red-desert-3", 0.5, 0.5) } },
+
+  { role = "building", width = 200, setting = "cindra-zone-width-building",
+    members = { m("sand-1", 1, 1), m("sand-2", 1, 1), m("sand-3", 1, 1) } },
+
+  { role = "cold_dust", width = 50, setting = "cindra-zone-width-cold-dust",
+    members = { m("sand-1", 0.7, 0.1), m("sand-2", 0.6, 0.1), m("sand-3", 0.6, 0.1),
+                m("dust-crests", 0.2, 1), m("dust-flat", 0.2, 1),
+                m("dust-lumpy", 0.1, 0.9), m("dust-patchy", 0.1, 0.9) } },
+
+  { role = "rough_ice", width = 50, setting = "cindra-zone-width-rough-ice",
+    members = { m("dust-crests", 1, 0.15), m("dust-flat", 0.9, 0.15), m("dust-lumpy", 0.8, 0.15),
+                m("dust-patchy", 0.8, 0.15), m("ice-rough", 0.25, 1) } },
+
+  { role = "deep_ice", width = 250, setting = "cindra-zone-width-deep-ice", damage = "cold",
+    members = { m("ice-smooth", 1, 1) } },
 }
 
--- Back-compat alias: prototypes/tiles.lua and tile_names iterate the zone list.
-M.TILES = M.ZONES
-
--- Convenience lookups.
-M.CENTER = "cindra-terminator"
-M.NAME = {}
-for _, z in ipairs(M.ZONES) do M.NAME[z.role] = z.name end
-
 -- The index of the wide safe building band (spawn) in M.ZONES.
-M.BUILDING_ROLE = "terminator"
+M.BUILDING_ROLE = "building"
 local BUILDING_INDEX
 for i, z in ipairs(M.ZONES) do
   if z.role == M.BUILDING_ROLE then BUILDING_INDEX = i end
 end
 
--- Smooth-noise amplitude (tiles) and wavelength (tiles) that wiggles every band
--- boundary so the bands are organic, never straight, and adjacent zones blend.
--- Fixed seeds -> the ribbon has the same zone structure on every map seed (a
--- ribbon planet is a fixed shape, not a per-seed lottery) and stays deterministic
--- for tests. (tune)
+-- The cindra-* tile name for a vanilla clone source (deterministic prefix).
+local function cindra_name(vanilla) return "cindra-" .. vanilla end
+M.cindra_name = cindra_name
+
+-- Only the two lava tiles are impassable fluid; every other tile is walkable ground.
+local IMPASSABLE = { ["lava-hot"] = true, ["lava"] = true }
+
+-- ---------------------------------------------------------------------------
+-- The concrete TILES (deduplicated across zones), ordered hot -> cold by the first
+-- zone each tile appears in. Each entry: { name, clone_from, walkable, map_color }.
+-- prototypes/tiles.lua iterates this list; the zone MEMBERSHIP (which zones a tile
+-- mixes into, with weights) drives the autoplace probability expression.
+-- ---------------------------------------------------------------------------
+
+-- A hot -> cold map-view colour ramp (ci-4h7): reds sunward, a sandy neutral centre,
+-- pale cyan/frost nightward, so the danger gradient reads at a glance. `t` is the
+-- tile's normalised gradient position (0 = hottest zone, 1 = coldest).
+local COLOR_STOPS = {
+  { 0.00, { 0.98, 0.42, 0.06 } }, -- lava, orange-red
+  { 0.18, { 0.80, 0.30, 0.10 } }, -- molten crust
+  { 0.35, { 0.55, 0.40, 0.28 } }, -- warm volcanic brown
+  { 0.50, { 0.62, 0.56, 0.42 } }, -- sandy building neutral
+  { 0.66, { 0.60, 0.64, 0.64 } }, -- cool grey dust
+  { 0.82, { 0.66, 0.82, 0.88 } }, -- pale frost
+  { 1.00, { 0.82, 0.95, 1.00 } }, -- icy white-blue
+}
+local function ramp_color(t)
+  if t <= COLOR_STOPS[1][1] then return COLOR_STOPS[1][2] end
+  for i = 2, #COLOR_STOPS do
+    local a, b = COLOR_STOPS[i - 1], COLOR_STOPS[i]
+    if t <= b[1] then
+      local f = (t - a[1]) / (b[1] - a[1])
+      local ca, cb = a[2], b[2]
+      return { ca[1] + (cb[1] - ca[1]) * f, ca[2] + (cb[2] - ca[2]) * f, ca[3] + (cb[3] - ca[3]) * f }
+    end
+  end
+  return COLOR_STOPS[#COLOR_STOPS][2]
+end
+
+-- Build M.TILES + per-tile membership + lookups, once at load.
+M.TILES = {}
+local TILE_BY_NAME = {}        -- cindra name -> tile entry
+local MEMBERSHIP = {}          -- cindra name -> list of { zone = i, hot, cold }
+do
+  local order = {}
+  for zi, z in ipairs(M.ZONES) do
+    for _, mem in ipairs(z.members) do
+      local name = cindra_name(mem.vanilla)
+      if not TILE_BY_NAME[name] then
+        local entry = { name = name, clone_from = mem.vanilla, walkable = not IMPASSABLE[mem.vanilla] }
+        TILE_BY_NAME[name] = entry
+        MEMBERSHIP[name] = {}
+        order[#order + 1] = entry
+      end
+      MEMBERSHIP[name][#MEMBERSHIP[name] + 1] = { zone = zi, hot = mem.hot, cold = mem.cold }
+    end
+  end
+  -- Assign each tile a map_color from its weighted-average SPATIAL position on the
+  -- perpendicular axis (so the building band at spawn reads neutral, the lava edge
+  -- red and the ice cap cyan). Uses the DEFAULT widths for the map-view palette,
+  -- computed inline here (M.bands is defined later in the file).
+  local dtotal = 0
+  for _, z in ipairs(M.ZONES) do dtotal = dtotal + z.width end
+  local dcenter, p = {}, dtotal / 2
+  for zi, z in ipairs(M.ZONES) do
+    dcenter[zi] = p - z.width / 2
+    p = p - z.width
+  end
+  for _, entry in ipairs(order) do
+    local sw, swp = 0, 0
+    for _, mm in ipairs(MEMBERSHIP[entry.name]) do
+      local w = mm.hot + mm.cold
+      sw = sw + w
+      swp = swp + w * dcenter[mm.zone]
+    end
+    local avg_perp = sw > 0 and (swp / sw) or 0
+    -- Normalise: hot edge (+total/2) -> 0, cold edge (-total/2) -> 1.
+    entry.map_color = ramp_color((dtotal / 2 - avg_perp) / dtotal)
+  end
+  M.TILES = order
+end
+
+-- Back-compat alias: a couple of callers iterate a zone/tile list generically.
+M.NAME = {}
+for _, z in ipairs(M.ZONES) do M.NAME[z.role] = z.role end
+
+-- Smooth boundary-noise amplitude (tiles) and wavelength (tiles): wiggles every
+-- band boundary so zones are organic curves, not straight lines. A per-tile SPECKLE
+-- (shorter wavelength) randomises which co-present member wins point-by-point, so
+-- the members of a zone interpenetrate as a real mix. Fixed seeds -> the ribbon has
+-- the same structure on every map seed and stays deterministic for tests. (tune)
 M.NOISE_AMPLITUDE = 7
 M.NOISE_WAVELENGTH = 48
+M.SPECKLE_AMPLITUDE = 10
+M.SPECKLE_WAVELENGTH = 11
+-- Plateau height and the membership-weight scale. WEIGHT_SCALE + SPECKLE_AMPLITUDE
+-- (18) is kept below half the narrowest zone width (25) so a 50-wide zone's centre
+-- is always won by one of its own members (deterministic membership tests) while
+-- the boundaries still blend.
+M.PLATEAU = 1000
+M.WEIGHT_SCALE = 8
 
 -- Format a number for the noise DSL (integers stay clean, no float noise).
 local function num(v)
@@ -125,10 +270,10 @@ function M.widths(cfg)
   return out
 end
 
--- The signed perpendicular band [lo, hi] (sunward-positive coordinate p = the
--- axis, hot = high p) each zone occupies, plus the total ribbon width. The whole
--- gradient is centred on the origin: the hot edge sits at +TOTAL/2, the cold edge
--- at -TOTAL/2, and zones stack inward from the hot edge in order. Returns
+-- The signed perpendicular band [lo, hi] (sunward-positive coordinate p = the axis,
+-- hot = high p) each zone occupies, plus the total ribbon width. The whole gradient
+-- is centred on the origin: the hot edge sits at +TOTAL/2, the cold edge at
+-- -TOTAL/2, and zones stack inward from the hot edge in order. Returns
 -- (bands, total) where bands is parallel to M.ZONES.
 function M.bands(cfg)
   local w = M.widths(cfg)
@@ -147,19 +292,16 @@ end
 -- resources track the SAME zones as the tiles:
 --   building_half : |p| <= this is the safe building/terminator ribbon
 --   building_lo   : the cold (east) edge of the building band; the stone/ice divider
---   hot_edge      : the outer edge of the last WALKABLE hot zone (lava-crust); stone
+--   hot_edge      : the outer edge of the last NON-WALL zone (lava-crust); stone
 --                   reaches to here (the richest, most dangerous stone), never into
---                   the impassable lava beyond
+--                   the impassable lava wall beyond
 --   cold_edge     : the far cold (east) edge of the ribbon (the ice cap edge)
--- Splitting stone (p >= building_lo) from ice (p < building_lo) at the one divider
--- keeps the zone-purity guarantee (stone never in the icy zone, ice never in the
--- hot/temperate zone) as pure geometry.
 function M.resource_bounds(cfg)
   local bands = M.bands(cfg)
   local b = bands[BUILDING_INDEX]
   local hot_edge = b.hi
   for i = BUILDING_INDEX - 1, 1, -1 do
-    if M.ZONES[i].walkable then hot_edge = bands[i].hi else break end
+    if not M.ZONES[i].wall then hot_edge = bands[i].hi else break end
   end
   return {
     building_half = b.hi,
@@ -167,6 +309,59 @@ function M.resource_bounds(cfg)
     hot_edge = hot_edge,
     cold_edge = bands[#bands].lo,
   }
+end
+
+-- The perpendicular band [lo, hi] a zone role occupies (for cliff banding etc.),
+-- or nil for an unknown role.
+function M.role_band(role, cfg)
+  local bands = M.bands(cfg)
+  for i, z in ipairs(M.ZONES) do
+    if z.role == role then return bands[i] end
+  end
+  return nil
+end
+
+-- The perpendicular band [lo, hi] spanned by the VOLCANIC/rocky zones (lava_crust
+-- .. scorched), where Cindra grows Vulcanus-style cliffs as terrain flavour (ci-da2
+-- cliff comment). Excludes the lava walls, the building band, and the icy cap.
+M.CLIFF_ROLES = { "lava_crust", "volcanic_warm", "basalt", "scorched" }
+function M.cliff_band(cfg)
+  local lo, hi
+  for _, role in ipairs(M.CLIFF_ROLES) do
+    local b = M.role_band(role, cfg)
+    if b then
+      if lo == nil or b.lo < lo then lo = b.lo end
+      if hi == nil or b.hi > hi then hi = b.hi end
+    end
+  end
+  return { lo = lo, hi = hi }
+end
+
+-- The positional DAMAGE bounds (ci-da2): environmental damage is keyed to the
+-- perpendicular axis, not the tile, because the mixed zones share tiles.
+--   hot_from : p >= this is the heat band (the coldest heat zone's cold edge)
+--   cold_from: p <= this is the cold band (the warmest cold zone's hot edge)
+-- Heat zones are contiguous at the hot end, cold zones at the cold end, so the two
+-- edges fully describe the danger bands.
+function M.damage_bounds(cfg)
+  local bands = M.bands(cfg)
+  local hot_from, cold_from
+  for i, z in ipairs(M.ZONES) do
+    if z.damage == "heat" then
+      if hot_from == nil or bands[i].lo < hot_from then hot_from = bands[i].lo end
+    elseif z.damage == "cold" then
+      if cold_from == nil or bands[i].hi > cold_from then cold_from = bands[i].hi end
+    end
+  end
+  return { hot_from = hot_from, cold_from = cold_from }
+end
+
+-- "heat" / "cold" / nil for a signed perpendicular coordinate `p` (sunward-positive).
+function M.lethal_at(p, cfg)
+  local b = M.damage_bounds(cfg)
+  if b.hot_from and p >= b.hot_from then return "heat" end
+  if b.cold_from and p <= b.cold_from then return "cold" end
+  return nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -177,89 +372,106 @@ end
 -- owns which world axis is perpendicular; we never re-derive it.
 local function perp_expr() return axis.perp_expr() end
 
--- A smooth basis-noise term ~+/-NOISE_AMPLITUDE tiles at ~NOISE_WAVELENGTH pitch.
--- `seed1` varies the field so each zone's boundaries wiggle independently.
-local function noise(seed1)
+-- A smooth basis-noise term. `seed1` varies the field; `amp`/`wl` set amplitude and
+-- wavelength (tiles). The boundary field wiggles zone edges; the speckle field (a
+-- distinct seed + short wavelength per tile) mixes members within a zone.
+local function basis(seed1, amp, wl)
   return "basis_noise{x = x, y = y, seed0 = 1, seed1 = " .. num(seed1) ..
-         ", input_scale = " .. num(1 / M.NOISE_WAVELENGTH) ..
-         ", output_scale = " .. num(M.NOISE_AMPLITUDE) .. "}"
+         ", input_scale = " .. num(1 / wl) .. ", output_scale = " .. num(amp) .. "}"
+end
+local function boundary_noise() return basis(7, M.NOISE_AMPLITUDE, M.NOISE_WAVELENGTH) end
+local function speckle_noise(tile_index)
+  return basis(100 + tile_index, M.SPECKLE_AMPLITUDE, M.SPECKLE_WAVELENGTH)
 end
 
 -- max(0, expr): the linear falloff outside a band.
-local function relu(expr)
-  return "max(0, " .. expr .. ")"
-end
+local function relu(expr) return "max(0, " .. expr .. ")" end
+-- clamp to [0, 1].
+local function clamp01(expr) return "min(1, max(0, " .. expr .. "))" end
 
--- The `probability_expression` string for a Cindra zone tile, given the widths.
--- Each zone is a PLATEAU (flat, high) inside its perpendicular band [lo, hi] that
--- falls off linearly outside it; the engine places, per tile, the candidate with
--- the highest probability, so at every point the nearest band wins -> the whole
--- finite width is covered with no gaps, and boundaries fall exactly at the shared
--- zone edges. The axis coordinate is perturbed by basis_noise, so the boundaries
--- wiggle organically and adjacent zones interpenetrate (never a raw straight line).
--- PLATEAU keeps the winning value comfortably positive everywhere in the ribbon.
-M.PLATEAU = 1000
+-- The `probability_expression` string for a Cindra tile. For each zone the tile is
+-- a member of it emits a term = (plateau that falls off outside the band, keyed to
+-- the noise-wiggled perpendicular axis) + WEIGHT_SCALE * (interpolated membership
+-- weight across the band); the tile's probability is the MAX of those terms plus a
+-- per-tile speckle so co-present members interpenetrate. The engine places the
+-- highest-probability tile per point, so the zone the point sits in wins, and
+-- within it the speckle picks among the members -> a noisy mixed gradient.
 function M.probability_expr(name, cfg)
-  local bands = M.bands(cfg)
-  for i, z in ipairs(M.ZONES) do
-    if z.name == name then
-      local b = bands[i]
-      local P = "(" .. perp_expr() .. " + " .. noise(10 + i) .. ")"
-      return num(M.PLATEAU) .. " - (" .. relu(num(b.lo) .. " - " .. P) ..
-             " + " .. relu(P .. " - " .. num(b.hi)) .. ")"
-    end
+  local tile
+  local index = 0
+  for i, t in ipairs(M.TILES) do
+    if t.name == name then tile = t; index = i; break end
   end
-  error("terrain: unknown Cindra tile " .. tostring(name))
+  if not tile then error("terrain: unknown Cindra tile " .. tostring(name)) end
+
+  local bands = M.bands(cfg)
+  local P = "(" .. perp_expr() .. " + " .. boundary_noise() .. ")"
+  local terms = {}
+  for _, mm in ipairs(MEMBERSHIP[name]) do
+    local b = bands[mm.zone]
+    local span = math.max(1, b.hi - b.lo)
+    local env = num(M.PLATEAU) .. " - (" .. relu(num(b.lo) .. " - " .. P) ..
+                " + " .. relu(P .. " - " .. num(b.hi)) .. ")"
+    -- frac: 0 at the cold edge (lo), 1 at the hot edge (hi).
+    local frac = clamp01("(" .. P .. " - " .. num(b.lo) .. ") / " .. num(span))
+    -- weight = cold + (hot - cold) * frac, scaled.
+    local weight = num(M.WEIGHT_SCALE) .. " * (" .. num(mm.cold) ..
+                   " + " .. num(mm.hot - mm.cold) .. " * " .. frac .. ")"
+    terms[#terms + 1] = "(" .. env .. " + " .. weight .. ")"
+  end
+
+  local expr = terms[1]
+  for i = 2, #terms do expr = "max(" .. expr .. ", " .. terms[i] .. ")" end
+  return "(" .. expr .. ") + " .. speckle_noise(index)
 end
 
 -- The map-view colour (a {r,g,b} 0..1 table) for a Cindra tile, or nil if unknown.
 function M.map_color(name)
-  for _, z in ipairs(M.ZONES) do
-    if z.name == name then return z.map_color end
-  end
-  return nil
+  local t = TILE_BY_NAME[name]
+  return t and t.map_color or nil
 end
 
--- "heat" / "cold" / nil: the damage kind a lethal tile inflicts (nil = safe).
-function M.lethal_kind(name)
-  for _, z in ipairs(M.ZONES) do
-    if z.name == name then return z.lethal end
-  end
-  return nil
+-- True if a tile is walkable/buildable ground (false = impassable lava), or nil for
+-- an unknown tile. prototypes/tiles.lua reads this to keep the two lava tiles
+-- impassable while every other tile is buildable ground.
+function M.is_walkable(name)
+  local t = TILE_BY_NAME[name]
+  if t == nil then return nil end
+  return t.walkable
 end
 
--- The set of every lethal tile name -> its damage kind (built once per call).
-function M.lethal_tiles()
+-- The zones (by role) a tile is a member of -- used by tests to assert per-zone
+-- membership. Returns a set { role = true }.
+function M.tile_zones(name)
   local out = {}
-  for _, z in ipairs(M.ZONES) do
-    if z.lethal then out[z.name] = z.lethal end
-  end
+  for _, mm in ipairs(MEMBERSHIP[name] or {}) do out[M.ZONES[mm.zone].role] = true end
   return out
 end
 
--- True if a tile is walkable/buildable ground (false = impassable lava), or nil
--- for an unknown tile. prototypes/tiles.lua reads this to keep the two hot lava
--- zones impassable while every other zone is buildable ground.
-function M.is_walkable(name)
+-- The set of member tile names (cindra-*) of a zone role, as a set { name = true }.
+function M.zone_tiles(role)
+  local out = {}
   for _, z in ipairs(M.ZONES) do
-    if z.name == name then return z.walkable end
+    if z.role == role then
+      for _, mem in ipairs(z.members) do out[cindra_name(mem.vanilla)] = true end
+    end
   end
-  return nil
+  return out
 end
 
 -- All Cindra tile names (for the map-gen autoplace_settings.tile allow-list).
 function M.tile_names()
   local out = {}
-  for _, z in ipairs(M.ZONES) do out[#out + 1] = z.name end
+  for _, t in ipairs(M.TILES) do out[#out + 1] = t.name end
   return out
 end
 
--- The FINITE map dimension (tiles) that bounds the ribbon perpendicular to its
--- long axis, and which basic setting it maps to. The value is the TOTAL ribbon
--- width = the SUM of all zone widths (ci-da2 clarification): the engine voids
--- everything beyond +/- value/2, and because the gradient is centred on the
--- origin that crop lines up with the hot and cold edges. Vertical ribbon -> bound
--- X (`width`); horizontal -> bound Y (`height`).
+-- The FINITE map dimension (tiles) that bounds the ribbon perpendicular to its long
+-- axis, and which basic setting it maps to. The value is the TOTAL ribbon width =
+-- the SUM of all zone widths (ci-da2 clarification): the engine voids everything
+-- beyond +/- value/2, and because the gradient is centred on the origin that crop
+-- lines up with the hot and cold edges. Vertical ribbon -> bound X (`width`);
+-- horizontal -> bound Y (`height`).
 function M.finite_dimension(cfg)
   local _, total = M.bands(cfg)
   return {
