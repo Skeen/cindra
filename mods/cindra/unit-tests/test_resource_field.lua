@@ -93,7 +93,7 @@ end)
 
 test("zone purity holds under a per-zone-width config override too", function()
   -- Widen the building area: the divider moves, but the guarantee holds.
-  local cfg = { terminator = 400 }
+  local cfg = { building = 400 }
   local rb = terrain.resource_bounds(cfg)
   for p = rb.cold_edge - 10, rb.hot_edge + 200 do
     if p < rb.building_lo then assert_eq(0, field.stone_richness(p, cfg), "stone in cold zone at p=" .. p) end
@@ -105,7 +105,7 @@ end)
 
 test("bands honour a per-zone-width override (settings-driven tuning)", function()
   -- A wider building band -> rocks scatter across a wider centre; the divider moves.
-  local cfg = { terminator = 400 }
+  local cfg = { building = 400 }
   assert_true(field.rock_zone(180, cfg), "rocks reach further with a wider building band")
   assert_true(not field.rock_zone(220, cfg), "but not past the wider building edge")
   assert_true(field.ice_richness(-250, cfg) > 0, "ice still on the (further-out) cold cap")

@@ -224,25 +224,24 @@ do
   M.TILES = order
 end
 
--- Back-compat alias: a couple of callers iterate a zone/tile list generically.
-M.NAME = {}
-for _, z in ipairs(M.ZONES) do M.NAME[z.role] = z.role end
-
 -- Smooth boundary-noise amplitude (tiles) and wavelength (tiles): wiggles every
 -- band boundary so zones are organic curves, not straight lines. A per-tile SPECKLE
 -- (shorter wavelength) randomises which co-present member wins point-by-point, so
 -- the members of a zone interpenetrate as a real mix. Fixed seeds -> the ribbon has
 -- the same structure on every map seed and stays deterministic for tests. (tune)
-M.NOISE_AMPLITUDE = 7
+M.NOISE_AMPLITUDE = 6
 M.NOISE_WAVELENGTH = 48
-M.SPECKLE_AMPLITUDE = 10
+M.SPECKLE_AMPLITUDE = 8
 M.SPECKLE_WAVELENGTH = 11
--- Plateau height and the membership-weight scale. WEIGHT_SCALE + SPECKLE_AMPLITUDE
--- (18) is kept below half the narrowest zone width (25) so a 50-wide zone's centre
--- is always won by one of its own members (deterministic membership tests) while
--- the boundaries still blend.
+-- Plateau height and the membership-weight scale. The plateau falls off at 1/tile
+-- outside a band, so at a 50-wide zone's centre (25 tiles from either edge) an
+-- adjacent zone's plateau is ~25 below, shifted at most NOISE_AMPLITUDE by the
+-- boundary wiggle. Keeping WEIGHT_SCALE + SPECKLE_AMPLITUDE (14) < 25 - NOISE_AMPLITUDE
+-- (19) guarantees a zone's centre is always won by one of ITS OWN members
+-- (deterministic membership for the regression tests) while the ~15-tile boundary
+-- regions still blend the two zones' members.
 M.PLATEAU = 1000
-M.WEIGHT_SCALE = 8
+M.WEIGHT_SCALE = 6
 
 -- Format a number for the noise DSL (integers stay clean, no float noise).
 local function num(v)

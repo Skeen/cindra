@@ -2,10 +2,11 @@
 -- Run: cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_terrain.lua
 --
 -- terrain.lua is the pure source of truth for the noise-driven left->right ribbon
--- gradient: the ordered zone table, each zone's perpendicular band geometry (widths
--- that SUM to the total ribbon width), the tile probability expressions (a noise-
--- wiggled plateau per band), walkability + lethality flags, and the finite map
--- dimension. This proves that pure surface; the factorio-test in
+-- gradient: the ordered 11-zone table (each zone a MIX of several tiles), each
+-- zone's perpendicular band geometry (widths that SUM to the total ribbon width),
+-- the per-tile probability expressions (a noise-wiggled plateau + interpolated
+-- membership weight + speckle), walkability, the POSITIONAL damage bounds and the
+-- finite map dimension. This proves that pure surface; the factorio-test in
 -- tests/test_worldgen.lua proves the zones actually generate on a live map.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
@@ -39,62 +40,112 @@ local function contains(haystack, needle, msg)
 end
 
 -- The definitive zone order, HOT (west) -> COLD (east) (ci-da2).
-local ORDER = {
-  "cindra-hot-lava", "cindra-lava", "cindra-lava-crust", "cindra-volcanic-warm",
-  "cindra-basalt", "cindra-scorched-dirt", "cindra-dry-sand", "cindra-terminator",
-  "cindra-cold-dust", "cindra-rough-ice", "cindra-deep-ice",
+local ZONE_ORDER = {
+  "hot_lava", "lava_mix", "lava_crust", "volcanic_warm", "basalt", "scorched",
+  "dry_dirt", "building", "cold_dust", "rough_ice", "deep_ice",
 }
 
-test("all eleven Cindra zone tiles are registered, HOT -> COLD in order", function()
+test("the eleven zones are ordered HOT -> COLD (ci-da2 definitive spec)", function()
+  assert_eq(#ZONE_ORDER, #terrain.ZONES, "eleven ribbon zones")
+  for i, role in ipairs(ZONE_ORDER) do
+    assert_eq(role, terrain.ZONES[i].role, "zone " .. i .. " is " .. role)
+  end
+end)
+
+test("each zone mixes its DEFINITIVE tile membership (spec zones 1-11)", function()
+  -- Spot-check the spec's per-zone membership. zone_tiles returns cindra-* names.
+  local function has(role, vanilla)
+    return terrain.zone_tiles(role)["cindra-" .. vanilla] == true
+  end
+  -- 1 pure hot lava.
+  assert_true(has("hot_lava", "lava-hot"), "zone 1 is hot lava")
+  -- 2 hot-lava -> lava.
+  assert_true(has("lava_mix", "lava-hot") and has("lava_mix", "lava"), "zone 2 mixes hot-lava + lava")
+  -- 3 lava + cracks-hot, + some cracks-warm / smooth-stone-warm.
+  for _, v in ipairs({ "lava", "volcanic-cracks-hot", "volcanic-cracks-warm", "volcanic-smooth-stone-warm" }) do
+    assert_true(has("lava_crust", v), "zone 3 includes " .. v)
+  end
+  -- 4 cracks-warm -> cracks / smooth-stone / soil-dark.
+  for _, v in ipairs({ "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone", "volcanic-soil-dark" }) do
+    assert_true(has("volcanic_warm", v), "zone 4 includes " .. v)
+  end
+  -- 5 -> jagged / soil-light / ash-soil.
+  for _, v in ipairs({ "volcanic-jagged-ground", "volcanic-soil-light", "volcanic-ash-soil" }) do
+    assert_true(has("basalt", v), "zone 5 includes " .. v)
+  end
+  -- 6 -> grass-4 / dry-dirt / dirt-4..7.
+  for _, v in ipairs({ "grass-4", "dry-dirt", "dirt-4", "dirt-5", "dirt-6", "dirt-7" }) do
+    assert_true(has("scorched", v), "zone 6 includes " .. v)
+  end
+  -- 7 dirt -> sand: dirt-1..3, sand-1..3, red-desert-1..3.
+  for _, v in ipairs({ "dirt-1", "dirt-2", "dirt-3", "sand-1", "sand-2", "sand-3",
+                       "red-desert-1", "red-desert-2", "red-desert-3" }) do
+    assert_true(has("dry_dirt", v), "zone 7 includes " .. v)
+  end
+  -- 8 building: sandy soils.
+  for _, v in ipairs({ "sand-1", "sand-2", "sand-3" }) do
+    assert_true(has("building", v), "zone 8 building includes " .. v)
+  end
+  -- 9 sand -> dust.
+  for _, v in ipairs({ "dust-crests", "dust-flat", "dust-lumpy", "dust-patchy" }) do
+    assert_true(has("cold_dust", v), "zone 9 includes " .. v)
+  end
+  -- 10 dust -> rough ice.
+  assert_true(has("rough_ice", "ice-rough"), "zone 10 reaches rough ice")
+  -- 11 smooth deep-ice cap.
+  assert_true(has("deep_ice", "ice-smooth"), "zone 11 is the smooth-ice cap")
+end)
+
+test("all clone sources are real vanilla/space-age tile family names", function()
+  -- The concrete tiles are cindra-<vanilla>; the count is the deduped membership.
   local names = terrain.tile_names()
-  assert_eq(#ORDER, #names, "eleven ribbon zone tiles")
-  for i, want in ipairs(ORDER) do
-    assert_eq(want, names[i], "zone " .. i .. " is " .. want)
-  end
+  assert_eq(32, #names, "thirty-two deduped concrete tiles")
+  assert_eq("cindra-lava-hot", names[1], "hottest tile is first (hot -> cold order)")
+  assert_eq("cindra-ice-smooth", names[#names], "coldest tile is last")
 end)
 
-test("damage tiles are the three hot (heat) + deep-ice (cold); the middle is safe", function()
-  -- Spec: DAMAGE TILES are zones 1+2+3 (hot-lava/lava/lava-crust) + zone 11 (deep-ice).
-  assert_eq("heat", terrain.lethal_kind("cindra-hot-lava"), "hot-lava burns")
-  assert_eq("heat", terrain.lethal_kind("cindra-lava"), "lava burns")
-  assert_eq("heat", terrain.lethal_kind("cindra-lava-crust"), "lava-crust burns")
-  assert_eq("cold", terrain.lethal_kind("cindra-deep-ice"), "deep-ice freezes")
-  for _, safe in ipairs({ "cindra-volcanic-warm", "cindra-basalt", "cindra-scorched-dirt",
-                          "cindra-dry-sand", "cindra-terminator", "cindra-cold-dust",
-                          "cindra-rough-ice" }) do
-    assert_eq(nil, terrain.lethal_kind(safe), safe .. " is safe")
-  end
-  local lethal, n = terrain.lethal_tiles(), 0
-  for _ in pairs(lethal) do n = n + 1 end
-  assert_eq(4, n, "exactly four lethal tiles")
-end)
-
-test("only the two hot lava zones are impassable; every other zone is walkable", function()
-  -- Spec: NOT WALKABLE = zones 1 + 2 (hot-lava, lava), impassable like Vulcanus lava.
-  assert_eq(false, terrain.is_walkable("cindra-hot-lava"), "hot-lava impassable")
+test("only the two lava tiles are impassable; every other tile is walkable ground", function()
+  -- Spec: NOT WALKABLE = zones 1 + 2 (pure lava). Walkability is per TILE: only the
+  -- lava tiles are impassable, which makes zones 1+2 the impassable wall.
+  assert_eq(false, terrain.is_walkable("cindra-lava-hot"), "hot lava impassable")
   assert_eq(false, terrain.is_walkable("cindra-lava"), "lava impassable")
-  for _, walk in ipairs({ "cindra-lava-crust", "cindra-volcanic-warm", "cindra-basalt",
-                          "cindra-scorched-dirt", "cindra-dry-sand", "cindra-terminator",
-                          "cindra-cold-dust", "cindra-rough-ice", "cindra-deep-ice" }) do
-    assert_eq(true, terrain.is_walkable(walk), walk .. " is walkable ground")
+  for _, v in ipairs({ "volcanic-cracks-hot", "volcanic-cracks-warm", "sand-1",
+                       "dust-flat", "ice-rough", "ice-smooth", "grass-4" }) do
+    assert_eq(true, terrain.is_walkable("cindra-" .. v), "cindra-" .. v .. " is walkable ground")
   end
+  assert_eq(nil, terrain.is_walkable("cindra-not-a-tile"), "unknown tile -> nil")
 end)
 
-test("every zone has a map_color: reds sunward, cyan nightward, neutral building", function()
+test("DAMAGE is positional: heat over zones 1+2+3, cold over zone 11, middle safe", function()
+  -- Spec: DAMAGE = zones 1+2+3 (heat) + zone 11 (cold). Zones mix shared tiles, so
+  -- lethality is keyed to POSITION on the perpendicular axis, not the tile.
+  local db = terrain.damage_bounds()
+  assert_eq(300, db.hot_from, "heat band starts at the cold edge of zone 3 (lava-crust)")
+  assert_eq(-200, db.cold_from, "cold band starts at the hot edge of zone 11 (deep-ice cap)")
+  -- Zone centres (perp): 1..3 hot (425/375/325), 11 cold (-325); 4 (275), 10 (-175) safe.
+  assert_eq("heat", terrain.lethal_at(425), "zone 1 burns")
+  assert_eq("heat", terrain.lethal_at(325), "zone 3 (lava-crust) burns")
+  assert_eq("cold", terrain.lethal_at(-325), "zone 11 (deep ice) freezes")
+  assert_eq(nil, terrain.lethal_at(275), "zone 4 (volcanic-warm) is safe")
+  assert_eq(nil, terrain.lethal_at(-175), "zone 10 (rough ice) is safe")
+  assert_eq(nil, terrain.lethal_at(0), "the building centre is safe")
+end)
+
+test("every tile has a map_color: reds sunward, cyan nightward, neutral building", function()
   local function dist(a, b)
     return math.abs(a[1] - b[1]) + math.abs(a[2] - b[2]) + math.abs(a[3] - b[3])
   end
-  for _, name in ipairs(ORDER) do
+  for _, name in ipairs(terrain.tile_names()) do
     local c = terrain.map_color(name)
     assert_true(c ~= nil, name .. " has a map_color")
     assert_eq(3, #c, name .. " map_color is {r,g,b}")
   end
-  assert_true(terrain.map_color("unknown-tile") == nil, "unknown tiles have no map_color")
-  local lava = terrain.map_color("cindra-hot-lava")
-  local ice = terrain.map_color("cindra-deep-ice")
-  local center = terrain.map_color("cindra-terminator")
-  assert_true(lava[1] > lava[2] and lava[1] > lava[3], "hot-lava reads red/orange")
-  assert_true(ice[3] > ice[1], "deep-ice reads cold (blue over red)")
+  assert_true(terrain.map_color("cindra-not-a-tile") == nil, "unknown tiles have no map_color")
+  local lava = terrain.map_color("cindra-lava-hot")
+  local ice = terrain.map_color("cindra-ice-smooth")
+  local center = terrain.map_color("cindra-sand-1") -- a building-band tile
+  assert_true(lava[1] > lava[2] and lava[1] > lava[3], "hot lava reads red/orange")
+  assert_true(ice[3] > ice[1], "deep ice reads cold (blue over red)")
   assert_true(dist(lava, center) > 0.6, "the hot edge is distinct from the safe centre")
   assert_true(dist(ice, center) > 0.6, "the cold edge is distinct from the safe centre")
 end)
@@ -111,11 +162,10 @@ end)
 test("the gradient is centred on the origin: building band straddles spawn", function()
   local bands = terrain.bands()
   local bi
-  for i, z in ipairs(terrain.ZONES) do if z.role == "terminator" then bi = i end end
-  assert_eq(-100, bands[bi].lo, "building band cold (west-perp) edge")
-  assert_eq(100, bands[bi].hi, "building band hot-perp edge at p=100")
+  for i, z in ipairs(terrain.ZONES) do if z.role == "building" then bi = i end end
+  assert_eq(-100, bands[bi].lo, "building band cold edge")
+  assert_eq(100, bands[bi].hi, "building band hot edge at p=100")
   assert_true(bands[bi].lo < 0 and bands[bi].hi > 0, "spawn (p=0) is inside the building band")
-  -- Hot-lava is the outermost (highest p) band; deep-ice the outermost cold.
   assert_eq(450, bands[1].hi, "hot-lava reaches the sunward map edge (p = +total/2)")
   assert_eq(-450, bands[#bands].lo, "deep-ice reaches the nightward map edge (p = -total/2)")
 end)
@@ -132,13 +182,13 @@ end)
 
 test("changing one zone width changes only that band + the total, never the rest", function()
   local base_bands, base_total = terrain.bands()
-  local cfg = { terminator = 400 } -- widen the building area by 200
+  local cfg = { building = 400 } -- widen the building area by 200
   local bands, total = terrain.bands(cfg)
   assert_eq(base_total + 200, total, "total grew by exactly the delta (world width = sum)")
   local function width(b) return b.hi - b.lo end
   assert_eq(width(base_bands[1]), width(bands[1]), "hot-lava keeps its width")
   local bi
-  for i, z in ipairs(terrain.ZONES) do if z.role == "terminator" then bi = i end end
+  for i, z in ipairs(terrain.ZONES) do if z.role == "building" then bi = i end end
   assert_eq(400, width(bands[bi]), "the building band took the new width")
 end)
 
@@ -146,20 +196,29 @@ test("resource_bounds splits stone (hot) from ice (cold) at the building's cold 
   local rb = terrain.resource_bounds()
   assert_eq(100, rb.building_half, "the safe building half-width")
   assert_eq(-100, rb.building_lo, "the stone/ice divider is the building's cold edge")
-  assert_eq(350, rb.hot_edge, "stone reaches the outer walkable hot zone (lava-crust), not the impassable lava")
+  assert_eq(350, rb.hot_edge, "stone reaches the outer walkable hot zone (lava-crust), not the lava wall")
   assert_eq(-450, rb.cold_edge, "ice reaches the cold cap edge")
 end)
 
-test("each zone's probability_expr is a noise-wiggled plateau keyed to the axis", function()
-  local expr = terrain.probability_expr("cindra-terminator")
+test("the volcanic cliff band spans the rocky zones (lava-crust .. scorched)", function()
+  local cb = terrain.cliff_band()
+  assert_eq(150, cb.lo, "cliff band cold edge = scorched zone lo")
+  assert_eq(350, cb.hi, "cliff band hot edge = lava-crust zone hi")
+end)
+
+test("each tile's probability_expr is a noise-wiggled plateau + weight + speckle", function()
+  local expr = terrain.probability_expr("cindra-sand-1")
   contains(expr, "max(0,", "the plateau falls off via max(0, ...)")
-  contains(expr, "basis_noise", "the boundary is wiggled by smooth noise")
+  contains(expr, "basis_noise", "the boundary + speckle are basis_noise")
   contains(expr, axis.perp_expr(), "keyed to the perpendicular axis")
-  contains(expr, "-100", "the band's cold edge appears")
-  contains(expr, "100", "the band's hot edge appears")
-  local hot = terrain.probability_expr("cindra-hot-lava")
+  contains(expr, "min(1, max(0,", "the membership weight uses a clamped fraction")
+  -- The hot-lava tile lives in the outermost band [400, 450].
+  local hot = terrain.probability_expr("cindra-lava-hot")
   contains(hot, "400", "hot-lava band inner edge")
   contains(hot, "450", "hot-lava band outer edge")
+  -- A tile that mixes into several zones has several max() terms.
+  local multi = terrain.probability_expr("cindra-sand-1")
+  assert_true(multi:find("max(", 1, true) ~= nil, "a multi-zone tile takes the max over its bands")
   local ok = pcall(function() terrain.probability_expr("not-a-tile") end)
   assert_true(not ok, "an unknown tile errors")
 end)
@@ -168,7 +227,7 @@ test("the world is finite perpendicular via the map-gen = the total width", func
   local d = terrain.finite_dimension()
   assert_eq("width", d.key, "vertical orientation bounds the X axis (width)")
   assert_eq(900, d.value, "the finite dimension is the total ribbon width (sum of zones)")
-  assert_eq(1100, terrain.finite_dimension({ terminator = 400 }).value, "tracks the widths")
+  assert_eq(1100, terrain.finite_dimension({ building = 400 }).value, "tracks the widths")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))
