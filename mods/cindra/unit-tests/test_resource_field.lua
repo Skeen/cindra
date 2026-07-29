@@ -142,32 +142,35 @@ end)
 
 -- Burned volcanic rocks (ci-qy0): confined to the HOT region (sunward of the safe
 -- band, in to the wall), NEVER in the temperate/building band or the cold/ice zone.
-test("burned volcanic rocks live in the hot region only", function()
-  -- Defaults: safe_half_width 24, lethal_at 96, wall_at 128.
-  assert_true(field.burned_rock_zone(30), "burned rocks just sunward of the safe band")
-  assert_true(field.burned_rock_zone(90), "burned rocks out toward the lava edge")
-  assert_true(field.burned_rock_zone(120), "burned rocks in the lava band, in to the wall")
-  assert_true(not field.burned_rock_zone(0), "NO burned rocks at the temperate terminator")
-  assert_true(not field.burned_rock_zone(24), "NO burned rocks in the safe/building band (boundary)")
-  assert_true(not field.burned_rock_zone(-30), "NO burned rocks in the cold/ice zone")
-  assert_true(not field.burned_rock_zone(-120), "NO burned rocks deep nightward")
-  assert_true(not field.burned_rock_zone(140), "NO burned rocks past the wall")
+test("burned volcanic rocks live in the hot region only (ci-da2 zone bounds)", function()
+  -- Re-banded to the zone geometry: perp in (building_half=100, hot_edge=350].
+  assert_true(field.burned_rock_zone(150), "burned rocks in the volcanic band")
+  assert_true(field.burned_rock_zone(340), "burned rocks out toward the lava (walkable) edge")
+  assert_true(field.burned_rock_zone(101), "just sunward of the building band")
+  assert_true(not field.burned_rock_zone(0), "NO burned rocks at the temperate building centre")
+  assert_true(not field.burned_rock_zone(100), "NO burned rocks in the building band (boundary)")
+  assert_true(not field.burned_rock_zone(-200), "NO burned rocks in the cold/ice zone")
+  assert_true(not field.burned_rock_zone(400), "NO burned rocks in the impassable lava wall (past hot_edge)")
 end)
 
-test("burned-rock zone honours a settings-driven config override", function()
-  local cfg = { safe_half_width = 8, lethal_at = 60, wall_at = 100 }
-  assert_true(field.burned_rock_zone(10, cfg), "just sunward of the narrower safe band")
-  assert_true(not field.burned_rock_zone(8, cfg), "not inside the narrower safe band")
+test("burned-rock zone honours a per-zone-width config override", function()
+  -- Widen the building band: its hot edge (building_half) moves out, so the burned
+  -- rocks start further sunward and never inside the wider building band.
+  local cfg = { building = 400 }
+  local rb = terrain.resource_bounds(cfg)
+  assert_true(field.burned_rock_zone(rb.building_half + 10, cfg), "just sunward of the wider building band")
+  assert_true(not field.burned_rock_zone(rb.building_half - 10, cfg), "not inside the wider building band")
   assert_true(not field.burned_rock_zone(-10, cfg), "never in the cold zone")
-  assert_true(not field.burned_rock_zone(110, cfg), "never past the narrower wall")
+  assert_true(not field.burned_rock_zone(rb.hot_edge + 10, cfg), "never past the walkable hot edge (into the lava wall)")
 end)
 
 test("burned-rock autoplace masks to the hot region and clusters toward the lava", function()
   local expr = field.burned_rock_probability_expr()
-  -- Confined to the hot region on the perpendicular axis: sunward of the safe band,
-  -- in to the wall (default hot = negative x, perp = "(0 - x)").
-  assert_true(expr:find("(0 - x) > 24", 1, true) ~= nil, "starts sunward of the safe band")
-  assert_true(expr:find("(0 - x) < 128", 1, true) ~= nil, "capped at the wall")
+  local rb = terrain.resource_bounds()
+  -- Confined to the hot margin on the perpendicular axis: sunward of the building
+  -- band, in to the walkable hot edge (default hot = negative x, perp = "(0 - x)").
+  assert_true(expr:find("(0 - x) > " .. rb.building_half, 1, true) ~= nil, "starts sunward of the building band")
+  assert_true(expr:find("(0 - x) <= " .. rb.hot_edge, 1, true) ~= nil, "capped at the walkable hot edge")
   -- Clusters toward the lava: a clamped ramp from MIN to MAX probability.
   assert_true(expr:find("lerp(0.003, 0.02,", 1, true) ~= nil, "ramps MIN -> MAX toward the lava")
   assert_true(expr:find("clamp(", 1, true) ~= nil, "ramp fraction is clamped to the band")
