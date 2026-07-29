@@ -124,6 +124,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (4) the map view shows the colour gradient (red hot → pale centre → blue cold);
   (5) spawn sits in a **wide safe** terminator band you can build across freely.
 
+- [ ] **[LANDED] Danger zone reads on the MAP VIEW like a demolisher tint (ci-4h7)
+  — MAYOR MUST SCREENSHOT.** The lethal edges now carry a distinct alarming
+  `map_color` (set on the Cindra tile clones, never the vanilla tiles), so the
+  hot/cold danger bands read at a glance on the map/chart at every zoom, the way a
+  Vulcanus demolisher territory reads as a tinted region — but produced positionally
+  by the tile bands, with **no** dependence on the demolisher territory API. The
+  colours and their distinctness are asserted in `tests/test_worldgen.lua` +
+  `unit-tests/test_terrain.lua`; only the *visual read* is the playtest. *Repro:*
+  land on Cindra, open the map (M) and chart out to both edges. *Look for:* (1) the
+  sunward half reads as a clear **red→hot-orange** band deepening toward the lethal
+  lava edge; (2) the nightward half reads as a **pale-ice→bright-cyan** band toward
+  the lethal deep-ice edge; (3) the safe **terminator** centre is a neutral basalt,
+  so the safe↔danger boundary is legible as a colour change, not a muddy blur; (4)
+  the tint follows the organic wavy band boundaries automatically. *Fallback:* none
+  — the exact map colour read at zoom is inherently visual.
+
 - [ ] **[LANDED] Lethal tiles burn/freeze the player AND machines (ci-3yl).**
   *Repro:* walk onto a lava tile at the hot edge, and build a machine on one.
   *Look for:* standing on **lava** drains HP (heat) and a machine built on it takes

@@ -39,13 +39,26 @@ local M = {}
 -- prototype cloned (prototypes/tiles.lua) from a vanilla tile for its art; we
 -- never enable or mutate the vanilla tile itself, so nothing leaks onto Nauvis.
 -- `lethal` marks the tiles scripts/tile-damage.lua damages entities on.
---   name        clone_from             lethal    role
+--
+-- `map_color` (ci-4h7) makes the DANGER ZONE read at a glance on the map view --
+-- the same "this region is hostile" legibility a Vulcanus demolisher territory
+-- has, but produced positionally by the tile bands (no demolisher territory API).
+-- The vanilla clones' inherited map_colors are muddy browns that blur the hot
+-- margin into the safe centre; we override each clone (never the vanilla tile) so
+-- the axis paints a coordinated gradient on the map, keyed to the SAME hot->cold
+-- axis as the terrain and the damage:
+--   * hot side  reddens toward the sunward lethal edge (deep red -> hot orange),
+--   * cold side  brightens toward the nightward lethal edge (pale ice -> cyan),
+--   * the safe terminator centre stays a neutral basalt so both danger bands read
+--     as a clear coloured edge against it (the safe<->damaging boundary is legible).
+-- Values are 0..1 floats (matching prototypes/resources.lua's map_color style).
+--   name        clone_from             lethal    role          map_color
 M.TILES = {
-  { name = "cindra-terminator",  clone_from = "volcanic-soil-light", lethal = nil,    role = "center" },
-  { name = "cindra-molten-rock", clone_from = "volcanic-cracks-hot", lethal = nil,    role = "hot_margin" },
-  { name = "cindra-lava",        clone_from = "lava",                lethal = "heat", role = "hot_edge" },
-  { name = "cindra-frost",       clone_from = "snow-flat",           lethal = nil,    role = "cold_margin" },
-  { name = "cindra-deep-ice",    clone_from = "ice-rough",           lethal = "cold", role = "cold_edge" },
+  { name = "cindra-terminator",  clone_from = "volcanic-soil-light", lethal = nil,    role = "center",      map_color = { 0.28, 0.26, 0.24 } },
+  { name = "cindra-molten-rock", clone_from = "volcanic-cracks-hot", lethal = nil,    role = "hot_margin",  map_color = { 0.62, 0.14, 0.06 } },
+  { name = "cindra-lava",        clone_from = "lava",                lethal = "heat", role = "hot_edge",    map_color = { 0.95, 0.38, 0.06 } },
+  { name = "cindra-frost",       clone_from = "snow-flat",           lethal = nil,    role = "cold_margin", map_color = { 0.55, 0.72, 0.85 } },
+  { name = "cindra-deep-ice",    clone_from = "ice-rough",           lethal = "cold", role = "cold_edge",   map_color = { 0.70, 0.93, 1.00 } },
 }
 
 -- Convenience lookups.
@@ -113,6 +126,16 @@ function M.probability_expr(name, cfg)
     return rsb(cold, L - 8, W + 64, 6, 0, 3)
   end
   error("terrain: unknown Cindra tile " .. tostring(name))
+end
+
+-- The map-view colour (a {r,g,b} 0..1 table) for a Cindra tile, or nil if unknown.
+-- prototypes/tiles.lua applies this to each clone so the danger zone reads on the
+-- map (ci-4h7). Pure: no game.* / prototypes.* access, so it is unit-testable.
+function M.map_color(name)
+  for _, t in ipairs(M.TILES) do
+    if t.name == name then return t.map_color end
+  end
+  return nil
 end
 
 -- "heat" / "cold" / nil: the damage kind a lethal tile inflicts (nil = safe).
