@@ -11,7 +11,8 @@
 --      and their boundaries are ORGANIC (wavy), NOT raw straight lines.
 --   3. ZERO NAUVIS LEAKAGE: no grass, no water -- every interior tile is a Cindra tile.
 --   4. NATIVE RESOURCES: stone on the ribbon/hot side, ice on the nightside, no water.
---   5. FINITE BOOTSTRAP ROCKS: scattered near spawn only, absent far down the ribbon.
+--   5. BAND-WIDE BOOTSTRAP ROCKS: scattered across the whole ribbon terminator
+--      band (finite per-rock, not a spawn-only disk; ci-9bb).
 --
 -- The pure band geometry is proven in unit-tests/test_terrain + test_resource_field;
 -- this proves it actually generates on a live surface.
@@ -128,16 +129,40 @@ describe("cindra worldgen: a real noise-driven ribbon world (§4, §15-2; ci-3yl
     assert.are.equal(0, count(field.ICE, -128, 0), "no ice sunward (west) of the safe band")
   end)
 
-  -- 5. FINITE BOOTSTRAP ROCKS -----------------------------------------------------
-  it("scatters finite bootstrap rocks near spawn only, absent far down the ribbon", function()
-    -- Near spawn (inside the terminator band AND the spawn disk): present.
+  -- 5. BAND-WIDE BOOTSTRAP ROCKS --------------------------------------------------
+  it("scatters bootstrap rocks across the WHOLE ribbon band, not just near spawn (ci-9bb)", function()
+    -- Near spawn, inside the terminator safe band (|perp X| <= safe): present.
     local near = s.count_entities_filtered({
       name = field.ROCK, area = { { -24, -100 }, { 24, 100 } } })
     assert.is_true(near > 0, "bootstrap rocks scatter around the landing terminator")
-    -- Far down the ribbon, past the finite spawn range: none (finite, not infinite).
+    -- Far down the ribbon (well past the old spawn-disk radius): STILL present --
+    -- they generate band-wide as you explore, not confined to a spawn disk.
+    -- Finiteness is per-rock (a mined simple-entity is destroyed), not a placement cap.
     local far = s.count_entities_filtered({
-      name = field.ROCK, area = { { -24, field.ROCK_SPAWN_RANGE + 20 }, { 24, RY } } })
-    assert.are.equal(0, far, "no rocks beyond the finite spawn disk (rocks are finite)")
+      name = field.ROCK, area = { { -24, 150 }, { 24, RY } } })
+    assert.is_true(far > 0, "bootstrap rocks also generate far down the ribbon (band-wide, not a spawn disk)")
+    -- Still masked OUT of the damage margins: never beyond the safe band on the perp axis.
+    local outside = s.count_entities_filtered({
+      name = field.ROCK, area = { { 40, -100 }, { 120, 100 } } })
+    assert.are.equal(0, outside, "no rocks out past the safe band (masked to the terminator band)")
+  end)
+
+  it("the ice field reads as ICY on the map: pale cyan/frost map_color, distinct from stone AND iron ore (ci-9bb)", function()
+    local ice = prototypes.entity["cindra-ice"].map_color
+    assert.is_not_nil(ice, "the ice resource has a map_color")
+    -- Icy: bright, blue+green (cyan) dominant, never warm.
+    assert.is_true(ice.b >= 0.85 and ice.g >= 0.8, "ice map_color is a bright cyan/frost tone")
+    assert.is_true(ice.b > ice.r and ice.g > ice.r, "ice map_color is cool (blue+green over red)")
+    -- Distinct from the WARM stone patch (which is red-dominant / low blue).
+    local stone = prototypes.entity["cindra-stone"].map_color
+    assert.is_true(stone.r > stone.b, "sanity: stone is a warm tone")
+    assert.is_true(ice.b > stone.b + 0.3, "ice is clearly icier/bluer than the warm stone patch")
+    -- Shifted AWAY from vanilla IRON ORE's darker steel-blue {0.415,0.525,0.580}:
+    -- markedly paler (brighter) and more cyan, so the two never read alike.
+    local iron = prototypes.entity["iron-ore"].map_color
+    assert.is_true(ice.r + ice.g + ice.b > iron.r + iron.g + iron.b + 0.6,
+      "ice map_color is markedly paler/brighter than iron ore's steel-blue")
+    assert.is_true(ice.g > iron.g + 0.25, "ice map_color is more cyan than iron ore")
   end)
 
   it("bounds the REAL cindra planet surface at creation (the runtime hook works)", function()

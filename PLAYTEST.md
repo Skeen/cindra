@@ -158,6 +158,20 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `vertical`/`horizontal`). Patches: stone/ice appear as IRREGULAR natural patches
   (not a grid); no water at any setting; deep-nightside ice yields volatiles when mined.
 
+- [ ] **[LANDED] Ice field, stone patch + bootstrap rocks read right (ci-9bb).**
+  *Repro:* explore the ribbon on Cindra; mine an ice field and a stone patch; open
+  the map view. *Look for:* the **ice field** deposit reads as ICY/frosted on the
+  ground (a pale frost-blue ore patch), clearly NOT the warm stone rubble and NOT
+  the vanilla iron-ore look; its map colour is a pale cyan/frost, distinct from
+  iron ore's steel-blue. The **stone** deposit is labelled just **Stone** (never
+  "Cindra stone"). Mining an ice field drops the oxide chunk plus **Frozen
+  volatiles** wearing their OWN vial-of-gas icon (violet/cyan), NOT a second batch
+  of "ice cubes" (the old placeholder). **Bootstrap rocks** appear scattered along
+  the WHOLE ribbon terminator band as you explore (naturally scattered, no lattice,
+  finite per rock), not only around spawn. *Fallback:* `test_worldgen.lua` proves
+  the icy map_color (distinct from stone AND iron) and band-wide rock generation;
+  the sprite/icon *appearance* is what this entry confirms.
+
 - [ ] **[LANDED] Nightside cold damage vs Aquilo freeze (feel).** Unheated
   machines past the cold threshold (axis temp < -30 °C default) take ticking cold
   damage rather than a reversible Aquilo-style freeze. *Look for:* the pace
