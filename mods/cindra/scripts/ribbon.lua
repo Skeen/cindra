@@ -59,11 +59,15 @@ M.DEFAULTS = {
   temp_hot_max = 1500, -- sunward saturation: manufactured-lava hot
   temp_cold_min = -270, -- nightward saturation: near absolute zero (volatiles freeze out)
 
-  -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht). Solar
-  -- panels only REALLY work on the sunny (sunward) part of the ribbon: a panel's
-  -- output fraction ramps from `solar_floor` (nightward) up to 1.0 (deep sunward,
-  -- toward the fire bands), so placement is a real decision. The full/zero points
-  -- are derived from the zone gradient (see resolve), so this follows the widths.
+  -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht). Solar is
+  -- an ABSOLUTE function of sunward position (how much star flux reaches a tile),
+  -- NOT a distance from the temperate spawn: a panel's output fraction ramps from
+  -- `solar_floor` (nightward, ~nothing) up to 1.0 deep sunward (toward the fire
+  -- bands), so building toward the heat/danger is the reward and placement is a
+  -- real decision. Anchored to the sunward-positive perpendicular axis about 0.
+  -- (tune) -- balance pass is §15-14.
+  solar_full_at = 96,  -- perp >= this (deep sunward): full output.
+  solar_zero_at = -24, -- perp <= this (nightward): floor output.
   solar_floor   = 0.0, -- output fraction on the far nightward side (~nothing).
 }
 
