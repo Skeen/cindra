@@ -63,8 +63,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   nightside); it does NOT rotate (tidally locked) while the terminator steam band
   and the flares off the fire limb animate in place. The baked star-map sprite
   split is verified off-game (`unit-tests/test_planet_maps.py`: centre ~RGB
-  [139,108,61] sandy, fire limb ~[244,168,137], ice limb ~[40,57,77]); only the
-  LIVE orbital backdrop is the playtest.
+  [185,150,88] sandy, fire limb ~[189,73,20] molten orange, ice limb ~[57,93,135]
+  icy blue); only the LIVE orbital backdrop is the playtest.
+
+- [ ] **[LANDED] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
+  earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
+  *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
+  then navigate/travel to it). *Look for:* the LAVA hemisphere (left limb, sunward
+  per tidal lock) reads as **strongly GLOWING** radiant molten orange/red with a
+  soft bloom halo bleeding off the fire limb and bright magma veins; the ICE
+  hemisphere (right limb) reads as a **shimmery cool BLUE** frozen vault with icy
+  glints catching the light, NOT flat grey/navy; the sandy terminator band down
+  the centre is now a **THIN sliver** (slimmed ~10x per the space-view
+  refinement) so the disc reads as mostly FIERY + ICY hemispheres, NOT thirds.
+  The whole planet stays DARK (glow/shimmer are accents on a dark base, not an
+  overall wash-out). Fire faces the star, ice faces away
+  (orientation preserved). *Fallback:* the baked star-map sprite is verified
+  off-game (`unit-tests/test_planet_maps.py` guards the strongly-glowing dayside,
+  the visible icy-blue shimmer, and the thin sandy terminator; `unit-tests/test_space_appearance.lua` guards
+  the orbital backdrop's boosted emission_scalar + specular sheen). This entry is
+  only the "the glow/shimmer looks vivid on the live orbital backdrop, bloom and
+  all" confirmation a still-image test cannot judge. Re-bake via
+  `scripts/render-planet.sh` (tunes: gen-planet-maps.py emission/albedo,
+  bake-starmap.py Standard view transform + Emission Strength + Glare bloom +
+  cold-blue fill, space-appearance.lua emission_scalar/specular_intensity).
 
 - [ ] **[LANDED] Mod thumbnail reads as Cindra (ci-06j).** *Repro:* open the
   in-game mod manager (or the mod portal listing) and find **Cindra** by **Vuza**.

@@ -67,6 +67,26 @@ check("each zone is present (fire / sandy seam / ice)",
       fire.sum() > 50 and seam.sum() > 50 and ice.sum() > 50,
       f"fire={int(fire.sum())} seam={int(seam.sum())} ice={int(ice.sum())}")
 
+# --- THIN SANDY TERMINATOR (ci-fg6 space-view refinement) -------------------
+# The mayor slimmed the sandy middle band ~10x: the disc must read as mostly
+# FIERY hemisphere + ICY hemisphere with only a THIN sand seam between them. The
+# old band was the middle ~third of the disc (screen width ~0.30R); the new one
+# is a sliver (~0.03R, ~10x thinner). Guard both the total coverage and the
+# on-disc equatorial width so a later tweak cannot quietly widen it back.
+day_m, night_m, ribbon_m = masks["day"], masks["night"], masks["ribbon"]
+seam_frac = float(ribbon_m.sum() / (day_m.sum() + night_m.sum()))
+check("sandy seam is THIN vs the hemispheres (soft-mask sum < 0.20 of fire+ice)",
+      seam_frac < 0.20,
+      f"seam/(fire+ice)={seam_frac:.3f}")
+# Equatorial screen width: along the equator (lat=0 row) sol ~ -sin(lon) ~ screen-x
+# near the centre, so the fraction of the row that is sandy tracks the on-disc
+# band width. Old band ~0.15 of the equirect row; the slimmed seam is well under.
+eq_row = ribbon_m[ribbon_m.shape[0] // 2]
+eq_seam_frac = float((eq_row > 0.5).mean())
+check("sandy terminator is a thin sliver on the disc (equator width < 0.06)",
+      eq_seam_frac < 0.06,
+      f"equator seam width frac={eq_seam_frac:.3f}")
+
 # --- SANDY SEAM: bright, warm, and self-lit (THE black-centre fix) ----------
 seam_alb = rgb_mean(albedo, seam)
 check("ribbon albedo is SANDY YELLOW (R>G>B, warm)",
@@ -88,8 +108,11 @@ check("ribbon emission is warm sandy (R>=G>=B)",
 # --- FIRE HEMISPHERE: radiant molten glow -----------------------------------
 fire_em = rgb_mean(emission, fire)
 fire_emax = float(np.median(emax[fire]))
-check("dayside is a strong warm emission (median emax > 110)",
-      fire_emax > 110,
+# ci-fg6: the fire limb must GLOW STRONGLY, not read as dull peach. Most of the
+# dayside now blows out toward white-hot (median emax near saturation), which the
+# bake's Glare node blooms into a radiant halo.
+check("dayside is a STRONGLY GLOWING emission (median emax > 200)",
+      fire_emax > 200,
       f"median emax={fire_emax:.1f}")
 check("dayside emission is warm (R dominant, R>B)",
       fire_em[0] > fire_em[2],
@@ -107,10 +130,21 @@ check("nightside is the DARKEST albedo (darker than seam AND fire)",
       f"ice={ice_bright:.1f} seam={seam_bright:.1f} fire={fire_bright:.1f}")
 
 ice_alb = rgb_mean(albedo, ice)
-check("nightside albedo is icy-blue biased (B>R)",
-      ice_alb[2] > ice_alb[0],
-      f"albedo={ice_alb.round(1)}")
+# ci-fg6: not just B>R, but STRONGLY blue -- a shimmery icy sheen, not flat navy.
+check("nightside albedo is STRONGLY icy-blue biased (B > 1.5*R)",
+      ice_alb[2] > 1.5 * ice_alb[0],
+      f"albedo={ice_alb.round(1)}  B/R={ice_alb[2] / max(ice_alb[0], 1e-6):.2f}")
 ice_emax = float(np.median(emax[ice]))
+# The nightside now carries a VISIBLE icy-blue shimmer self-glow (lifted from the
+# old barely-there 0.11 factor, ci-fg6) -- but still dimmer than the sandy seam,
+# so the frozen vault stays the darkest, dimmest-lit zone.
+check("nightside shimmer is VISIBLE (median emax > 24)",
+      ice_emax > 24,
+      f"ice emax={ice_emax:.1f}")
+ice_em = rgb_mean(emission, ice)
+check("nightside shimmer is icy-blue (B dominant, B>R)",
+      ice_em[2] > ice_em[0],
+      f"emission={ice_em.round(1)}")
 check("nightside stays dark: dimmer self-glow than the sandy seam",
       ice_emax < seam_emax,
       f"ice={ice_emax:.1f} seam={seam_emax:.1f}")

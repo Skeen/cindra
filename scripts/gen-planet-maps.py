@@ -150,14 +150,25 @@ def generate_maps(W=W, H=H, seed=SEED):
     # (ice). A little noise warps the boundary so the seam is a ragged coastline.
     sol = (-cy).reshape(H, W)
     warp = (field(seed + 400, base_freq=3.0, octaves=4) - 0.5)
-    sol = np.clip(sol + 0.14 * warp, -1.0, 1.0)
+    # Warp amplitude scaled down with the slimmed band (ci-fg6): the seam is now a
+    # THIN terminator, so a large warp would scatter sand blobs deep into the
+    # hemispheres. Keep it comparable to the band half-width for a ragged-but-thin
+    # coastline.
+    sol = np.clip(sol + 0.035 * warp, -1.0, 1.0)
 
-    # Wide-enough ribbon that the sandy seam reads as the middle THIRD of the
-    # presented disc (see the sol->screen-x note in the header), while the
-    # hemispheres still reach full fire/ice strength well before the limb.
-    day = smoothstep(0.12, 0.48, sol)                       # molten hemisphere
-    night = smoothstep(0.12, 0.48, -sol)                    # frozen hemisphere
-    ribbon = np.clip(1.0 - day - night, 0.0, 1.0)           # sandy seam
+    # THIN sandy terminator (ci-fg6): the mayor's space-view refinement slims the
+    # sandy middle band ~10x, so the planet reads as mostly FIERY hemisphere + ICY
+    # hemisphere with only a thin sand seam between them (consistent with tidal
+    # lock: fire limb -> thin sand terminator -> ice limb). The old band was the
+    # middle THIRD of the disc (smoothstep 0.12..0.48, half-width ~0.30 in sol,
+    # which maps ~linearly to screen-x; see the header). Here the smoothstep
+    # midpoint drops to ~0.033 (half-width ~10x smaller), so the hemispheres reach
+    # full fire/ice strength almost to the centre with only a sliver of sand. This
+    # is ART only (equirect maps -> baked sprite + orbital backdrop); it does NOT
+    # touch the in-game mapgen zone widths (planet.lua / ribbon.lua, ci-da2).
+    day = smoothstep(0.013, 0.053, sol)                    # molten hemisphere
+    night = smoothstep(0.013, 0.053, -sol)                 # frozen hemisphere
+    ribbon = np.clip(1.0 - day - night, 0.0, 1.0)          # thin sandy seam
     heat = np.clip(sol, 0.0, 1.0)                           # 0..1 toward substellar
     cold = np.clip(-sol, 0.0, 1.0)                          # 0..1 toward antistellar
 
@@ -176,21 +187,25 @@ def generate_maps(W=W, H=H, seed=SEED):
     D, N, R = day[..., None], night[..., None], ribbon[..., None]
 
     # -- Albedo (RGBA) -------------------------------------------------------
-    # Dayside: a warm ember crust so the lava reads as molten rock even where the
-    # emission is masked; bright lava veins push it toward glowing orange.
-    day_v = 0.22 + 0.28 * height + 0.50 * lava
-    day_rgb = np.stack([day_v * 1.15, day_v * 0.50, day_v * 0.18], -1)     # molten orange-red
+    # Dayside: a hot ember crust so the lava reads as radiant molten rock even
+    # where the emission is masked; bright lava veins push it toward a glowing
+    # orange. Brighter + more saturated than the old dull-peach crust (ci-fg6) so
+    # the fire limb reads as GLOWING lava, not matte rock.
+    day_v = 0.30 + 0.30 * height + 0.55 * lava
+    day_rgb = np.stack([day_v * 1.35, day_v * 0.52, day_v * 0.14], -1)     # molten orange-red
     # Ribbon: SANDY YELLOW, the survivable seam. Bright, warm, gently duned by
     # the height field so it is not a flat wash.
     sand = np.array([0.84, 0.68, 0.40])
     rib_v = 0.82 + 0.22 * (height - 0.5) + 0.10 * (detail - 0.5)
     rib_rgb = sand[None, None, :] * np.clip(rib_v, 0.4, 1.15)[..., None]
-    # Nightside: the DARKEST zone. A near-black deep-blue base with sparse
-    # icy-blue glints where frost ridges catch the last starlight.
-    night_base = np.array([0.015, 0.025, 0.055])
+    # Nightside: the DARKEST zone, but no longer flat navy (ci-fg6). A near-black
+    # deep-blue base with SHIMMERING icy-blue glints where frost ridges catch the
+    # last starlight -- brighter, cooler and more plentiful glints so the ice limb
+    # reads as a shimmery blue frozen vault, while the base stays the darkest zone.
+    night_base = np.array([0.015, 0.030, 0.075])
     glint = frost * (0.35 + 0.65 * height)
-    glint_col = np.array([0.55, 0.76, 1.00])
-    ice_rgb = night_base[None, None, :] + 0.55 * glint[..., None] * glint_col[None, None, :]
+    glint_col = np.array([0.46, 0.74, 1.00])
+    ice_rgb = night_base[None, None, :] + 0.95 * glint[..., None] * glint_col[None, None, :]
 
     albedo = day_rgb * D + ice_rgb * N + rib_rgb * R
     alpha = np.full((H, W), 255.0)
@@ -198,11 +213,15 @@ def generate_maps(W=W, H=H, seed=SEED):
 
     # -- Emission (RGBA): the identity --------------------------------------
     # Molten dayside glow, hottest (white/yellow) at the sub-stellar point,
-    # cooling to orange and deep red toward the terminator.
-    ocean = np.clip(day * (0.30 + 0.70 * heat), 0, 1)
-    veins = np.clip(lava * day * (0.45 + 0.95 * heat), 0, 1)
+    # cooling to orange and deep red toward the terminator. Pushed hotter across
+    # the whole hemisphere (ci-fg6) so the fire limb reads as a STRONGLY GLOWING
+    # magma ocean, not a dull ember: the base ocean glow is lifted and the veins
+    # burn brighter, so far more of the dayside saturates toward white-hot (which
+    # the bake's Glare node then blooms).
+    ocean = np.clip(day * (0.48 + 0.62 * heat), 0, 1)
+    veins = np.clip(lava * day * (0.55 + 1.05 * heat), 0, 1)
     pools = np.clip((0.55 - height) / 0.55, 0, 1) * day
-    glow = np.clip(0.60 * ocean + 1.10 * veins + 0.35 * pools * heat, 0, 1)
+    glow = np.clip(0.90 * ocean + 1.30 * veins + 0.45 * pools * heat, 0, 1)
 
     hot_white = np.array([1.00, 0.93, 0.72])       # sub-stellar white-hot (only the peak)
     orange = np.array([1.00, 0.42, 0.06])          # magma orange (the dayside body)
@@ -220,10 +239,12 @@ def generate_maps(W=W, H=H, seed=SEED):
     sand_em = np.array([1.00, 0.80, 0.46])
     em += np.clip(rib_glow, 0, 1)[..., None] * sand_em[None, None, :]
 
-    # Nightside: faint SHIMMERING ICY-BLUE glinting through the dark -- a thin
-    # self-glow on the frost ridges (kept low so the vault stays the darkest zone).
-    shimmer = np.clip(frost * night, 0, 1) * 0.11
-    shimmer_col = np.array([0.35, 0.66, 1.00])
+    # Nightside: SHIMMERING ICY-BLUE glinting through the dark -- a self-glow on
+    # the frost ridges, lifted (ci-fg6) so the ice limb visibly shimmers blue,
+    # yet still kept below the sandy seam's glow so the vault stays the darkest,
+    # dimmest-lit zone (the test guards ice_emax < seam_emax).
+    shimmer = np.clip(frost * night, 0, 1) * 0.24
+    shimmer_col = np.array([0.30, 0.64, 1.00])
     em += shimmer[..., None] * shimmer_col[None, None, :]
 
     em = np.clip(em, 0, 1)
