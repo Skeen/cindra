@@ -131,6 +131,15 @@ test("the band spans a real range (min < max) so cadence genuinely varies", func
   assert_true(C.CALM_MAX_TICKS > C.CALM_MIN_TICKS, "the calm is a band, not a fixed value")
 end)
 
+test("the calm band is the real-play 5-10 minute cadence (ci-1c7)", function()
+  -- The gap between consecutive flares must be a random draw in ~[5min, 10min].
+  -- At 60 ticks/s that is exactly 18000..36000 ticks. Every drawn gap sits in
+  -- this band (asserted above via next_calm), so scheduled intervals fall inside
+  -- the 5-10 min window and never on a fixed metronome.
+  assert_eq(5 * 60 * 60, C.CALM_MIN_TICKS, "min gap is 5 minutes (18000 ticks)")
+  assert_eq(10 * 60 * 60, C.CALM_MAX_TICKS, "max gap is 10 minutes (36000 ticks)")
+end)
+
 test("the PRNG is deterministic: same seed -> same gap sequence (save/load stable)", function()
   local a, b = 999, 999
   for _ = 1, 20 do

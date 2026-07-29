@@ -413,5 +413,6 @@ is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 | Surface solar multiplier | ~10000% (validate) | set by working back from lava energy cost |
 | Baseline (night floor) | ≈ Nauvis full day | dark-weighted, never true zero |
 | Flare peak vs baseline | ~100× | must stay relevant; <100% catchable |
+| Flare interval (calm gap) | random ~5–10 min | sporadic, not a metronome (ci-1c7); each event still telegraphed |
 | Electric heater temp cap | 600° | below reactor, above steam threshold |
 | Stone loop-back net | slightly net-consuming | fresh mining stays a slow activity |

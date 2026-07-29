@@ -50,8 +50,12 @@ describe("flare cycle - sporadic timing", function()
     H.power_reset() -- clears the schedule + disables the periodic driver
 
     -- Drive the flare across many events and record each distinct event anchor.
+    -- Run long enough that even at the maximum calm gap we still get several
+    -- events (bound derived from the config so it stays correct if the band is
+    -- retuned): ~8 worst-case periods.
+    local run_ticks = 8 * (C.CALM_MAX_TICKS + flare.EVENT_TICKS)
     local starts, seen = {}, {}
-    for tick = 0, 24000, C.FLARE_INTERVAL do
+    for tick = 0, run_ticks, C.FLARE_INTERVAL do
       flare.apply(s, tick)
       local ws = storage.cindra_flare_sched.warning_start
       if not seen[ws] then

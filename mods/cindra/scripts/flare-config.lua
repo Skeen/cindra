@@ -69,13 +69,17 @@ C.DECAY_TICKS = 120    -- fast ramp peak -> baseline
 -- BEFORE it, so there is no fixed period any more (that was the old model).
 C.EVENT_TICKS = C.WARNING_TICKS + C.RAMP_TICKS + C.PLATEAU_TICKS + C.DECAY_TICKS
 
--- Random calm band between flares (ticks). Bounded so timing is neither
--- clustered-to-death (a real gap always separates events: MIN > 0) nor starved
--- (MAX caps the drought). The MEAN gap ((MIN+MAX)/2 = 600) matches the old fixed
--- calm, so average cadence - and the balance math (ci-63d) built on it - is
--- preserved on average; only any single gap is unpredictable. (tune).
-C.CALM_MIN_TICKS = 300
-C.CALM_MAX_TICKS = 900
+-- Random calm band between flares (ticks). This is the real-play cadence
+-- (ci-1c7): the gap between consecutive flares is a random draw in [5min, 10min],
+-- so the average is ~7.5 min and no single gap is ever shorter than 5 min nor
+-- longer than 10 min. Bounded so timing is neither clustered-to-death (a real gap
+-- always separates events: MIN > 0) nor starved (MAX caps the drought); only any
+-- single gap is unpredictable (sporadic, not a metronome). At 60 ticks/s,
+-- 5 min = 18000 ticks and 10 min = 36000 ticks. The event itself
+-- (WARNING..DECAY) is short relative to this, so the interval between consecutive
+-- flare telegraphs is ~[5min, 10min]. (tune) -- final balance is §15-14 (ci-63d).
+C.CALM_MIN_TICKS = 5 * 60 * 60  -- 18000 ticks = 5 minutes
+C.CALM_MAX_TICKS = 10 * 60 * 60 -- 36000 ticks = 10 minutes
 
 -- === Panel damage (§15-8 "disposal-deficit rule") ============================
 -- Cindra uses the plain VANILLA solar panel (ci-8al): the flare behaviour comes
