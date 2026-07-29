@@ -25,7 +25,6 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   -- tests/test_worldgen.lua (decoratives generate with the chunks).
   local s
   local ready = false
-  local RY = 300
 
   before_each(function()
     if ready then return end
@@ -44,8 +43,21 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   end)
 
   -- Count decoratives of a given name within an X strip (full Y range).
+  --
+  -- We filter by exact decal position, NOT by passing `area` to
+  -- find_decoratives_filtered: decorative area queries are CHUNK-granular (they
+  -- return every decal in any 32-tile chunk the area touches), so an X boundary
+  -- that falls mid-chunk -- ours sit at the safe-band edge x = +-24 -- would pull
+  -- in decals from the adjacent chunk (x = 25..31 / -31..-25) and report a false
+  -- cross-zone "bleed". The zone split is enforced per TILE by the probability
+  -- expression, so the purity checks must measure per tile too.
   local function count(name, x1, x2)
-    return #s.find_decoratives_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
+    local n = 0
+    for _, d in ipairs(s.find_decoratives_filtered({ name = name })) do
+      local x = d.position.x
+      if x >= x1 and x <= x2 then n = n + 1 end
+    end
+    return n
   end
 
   -- Sum decorative counts over a list of names within an X strip.
@@ -83,30 +95,6 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
     assert.is_true(count("cindra-ice-decal", 25, 128) > 0, "ice decals present")
     assert.is_true(count("cindra-snowy-decal", 25, 128)
       + count("cindra-snow-drift-decal", 25, 128) > 0, "light-snow decals present")
-  end)
-
-  it("DEBUG dump", function()
-    local msg = "\n"
-    msg = msg .. "EXPR cold[1]=" .. field.probability_expr(field.DECORATIVES[6], { safe_half_width = 24, lethal_at = 96, wall_at = 128 }) .. "\n"
-    msg = msg .. "EXPR hot[1]=" .. field.probability_expr(field.DECORATIVES[1], { safe_half_width = 24, lethal_at = 96, wall_at = 128 }) .. "\n"
-    local function hist(names, tag)
-      for _, nm in ipairs(names) do
-        local ds = s.find_decoratives_filtered({ name = nm })
-        local minx, maxx, cnt = 1e9, -1e9, 0
-        local neg, pos = 0, 0
-        for _, d in ipairs(ds) do
-          local x = d.position.x
-          if x < minx then minx = x end
-          if x > maxx then maxx = x end
-          if x < 0 then neg = neg + 1 else pos = pos + 1 end
-          cnt = cnt + 1
-        end
-        msg = msg .. tag .. " " .. nm .. " n=" .. cnt .. " x=[" .. minx .. "," .. maxx .. "] neg=" .. neg .. " pos=" .. pos .. "\n"
-      end
-    end
-    hist(cold_names, "cold")
-    hist(hot_names, "hot")
-    assert.is_true(false, msg)
   end)
 
   -- 3. ZONE PURITY: no bleed into the wrong zone ----------------------------------
