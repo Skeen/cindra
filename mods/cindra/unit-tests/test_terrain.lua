@@ -132,7 +132,7 @@ end)
 
 test("changing one zone width changes only that band + the total, never the rest", function()
   local base_bands, base_total = terrain.bands()
-  local cfg = { building = 400 } -- widen the building area by 200
+  local cfg = { terminator = 400 } -- widen the building area by 200
   local bands, total = terrain.bands(cfg)
   assert_eq(base_total + 200, total, "total grew by exactly the delta (world width = sum)")
   local function width(b) return b.hi - b.lo end
@@ -168,7 +168,7 @@ test("the world is finite perpendicular via the map-gen = the total width", func
   local d = terrain.finite_dimension()
   assert_eq("width", d.key, "vertical orientation bounds the X axis (width)")
   assert_eq(900, d.value, "the finite dimension is the total ribbon width (sum of zones)")
-  assert_eq(1100, terrain.finite_dimension({ building = 400 }).value, "tracks the widths")
+  assert_eq(1100, terrain.finite_dimension({ terminator = 400 }).value, "tracks the widths")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

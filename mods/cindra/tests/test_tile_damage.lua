@@ -1,11 +1,12 @@
 -- Proof: the lethal Cindra tiles damage EVERYTHING standing on them -- the player
 -- AND machines/entities alike (§4, §15-2; ci-3yl "a tile that damages everything").
 --
--- scripts/tile-damage.lua reads the VISIBLE ground: only the lava (heat) and
--- deep-ice (cold) tiles bite; the walkable molten-rock / frost margins and the
--- terminator centre are safe. This is the tile-based area damage the design calls
--- for (Factorio has no native per-tick damaging-tile field). It replaces the old
--- coordinate-ramp, character-only edge damage.
+-- scripts/tile-damage.lua reads the VISIBLE ground: the hot lava zones + lava-crust
+-- (heat) and the deep-ice cap (cold) bite; the walkable middle zones are safe. The
+-- two hottest lava zones are impassable, so the walkable lethal edges you can stand
+-- or build on are lava-crust (heat) and deep-ice (cold). This is the tile-based area
+-- damage the design calls for (Factorio has no native per-tick damaging-tile field).
+-- It replaces the old coordinate-ramp, character-only edge damage.
 --
 -- Scoped to the "cindra" surface; a sweep on any other planet is a no-op.
 
@@ -49,18 +50,21 @@ describe("tile-based lethal-edge damage (§15-2; ci-3yl)", function()
     assert.are.equal(200, td.damage_amount(300, 40), "twice the ticks = twice the HP")
   end)
 
-  it("burns BOTH a player and a machine standing on a lava tile", function()
-    pave("cindra-lava", 0, YL)
+  it("burns BOTH a player and a machine standing on the walkable lava-crust tile", function()
+    -- lava-crust (zone 3) is the walkable-but-lethal HOT edge: buildable ground that
+    -- deals heat damage (the two hotter lava zones are impassable, so nothing stands
+    -- on them; their lethality is the wall itself). This is "damage hits machines".
+    pave("cindra-lava-crust", 0, YL)
     local char = s.create_entity({ name = "character", position = { -3, YL }, force = "player" })
     local mach = s.create_entity({ name = "assembling-machine-1", position = { 3, YL }, force = "player" })
-    assert.is_not_nil(char, "a character can stand on the (buildable) lava tile")
-    assert.is_not_nil(mach, "a machine can be BUILT on the lava tile")
+    assert.is_not_nil(char, "a character can stand on the (buildable) lava-crust tile")
+    assert.is_not_nil(mach, "a machine can be BUILT on the lava-crust tile")
     local hc, hm = char.health, mach.health
 
     td.sweep(s, 60, 200) -- explicit dps so it's deterministic
 
-    assert.is_true(char.health < hc, "the lava tile burns the player")
-    assert.is_true(mach.health < hm, "the lava tile burns the machine too (damage hits machines)")
+    assert.is_true(char.health < hc, "the lava-crust tile burns the player")
+    assert.is_true(mach.health < hm, "the lava-crust tile burns the machine too (damage hits machines)")
     char.destroy(); mach.destroy()
   end)
 
@@ -74,8 +78,9 @@ describe("tile-based lethal-edge damage (§15-2; ci-3yl)", function()
     mach.destroy()
   end)
 
-  it("leaves the walkable molten-rock / frost margins and the terminator SAFE", function()
-    for _, safe in ipairs({ "cindra-molten-rock", "cindra-frost", "cindra-terminator" }) do
+  it("leaves the walkable safe zones (terminator, dust, rough-ice, volcanic-warm) SAFE", function()
+    for _, safe in ipairs({ "cindra-terminator", "cindra-cold-dust", "cindra-rough-ice",
+                            "cindra-volcanic-warm" }) do
       pave(safe, 0, YS)
       local char = s.create_entity({ name = "character", position = { -3, YS }, force = "player" })
       local mach = s.create_entity({ name = "assembling-machine-1", position = { 3, YS }, force = "player" })
