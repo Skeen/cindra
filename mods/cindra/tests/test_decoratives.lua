@@ -17,6 +17,7 @@
 -- rock, do they sit right on the terrain) is a PLAYTEST.md item -- not testable here.
 
 local field = require("scripts.decorative-field")
+local terrain = require("scripts.terrain")
 
 describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function()
   -- A dedicated surface cloned from the Cindra planet's own map_gen_settings at a
@@ -34,7 +35,6 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
     mgs.seed = 2468
     -- Replicate the finite perpendicular bound the runtime hook applies to the real
     -- cindra surface (planet prototypes ignore width), so the bands generate identically.
-    local terrain = require("scripts.terrain")
     local fd = terrain.finite_dimension()
     mgs[fd.key] = fd.value
     s = game.surfaces["cindra-decoratives-test"] or game.create_surface("cindra-decoratives-test", mgs)
