@@ -229,9 +229,9 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
   --   * else    -> the ITEM of the machine that must first be built/brought.
   -- Ordering is emergent from the fixpoint, not hard-coded here.
   local PRODUCTIONS = {
-    { r = "cindra-ice-crusher",               m = "hand" },                -- build the ground crusher
-    { r = "oxide-asteroid-crushing",          m = "cindra-ice-crusher" },  -- chunk -> ice (vanilla)
-    { r = "advanced-oxide-asteroid-crushing", m = "cindra-ice-crusher" },  -- chunk -> ice + calcite (vanilla)
+    { r = "cindra-ice-crusher",                     m = "hand" },                -- build the ground crusher
+    { r = "cindra-oxide-asteroid-crushing",         m = "cindra-ice-crusher" },  -- chunk -> ice (Cindra clone, ci-8n6)
+    { r = "cindra-advanced-oxide-asteroid-crushing", m = "cindra-ice-crusher" }, -- chunk -> ice + calcite (Cindra clone, ci-8n6)
     { r = "electronic-circuit",               m = "hand" },                -- iron-plate + copper-cable (for the plant)
     { r = "chemical-plant",                   m = "hand" },                -- build the vanilla melter (chemical plant)
     { r = "ice-melting",                      m = "chemical-plant" },      -- ice -> water (vanilla chemical-plant recipe)
@@ -345,7 +345,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     end
     for _, recipe in ipairs({
       "cindra-lava", "molten-iron-from-lava",
-      "oxide-asteroid-crushing", "advanced-oxide-asteroid-crushing", "ice-melting",
+      "cindra-oxide-asteroid-crushing", "cindra-advanced-oxide-asteroid-crushing", "ice-melting",
       "cindra-alumina", "cindra-aluminium", "cindra-science-pack",
     }) do
       for _, ing in ipairs(ingredient_names(recipe)) do

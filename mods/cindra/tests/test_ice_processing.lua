@@ -13,8 +13,14 @@
 local H = require("tests.helpers")
 
 local CRUSHER = "cindra-ice-crusher"
-local R_OXIDE = "oxide-asteroid-crushing"
-local R_OXIDE_ADV = "advanced-oxide-asteroid-crushing"
+local CINDRA_CAT = "cindra-crushing"           -- the dedicated crusher category (ci-8n6)
+-- The Cindra crushing recipes the crusher runs are I/O-identical clones of the
+-- vanilla oxide recipes, moved into the dedicated category so the crusher CANNOT
+-- run the vanilla metallic/carbonic crushing or reprocessing recipes (ci-8n6).
+local R_OXIDE = "cindra-oxide-asteroid-crushing"
+local R_OXIDE_ADV = "cindra-advanced-oxide-asteroid-crushing"
+local V_OXIDE = "oxide-asteroid-crushing"          -- vanilla source (untouched, space-only)
+local V_OXIDE_ADV = "advanced-oxide-asteroid-crushing"
 local R_MELT = "ice-melting"
 local R_VOLATILES = "cindra-volatiles"
 local CHUNK = "oxide-asteroid-chunk"
@@ -60,8 +66,10 @@ describe("cindra ice processing: no custom duplicates survive (ci-3mx)", functio
     assert.is_nil(prototypes.item["cindra-crushed-ice"], "the custom crushed-ice item must be gone")
   end)
 
-  it("has NO private ice recipe categories", function()
-    -- The old design isolated crush/melt in private categories; reuse-vanilla drops them.
+  it("has NO per-recipe private ice categories from the old design", function()
+    -- The old design isolated crush/melt in per-recipe private categories; those
+    -- are gone. (The ONE deliberate private category is `cindra-crushing`, the
+    -- security lock added by ci-8n6 -- asserted separately below.)
     if prototypes.recipe_category then
       assert.is_nil(prototypes.recipe_category["cindra-ice-crushing"], "no private ice-crushing category")
       assert.is_nil(prototypes.recipe_category["cindra-ice-melting"], "no private ice-melting category")
@@ -74,13 +82,15 @@ describe("cindra ice processing: no custom duplicates survive (ci-3mx)", functio
   end)
 end)
 
-describe("cindra ice processing: the crusher reuses the vanilla crushing recipes", function()
-  it("the crusher crafts in the VANILLA crushing category (same recipes as the space crusher)", function()
+describe("cindra ice processing: the crusher runs I/O-identical clones of the oxide recipes", function()
+  it("the crusher crafts in the DEDICATED cindra-crushing category, NOT the vanilla one (ci-8n6)", function()
     local proto = prototypes.entity[CRUSHER]
     assert.is_not_nil(proto, "cindra-ice-crusher entity must exist")
     assert.are.equal("assembling-machine", proto.type, "it is a crafting machine (crusher)")
-    assert.is_true(proto.crafting_categories["crushing"],
-      "the crusher must run the vanilla `crushing` recipes (reuse-vanilla, not a private category)")
+    assert.is_true(proto.crafting_categories[CINDRA_CAT],
+      "the crusher must run the dedicated `cindra-crushing` category (the exploit lock)")
+    assert.is_nil(proto.crafting_categories["crushing"],
+      "the crusher must NOT run the vanilla `crushing` category (it exposes metallic/carbonic crushing + reprocessing)")
   end)
 
   it("is placeable on Cindra's heavy-gravity ground (the space-only gate is gone)", function()
@@ -92,15 +102,17 @@ describe("cindra ice processing: the crusher reuses the vanilla crushing recipes
     e.destroy()
   end)
 
-  it("crush = the vanilla oxide asteroid crushing: chunk -> ice, and chunk -> ice + calcite (the ratio knob)", function()
+  it("crush = the Cindra oxide asteroid crushing: chunk -> ice, and chunk -> ice + calcite (the ratio knob)", function()
     local plain = prototypes.recipe[R_OXIDE]
     local adv = prototypes.recipe[R_OXIDE_ADV]
-    assert.is_not_nil(plain, "vanilla oxide-asteroid-crushing must exist")
-    assert.is_not_nil(adv, "vanilla advanced-oxide-asteroid-crushing must exist")
+    assert.is_not_nil(plain, "cindra-oxide-asteroid-crushing must exist")
+    assert.is_not_nil(adv, "cindra-advanced-oxide-asteroid-crushing must exist")
 
-    -- Both are vanilla `crushing` recipes and consume the deposit's chunk.
-    assert.is_true(in_category(R_OXIDE, "crushing"), "plain crush is a vanilla crushing recipe")
-    assert.is_true(in_category(R_OXIDE_ADV, "crushing"), "advanced crush is a vanilla crushing recipe")
+    -- Both are `cindra-crushing` recipes (so the crusher runs them) and consume the chunk.
+    assert.is_true(in_category(R_OXIDE, CINDRA_CAT), "plain crush is a cindra-crushing recipe")
+    assert.is_true(in_category(R_OXIDE_ADV, CINDRA_CAT), "advanced crush is a cindra-crushing recipe")
+    assert.is_false(in_category(R_OXIDE, "crushing"), "the Cindra clone is NOT in the vanilla crushing category")
+    assert.is_false(in_category(R_OXIDE_ADV, "crushing"), "the Cindra clone is NOT in the vanilla crushing category")
     assert.is_true((ingredients(R_OXIDE)[CHUNK] or 0) > 0, "plain crush consumes the oxide chunk")
     assert.is_true((ingredients(R_OXIDE_ADV)[CHUNK] or 0) > 0, "advanced crush consumes the oxide chunk")
 
@@ -145,7 +157,7 @@ describe("cindra ice processing: the nightside deposit + tech unlock", function(
       "the ice field must yield the vanilla oxide-asteroid-chunk (feeds vanilla crushing)")
   end)
 
-  it("planet-discovery-cindra unlocks the crusher build + the vanilla crush/melt recipes (no new tech)", function()
+  it("planet-discovery-cindra unlocks the crusher build + the Cindra crush + vanilla melt recipes (no new tech)", function()
     local tech = prototypes.technology["planet-discovery-cindra"]
     assert.is_not_nil(tech, "the Cindra discovery tech must exist")
     local unlocked = {}
@@ -153,9 +165,13 @@ describe("cindra ice processing: the nightside deposit + tech unlock", function(
       if effect.type == "unlock-recipe" then unlocked[effect.recipe] = true end
     end
     assert.is_true(unlocked[CRUSHER], "discovery unlocks the ground crusher build recipe")
-    assert.is_true(unlocked[R_OXIDE], "discovery unlocks the vanilla oxide crushing")
-    assert.is_true(unlocked[R_OXIDE_ADV], "discovery unlocks the vanilla advanced oxide crushing (calcite)")
+    assert.is_true(unlocked[R_OXIDE], "discovery unlocks the Cindra oxide crushing")
+    assert.is_true(unlocked[R_OXIDE_ADV], "discovery unlocks the Cindra advanced oxide crushing (calcite)")
     assert.is_true(unlocked[R_MELT], "discovery unlocks the vanilla ice-melting")
+    -- The vanilla oxide recipes are NOT unlocked by discovery -- they stay for space
+    -- platforms only, so we don't quietly re-expose the vanilla crushing category.
+    assert.is_nil(unlocked[V_OXIDE], "discovery does NOT unlock the vanilla oxide crushing")
+    assert.is_nil(unlocked[V_OXIDE_ADV], "discovery does NOT unlock the vanilla advanced oxide crushing")
   end)
 
   it("the crusher build recipe is gated (unlocked by research, not free)", function()
@@ -169,11 +185,13 @@ describe("cindra ice processing: the nightside deposit + tech unlock", function(
 end)
 
 describe("cindra volatiles: a PROCESSING recipe on the crusher, not a mining yield (ci-4xx)", function()
-  it("the volatiles recipe is a crushing recipe: oxide chunk -> cindra-volatiles", function()
+  it("the volatiles recipe is a cindra-crushing recipe: oxide chunk -> cindra-volatiles", function()
     local r = prototypes.recipe[R_VOLATILES]
     assert.is_not_nil(r, "the cindra-volatiles processing recipe must exist")
-    assert.is_true(in_category(R_VOLATILES, "crushing"),
-      "it must be a `crushing` recipe so the ground crusher runs it (reuse the ice crusher)")
+    assert.is_true(in_category(R_VOLATILES, CINDRA_CAT),
+      "it must be a `cindra-crushing` recipe so the ground crusher runs it (reuse the ice crusher)")
+    assert.is_false(in_category(R_VOLATILES, "crushing"),
+      "it must NOT be in the vanilla crushing category (that would expose it to the space crusher)")
     assert.is_true((ingredients(R_VOLATILES)[CHUNK] or 0) > 0,
       "it consumes the deep-nightside oxide chunk (the field's only yield now)")
     assert.is_true((products(R_VOLATILES)[VOLATILES] or 0) > 0,
@@ -181,8 +199,8 @@ describe("cindra volatiles: a PROCESSING recipe on the crusher, not a mining yie
   end)
 
   it("the crusher can run it (the volatiles recipe is in the crusher's crafting categories)", function()
-    assert.is_true(prototypes.entity[CRUSHER].crafting_categories["crushing"],
-      "the ice crusher crafts `crushing` recipes, so it runs the volatiles extraction too")
+    assert.is_true(prototypes.entity[CRUSHER].crafting_categories[CINDRA_CAT],
+      "the ice crusher crafts `cindra-crushing` recipes, so it runs the volatiles extraction too")
   end)
 
   it("planet-discovery-cindra unlocks the volatiles recipe (reachable with the rest of the chain)", function()
@@ -237,10 +255,19 @@ describe("cindra ice processing: never mutates the vanilla prototypes (DESIGN §
     assert.is_true(vanilla_plant.crafting_categories["chemistry"],
       "the vanilla chemical plant still crafts vanilla chemistry recipes")
 
-    -- The reused recipes keep their vanilla shape (we only reference them in a tech
-    -- unlock; we never edit ingredients/products/category).
+    -- The reused recipes keep their vanilla shape (we only reference ice-melting in
+    -- a tech unlock; we never edit its ingredients/products/category).
     assert.is_true((ingredients(R_MELT)["ice"] or 0) > 0, "vanilla ice-melting still consumes ice")
-    assert.is_true((products(R_OXIDE)["ice"] or 0) > 0, "vanilla oxide crushing still yields ice")
+
+    -- The vanilla oxide crushing recipes are CLONED, never mutated: they still exist,
+    -- still yield ice, and still live in the vanilla `crushing` category for the space
+    -- crusher (ci-8n6 moved only the Cindra clones into `cindra-crushing`).
+    assert.is_not_nil(prototypes.recipe[V_OXIDE], "vanilla oxide-asteroid-crushing still exists")
+    assert.is_not_nil(prototypes.recipe[V_OXIDE_ADV], "vanilla advanced-oxide-asteroid-crushing still exists")
+    assert.is_true(in_category(V_OXIDE, "crushing"), "vanilla oxide crushing stays in the vanilla category")
+    assert.is_true(in_category(V_OXIDE_ADV, "crushing"), "vanilla advanced oxide crushing stays in the vanilla category")
+    assert.is_false(in_category(V_OXIDE, CINDRA_CAT), "vanilla oxide crushing is NOT in the Cindra category")
+    assert.is_true((products(V_OXIDE)["ice"] or 0) > 0, "vanilla oxide crushing still yields ice")
   end)
 end)
 
@@ -273,7 +300,7 @@ describe("cindra ice processing: end-to-end on Cindra (crush chunk -> ice, melt 
     async(2400)
     after_ticks(600, function()
       assert.is_true(crusher.valid)
-      -- Stage 1: the crusher turned chunks into ice (the vanilla oxide crushing).
+      -- Stage 1: the crusher turned chunks into ice (the Cindra oxide crushing clone).
       local ice = crusher.get_item_count("ice")
       assert.is_true(ice > 0,
         "the crusher must have produced ice from oxide chunks (got " .. ice
@@ -297,5 +324,141 @@ describe("cindra ice processing: end-to-end on Cindra (crush chunk -> ice, melt 
         done()
       end)
     end)
+  end)
+end)
+
+describe("cindra crusher: the economy exploit is closed -- oxide crushing ONLY (ci-8n6)", function()
+  -- The vanilla `crushing` category holds NINE recipes: oxide/metallic/carbonic
+  -- crushing (+ advanced) and the three asteroid REPROCESSING recipes. If the
+  -- ground crusher ran that category, a player could reprocess the ice field's
+  -- oxide chunks into metallic/carbonic chunks and crush those into FREE iron and
+  -- FREE carbon/coal -- bypassing the whole power-manufactured, petrochemical-free
+  -- economy. The crusher must run ONLY the dedicated `cindra-crushing` category,
+  -- which holds ONLY the Cindra oxide-family recipes.
+
+  -- Every vanilla `crushing` recipe that must NOT be runnable on the ground crusher.
+  local FORBIDDEN = {
+    "metallic-asteroid-crushing",          -- chunk -> iron-ore (free iron)
+    "carbonic-asteroid-crushing",          -- chunk -> carbon (free coal-substitute)
+    "advanced-metallic-asteroid-crushing", -- chunk -> iron-ore + copper-ore
+    "advanced-carbonic-asteroid-crushing", -- chunk -> carbon + sulfur
+    "oxide-asteroid-reprocessing",         -- oxide chunk -> metallic/carbonic chunks (the leak)
+    "metallic-asteroid-reprocessing",      -- metallic chunk -> other chunk types
+    "carbonic-asteroid-reprocessing",      -- carbonic chunk -> other chunk types
+  }
+  -- The ONLY recipes the dedicated category may contain.
+  local ALLOWED = {
+    ["cindra-oxide-asteroid-crushing"] = true,
+    ["cindra-advanced-oxide-asteroid-crushing"] = true,
+    ["cindra-volatiles"] = true,
+  }
+  local BANNED_OUTPUTS = {
+    ["iron-ore"] = true, ["iron-plate"] = true, ["copper-ore"] = true,
+    ["carbon"] = true, ["coal"] = true, ["sulfur"] = true,
+    ["metallic-asteroid-chunk"] = true, ["carbonic-asteroid-chunk"] = true,
+  }
+
+  -- The engine auto-injects a benign "parameters" category onto every crafting
+  -- machine (for parametrised blueprints); it holds only GUI placeholder recipes,
+  -- never a real craft, so we ignore it when reasoning about the exploit.
+  local IGNORED_CAT = "parameters"
+
+  -- Is `recipe` runnable on the ground crusher (any of its REAL categories in the
+  -- crusher's crafting_categories)?
+  local function runnable_on_crusher(recipe)
+    for cat in pairs(prototypes.entity[CRUSHER].crafting_categories) do
+      if cat ~= IGNORED_CAT and in_category(recipe, cat) then return true end
+    end
+    return false
+  end
+
+  it("the dedicated cindra-crushing recipe-category exists", function()
+    assert.is_not_nil(prototypes.recipe_category and prototypes.recipe_category[CINDRA_CAT],
+      "the dedicated `cindra-crushing` category must exist (the exploit lock)")
+  end)
+
+  it("the crusher runs EXACTLY one real category, and it is cindra-crushing (not vanilla crushing)", function()
+    local cats = prototypes.entity[CRUSHER].crafting_categories
+    local names = {}
+    for name in pairs(cats) do
+      if name ~= IGNORED_CAT then names[#names + 1] = name end
+    end
+    assert.are.equal(1, #names, "the crusher must run exactly one real crafting category (got " .. table.concat(names, ",") .. ")")
+    assert.is_true(cats[CINDRA_CAT], "the one category must be cindra-crushing")
+    assert.is_nil(cats["crushing"], "the crusher must NOT run the vanilla crushing category")
+  end)
+
+  it("carbonic + metallic crushing and ALL THREE reprocessing recipes are NOT runnable on the crusher", function()
+    for _, name in ipairs(FORBIDDEN) do
+      assert.is_not_nil(prototypes.recipe[name], name .. " must exist (vanilla, for the space crusher)")
+      assert.is_false(runnable_on_crusher(name),
+        name .. " must NOT be runnable on the Cindra ground crusher (economy exploit)")
+    end
+  end)
+
+  it("the ONLY recipes runnable on the crusher are the Cindra oxide-family recipes (nothing leaks in)", function()
+    for name in pairs(prototypes.recipe) do
+      if runnable_on_crusher(name) then
+        assert.is_true(ALLOWED[name] == true,
+          name .. " is runnable on the Cindra crusher but is not an allowed oxide-family recipe")
+      end
+    end
+    -- And each allowed recipe really is runnable (the chain still works).
+    for name in pairs(ALLOWED) do
+      assert.is_not_nil(prototypes.recipe[name], name .. " must exist")
+      assert.is_true(runnable_on_crusher(name), name .. " must be runnable on the crusher")
+    end
+  end)
+
+  it("NO recipe runnable on the crusher yields iron, carbon/coal, or a metallic/carbonic chunk", function()
+    -- Closes both the direct free-metal path (chunk -> iron/carbon) and the
+    -- reprocessing leak (oxide chunk -> metallic/carbonic chunk -> crush -> metal).
+    for name in pairs(prototypes.recipe) do
+      if runnable_on_crusher(name) then
+        for _, p in pairs(prototypes.recipe[name].products) do
+          assert.is_nil(BANNED_OUTPUTS[p.name],
+            "crusher recipe '" .. name .. "' must not yield '" .. p.name .. "' (free metal/coal or a convertible chunk)")
+        end
+      end
+    end
+  end)
+
+  it("there is NO oxide-chunk -> iron and NO oxide-chunk -> carbon/coal path on Cindra", function()
+    -- Starting from the ice field's only yield (the oxide chunk), enumerate every
+    -- recipe reachable on the crusher and confirm the reachable item set never
+    -- includes iron or carbon/coal. Since reprocessing (the only chunk-type
+    -- converter) is not runnable, the oxide chunk can only become ice/calcite/
+    -- volatiles -- never metal or coal.
+    local reachable = { [CHUNK] = true }
+    -- One expansion pass is enough: no runnable recipe outputs a new chunk type,
+    -- so nothing downstream can unlock a metallic/carbonic crushing step.
+    for name in pairs(prototypes.recipe) do
+      if runnable_on_crusher(name) then
+        local consumes_reachable = false
+        for _, i in pairs(prototypes.recipe[name].ingredients) do
+          if reachable[i.name] then consumes_reachable = true end
+        end
+        if consumes_reachable then
+          for _, p in pairs(prototypes.recipe[name].products) do
+            reachable[p.name] = true
+          end
+        end
+      end
+    end
+    assert.is_nil(reachable["iron-ore"], "no oxide-chunk -> iron path may exist on Cindra")
+    assert.is_nil(reachable["carbon"], "no oxide-chunk -> carbon path may exist on Cindra")
+    assert.is_nil(reachable["coal"], "no oxide-chunk -> coal path may exist on Cindra")
+  end)
+
+  it("space-platform crushing is unaffected: the vanilla crusher still runs the full crushing category", function()
+    local vanilla = prototypes.entity["crusher"]
+    assert.is_true(vanilla.crafting_categories["crushing"],
+      "the vanilla space crusher still runs the vanilla crushing category (all 9 recipes)")
+    assert.is_nil(vanilla.crafting_categories[CINDRA_CAT],
+      "the vanilla crusher does not gain the Cindra category")
+    -- The exploit recipes remain fully intact for legitimate space use.
+    for _, name in ipairs(FORBIDDEN) do
+      assert.is_true(in_category(name, "crushing"), name .. " stays a vanilla crushing recipe (space use)")
+    end
   end)
 end)
