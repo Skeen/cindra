@@ -5,7 +5,7 @@
 --      anywhere in the recipe; every ingredient is a Cindra material.
 --   2. A REAL ENERGY COST, IN A STOCK MACHINE -- a high crafting-time
 --      (energy_required), crafted in an ORDINARY assembling machine (ci-2tz: the
---      bespoke "starforge" is GONE). No bespoke crafting building survives.
+--      bespoke crafting machine is GONE). No bespoke crafting building survives.
 --   3. A REAL SCIENCE PACK -- an item a lab will actually accept as research input.
 --   4. THE FOLDED TREE -- the pack has a real downstream unlock: orbital launch now
 --      branches off `cindra-science` and is researched WITH the Cindra pack.
@@ -147,24 +147,20 @@ describe("cindra science pack: a real energy cost, crafted in a STOCK machine", 
     end
   end)
 
-  it("has NO bespoke 'starforge' machine (ci-2tz: ripped out)", function()
-    assert.is_nil(prototypes.entity["cindra-starforge"],
-      "the starforge entity must be gone -- the pack crafts in a stock machine now")
-    assert.is_nil(prototypes.item["cindra-starforge"],
-      "the starforge place-item must be gone")
-    assert.is_nil(prototypes.recipe["cindra-starforge"],
-      "the starforge build recipe must be gone")
-    -- The old private crafting category the starforge used must not survive either.
+  it("has NO bespoke crafting machine (ci-6km: ripped out) -- no private category survives", function()
+    -- The pack crafts in the stock `crafting` category (asserted above), so no
+    -- bespoke machine gates it. The old private `cindra-science` recipe category a
+    -- bespoke machine would have used must not survive on any recipe or entity.
     for name, recipe in pairs(prototypes.recipe) do
       if recipe.categories then
         assert.is_nil(recipe.categories["cindra-science"],
-          "recipe '" .. name .. "' still lives in the removed private starforge category")
+          "recipe '" .. name .. "' still lives in the removed private crafting category")
       end
     end
     for name, ent in pairs(prototypes.entity) do
       if ent.crafting_categories then
         assert.is_nil(ent.crafting_categories["cindra-science"],
-          "entity '" .. name .. "' still declares the removed private starforge category")
+          "entity '" .. name .. "' still declares the removed private crafting category")
       end
     end
   end)
@@ -239,7 +235,7 @@ end)
 describe("cindra science pack runtime: a stock assembler crafts it, and it needs power", function()
   -- A powered vanilla assembling machine on a clean Cindra surface, the pack recipe
   -- set, ingredients for a single craft loaded. Proves the pack really crafts in a
-  -- stock machine (no bespoke starforge) AND still costs power to make.
+  -- stock machine (no bespoke crafting machine) AND still costs power to make.
   local ASSEMBLER = "assembling-machine-3"
   local function make_assembler(powered)
     local s = H.cindra_surface()

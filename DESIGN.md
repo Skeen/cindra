@@ -295,13 +295,13 @@ power sink.**
   edges (power-manufactured aluminium reaches toward fire/power; the volatiles
   toward cold). This is the §2 "petrochemical-free headline science" requirement,
   locked by a blacklist **and** a native-only allowlist in tests.
-- **A significant power sink.** Two honest levers: a long craft
-  (`energy_required`) run in a dedicated **`cindra-starforge`** (a clone of
-  assembling-machine-3 with a ~10 MW active draw, far above a normal assembler).
+- **A significant power sink.** Two honest levers, and no bespoke machine: a long
+  craft (`energy_required`) in an **ordinary assembling machine** (the stock
+  `crafting` category), which draws the assembler's power the whole craft, plus the
+  signature `cindra-aluminium` input, itself the planet's most power-hungry product.
   One pack costs on the order of the flare's own scale in energy, so science
   throughput scales with captured flare / baseline power (ties to §15-7/§15-9 and
-  the balance pass §15-14). A private `cindra-science` recipe category keeps the
-  recipe off vanilla assemblers and vice versa.
+  the balance pass §15-14).
 - **A real science pack.** It is a `science-pack`-subgroup item appended to the
   shared labs' `inputs` — purely additive, changing no other planet's gameplay
   (no other planet can make or needs it), which is the only way a new pack can be
@@ -314,8 +314,8 @@ power sink.**
   Cindra pack: **orbital launch (§15-11)** is folded in as the first, now branching
   off `cindra-science` and researched with the Cindra pack.
 
-Tested end-to-end in `tests/test_science.lua`, including a powered starforge that
-only makes crafting progress when it has power.
+Tested end-to-end in `tests/test_science.lua`, including a powered stock assembler
+that only makes crafting progress when it has power.
 
 ### 5a. Ice processing — IMPLEMENTED (item 4; reworked to pure vanilla reuse, ci-3mx)
 
