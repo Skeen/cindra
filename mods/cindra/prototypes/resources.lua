@@ -155,8 +155,13 @@ end
 
 local function cindra_ice_resource()
   local r = cindra_resource("cindra-ice", ICE_ITEM, ICE_MAP_COLOR, "b[cindra-ice]",
+    -- Denser spot placement than the old narrow ribbon (ci-da2): ice now lives on
+    -- the cold cap east of the building band (x > 100), so its guaranteed
+    -- starting-area patch (placed at the origin) is masked out. A higher
+    -- spots-per-km2 keeps ice reliably present in the reachable cold zone instead
+    -- of leaving the nightside barren.
     banded_autoplace("cindra-ice",
-      { order = "b", base_density = 8, base_spots_per_km2 = 3, has_starting_area_placement = true },
+      { order = "b", base_density = 8, base_spots_per_km2 = 12, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/ice.png")
   tint_stages(r.stages, ICE_STAGE_TINT)

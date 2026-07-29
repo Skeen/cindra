@@ -124,6 +124,29 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       "the basalt boundary wanders across rows (organic); spread=" .. tostring(hi - lo))
   end)
 
+  it("separates rough-ice from the smooth deep-ice cap by a cliff boundary (ci-da2 zone 11)", function()
+    -- Scanning outward (east / colder) the ground goes rough-ice -> deep-ice: the
+    -- rough ice is the walkable near side, the smooth deep-ice cap is the far side.
+    -- The "cliff/wall" between them is realised as the deep-ice cold-lethal barrier
+    -- plus the out-of-map void beyond (the visibly-impassable ice-mountain TILE is
+    -- deferred to ci-70r; here the wall is the lethal cold + void backstop).
+    -- Find, per row, the first x at which the ground becomes deep-ice scanning east.
+    local first_deep = {}
+    for y = -120, 120, 24 do
+      for x = 150, 260 do
+        if tile(x, y) == "cindra-deep-ice" then first_deep[#first_deep + 1] = x; break end
+      end
+    end
+    assert.is_true(#first_deep >= 6, "sampled the rough-ice -> deep-ice boundary on enough rows")
+    -- Just inside the boundary is rough-ice (walkable, safe); just past it deep-ice
+    -- (the cold-lethal wall). Sample a row's boundary and check both sides.
+    local bx = first_deep[1]
+    assert.are.equal("cindra-rough-ice", tile(bx - 8, -120), "rough ice on the near (lower) side of the cliff")
+    assert.are.equal("cindra-deep-ice", tile(bx + 8, -120), "smooth deep-ice on the far (upper) side of the cliff")
+    assert.are.equal("cold", terrain.lethal_kind("cindra-deep-ice"), "the deep-ice cap is the lethal cold wall")
+    assert.is_nil(terrain.lethal_kind("cindra-rough-ice"), "the rough ice below the cliff is safe/walkable")
+  end)
+
   -- 3. WALKABILITY: the two hot lava zones impassable, everything else buildable ---
   it("makes the two hot lava zones impassable and every other zone buildable ground", function()
     -- Pave a deterministic patch of each zone tile far from the gradient and test
