@@ -1,23 +1,25 @@
--- Tile-based lethal-edge damage (§4, §15-2; ci-3yl "a tile that damages EVERYTHING").
+-- Positional lethal-zone damage (§4, §15-2; ci-3yl, redefined ci-da2).
 --
--- The ribbon's danger is now FELT through the TERRAIN itself: the lethal lava and
--- deep-ice tiles (scripts/terrain.lua) damage anything standing on them -- the
--- player AND machines/entities alike. The walkable molten-rock and frost margins
--- are safe; ONLY the actual lava (heat) and deep-ice (cold) tiles bite. Because
--- those tiles are placed by the perpendicular ribbon axis, the damage stays keyed
--- to position exactly as before, but it now reads the VISIBLE ground: stand or
--- build on lava and you burn, stand or build on deep ice and you freeze.
+-- The ribbon's danger is FELT as environmental damage in the hot and cold ZONES:
+-- the hot zones (1+2+3) burn and the smooth-ice cap (zone 11) freezes anything in
+-- them -- the player AND machines/entities alike. ci-da2 makes the zones MIXES of
+-- several tiles, and some of those tiles (e.g. volcanic-cracks-warm) also appear in
+-- a SAFE neighbour zone, so lethality can no longer be a per-tile flag; it is keyed
+-- to POSITION on the perpendicular ribbon axis instead (scripts/terrain.lua
+-- M.damage_bounds / M.lethal_at). Because the tiles are placed by that SAME axis,
+-- the damage still tracks the visible ground: stand or build in a hot zone and you
+-- burn, in the smooth-ice cap and you freeze; the walkable middle is safe.
 --
--- Factorio has NO native per-tick damaging-tile field (a tile's trigger_effect
--- only fires when the engine invokes it, not continuously), so this is a script
--- sweep -- the clean tile-based area damage the design calls for. It replaces the
--- old coordinate-ramp character-only edge damage.
+-- Factorio has NO native per-tick damaging-tile field, so this is a script sweep --
+-- the clean area damage the design calls for. It replaces the old coordinate-ramp
+-- character-only edge damage.
 --
 -- 🚨 Scoped to `surface.name == "cindra"`: never touches an entity on any other
 -- planet. Buildings' nightside FREEZE (needs a heat source) is a separate,
--- richer mechanic in scripts/building-heat.lua; this is the raw lethal-tile burn.
+-- richer mechanic in scripts/building-heat.lua; this is the raw lethal-zone burn.
 
 local terrain = require("scripts.terrain")
+local axis = require("scripts.axis")
 
 local M = {}
 
@@ -57,21 +59,22 @@ function M.damage_amount(dps, interval_ticks)
   return dps * (interval_ticks / 60)
 end
 
--- Damage every player and machine standing/built on a lethal Cindra tile. `dps`
--- (optional) overrides the settings value so tests are deterministic.
+-- Damage every player and machine in a lethal ZONE (heat in the hot zones, cold in
+-- the smooth-ice cap), keyed to the perpendicular ribbon axis. `dps` (optional)
+-- overrides the settings value so tests are deterministic.
 function M.sweep(surface, interval_ticks, dps)
   if not (surface and surface.valid) or surface.name ~= "cindra" then return end
   interval_ticks = interval_ticks or M.DAMAGE_INTERVAL
   dps = dps or settings_dps() or 0
   if dps <= 0 then return end
   local amount = M.damage_amount(dps, interval_ticks)
-  local lethal = terrain.lethal_tiles() -- { tile_name = "heat"/"cold" }
+  -- Resolve the orientation ONCE (tight loop); terrain reads the same axis.
+  local orient = axis.orientation()
 
   for _, e in pairs(surface.find_entities_filtered({ type = M.DAMAGEABLE_TYPES })) do
     if e.valid then
       local pos = e.position
-      local tile = surface.get_tile(math.floor(pos.x), math.floor(pos.y))
-      local kind = tile and tile.valid and lethal[tile.name]
+      local kind = terrain.lethal_at(axis.perp(pos.x, pos.y, orient))
       if kind then
         -- The entity's own force + resistances apply, so heat/cold-shielded gear
         -- or buildings mitigate the burn (edge-pushing), never zeroing geography.

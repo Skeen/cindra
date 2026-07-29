@@ -139,12 +139,14 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   parts a test cannot judge: (1) the world is a genuine **ribbon** — a long
   habitable band with a hard `out-of-map` void a fixed distance west and east
   (default vertical: hot to the **west**, cold to the **east**); (2) the ground is
-  a **gradient of Cindra's own tiles** — glowing **lava** at the hot edge →
-  walkable **molten-rock** → the temperate **terminator** centre → **frost** →
-  **deep-ice** at the cold edge; (3) the band boundaries are **organic wavy curves,
-  NOT straight lines**, with **absolutely no Nauvis grass** or water anywhere;
-  (4) the map view shows the colour gradient (red hot → pale centre → blue cold);
-  (5) spawn sits in a **wide safe** terminator band you can build across freely.
+  the full **11-zone gradient** (ci-da2) — pure **lava** at the hot edge → a
+  lava/crust mix → warm volcanic cracks/stone → jagged basalt → scorched dirt → dirt
+  → the wide sandy **building** centre → dust → **rough ice** → the smooth **deep-ice**
+  cap; (3) each zone is a **NOISE MIX of several tiles that interpenetrate**, and the
+  band boundaries are **organic wavy curves, NOT straight lines**, with **no Nauvis
+  grass** or water; (4) the map view shows the colour gradient (red hot → sandy
+  centre → cyan cold); (5) spawn sits in the **wide safe building** band you can
+  build across freely.
 
 - [ ] **[LANDED] Danger zone reads on the MAP VIEW like a demolisher tint (ci-4h7)
   — MAYOR MUST SCREENSHOT.** The lethal edges now carry a distinct alarming
@@ -157,17 +159,31 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   land on Cindra, open the map (M) and chart out to both edges. *Look for:* (1) the
   sunward half reads as a clear **red→hot-orange** band deepening toward the lethal
   lava edge; (2) the nightward half reads as a **pale-ice→bright-cyan** band toward
-  the lethal deep-ice edge; (3) the safe **terminator** centre is a neutral basalt,
+  the lethal deep-ice edge; (3) the safe **building** centre is a neutral sand tone,
   so the safe↔danger boundary is legible as a colour change, not a muddy blur; (4)
   the tint follows the organic wavy band boundaries automatically. *Fallback:* none
   — the exact map colour read at zoom is inherently visual.
 
-- [ ] **[LANDED] Lethal tiles burn/freeze the player AND machines (ci-3yl).**
-  *Repro:* walk onto a lava tile at the hot edge, and build a machine on one.
-  *Look for:* standing on **lava** drains HP (heat) and a machine built on it takes
-  damage too; standing on **deep-ice** drains HP (cold); the **molten-rock** and
-  **frost** margins are safe to walk/build on. (Damage is tested; the *feel* — is
-  the lethal edge readable and fair? — is the playtest. No screen-tint feedback yet.)
+- [ ] **[LANDED] Lethal ZONES burn/freeze the player AND machines (ci-3yl/ci-da2).**
+  *Repro:* walk west into the hot zones (1+2+3) and build a machine there, then walk
+  east onto the smooth deep-ice cap. *Look for:* being in the **hot zones** drains HP
+  (heat) and a machine built there takes damage too; the **smooth deep-ice cap**
+  drains HP (cold); the walkable middle (including **rough ice** and the volcanic
+  warm zones) is safe. Damage is now **positional** (keyed to the perpendicular axis,
+  since the zones mix tiles), so it should feel like a smooth danger band, not a
+  per-tile flicker. (Damage is tested; the *feel* — is the lethal edge readable and
+  fair? — is the playtest. No screen-tint feedback yet.)
+
+- [ ] **[LANDED] Cliffs generate in the volcanic zones only (ci-da2) — VISUAL.**
+  *Repro:* land on Cindra, walk/scan the volcanic band (zones 3–6, west of the
+  building area). *Look for:* (1) **Vulcanus-style cliffs** appear scattered through
+  the rocky/volcanic zones as terrain flavour; (2) the **building band is cliff-free**
+  and freely buildable (no cliff walls block spawn); (3) the **deep-ice cap is
+  cliff-free**; (4) cliffs never fully wall off a zone in a way that blocks
+  progression. Presence/absence per band is asserted in `tests/test_worldgen.lua`;
+  only the *look/feel* (do they read as natural volcanic cliffs, are they too dense?)
+  is the playtest. *Note:* a bespoke **ice-mountain cliff** for the zone-11 rough→
+  smooth-ice wall is deferred to **ci-70r**; today that wall is the lethal-cold cap.
 
 - [ ] **[LANDED] Map-gen + settings UI: Stone/Ice only, no "Ribbon" wording (ci-3yl).**
   *Repro:* New Game → map-gen → Resources tab (Cindra selected), and the

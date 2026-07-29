@@ -77,3 +77,27 @@ data:extend({
     order = "e-freeze-temp",
   },
 })
+
+-- Per-zone WIDTH settings for the left->right worldgen gradient (ci-da2 / ci-a35).
+--
+-- Each zone of the ribbon tile gradient (scripts/terrain.lua) has its OWN width in
+-- tiles. Changing one setting changes ONLY that band's width; the TOTAL ribbon
+-- width is DERIVED = the SUM of all zone widths (never a standalone setting). The
+-- list, defaults and order are the single source of truth in terrain.ZONES, looped
+-- here so the settings and the geometry can never drift. Minimum 1 tile so EVERY
+-- band -- including the sunward hot-lava layer -- always generates (ci-a35).
+local terrain = require("scripts.terrain")
+local zone_width_settings = {}
+for i, z in ipairs(terrain.ZONES) do
+  zone_width_settings[#zone_width_settings + 1] = {
+    type = "int-setting",
+    name = z.setting,
+    setting_type = "startup",
+    default_value = z.width,
+    minimum_value = 1,
+    maximum_value = 2000,
+    -- Grouped after the axis knobs, ordered hot -> cold to match the gradient.
+    order = string.format("z-zone-width-%02d-%s", i, z.role),
+  }
+end
+data:extend(zone_width_settings)

@@ -71,8 +71,9 @@ local NO_DAY_NIGHT_CYCLE = 300000 * minute
 --     perpendicular axis (scripts/terrain.lua). Band boundaries carry a smooth
 --     basis-noise wiggle, so they are ORGANIC curves, never raw straight lines.
 --   * ZERO NAUVIS LEAKAGE: only Cindra tiles are placement candidates -- NO grass,
---     no water, no vanilla terrain. No trees / enemies / cliffs. Decoratives are
---     Cindra-only clones, zone-gated to the gradient (ci-6fq, prototypes/decoratives).
+--     no water, no vanilla terrain. No trees / enemies. Decoratives are Cindra-only
+--     clones, zone-gated to the gradient (ci-6fq, prototypes/decoratives). Cliffs DO
+--     generate, but only Vulcanus-style cliffs gated to the volcanic zones (ci-da2).
 --   * ELEVATION: pinned flat (prototypes/noise.lua) so no lake is ever carved.
 --
 -- Resources (stone + ice) and the finite bootstrap rocks are NATIVE autoplace
@@ -113,6 +114,10 @@ local function cindra_map_gen()
     -- terrain property Cindra overrides (prototypes/noise.lua).
     property_expression_names = {
       elevation = "cindra_ribbon_elevation",
+      -- Cliffs are driven by a SEPARATE cliff-elevation field (prototypes/noise.lua)
+      -- gated to the volcanic zones, so elevation stays flat (no lakes) while the
+      -- rocky band grows Vulcanus-style cliffs as flavour (ci-da2 cliff comment).
+      cliff_elevation = "cindra_cliff_elevation",
     },
     -- ONLY Cindra's own resource controls -> the map-gen screen shows just Stone
     -- and Ice (ordered below Aquilo, see prototypes/resources.lua). No Nauvis
@@ -135,8 +140,15 @@ local function cindra_map_gen()
       -- ice/snow clones, each gated to its gradient zone. No Nauvis grass tufts.
       decorative = { treat_missing_as_default = false, settings = decorative_settings },
     },
-    -- No cliffs (push the elevation threshold out of reach; no cliff control).
-    cliff_settings = { name = "cliff", cliff_elevation_0 = 1024, cliff_elevation_interval = 1024 },
+    -- CLIFFS (ci-da2): Vulcanus-style cliffs in the volcanic zones only. The
+    -- cindra_cliff_elevation field is 0 outside the volcanic band, so cliffs appear
+    -- ONLY where the rocky-zone hump crosses cliff_elevation_0 (= CLIFF_BASE in
+    -- prototypes/noise.lua); the building band, lava walls and icy cap stay cliff-
+    -- free. Reuses the existing cliff-vulcanus prototype (referenced, never mutated),
+    -- since it is the volcanic look these zones want and no ice-cliff prototype
+    -- exists in the base game (a bespoke ice-mountain cliff for the zone-11 wall is
+    -- deferred to ci-70r; the rough->smooth-ice wall is the lethal-cold barrier).
+    cliff_settings = { name = "cliff-vulcanus", cliff_elevation_0 = 8, cliff_elevation_interval = 40 },
   }
 
   return mg
