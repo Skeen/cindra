@@ -117,12 +117,12 @@ C.HP_PER_MW_DEFICIT = 4.0
 -- Recovery when disposal is sufficient: over-budget panels ran "hot" but recover
 -- if you add disposal, so degradation is reversible.
 C.RECOVERY_HP_PER_SWEEP = 6.0
--- Grid-saturation alarm threshold (Coercia's proven "a full battery is the alarm",
+-- Grid-saturation alarm threshold (Cindra's proven "a full battery is the alarm",
 -- ci-snq). A storage buffer stops counting as available disposal once its REAL
 -- fill (entity.energy / electric_buffer_size) reaches this fraction: at/near cap
 -- it can no longer absorb the surge, so the deficit -- and the panel damage --
 -- fires reliably instead of waiting for the buffer to peg bit-exact full. 0.9
--- matches Coercia's induction SATURATION_THRESHOLD.
+-- matches Cindra's induction SATURATION_THRESHOLD.
 C.STORAGE_SATURATION_THRESHOLD = 0.9
 
 -- === Tick cadences ===========================================================
