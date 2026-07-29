@@ -172,6 +172,17 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   the icy map_color (distinct from stone AND iron) and band-wide rock generation;
   the sprite/icon *appearance* is what this entry confirms.
 
+- [ ] **[LANDED] Bootstrap rocks read as yellowish STONE (ci-jvc).** *Repro:*
+  explore the ribbon on Cindra and look at the scattered hand-minable **rocks**.
+  *Look for:* a warm, golden-tan **stone** rock (the vanilla `huge-rock` under a
+  `{1.0, 0.93, 0.62}` warm multiply-tint), reading like a Factorio stone/sandstone
+  rock rather than the stock cool brown-grey rubble, and still clearly legible
+  against the dark volcanic-soil terminator ground (not washed into it). *Fallback:*
+  `unit-tests/test_rock_tint.lua` proves the tint is a warm yellow multiply and is
+  applied to every sprite variation, and `docs/verification/ci-jvc-rock-stone-tint.png`
+  is a pixel-faithful before/after; this entry is only the "does it feel like stone
+  against live terrain + lighting" confirmation a still cannot judge.
+
 - [ ] **[LANDED] Nightside cold damage vs Aquilo freeze (feel).** Unheated
   machines past the cold threshold (axis temp < -30 °C default) take ticking cold
   damage rather than a reversible Aquilo-style freeze. *Look for:* the pace
@@ -412,7 +423,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 - [ ] **[LANDED] Resource art is placeholder.** Stone/ice/volatiles resources are
   cloned from vanilla `stone` (recoloured via `map_color`) and bootstrap rocks from
-  vanilla `huge-rock`. The stone + ice resources now carry the Cindra stone/ice
+  vanilla `huge-rock` (warm stone-tinted, ci-jvc). The stone + ice resources now carry the Cindra stone/ice
   icons so the map "contains" list reads correctly (ci-2sr); the volatiles resource
   + item still reuse the vanilla ice icon. Bespoke Cindra resource art is a later
   pass.

@@ -33,6 +33,7 @@
 local util = require("util")
 local resource_autoplace = require("resource-autoplace")
 local field = require("scripts.resource-field")
+local rock_tint = require("scripts.rock_tint")
 
 -- The ribbon geometry (startup settings, available at data stage). The band masks
 -- read these so the autoplace bands line up exactly with the damage axis.
@@ -240,6 +241,11 @@ rock.name = "cindra-rock"
 rock.autoplace = { probability_expression = field.rock_probability_expr(CFG) }
 rock.order = "a[cindra]-a[rock]"
 rock.map_color = { 0.55, 0.45, 0.35 }
+-- Warm the stock huge-rock art toward a vanilla-STONE look (ci-jvc): a warm
+-- multiply-tint over every sprite variation. Deep-copied above, so this tints
+-- ONLY the cindra-rock clone and never the shared vanilla huge-rock. The tint
+-- value + rationale live in scripts/rock_tint.lua (one source of truth).
+rock_tint.apply(rock.pictures, rock_tint.STONE_TINT)
 rock.minable = {
   mining_particle = "stone-particle",
   mining_time = 2,
