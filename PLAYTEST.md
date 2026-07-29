@@ -440,22 +440,14 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Science & circuits
 
-- [ ] **[LANDED] Cindra science pack + starforge (§15-12, ci-3or).** *Repro:*
-  research `cindra-science`, build a `cindra-starforge`, craft a pack, feed it to a
-  lab. *Look for:* the pack reads as a distinct Cindra pack in the lab/tech GUI
-  (currently the vanilla automation-science-pack icon tinted hot amber) and the
-  starforge reads as a special building, not just another assembler (currently the
-  assembling-machine-3 sprite). Functionality is fully test-covered
-  (`tests/test_science.lua`), including a powered starforge that only progresses
-  with power. *Note:* the pack recipe consumes the signature
+- [ ] **[LANDED] Cindra science pack (§15-12, ci-3or).** *Repro:*
+  research `cindra-science`, craft a pack in an ordinary assembling machine, feed it
+  to a lab. *Look for:* the pack reads as a distinct Cindra pack in the lab/tech GUI
+  (currently the vanilla automation-science-pack icon tinted hot amber). Functionality
+  is fully test-covered (`tests/test_science.lua`), including a powered stock assembler
+  that only progresses with power. *Note:* the pack recipe consumes the signature
   **aluminium** + deep-nightside volatiles + calcite (petrochemical-free); it was
   re-based off the retired cryo-hardened alloy by ci-84s.
-
-- [ ] **[LANDED] Starforge power draw feels like a real sink (§15-12, feel).** The
-  starforge draws ~10 MW active (a `(tune)` value). *Look for:* running an array
-  visibly leans on the grid / flare capture ("research is a power sink") without
-  being so punishing that early science stalls. Balance against the flare numbers
-  and the balance pass (ci-63d).
 
 - [ ] **[LANDED] Environmental scanner reads well as a circuit hub (ci-3o3).** The
   standalone `env-scanner` mod adds a buildable **Environmental scanner** (a renamed
@@ -502,7 +494,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   pass.
 
 - [ ] **[LANDED] Signature-building art is placeholder.** The aluminium
-  electrolysis cell, lava manufacturer, electric heater, starforge, and mass driver
+  electrolysis cell, lava manufacturer, electric heater, and mass driver
   reuse vanilla-derived sprites/icons (see `graphics/ART-MANIFEST.md`). Bespoke and
   animated art is tracked across ci-z94, ci-eb9, ci-kuu, and ci-wfv. Do not file
   placeholder art as a gameplay bug.

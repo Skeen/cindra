@@ -161,15 +161,15 @@ merge queue.
   science, `prototypes/science.lua`: a petrochemical-free `cindra-science-pack`
   (native inputs only — the signature aluminium + deep-nightside volatiles +
   ice-chain calcite; re-based off the retired cryo-hardened alloy by ci-84s)
-  crafted in a dedicated power-hungry `cindra-starforge` (~10 MW draw, long
-  craft), so the largest continuous activity is another flare-timed power sink
+  crafted in an ordinary assembling machine (stock `crafting` category) via a
+  long, power-hungry craft, so the largest continuous activity is another flare-timed power sink
   (ties to ci-9k6 / ci-63d). Gated behind the signature aluminium tech
   (`cindra-science` tech, researched with brought packs to avoid a soft-lock),
   and it FOLDS orbital launch into the tree as the first
   downstream unlock. Pack appended to the labs' inputs (additive, safe). Tested:
   `tests/test_science.lua` (petrochemical-free/native-only, high energy cost,
-  electric high-draw machine that only crafts when powered, private category, tech
-  gating + fold, a lab actually accepts the pack). Balance of amounts/draw is
+  stock assembler that only crafts when powered, no bespoke machine/private
+  category, tech gating + fold, a lab actually accepts the pack). Balance of amounts/draw is
   `(tune)` → §15-14.
 - [x] **Start-on-Cindra foundry bootstrap.** `ci-arw` (cross-cutting; APS +
   mechanics). The no-Vulcanus start needs a foundry but the vanilla recipe is

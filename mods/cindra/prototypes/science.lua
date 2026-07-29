@@ -23,7 +23,7 @@
 --    power the whole time, and the signature aluminium input, which is itself the
 --    planet's most power-hungry product (prototypes/aluminium.lua). So science
 --    throughput still scales with captured flare / baseline power, with no
---    dedicated "starforge" machine standing in for it.
+--    dedicated bespoke machine standing in for it.
 --
 -- 3. A REAL SCIENCE PACK. It is a science-pack item (like every vanilla pack) and
 --    is appended to the shared labs' accepted inputs so the force can actually
