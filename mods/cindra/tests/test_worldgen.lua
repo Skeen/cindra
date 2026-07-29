@@ -129,6 +129,48 @@ describe("cindra worldgen: a real noise-driven ribbon world (§4, §15-2; ci-3yl
     assert.are.equal(0, count(field.ICE, -128, 0), "no ice sunward (west) of the safe band")
   end)
 
+  -- 4a. ZONE PURITY (ci-7w0): the mutually-exclusive placement rule, proven on the
+  -- LIVE map. STONE must NEVER appear in the icy (cold) zone; ICE must NEVER appear
+  -- in the hot zone; and the TILE bands obey the SAME split (hot tiles never bleed
+  -- into the cold zone, cold tiles never into the hot zone). Perpendicular axis is
+  -- Y = -x (vertical orientation, hot on the west), so the icy/cold zone is x > safe
+  -- (east) and the hot zone is x < -safe (west); the temperate safe band is
+  -- |x| <= safe. Default safe_half_width = 24, so the boundary sits at x = +/-24.
+  local function count_tiles(names, x1, x2)
+    local n = 0
+    for _, name in ipairs(names) do
+      n = n + s.count_tiles_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
+    end
+    return n
+  end
+
+  it("keeps stone OUT of the ENTIRE icy (cold) zone, right up to the safe-band edge", function()
+    -- Scan the whole cold zone (x in [25, 128]), not just deep east: zero stone
+    -- resources anywhere nightward of the safe-band edge.
+    assert.are.equal(0, count(field.STONE, 25, 128), "no stone anywhere in the icy (cold) zone")
+    -- Not vacuous: the scanned zone is genuinely icy terrain (frost / deep-ice).
+    assert.is_true(count_tiles({ "cindra-frost", "cindra-deep-ice" }, 25, 128) > 0,
+      "the scanned cold zone is real icy terrain, so the purity check is meaningful")
+  end)
+
+  it("keeps ice OUT of the ENTIRE hot + temperate zone (never sunward of the icy zone)", function()
+    -- Ice lives only nightward of the safe band (Y < -safe => x > 24). Assert zero
+    -- ice across the whole hot zone AND the temperate safe band (x <= 24).
+    assert.are.equal(0, count(field.ICE, -128, 24), "no ice anywhere sunward of the icy zone")
+    -- Not vacuous: the scanned hot zone is genuinely molten terrain.
+    assert.is_true(count_tiles({ "cindra-molten-rock", "cindra-lava" }, -128, -25) > 0,
+      "the scanned hot zone is real molten terrain, so the purity check is meaningful")
+  end)
+
+  it("keeps the TILE bands pure: no hot tiles in the cold zone, no cold tiles in the hot zone", function()
+    -- Hot tiles (molten-rock, lava) must never generate in the icy/cold zone (x > 24)...
+    assert.are.equal(0, count_tiles({ "cindra-molten-rock", "cindra-lava" }, 25, 128),
+      "no hot tiles (molten-rock / lava) in the icy (cold) zone")
+    -- ...and cold tiles (frost, deep-ice) must never generate in the hot zone (x < -24).
+    assert.are.equal(0, count_tiles({ "cindra-frost", "cindra-deep-ice" }, -128, -25),
+      "no cold tiles (frost / deep-ice) in the hot zone")
+  end)
+
   -- 5. BAND-WIDE BOOTSTRAP ROCKS --------------------------------------------------
   it("scatters bootstrap rocks across the WHOLE ribbon band, not just near spawn (ci-9bb)", function()
     -- Near spawn, inside the terminator safe band (|perp X| <= safe): present.
