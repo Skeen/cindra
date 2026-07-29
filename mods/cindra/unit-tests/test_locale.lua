@@ -102,6 +102,32 @@ test("map name is just 'Cindra' with no tagline (ci-2sr)", function()
     "the tagline must not leak into the map name (map reads just Cindra)")
 end)
 
+test("stone resource reads just 'Stone', never 'Cindra stone' (ci-by8)", function()
+  -- The ribbon's stone deposit mines the vanilla `stone` item and has no custom
+  -- item of its own, so its name must read plainly "Stone" (no "Cindra" prefix).
+  -- Both the map-gen slider (autoplace-control) and the resource entity carry the
+  -- name, and both must agree. Guards the ci-9bb rename against regression.
+  local slider = cfg["autoplace-control-names"] and cfg["autoplace-control-names"]["cindra-stone"]
+  local entity = cfg["entity-name"] and cfg["entity-name"]["cindra-stone"]
+  assert_true(slider == "Stone",
+    "[autoplace-control-names] cindra-stone must read exactly 'Stone'; got " .. tostring(slider))
+  assert_true(entity == "Stone",
+    "[entity-name] cindra-stone must read exactly 'Stone'; got " .. tostring(entity))
+
+  -- And nothing player-facing may spell out "Cindra stone" anywhere (comments are
+  -- stripped by parse_cfg, so only real locale values are scanned here).
+  local offenders = {}
+  for section, entries in pairs(cfg) do
+    for key, value in pairs(entries) do
+      if value:lower():find("cindra stone", 1, true) then
+        offenders[#offenders + 1] = section .. "." .. key
+      end
+    end
+  end
+  assert_true(#offenders == 0,
+    "no player-facing locale value may read 'Cindra stone': " .. table.concat(offenders, ", "))
+end)
+
 test("planet carries a map description (ci-2sr)", function()
   local desc = cfg["space-location-description"] and cfg["space-location-description"].cindra
   assert_true(desc ~= nil, "[space-location-description] cindra must exist for the map panel")
