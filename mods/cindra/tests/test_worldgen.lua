@@ -189,6 +189,57 @@ describe("cindra worldgen: a real noise-driven ribbon planet (§4, §15-2; ci-3y
     assert.are.equal(0, outside, "no rocks out past the safe band (masked to the terminator band)")
   end)
 
+  -- 5a. BURNED VOLCANIC ROCKS in the hot/lava region (ci-qy0) -------------------
+  -- Charred Vulcanus-style boulders generate in the HOT region only, clustered
+  -- toward the lava, and mining one yields STONE + COAL ONLY. Perp axis is Y = -x
+  -- (hot on the west), so the hot zone is x < -safe (west) and the temperate +
+  -- cold zones are x >= -safe. Placement is native worldgen autoplace, not a
+  -- scripted scatter.
+  local function count_burned(x1, x2)
+    local n = 0
+    for _, name in ipairs(field.burned_rock_names()) do
+      n = n + s.count_entities_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
+    end
+    return n
+  end
+
+  it("generates burned volcanic rocks in the hot/lava region via worldgen (ci-qy0)", function()
+    -- Present across the hot region (west of the safe band, out toward the lava).
+    assert.is_true(count_burned(-128, -30) > 0,
+      "burned volcanic rocks generate in the hot region (the lava areas)")
+    -- Clustered toward the lava: more rocks in the outer (lava) half than the
+    -- inner (safe-band-adjacent) half of the hot region.
+    local near_lava = count_burned(-128, -80)
+    local inner = count_burned(-60, -30)
+    assert.is_true(near_lava >= inner,
+      "burned rocks cluster toward the lava side (near_lava=" .. near_lava .. ", inner=" .. inner .. ")")
+  end)
+
+  it("keeps burned volcanic rocks OUT of the temperate/building and ice zones (ci-qy0)", function()
+    -- Temperate/building band (|x| <= safe): none.
+    assert.are.equal(0, count_burned(-20, 20),
+      "no burned rocks in the temperate/building band")
+    -- Cold/ice zone (x > safe, east): none.
+    assert.are.equal(0, count_burned(25, 128),
+      "no burned rocks in the ice/cold zone")
+  end)
+
+  it("mining a burned volcanic rock yields STONE + COAL ONLY (ci-qy0)", function()
+    for _, name in ipairs(field.burned_rock_names()) do
+      local rock = prototypes.entity[name]
+      assert.is_not_nil(rock, name .. " must exist")
+      -- Finite like the bootstrap rock: a simple-entity destroyed when mined, so
+      -- the coal is a one-shot trickle, never a per-craft loop input.
+      assert.are.equal("simple-entity", rock.type, name .. " must be a finite simple-entity")
+      local results = rock.mineable_properties.products
+      local names = {}
+      for _, r in ipairs(results) do names[r.name] = true end
+      assert.is_true(names["stone"], name .. " must yield stone")
+      assert.is_true(names["coal"], name .. " must yield coal")
+      assert.are.equal(2, #results, name .. " must yield ONLY stone + coal (no ore/tungsten)")
+    end
+  end)
+
   it("the ice field reads as ICY on the map: pale cyan/frost map_color, distinct from stone AND iron ore (ci-9bb)", function()
     local ice = prototypes.entity["cindra-ice"].map_color
     assert.is_not_nil(ice, "the ice resource has a map_color")
