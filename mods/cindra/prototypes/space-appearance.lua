@@ -120,7 +120,7 @@ function M.build_render_parameters(nauvis_params)
 
   params.platform_backdrop = {
     emission_scales_with_shadow = false,   -- magma glows on its own, across the disc
-    emission_scalar = 1.5,                 -- vivid dayside glow
+    emission_scalar = 2.4,                 -- STRONGLY GLOWING dayside (ci-fg6)
 
     radius = 600,
     -- TIDAL LOCK: the globe does not spin. See NO_ROTATION above.
@@ -129,7 +129,7 @@ function M.build_render_parameters(nauvis_params)
     cloudiness = 0.4,                      -- drifting terminator steam band
     surface_vertical_offset = 0.1,
     cloud_vertical_offset = 0.02,
-    specular_intensity = 0.6,              -- icy nightside sheen, not blinding
+    specular_intensity = 0.95,             -- shimmery icy nightside sheen (ci-fg6)
     -- Dark, faintly warm twilight rim (the atmosphere itself is thin here).
     atmosphere_color = { 0.06, 0.04, 0.05, 0.1 },
     cloud_flow_intensity = 0.8,
