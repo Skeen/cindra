@@ -196,7 +196,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `vertical`/`horizontal`). Patches: stone/ice appear as IRREGULAR natural patches
   (not a grid); no water at any setting; deep-nightside ice yields volatiles when mined.
 
-- [ ] **[LANDED] Ice field, stone patch + bootstrap rocks read right (ci-9bb).**
+- [ ] **[LANDED] Ice field, stone patch + rocks read right (ci-9bb).**
   *Repro:* explore the ribbon on Cindra; mine an ice field and a stone patch; open
   the map view. *Look for:* the **ice field** deposit reads as ICY/frosted on the
   ground (a pale frost-blue ore patch), clearly NOT the warm stone rubble and NOT
@@ -204,13 +204,13 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   iron ore's steel-blue. The **stone** deposit is labelled just **Stone** (never
   "Cindra stone"). Mining an ice field drops the oxide chunk plus **Frozen
   volatiles** wearing their OWN vial-of-gas icon (violet/cyan), NOT a second batch
-  of "ice cubes" (the old placeholder). **Bootstrap rocks** appear scattered along
+  of "ice cubes" (the old placeholder). **Rocks** appear scattered along
   the WHOLE ribbon terminator band as you explore (naturally scattered, no lattice,
   finite per rock), not only around spawn. *Fallback:* `test_worldgen.lua` proves
   the icy map_color (distinct from stone AND iron) and band-wide rock generation;
   the sprite/icon *appearance* is what this entry confirms.
 
-- [ ] **[LANDED] Bootstrap rocks read as yellowish STONE (ci-jvc).** *Repro:*
+- [ ] **[LANDED] Rocks read as yellowish STONE (ci-jvc).** *Repro:*
   explore the ribbon on Cindra and look at the scattered hand-minable **rocks**.
   *Look for:* a warm, golden-tan **stone** rock (the vanilla `huge-rock` under a
   `{1.0, 0.93, 0.62}` warm multiply-tint), reading like a Factorio stone/sandstone
@@ -246,7 +246,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 ## Bootstrap from nothing
 
 - [ ] **[LANDED] From-nothing bootstrap start works (ci-8nh / ci-fs4 / §6).**
-  Cindra has NO ore or coal patches at all; the finite hand-mined bootstrap rocks
+  Cindra has NO ore or coal patches at all; the finite hand-mined rocks
   are the ONLY landing metal and drop stone + iron ore + copper ore + coal (and a
   little tungsten). Yields and natural (off-lattice) scatter are prototype-tested
   (`tests/test_worldgen.lua`). *Repro:* start a fresh Cindra game with nothing,
@@ -495,7 +495,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 ## Placeholder art (expected in v1, do NOT file as bugs)
 
 - [ ] **[LANDED] Resource art is placeholder.** Stone/ice/volatiles resources are
-  cloned from vanilla `stone` (recoloured via `map_color`) and bootstrap rocks from
+  cloned from vanilla `stone` (recoloured via `map_color`) and rocks from
   vanilla `huge-rock` (warm stone-tinted, ci-jvc). The stone + ice resources now carry the Cindra stone/ice
   icons so the map "contains" list reads correctly (ci-2sr); the volatiles resource
   + item still reuse the vanilla ice icon. Bespoke Cindra resource art is a later
