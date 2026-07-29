@@ -1,61 +1,54 @@
 -- Proof: the ribbon temperature axis (scripts/ribbon.lua) is the single source
--- of truth for Cindra's hot-cold axis, and it behaves per §4 / §16. The module
--- is pure, so this asserts it under the real Factorio Lua runtime (a matching
--- plain-Lua unit test in unit-tests/test_ribbon.lua covers the same maths off
--- the game entirely).
+-- of truth for Cindra's hot-cold axis, and it behaves per §4 / §16 under the real
+-- Factorio Lua runtime (a matching plain-Lua unit test in unit-tests/test_ribbon
+-- covers the same maths off the game entirely).
+--
+-- ci-a35: the temperate reference is the SAND-band spawn (`ref`), with asymmetric
+-- reaches to each void edge, derived from the per-zone gradient (scripts/zones).
+-- Player-facing environmental damage is now the TILE damage (tests/test_tile_damage),
+-- so ribbon maps a perpendicular coordinate to a temperature and a solar fraction.
 
 local ribbon = require("scripts.ribbon")
+local zones = require("scripts.zones")
 
-describe("ribbon temperature axis (§4)", function()
-  it("is temperate and damage-free in the central safe band", function()
-    for _, y in pairs({ -24, -10, 0, 10, 24 }) do
-      assert.are.equal("safe", ribbon.zone(y), "y=" .. y .. " must be in the safe band")
-      assert.are.equal(0, (ribbon.damage_per_second(y)), "y=" .. y .. " must take no damage")
-    end
+describe("ribbon temperature axis (§4; ci-a35)", function()
+  local GEO = zones.geometry()
+  local REF = GEO.ref
+
+  it("is room temperature at the sand spawn reference", function()
+    assert.are.equal(25, ribbon.temperature(REF), "the sand-band centre is temperate")
   end)
 
-  it("rises toward heat sunward and falls toward cold nightward", function()
-    local center = ribbon.temperature(0)
-    assert.is_true(ribbon.temperature(100) > center, "sunward (+Y) must be hotter than centre")
-    assert.is_true(ribbon.temperature(-100) < center, "nightward (-Y) must be colder than centre")
-    -- Symmetric geometry, asymmetric endpoints (fire one way, ice the other).
-    assert.is_true(ribbon.temperature(128) > ribbon.temperature(64), "hotter further sunward")
-    assert.is_true(ribbon.temperature(-128) < ribbon.temperature(-64), "colder further nightward")
+  it("rises toward heat sunward and falls toward cold nightward of the spawn", function()
+    local center = ribbon.temperature(REF)
+    assert.is_true(ribbon.temperature(REF + 60) > center, "sunward must be hotter than the spawn")
+    assert.is_true(ribbon.temperature(REF - 60) < center, "nightward must be colder than the spawn")
+    assert.is_true(ribbon.temperature(GEO.hot_edge_p) > ribbon.temperature(REF + 40),
+      "hotter further sunward")
+    assert.is_true(ribbon.temperature(GEO.cold_edge_p) < ribbon.temperature(REF - 40),
+      "colder further nightward")
   end)
 
-  it("classifies the sunward margin as heat and the nightward margin as cold", function()
-    assert.are.equal("hot_warn", ribbon.zone(60), "just past the safe band, sunward")
-    assert.are.equal("cold_warn", ribbon.zone(-60), "just past the safe band, nightward")
-    assert.are.equal("hot_lethal", ribbon.zone(110), "deep sunward edge")
-    assert.are.equal("cold_lethal", ribbon.zone(-110), "deep nightward edge")
-
-    local _, hot_type = ribbon.damage_per_second(60)
-    local _, cold_type = ribbon.damage_per_second(-60)
-    assert.are.equal("heat", hot_type, "sunward damage is heat")
-    assert.are.equal("cold", cold_type, "nightward damage is cold")
+  it("saturates at each void edge (asymmetric endpoints: fire one way, ice the other)", function()
+    assert.are.equal(1500, ribbon.temperature(GEO.hot_edge_p), "hot edge = temp_hot_max")
+    assert.are.equal(-270, ribbon.temperature(GEO.cold_edge_p), "cold edge = temp_cold_min")
+    assert.are.equal(ribbon.temperature(GEO.hot_edge_p), ribbon.temperature(GEO.hot_edge_p + 500),
+      "no runaway beyond the hot edge")
+    assert.are.equal(ribbon.temperature(GEO.cold_edge_p), ribbon.temperature(GEO.cold_edge_p - 500),
+      "no runaway beyond the cold edge")
   end)
 
-  it("ramps damage 0 -> max across the margin, then holds at the lethal edge", function()
-    local dps_safe_edge = ribbon.damage_per_second(24)
-    local dps_mid = ribbon.damage_per_second(60)
-    local dps_lethal = ribbon.damage_per_second(96)
-    local dps_deep = ribbon.damage_per_second(200)
-    assert.are.equal(0, dps_safe_edge, "no damage at the very edge of the safe band")
-    assert.is_true(dps_mid > 0 and dps_mid < dps_lethal, "damage ramps in the margin")
-    assert.are.equal(dps_lethal, dps_deep, "damage saturates at the lethal edge (no runaway)")
-  end)
-
-  it("bounds the playable ribbon with a hard-wall backstop", function()
-    assert.is_false(ribbon.past_wall(120), "inside the wall")
-    assert.is_true(ribbon.past_wall(128), "at the wall")
-    assert.is_true(ribbon.past_wall(-200), "past the wall nightward")
+  it("delivers full solar deep sunward and ~nothing deep nightward", function()
+    assert.are.equal(1.0, ribbon.sunward_factor(GEO.hot_damage_start), "full sun on the fire margin")
+    assert.are.equal(0.0, ribbon.sunward_factor(GEO.cold_damage_start), "floor at the freeze boundary")
+    assert.is_true(ribbon.sunward_factor(REF + (GEO.hot_reach * 0.5))
+      > ribbon.sunward_factor(REF - (GEO.cold_reach * 0.5)) + 0.2,
+      "a sunward panel materially out-produces a nightward one")
   end)
 
   it("honours a partial config override (settings-driven tuning)", function()
-    local cfg = { safe_half_width = 4 }
-    assert.are.equal("hot_warn", ribbon.zone(10, cfg),
-      "a narrower safe band must expose y=10 to damage")
-    -- Unspecified keys fall back to defaults.
-    assert.are.equal("safe", ribbon.zone(0, cfg))
+    local cfg = { ref = 0, hot_reach = 100, cold_reach = 100 }
+    assert.are.equal(25, ribbon.temperature(0, cfg), "custom reference is temperate")
+    assert.is_true(ribbon.temperature(-50, cfg) < 25, "nightward of the custom ref is colder")
   end)
 end)
