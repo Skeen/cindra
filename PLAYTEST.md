@@ -190,6 +190,21 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   dies, and reads as "drag heat with you," not "instant loss." If a reversible
   freeze feels better, that is a future refinement, not a v1 bug.
 
+- [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
+  decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the
+  hot (west) rocky/lava half, **ice + light-snow** decals on the cold (east) icy
+  half, keyed to the ribbon X-gradient. *Repro:* explore the ribbon west and east of
+  the terminator on Cindra. *Look for:* (1) the hot half is strewn with occasional
+  volcanic rocks and the odd crater (scatter, NOT a carpet); (2) the cold half reads
+  as a frosted/snowy ground (ice + snow decals, denser, like Aquilo); (3) NO rocks
+  or craters on the icy ground and NO snow/ice decals in the rocky/lava region (no
+  bleed across the terminator); (4) the temperate terminator spawn band stays clean
+  (no decals); (5) decal sprites sit sensibly on the terrain (no jarring seams), and
+  the densities feel right (tune the biases in `scripts/decorative-field.lua` if the
+  rocks read too sparse/dense). *Fallback:* `tests/test_decoratives.lua` proves the
+  zone placement + purity (rocks only on the hot half, ice/snow only on the cold
+  half, none on the terminator) on the live map; only the *look* is the playtest.
+
 ## Bootstrap from nothing
 
 - [ ] **[LANDED] From-nothing bootstrap start works (ci-8nh / ci-fs4 / §6).**

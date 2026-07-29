@@ -24,6 +24,7 @@ local asteroid_util = require("__space-age__.prototypes.planet.asteroid-spawn-de
 local space = require("prototypes.space-appearance")
 local terrain = require("scripts.terrain")
 local field = require("scripts.resource-field")
+local decorative_field = require("scripts.decorative-field")
 
 local minute = 60 * 60
 
@@ -70,7 +71,8 @@ local NO_DAY_NIGHT_CYCLE = 300000 * minute
 --     perpendicular axis (scripts/terrain.lua). Band boundaries carry a smooth
 --     basis-noise wiggle, so they are ORGANIC curves, never raw straight lines.
 --   * ZERO NAUVIS LEAKAGE: only Cindra tiles are placement candidates -- NO grass,
---     no water, no vanilla terrain. No trees / enemies / rocks / cliffs / decoratives.
+--     no water, no vanilla terrain. No trees / enemies / cliffs. Decoratives are
+--     Cindra-only clones, zone-gated to the gradient (ci-6fq, prototypes/decoratives).
 --   * ELEVATION: pinned flat (prototypes/noise.lua) so no lake is ever carved.
 --
 -- Resources (stone + ice) and the finite bootstrap rocks are NATIVE autoplace
@@ -97,6 +99,13 @@ local function cindra_map_gen()
     entity_autoplace_settings[name] = {}
   end
 
+  -- Zone-appropriate decoratives (ci-6fq): ONLY Cindra's own cloned decals are
+  -- candidates -- rocks/craters/pebbles on the hot half, ice/snow on the cold half,
+  -- each gated to its ribbon zone (scripts/decorative-field.lua). No Nauvis/Gleba
+  -- grass or bush can leak in (they are not in the set).
+  local decorative_settings = {}
+  for _, name in ipairs(decorative_field.decorative_names()) do decorative_settings[name] = {} end
+
   local mg = {
     -- Finite perpendicular to the ribbon (the ribbon planet), infinite lateral.
     [finite.key] = finite.value,
@@ -122,8 +131,9 @@ local function cindra_map_gen()
         treat_missing_as_default = false,
         settings = entity_autoplace_settings,
       },
-      -- No decoratives (no Nauvis grass tufts etc.).
-      decorative = { treat_missing_as_default = false, settings = {} },
+      -- Zone-appropriate decoratives ONLY (ci-6fq): the Cindra rock/crater/pebble +
+      -- ice/snow clones, each gated to its gradient zone. No Nauvis grass tufts.
+      decorative = { treat_missing_as_default = false, settings = decorative_settings },
     },
     -- No cliffs (push the elevation threshold out of reach; no cliff control).
     cliff_settings = { name = "cliff", cliff_elevation_0 = 1024, cliff_elevation_interval = 1024 },

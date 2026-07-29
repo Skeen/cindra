@@ -21,6 +21,12 @@
 require("prototypes.noise")
 require("prototypes.tiles")
 
+-- Zone-appropriate decoratives (ci-6fq): cosmetic decals cloned from vanilla and
+-- scattered per gradient zone (rocks/craters on the hot half, ice/snow on the cold
+-- half), gated to the perpendicular ribbon axis. Must exist before the planet's
+-- map_gen_settings references them in its decorative allow-list.
+require("prototypes.decoratives")
+
 -- The Cindra planet: tidally-locked ribbon planet, surface + reachability + the
 -- temperature-axis framing, generated as a REAL noise-driven ribbon planet.
 require("prototypes.planet")
