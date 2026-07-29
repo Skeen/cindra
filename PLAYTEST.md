@@ -74,10 +74,13 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   soft bloom halo bleeding off the fire limb and bright magma veins; the ICE
   hemisphere (right limb) reads as a **shimmery cool BLUE** frozen vault with icy
   glints catching the light, NOT flat grey/navy; the sandy terminator band down
-  the centre stays clearly lit. Fire faces the star, ice faces away
+  the centre is now a **THIN sliver** (slimmed ~10x per the space-view
+  refinement) so the disc reads as mostly FIERY + ICY hemispheres, NOT thirds.
+  The whole planet stays DARK (glow/shimmer are accents on a dark base, not an
+  overall wash-out). Fire faces the star, ice faces away
   (orientation preserved). *Fallback:* the baked star-map sprite is verified
-  off-game (`unit-tests/test_planet_maps.py` guards the strongly-glowing dayside
-  and the visible icy-blue shimmer; `unit-tests/test_space_appearance.lua` guards
+  off-game (`unit-tests/test_planet_maps.py` guards the strongly-glowing dayside,
+  the visible icy-blue shimmer, and the thin sandy terminator; `unit-tests/test_space_appearance.lua` guards
   the orbital backdrop's boosted emission_scalar + specular sheen). This entry is
   only the "the glow/shimmer looks vivid on the live orbital backdrop, bloom and
   all" confirmation a still-image test cannot judge. Re-bake via
