@@ -243,12 +243,32 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   for molten metal. *Look for:* (1) the `cindra-lava` recipe icon is the vanilla lava
   sprite under a warm amber-tinted layer - it reads a touch hotter/brighter than natural
   Vulcanus lava at icon size, still obviously lava (placeholder tint, do not file as a
-  bug); (2) the manufacturer reuses the vanilla foundry sprite (v1 art reuse) so it looks
-  like a foundry in world/toolbar - intentional for v1, bespoke art is a follow-up bead;
+  bug); (2) the manufacturer now wears the bespoke glass-furnace art (Hurricane046 /
+  CC-BY, ci-oi8) instead of the foundry sprite - see the dedicated art entry below;
   (3) the *feel*: ~6 manufacturers visibly feed one melting foundry without an absurd
   machine wall, at a visibly heavy grid draw ("power is the lever"), and productivity
   modules are allowed on the lava recipe (ci-095). Balance the ruinous 40 MW draw against
   the flare/solar numbers (ci-9k6, ci-63d).
+
+- [ ] **[LANDED] Lava-manufacturer glass-furnace art looks right (ci-oi8).** The
+  `cindra-lava-manufacturer` wears the user-supplied Hurricane046 **glass-furnace**
+  set (CC-BY): an animated furnace body, a ground shadow, and an always-on emissive
+  molten glow, wired into the assembling-machine `graphics_set.animation` (replacing
+  the inherited foundry art + its pipe working-visualisations). *Repro:* build a
+  `cindra-lava-manufacturer` and run it. *Look for:* the machine shows the glass-furnace
+  building (not a foundry, not an invisible/placeholder box) and its body visibly
+  **animates** (the 80-frame furnace loop); the emissive layer **glows** (reads as a lit
+  molten furnace, especially in the dark); a ground **shadow** casts correctly; the
+  item/entity **icon** is the glass-furnace icon in the inventory, build preview, and
+  factoriopedia; and the inherited foundry **pipe glow overlay is gone** (no stray
+  foundry-shaped effects near the fluid connections). *Judge the tuning:* `BODY_SCALE`
+  / `BODY_SHIFT` in `mods/cindra/prototypes/lava.lua` place the furnace on the
+  foundry-sized footprint - confirm the base sits on the tiles (not floating, buried,
+  or oversized) and the shadow lands under the body. The geometry (270x310 frames,
+  two-part 80-frame sheet, 8-wide), layer wiring, dropped foundry overlays, and icon
+  are test-covered (`unit-tests/test_lava_graphics.lua`, and the mod-loads +
+  runtime-craft checks in `tests/test_lava.lua` / `tests/test_bootstrap.lua`); only
+  the on-screen look/scale/shift and animation feel need eyes.
 
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh).** The signature material:
   native stone + calcite -> alumina -> aluminium (electrolysis cell, ruinous power,

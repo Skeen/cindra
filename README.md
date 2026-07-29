@@ -118,6 +118,14 @@ start (cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
 See [`AGENTS.md`](AGENTS.md) for development conventions and the test-first
 workflow.
 
+## Art credits
+
+* The **lava-manufacturer** (stone->lava melter) building + item art is the
+  user-supplied **glass-furnace** set by Hurricane (CC-BY; see
+  `mods/cindra/graphics/entity/lava-manufacturer/ATTRIBUTION.md` and
+  `mods/cindra/CREDITS.md`). It ships as an animated furnace body, a ground
+  shadow, and an always-on emissive molten glow that fits a lava melter.
+
 ## Concept overview
 
 Cindra is a 1D **ribbon**: long east–west along the terminator, shallow
