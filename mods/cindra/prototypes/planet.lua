@@ -23,6 +23,7 @@
 local asteroid_util = require("__space-age__.prototypes.planet.asteroid-spawn-definitions")
 local space = require("prototypes.space-appearance")
 local terrain = require("scripts.terrain")
+local field = require("scripts.resource-field")
 
 local minute = 60 * 60
 
@@ -82,6 +83,20 @@ local function cindra_map_gen()
   local tile_settings = {}
   for _, name in ipairs(terrain.tile_names()) do tile_settings[name] = {} end
 
+  -- The entity autoplace allow-list: ONLY these Cindra entities generate (with
+  -- treat_missing_as_default = false, an entity absent here never autoplaces). The
+  -- resources + the finite bootstrap rocks, plus the hot-region burned volcanic
+  -- rocks (ci-qy0). Names come from scripts/resource-field.lua so this list can
+  -- never drift from the prototypes it gates.
+  local entity_autoplace_settings = {
+    [field.STONE] = {},
+    [field.ICE] = {},
+    [field.ROCK] = {},
+  }
+  for _, name in ipairs(field.burned_rock_names()) do
+    entity_autoplace_settings[name] = {}
+  end
+
   local mg = {
     -- Finite perpendicular to the ribbon (the ribbon planet), infinite lateral.
     [finite.key] = finite.value,
@@ -105,11 +120,7 @@ local function cindra_map_gen()
       -- Entities: only the Cindra resources + the finite rocks autoplace.
       entity = {
         treat_missing_as_default = false,
-        settings = {
-          ["cindra-stone"] = {},
-          ["cindra-ice"] = {},
-          ["cindra-rock"] = {},
-        },
+        settings = entity_autoplace_settings,
       },
       -- No decoratives (no Nauvis grass tufts etc.).
       decorative = { treat_missing_as_default = false, settings = {} },

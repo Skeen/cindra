@@ -257,3 +257,61 @@ rock.minable = {
   },
 }
 data:extend({ rock })
+
+-- Burned volcanic rocks (ci-qy0): charred Vulcanus-style boulders that generate in
+-- the HOT / lava region of the ribbon (never the temperate/building or ice zones),
+-- clustered toward the lava edge so they read as "in the lava areas". They are
+-- placed by NATIVE map-gen autoplace tied to the hot end of the gradient
+-- (field.burned_rock_probability_expr), layered ON TOP of the terrain generation
+-- as a separate entity autoplace (coordinate with ci-da2; this does not fight the
+-- tile bands).
+--
+-- Cloned from the vanilla Vulcanus volcanic rocks purely for their charred art; we
+-- never mutate the shared vanilla prototype (that would leak onto Vulcanus), only
+-- deep-copy it. Mining one yields STONE + COAL ONLY -- the tungsten/iron/copper
+-- trickle of the Vulcanus originals is dropped (no ore, per Cindra's no-ore-patch
+-- design and ci-2tz's no-tungsten rule). Like the bootstrap rock they are FINITE
+-- simple-entities (a mined rock is destroyed), so the coal is a one-shot trickle,
+-- never a per-craft input of the main loop.
+--
+-- Two size variants for visual variety; both share the hot-region autoplace and
+-- the stone+coal drop, differing only in art and yield magnitude.
+local BURNED_ROCKS = {
+  {
+    name = field.BURNED_ROCK, clone_from = "big-volcanic-rock",
+    order = "a[cindra]-b[volcanic-rock]", map_color = { 0.35, 0.16, 0.10 },
+    stone = { 4, 10 }, coal = { 2, 5 },
+  },
+  {
+    name = field.BURNED_ROCK_HUGE, clone_from = "huge-volcanic-rock",
+    order = "a[cindra]-c[volcanic-rock-huge]", map_color = { 0.35, 0.16, 0.10 },
+    stone = { 8, 20 }, coal = { 4, 10 },
+  },
+}
+
+local burned_rocks = {}
+for _, spec in ipairs(BURNED_ROCKS) do
+  local src = data.raw["simple-entity"][spec.clone_from]
+  if not src then
+    error("cindra resources: missing volcanic rock clone source " .. tostring(spec.clone_from))
+  end
+  local r = util.table.deepcopy(src)
+  r.name = spec.name
+  r.order = spec.order
+  r.map_color = spec.map_color
+  -- Native autoplace tied to the hot end of the gradient (ci-3yl style, ci-qy0):
+  -- the map-gen scatters them across the hot region, densest toward the lava.
+  r.autoplace = { probability_expression = field.burned_rock_probability_expr(CFG) }
+  -- Mining yields STONE + COAL ONLY (the acceptance criterion). Drop the Vulcanus
+  -- original's ore/tungsten trickle entirely.
+  r.minable = {
+    mining_particle = "stone-particle",
+    mining_time = (src.minable and src.minable.mining_time) or 2,
+    results = {
+      { type = "item", name = "stone", amount_min = spec.stone[1], amount_max = spec.stone[2] },
+      { type = "item", name = "coal", amount_min = spec.coal[1], amount_max = spec.coal[2] },
+    },
+  }
+  burned_rocks[#burned_rocks + 1] = r
+end
+data:extend(burned_rocks)

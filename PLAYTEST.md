@@ -524,3 +524,18 @@ of the current build; they are listed so "not built yet" is distinguishable from
   reachable ice/volatiles sit at the walkable/impassable boundary and mining feels like
   a graded risk, not a dead cliff; confirm no resource is stranded such that the
   economy is starved.
+
+- [ ] **Burned volcanic rocks read as charred boulders in the lava areas (ci-qy0).**
+  Charred Vulcanus-style boulders (the `big-`/`huge-volcanic-rock` art) generate by
+  worldgen across the HOT region, clustered toward the lava edge; mining one yields
+  stone + coal only. Placement confinement (hot region only, never temperate/ice),
+  the density-toward-lava ramp, and the stone+coal drop are all integration-tested
+  (`tests/test_worldgen.lua`) plus the pure autoplace geometry
+  (`unit-tests/test_resource_field.lua`); only the *visual read* is the playtest.
+  *Look for:* (1) walking WEST from spawn toward the molten ground, dark volcanic
+  boulders appear on the walkable `molten-rock` band and get denser the closer you
+  get to the impassable lava; (2) they look distinctly charred/volcanic (reused
+  Vulcanus rock art), visually separable from the pale hand-minable terminator
+  `rock`; (3) none appear in the temperate spawn band or anywhere on the cold/ice
+  side; (4) they never spawn ON the impassable lava tiles (collision keeps them on
+  solid ground), so they read as "at the lava's edge," not floating in it.
