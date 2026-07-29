@@ -68,7 +68,7 @@ for _, t in ipairs(M.TILES) do M.NAME[t.role] = t.name end
 
 -- Smooth-noise amplitude (tiles) and wavelength (tiles) that wiggles every band
 -- boundary so the bands are organic, never straight. Fixed seeds -> the ribbon
--- has the same band structure on every map seed (a ribbon world is a fixed shape,
+-- has the same band structure on every map seed (a ribbon planet is a fixed shape,
 -- not a per-seed lottery), and it stays deterministic for tests. (tune)
 M.NOISE_AMPLITUDE = 7
 M.NOISE_WAVELENGTH = 48

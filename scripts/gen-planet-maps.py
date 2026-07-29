@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Procedural equirectangular texture maps for the Cindra planet.
 #
-# Cindra is a TIDALLY LOCKED "ribbon world" (DESIGN.md sections 1-4): a molten
+# Cindra is a TIDALLY LOCKED "ribbon planet" (DESIGN.md sections 1-4): a molten
 # dayside hemisphere (magma ocean, radiant glow), a frozen nightside hemisphere
 # (the DARKEST face, deep dark ice with icy-blue glints), and a warm SANDY
 # terminator band (the survivable ribbon) between them. The star sits perilously

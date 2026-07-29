@@ -57,7 +57,7 @@ end
 describe("cindra start-on-Cindra foundry bootstrap", function()
   -- --- The finite bootstrap coal ------------------------------------------
   it("puts a small, FINITE coal trickle in the hand-mined bootstrap rocks", function()
-    local rock = prototypes.entity["cindra-bootstrap-rock"]
+    local rock = prototypes.entity["cindra-rock"]
     assert.is_not_nil(rock, "the bootstrap rock must exist")
     local coal
     for _, r in pairs(rock.mineable_properties.products) do

@@ -99,7 +99,7 @@ test("map name is just 'Cindra' with no tagline (ci-2sr)", function()
   assert_true(name == "Cindra",
     "[space-location-name] cindra must read exactly 'Cindra'; got " .. tostring(name))
   assert_true(not name:lower():find("ribbon"),
-    "the 'Ribbon World' tagline must not leak into the map name (docs only)")
+    "the tagline must not leak into the map name (map reads just Cindra)")
 end)
 
 test("stone resource reads just 'Stone', never 'Cindra stone' (ci-by8)", function()
@@ -240,6 +240,31 @@ test("every *-description has a sibling *-name (no orphan descriptions)", functi
     end
   end
   assert_true(#orphans == 0, "descriptions with no matching name: " .. table.concat(orphans, ", "))
+end)
+
+-- ci-d2h: the finite landing-tier rock is player-facing "Rock", never
+-- "Bootstrap rock". The gameplay role is unchanged (finite hand-mined metal),
+-- only the NAME is plain. Guard both the specific rock name and the general
+-- rule that no player-facing name (entity-name / item-name) leaks "bootstrap".
+test("the finite rock is player-facing 'Rock', never 'Bootstrap rock' (ci-d2h)", function()
+  local names = cfg["entity-name"] or {}
+  assert_true(names["cindra-rock"] == "Rock",
+    "[entity-name] cindra-rock must read exactly 'Rock'; got " .. tostring(names["cindra-rock"]))
+  assert_true(names["cindra-bootstrap-rock"] == nil,
+    "the old 'cindra-bootstrap-rock' entity-name key must be gone (renamed to cindra-rock)")
+end)
+
+test("no player-facing name (entity/item) contains 'bootstrap' (ci-d2h)", function()
+  local offenders = {}
+  for _, section in ipairs({ "entity-name", "item-name" }) do
+    for key, value in pairs(cfg[section] or {}) do
+      if value:lower():find("bootstrap", 1, true) then
+        offenders[#offenders + 1] = section .. "." .. key .. " = '" .. value .. "'"
+      end
+    end
+  end
+  assert_true(#offenders == 0,
+    "player-facing names must not say 'bootstrap':\n  " .. table.concat(offenders, "\n  "))
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

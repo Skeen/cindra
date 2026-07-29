@@ -63,7 +63,7 @@ end
 -- ===========================================================================
 describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", function()
   it("bootstrap rocks are FINITE: a simple-entity destroyed on mining, not a resource (§6)", function()
-    local rock = prototypes.entity["cindra-bootstrap-rock"]
+    local rock = prototypes.entity["cindra-rock"]
     assert.is_not_nil(rock, "the bootstrap rock entity must exist")
     -- A `resource` depletes but PERSISTS (an infinite/finite ore patch); a
     -- `simple-entity` rock is DESTROYED the moment it is mined. The §6 rule --
@@ -77,7 +77,7 @@ describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", funct
   end)
 
   it("bootstrap rocks yield stone + a small metal trickle (the landing-tier drop, §5)", function()
-    local rock = prototypes.entity["cindra-bootstrap-rock"]
+    local rock = prototypes.entity["cindra-rock"]
     local results = rock.mineable_properties.products
     assert.is_not_nil(results, "the rock must drop something when mined")
 
@@ -340,7 +340,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     -- consumes the rock entity or a rock-only drop, so mining rocks stays a
     -- one-time building cost, never a supply the loop depends on.
     local rock_metal = {}
-    for _, r in pairs(prototypes.entity["cindra-bootstrap-rock"].mineable_properties.products) do
+    for _, r in pairs(prototypes.entity["cindra-rock"].mineable_properties.products) do
       if r.name ~= "stone" then rock_metal[r.name] = true end
     end
     for _, recipe in ipairs({
@@ -352,7 +352,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
         assert.is_falsy(rock_metal[ing],
           recipe .. " must not consume the finite bootstrap-rock trickle `" .. ing
             .. "` -- the main loop runs on renewable stone + ice (§6)")
-        assert.are_not.equal("cindra-bootstrap-rock", ing,
+        assert.are_not.equal("cindra-rock", ing,
           recipe .. " must not consume the rock entity itself")
       end
     end
@@ -473,7 +473,7 @@ describe("cindra bootstrap: no tungsten (the field foundry is the metallurgy ans
   end)
 
   it("the bootstrap rock yields no tungsten", function()
-    local rock = prototypes.entity["cindra-bootstrap-rock"]
+    local rock = prototypes.entity["cindra-rock"]
     for _, r in pairs(rock.mineable_properties.products) do
       assert.is_false(is_tungsten(r.name),
         "the bootstrap rock must not drop tungsten (`" .. r.name .. "`) -- tungsten is off Cindra (ci-2tz)")

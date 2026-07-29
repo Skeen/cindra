@@ -21,8 +21,8 @@
 require("prototypes.noise")
 require("prototypes.tiles")
 
--- The Cindra planet: tidally-locked ribbon world, surface + reachability + the
--- temperature-axis framing, generated as a REAL noise-driven ribbon world.
+-- The Cindra planet: tidally-locked ribbon planet, surface + reachability + the
+-- temperature-axis framing, generated as a REAL noise-driven ribbon planet.
 require("prototypes.planet")
 
 -- §15-4 ice processing: reuse the vanilla crushing/melting MODEL (ci-3mx). The

@@ -1,4 +1,4 @@
-# Cindra — The Ribbon World (design)
+# Cindra (design)
 
 Authoritative design for the **Cindra** Factorio 2.1 / Space Age mod. This is
 the implementation spec; if code contradicts it, the doc is right. The full
@@ -129,7 +129,7 @@ recommendation — both **IMPLEMENTED (item 2)**:
   space-connection + `planet-discovery-cindra` tech with
   `planet-discovery-vulcanus` prerequisite. (Any-Planet-Start removes the tech
   when you start *on* Cindra.)
-- **Map gen:** a REAL noise-driven ribbon world (ci-3yl), NOT a patched Nauvis.
+- **Map gen:** a REAL noise-driven ribbon planet (ci-3yl), NOT a patched Nauvis.
   The surface is finite perpendicular (map-gen `width`, see §3) and its ground is
   Cindra's own `cindra-*` tiles (`prototypes/tiles.lua`), each placed by a noise
   expression keyed to the perpendicular axis (`scripts/terrain.lua`) with a
