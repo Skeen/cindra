@@ -44,22 +44,27 @@ merge queue.
   - Tested: `tests/test_worldgen.lua`, `unit-tests/test_resource_field.lua`.
   - *Unblocks 4, 5* — the mechanics track consumes `stone` / `ice` /
     `cindra-volatiles` (recipes are theirs to add).
-- [x] **§15-5 — Lava + metal.** `ci-8mw` (mechanics track).
-  - `prototypes/lava.lua`: recipe `cindra-lava` — `1 stone + [ruinous power] → 5
-    lava` (fluid), metallurgy category so the brought-not-re-unlocked Vulcanus
-    foundry crafts it. Power is the only cost lever (single-stone input,
-    productivity off, cost carried by `energy_required`); gated behind a
-    dedicated `cindra-lava` tech (prereqs foundry + `planet-discovery-cindra`).
-  - Foundry integration is *brought, not re-unlocked*: the Vulcanus
-    `molten-iron/copper-from-lava` recipes are left untouched and simply consume
-    this lava fluid. Their stone byproduct (10/15) is the stone loop-back.
+- [x] **§15-5 — Lava + metal.** `ci-8mw`, `ci-669` (mechanics track).
+  - `prototypes/lava.lua`: recipe `cindra-lava` — `1 stone + [ruinous power] → 10
+    lava` (ci-669), outputting the Cindra-exclusive `cindra-lava` fluid, in a
+    private category so ONLY the dedicated caster (ci-e8a) crafts it. Power is the
+    cost lever (single-stone input, cost carried by `energy_required`, productivity
+    allowed as an intermediate reward); gated behind a dedicated `cindra-lava` tech
+    (prereqs foundry + `planet-discovery-cindra`).
+  - Foundry integration is *brought, not re-unlocked*: the foundry is the
+    Vulcanus machine, but the casting recipes are Cindra-exclusive clones
+    (`cindra-molten-iron/copper-from-lava`) that consume `cindra-lava` and return
+    only a small, `ignored_by_productivity` stone byproduct (4). The shared
+    Vulcanus `lava` fluid + `molten-*-from-lava` recipes are left untouched
+    (never-mutate) and are simply uncraftable on Cindra (no shared lava produced).
   - Tested: `tests/test_lava.lua` (ratio, power lever, gating, foundry-category
-    fit, unmodified molten recipes + byproduct, never-mutate guard, live foundry
-    accepts the recipe on Cindra).
-  - **Balance note (§15-14):** the "net slightly consuming" target is not
-    reachable with the fixed 1:5 ratio + the shared (uneditable) Vulcanus
-    byproduct; reconciling it (batch scaling / a Cindra casting tier) is the
-    balance pass's, flagged in `lava.lua`.
+    fit, the ci-669 stone invariant at no-modules/legendary/cap, never-mutate
+    guard on the shared fluid + molten recipes, live foundry casts on Cindra).
+  - **ci-669 (was the §15-14 balance note):** the stone loop-back now clearly
+    net-consumes at every module tier. Resolved by the Cindra casting tier +
+    distinct `cindra-lava` fluid above (the shared Vulcanus byproduct cannot be
+    cut without leaking, and a distinct input fluid is what stops a legendary
+    player defaulting to the generous vanilla recipe).
 
 ## Backlog (§15 order)
 - [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or`, `ci-3mx` —

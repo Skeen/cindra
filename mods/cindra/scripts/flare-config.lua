@@ -33,11 +33,26 @@ C.SOLAR_MULT = 100
 -- variants (production = this * factor) strictly BELOW the full band, so a
 -- nightward band never out-produces the sunward vanilla panel.
 C.PANEL_NOMINAL_W = 60e3 -- 60 kW (vanilla solar-panel)
--- Intensity is measured in "Nauvis full-day equivalents" = sf * SOLAR_MULT.
--- Baseline (the never-fully-dark night floor) is one Nauvis full day; the flare
--- peak is SOLAR_MULT of them, i.e. ~100x baseline.
-C.BASELINE_INTENSITY = 1.0
-C.PEAK_INTENSITY = C.SOLAR_MULT -- 100x baseline
+-- Absolute per-panel output targets (ci-ezk). Cindra is the BEST solar planet, so
+-- even the between-flare BASELINE must beat Vulcanus (240 kW = 4x a Nauvis panel):
+--   * BASELINE_W (outside flares): 400 kW per full-band panel, > Vulcanus's 240 kW.
+--     The old design pinned the baseline at ~one Nauvis full day (60 kW), which
+--     read as absurdly weak (a nightward band bottomed out at ~3 kW) -- the whole
+--     point of Cindra is surplus, so the floor is re-based UP to 400 kW.
+--   * PEAK_W (at the flare plateau): the natural full-daylight ceiling, ~6 MW per
+--     panel -- squarely "megawatts", the signature spike, and unchanged so the
+--     storage/catchability balance (sized against the 6 MW peak) still holds.
+-- Real engine output = PANEL_NOMINAL_W * (solar-power_property/100) * solar_factor;
+-- with the property at 100x (prototypes/planet.lua) and intensity carrying the
+-- factor, output = PANEL_NOMINAL_W * intensity. So the intensities below ARE the
+-- targets divided by the 60 kW nominal (baseline 6.67, peak 100 => 400 kW / 6 MW).
+C.BASELINE_W = 400e3        -- 400 kW: the between-flare floor (> Vulcanus 240 kW)
+-- Intensity is measured in "Nauvis full-day equivalents" = sf * SOLAR_MULT, i.e.
+-- output / PANEL_NOMINAL_W. Baseline is ~6.67 of them (400 kW); the flare peak is
+-- SOLAR_MULT of them (full daylight, ~6 MW) -- a ~15x swing that stays MW-scale.
+C.BASELINE_INTENSITY = C.BASELINE_W / C.PANEL_NOMINAL_W -- 6.667 (400 kW / 60 kW)
+C.PEAK_INTENSITY = C.SOLAR_MULT                         -- full daylight, ~6 MW
+C.PEAK_W = C.PANEL_NOMINAL_W * C.PEAK_INTENSITY          -- 6 MW at the plateau
 
 -- Daylight curve endpoints. flare.daytime_for reads the surface's OWN
 -- dusk/evening at runtime (so it adapts to whatever the planet has); these are
@@ -55,7 +70,7 @@ C.SF_FLOOR = C.BASELINE_INTENSITY / C.SOLAR_MULT
 -- by clock. What stays FIXED is the flare EVENT itself: it is always telegraphed
 -- (a WARNING window that lets the player react and circuit-automate per event),
 -- always the same telegraph -> fast ramp -> plateau -> fast decay shape, and
--- always ~100x peak. So capacity SIZING still matters (magnitude is consistent);
+-- always the same ~6 MW peak. So capacity SIZING still matters (magnitude is consistent);
 -- only the timing, plus the reaction window, is the sporadic hazard/windfall.
 --
 -- These are the flare-poc's compressed durations (a ~12 s event) so the tests
@@ -102,12 +117,12 @@ C.HP_PER_MW_DEFICIT = 4.0
 -- Recovery when disposal is sufficient: over-budget panels ran "hot" but recover
 -- if you add disposal, so degradation is reversible.
 C.RECOVERY_HP_PER_SWEEP = 6.0
--- Grid-saturation alarm threshold (Coercia's proven "a full battery is the alarm",
+-- Grid-saturation alarm threshold (Cindra's proven "a full battery is the alarm",
 -- ci-snq). A storage buffer stops counting as available disposal once its REAL
 -- fill (entity.energy / electric_buffer_size) reaches this fraction: at/near cap
 -- it can no longer absorb the surge, so the deficit -- and the panel damage --
 -- fires reliably instead of waiting for the buffer to peg bit-exact full. 0.9
--- matches Coercia's induction SATURATION_THRESHOLD.
+-- matches Cindra's induction SATURATION_THRESHOLD.
 C.STORAGE_SATURATION_THRESHOLD = 0.9
 
 -- === Tick cadences ===========================================================
@@ -162,20 +177,22 @@ C.BATTERY_UPKEEP_FRACTION = 0.00085
 -- Test-only measurement rig: an accumulator with flow far above the flare peak,
 -- so it absorbs a panel's full output WITHOUT throttling. Reading its energy
 -- delta over a window measures real, unthrottled engine solar output (used to
--- prove the ~100x peak against the engine, not just the canonical model). Only
+-- prove the ~6 MW peak / 400 kW baseline against the engine, not just the model). Only
 -- registered when factorio-test is loaded (see prototypes/storage.lua).
 C.MEASURE_SINK = "cindra-measurement-sink"
 C.MEASURE_FLOW_W = 500e6
 C.MEASURE_BUFFER_J = 5e9
 
 -- Baseline factory consumption on the grid (W). Baseline solar runs the factory
--- between flares (storage is NOT life-support); default equals one panel's
--- baseline so a lone-panel grid is net-neutral at rest.
+-- between flares (storage is NOT life-support); default equals one full-band
+-- panel's BASELINE output (400 kW, ci-ezk) so a lone-panel grid is net-neutral at
+-- rest -- the between-flare floor never damages a lone panel, only undisposed
+-- flare/array surplus does.
 --
 -- NOTE (integration simplification, from the PoC): consumption is a per-grid
 -- SCALAR the damage rule reads to size the deficit; a full build would read live
 -- consumers per electric network. TODO(ci-63d/follow-up): sum real network draw
 -- so the panel-damage deficit tracks actual load instead of this default.
-C.DEFAULT_CONSUMPTION_W = C.PANEL_NOMINAL_W
+C.DEFAULT_CONSUMPTION_W = C.BASELINE_W
 
 return C

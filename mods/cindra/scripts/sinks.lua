@@ -13,7 +13,7 @@
 --
 -- All quantities are power (W). A sink counts toward capture only if it can
 -- actually accept power THIS tick: a SATURATED accumulator (real fill at/above
--- C.STORAGE_SATURATION_THRESHOLD) contributes 0. That real-fill read is Coercia's
+-- C.STORAGE_SATURATION_THRESHOLD) contributes 0. That real-fill read is Cindra's
 -- "a full battery is the alarm" (ci-snq): storage stops masking the surge as soon
 -- as it is genuinely near cap, so the disposal deficit -- and panel damage --
 -- fires reliably rather than only when a buffer pegs bit-exact full.
@@ -41,7 +41,7 @@ local function in_network(entity, network_id)
   return network_id == nil or entity.electric_network_id == network_id
 end
 
--- Coercia's "full battery is the alarm" (ci-snq): a storage buffer only counts as
+-- Cindra's "full battery is the alarm" (ci-snq): a storage buffer only counts as
 -- available disposal while its REAL fill is below the saturation threshold. Read
 -- from live engine state (entity.energy vs its buffer), so once the grid's storage
 -- is genuinely pegged near cap it stops masking the surplus and the deficit fires.

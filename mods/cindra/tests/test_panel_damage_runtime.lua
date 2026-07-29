@@ -11,7 +11,7 @@
 -- advance a real (pinned) sporadic flare, so the damage is driven end-to-end.
 --
 -- They also lock in the two properties the bead calls out:
---   * grid saturation is read from REAL storage fill (Coercia's "full battery is
+--   * grid saturation is read from REAL storage fill (Cindra's "full battery is
 --     the alarm"): a pegged buffer no longer masks the surplus.
 --   * the damage is SCHEDULE-driven, not daylight-driven: it fires even when the
 --     surface daytime is frozen (robust to the tidal-lock / no-day-cycle change,
@@ -93,7 +93,7 @@ describe("panel damage - live driver path (ci-snq)", function()
   -- deterministic test.
 
   it("grid saturation reads REAL storage fill: a pegged buffer stops masking the surplus", function()
-    -- Coercia's "a full battery is the alarm". A capacitor with headroom counts as
+    -- Cindra's "a full battery is the alarm". A capacitor with headroom counts as
     -- disposal (spares panels); the SAME capacitor pegged near cap no longer counts,
     -- so the surplus becomes a deficit and panels take damage. Driver disabled here
     -- so we can pin the buffer fill deterministically and read the model directly.
@@ -119,7 +119,7 @@ describe("panel damage - live driver path (ci-snq)", function()
 
       -- Same buffer pegged NEAR cap (95% -- above the saturation threshold but not
       -- bit-exact full): the realistic plateau case. It can no longer meaningfully
-      -- absorb, so Coercia's alarm drops it out of capture and the deficit grows.
+      -- absorb, so Cindra's alarm drops it out of capture and the deficit grows.
       -- (On the old bit-exact check `energy < buffer_size` this still counted as
       -- full disposal and masked the surplus -- the reported "not firing" gap.)
       cap.energy = 0.95 * cap.electric_buffer_size

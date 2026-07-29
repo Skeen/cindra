@@ -1,16 +1,22 @@
 -- Proof: manufactured lava is the central economy spine (§15-5; DESIGN.md §2,
--- §5, §7), rescaled for usability (ci-e8a) WITHOUT cheapening the power cost.
--- Claims, matching the bead + the mayor's resolution:
---   1. THE RECIPE:  1 stone + [power] -> 5 lava, ratio + energy FIXED, gated.
+-- §5, §7), rescaled for usability (ci-e8a) and balanced so the stone loop-back can
+-- never self-sustain (ci-669). Claims:
+--   1. THE RECIPE:  1 stone + [power] -> 10 lava (ci-669 ratio), gated, outputting
+--      the Cindra-exclusive `cindra-lava` fluid.
 --   2. THE MACHINE: a dedicated high-speed / high-draw Cindra lava-manufacturer
 --      crafts it in a PRIVATE category -- the shared Vulcanus foundry does not.
 --   3. USABILITY:   a SINGLE-DIGIT count of manufacturers sustains one melting
 --      foundry (the old ~100 was the user complaint).
 --   4. POWER STAYS RUINOUS: energy-per-lava is UNCHANGED from the pre-rescale
 --      foundry value, and feeding one melt is still a serious electric sink.
---   5. DISTINCT TINT on the recipe icon, never on the shared lava fluid.
---   6. FOUNDRY INTEGRATION + STONE LOOP-BACK: the vanilla molten recipes still
---      consume this lava and hand stone back, unmodified (never-mutate guard).
+--   5. DISTINCT TINT on both the recipe icon and the Cindra-exclusive fluid.
+--   6. CINDRA CASTING TIER (ci-669): Cindra-exclusive `cindra-molten-iron/copper-
+--      from-lava` consume `cindra-lava` and return a SMALL, productivity-immune
+--      stone byproduct. The shared vanilla lava fluid + molten recipes are left
+--      untouched (never-mutate guard).
+--   7. STONE INVARIANT (ci-669): across the full stone->lava->molten chains the
+--      loop net-consumes stone at no-modules AND legendary prod (returned <= ~1/3
+--      of consumed at legendary), and NO module tier makes it stone-neutral.
 
 local H = require("tests.helpers")
 local lava_icon = require("prototypes.lava-icon")
@@ -18,12 +24,28 @@ local lava_icon = require("prototypes.lava-icon")
 local RECIPE = "cindra-lava"
 local MACHINE = "cindra-lava-manufacturer"
 local CATEGORY = "cindra-lava-manufacturing"
+local LAVA_FLUID = "cindra-lava" -- the Cindra-exclusive fluid, not shared `lava`
+local CAST_IRON = "cindra-molten-iron-from-lava"
+local CAST_COPPER = "cindra-molten-copper-from-lava"
+
+-- Legendary productivity module 3 grants +25% each (base prod-3 +10% * 2.5 quality).
+local LEGENDARY_PROD_PER_MODULE = 0.25
+-- The engine's hard productivity cap (+300%): the ceiling of ANY module config.
+local MAX_CONCEIVABLE_PROD = 3.0
 
 -- Pull the amount of a named ingredient/product out of a recipe prototype's
 -- {type,name,amount} array. Returns nil if absent.
 local function amount_of(list, name)
   for _, e in pairs(list) do
     if e.name == name then return e.amount end
+  end
+  return nil
+end
+
+-- Pull the full product table (so callers can read ignored_by_productivity etc.).
+local function product_of(list, name)
+  for _, e in pairs(list) do
+    if e.name == name then return e end
   end
   return nil
 end
@@ -36,19 +58,33 @@ local function contains(list, v)
   return false
 end
 
+-- A machine's base productivity (the inherent foundry bonus, module-free).
+local function base_productivity(machine)
+  local er = machine.effect_receiver
+  if er and er.base_effect and er.base_effect.productivity then
+    return er.base_effect.productivity
+  end
+  return 0
+end
+
+-- The productivity a machine reaches with all module slots filled with legendary
+-- productivity modules (the "legendary prod" scenario the bead names).
+local function legendary_productivity(machine)
+  return base_productivity(machine) + (machine.module_inventory_size or 0) * LEGENDARY_PROD_PER_MODULE
+end
+
 -- Nominal lava produced per second by ONE manufacturer (no modules): the batch
 -- size times the machine speed over the craft time. (crafting_speed is a method
 -- in 2.x because quality can scale it; base quality is what we want here.)
 local function lava_per_second(recipe, machine)
-  return amount_of(recipe.products, "lava") * machine.get_crafting_speed() / recipe.energy
+  return amount_of(recipe.products, LAVA_FLUID) * machine.get_crafting_speed() / recipe.energy
 end
 
--- Nominal lava consumed per second by ONE melting foundry running the vanilla
--- molten recipe.
+-- Nominal lava consumed per second by ONE melting foundry running the Cindra cast.
 local function melt_lava_per_second()
-  local melt = prototypes.recipe["molten-iron-from-lava"]
+  local melt = prototypes.recipe[CAST_IRON]
   local foundry = prototypes.entity["foundry"]
-  return amount_of(melt.ingredients, "lava") * foundry.get_crafting_speed() / melt.energy
+  return amount_of(melt.ingredients, LAVA_FLUID) * foundry.get_crafting_speed() / melt.energy
 end
 
 -- Count of manufacturers needed to sustain one melting foundry (nominal, no
@@ -67,11 +103,34 @@ end
 -- draw * craft_time / batch. This is the "energy-per-lava" the mayor pins fixed.
 local function energy_per_lava(recipe, machine)
   local craft_time = recipe.energy / machine.get_crafting_speed()
-  return draw_w(machine) * craft_time / amount_of(recipe.products, "lava")
+  return draw_w(machine) * craft_time / amount_of(recipe.products, LAVA_FLUID)
+end
+
+-- ci-669 stone accounting for ONE cast (500 lava -> 250 molten + byproduct), at a
+-- given lava-recipe productivity and cast-recipe productivity. Returns
+-- stone-consumed (to make the lava) and stone-returned (the loop-back byproduct).
+--   * stone-in: productivity boosts lava-per-craft, so fewer crafts (less stone).
+--   * stone-out: the byproduct's `ignored_by_productivity` portion is fixed; only
+--     the remainder scales with the cast recipe's productivity.
+local function chain_stone(cast_recipe_name, p_lava, p_cast)
+  local lava_recipe = prototypes.recipe[RECIPE]
+  local cast = prototypes.recipe[cast_recipe_name]
+
+  local lava_needed = amount_of(cast.ingredients, LAVA_FLUID)
+  local lava_per_craft = amount_of(lava_recipe.products, LAVA_FLUID) * (1 + p_lava)
+  local stone_per_lava_craft = amount_of(lava_recipe.ingredients, "stone")
+  local stone_in = (lava_needed / lava_per_craft) * stone_per_lava_craft
+
+  local sp = product_of(cast.products, "stone")
+  local ignored = sp.ignored_by_productivity or 0
+  local scalable = sp.amount - ignored
+  local stone_out = ignored + scalable * (1 + p_cast)
+
+  return stone_in, stone_out
 end
 
 describe("cindra manufactured lava", function()
-  it("is 1 stone + power -> 5 lava (ratio + energy fixed per spec, §7)", function()
+  it("is 1 stone + power -> 10 lava (ci-669 ratio) into the Cindra-exclusive fluid", function()
     local recipe = prototypes.recipe[RECIPE]
     assert.is_not_nil(recipe, "cindra-lava recipe must exist")
 
@@ -80,27 +139,27 @@ describe("cindra manufactured lava", function()
     local n_ingredients = 0
     for _ in pairs(recipe.ingredients) do n_ingredients = n_ingredients + 1 end
     assert.are.equal(1, n_ingredients, "the only ingredient is stone -- no fuel, no carrier")
-    assert.are.equal(1, amount_of(recipe.ingredients, "stone"), "1 stone in (spec ratio)")
+    assert.are.equal(1, amount_of(recipe.ingredients, "stone"), "1 stone in (ci-669 ratio)")
 
-    -- One product: 5 lava fluid. The rescale (ci-e8a) does NOT change this -- the
-    -- ratio stays 1:5; usability comes from the machine, not from batching or
-    -- cheapening the recipe.
-    assert.are.equal(5, amount_of(recipe.products, "lava"), "5 lava out (spec ratio, unchanged)")
+    -- One product: 10 lava fluid (ci-669: the user's `1 stone -> 10 lava`), and it
+    -- is the Cindra-EXCLUSIVE fluid, never the shared vanilla `lava`.
+    assert.are.equal(10, amount_of(recipe.products, LAVA_FLUID), "10 cindra-lava out (ci-669 ratio)")
+    assert.is_nil(amount_of(recipe.products, "lava"),
+      "the recipe must NOT output the shared vanilla `lava` (that would re-open the exploit)")
   end)
 
   it("makes power the lever, and allows productivity as an intermediate reward", function()
     local recipe = prototypes.recipe[RECIPE]
     -- energy_required is a real, nontrivial time so the machine's electric draw
-    -- dominates (ruinous power).
+    -- dominates (ruinous power). ci-669 doubled it alongside the doubled output.
     assert.is_true(recipe.energy >= 10,
       "lava must cost real crafting time (the power lever), got " .. tostring(recipe.energy))
     -- Productivity is allowed: lava is the central intermediate + ruinous power
-    -- cost, so a prod bonus is a fair reward and matches vanilla intermediate
-    -- conventions (the downstream molten recipes allow it too).
+    -- cost, so a prod bonus is a fair reward (per prior decision, kept by ci-669).
     assert.is_true(recipe.allowed_effects.productivity,
       "productivity must be ON: lava is an intermediate; a prod bonus is a fair reward")
-    assert.is_true(prototypes.recipe["molten-iron-from-lava"].allowed_effects.productivity,
-      "sanity: the downstream melt also allows productivity (consistent intermediate convention)")
+    assert.is_true(prototypes.recipe[CAST_IRON].allowed_effects.productivity,
+      "sanity: the Cindra cast also allows productivity (consistent intermediate convention)")
   end)
 
   it("is crafted in the dedicated Cindra lava-manufacturer, NOT the shared foundry", function()
@@ -111,7 +170,7 @@ describe("cindra manufactured lava", function()
     assert.is_true(contains(recipe.categories, CATEGORY),
       "cindra-lava lives in the private " .. CATEGORY .. " category")
     assert.is_false(contains(recipe.categories, "metallurgy"),
-      "cindra-lava must NOT be a metallurgy recipe any more -- it left the shared foundry")
+      "cindra-lava must NOT be a metallurgy recipe -- it left the shared foundry")
 
     -- The manufacturer exists and crafts exactly that private category.
     local machine = prototypes.entity[MACHINE]
@@ -158,6 +217,7 @@ describe("cindra manufactured lava", function()
     -- THE user complaint: pre-rescale it took ~100 lava foundries to keep one
     -- melting foundry fed (unusable). Compute the sustaining count LIVE from the
     -- shipped prototypes so the assertion tracks the real recipes, not a guess.
+    -- ci-669 doubled lava output AND energy together, so the count is unchanged.
     local n = sustaining_count()
     assert.is_true(n >= 1 and n <= 9,
       "a single-digit manufacturer count must sustain one melt (got " .. string.format("%.2f", n) .. ")")
@@ -184,7 +244,7 @@ describe("cindra manufactured lava", function()
         .. string.format("%.0f panels", total_w / panel_w))
   end)
 
-  it("has a DISTINCT tint on the recipe icon, never on the shared lava fluid", function()
+  it("has a DISTINCT tint on the recipe icon AND the Cindra-exclusive fluid", function()
     -- The recipe icon is color-layered so manufactured lava reads distinct from
     -- the natural Vulcanus pour. The runtime API does not expose recipe icons, so
     -- (space-appearance convention) we assert the PURE module the data stage uses.
@@ -209,72 +269,148 @@ describe("cindra manufactured lava", function()
     assert.is_true(tint.a ~= nil and tint.a < 1.0,
       "the tint is a semi-transparent overlay so the shift stays subtle/readable")
 
-    -- The tint lives on the RECIPE only: the recipe still outputs the shared
-    -- vanilla `lava` fluid (no retinted Cindra fluid clone -- that would leak
-    -- onto Vulcanus). Guard both halves of that.
-    assert.is_not_nil(amount_of(prototypes.recipe[RECIPE].products, "lava"),
-      "the recipe outputs the shared vanilla `lava` fluid, tint or not")
-    assert.is_nil(prototypes.fluid["cindra-lava"],
-      "there must be NO cindra-specific lava fluid -- we tint the recipe icon, never the fluid")
+    -- Since ci-669 the fluid is Cindra-exclusive, so it carries the tint too: its
+    -- in-pipe colour is warmed off the vanilla lava base. The shared vanilla `lava`
+    -- fluid must be untouched (never-mutate); the Cindra fluid must exist + differ.
+    local cindra = prototypes.fluid[LAVA_FLUID]
+    assert.is_not_nil(cindra, "the Cindra-exclusive cindra-lava fluid must exist")
+    local vanilla = prototypes.fluid["lava"]
+    assert.is_not_nil(vanilla, "the shared vanilla lava fluid must still exist, untouched")
+    local function differs(a, b)
+      return math.abs(a.r - b.r) + math.abs(a.g - b.g) + math.abs(a.b - b.b) > 0.05
+    end
+    assert.is_true(differs(cindra.base_color, vanilla.base_color),
+      "the Cindra fluid's base colour must be tinted distinct from vanilla lava")
   end)
 
-  it("is gated: disabled by default, unlocked only by its own tech (recipe + machine)", function()
+  it("is gated: disabled by default, unlocked only by its own tech (recipe + machine + casts)", function()
     local recipe = prototypes.recipe[RECIPE]
     assert.is_false(recipe.enabled, "the recipe is not free -- research unlocks it")
     assert.is_false(prototypes.recipe[MACHINE].enabled, "the machine recipe is not free either")
+    assert.is_false(prototypes.recipe[CAST_IRON].enabled, "the iron cast is not free either")
+    assert.is_false(prototypes.recipe[CAST_COPPER].enabled, "the copper cast is not free either")
 
     local tech = prototypes.technology[RECIPE]
     assert.is_not_nil(tech, "cindra-lava technology must exist")
     assert.is_true(tech.valid, "the tech must load (its icon is present)")
 
-    -- The tech unlocks BOTH the recipe and the machine that crafts it.
-    local unlocks_recipe, unlocks_machine = false, false
+    -- The tech unlocks the recipe, the machine that crafts it, AND both casts.
+    local unlocks = {}
     for _, effect in pairs(tech.effects) do
-      if effect.type == "unlock-recipe" and effect.recipe == RECIPE then unlocks_recipe = true end
-      if effect.type == "unlock-recipe" and effect.recipe == MACHINE then unlocks_machine = true end
+      if effect.type == "unlock-recipe" then unlocks[effect.recipe] = true end
     end
-    assert.is_true(unlocks_recipe, "the tech must unlock the cindra-lava recipe")
-    assert.is_true(unlocks_machine, "the tech must unlock the lava-manufacturer that crafts it")
+    assert.is_true(unlocks[RECIPE], "the tech must unlock the cindra-lava recipe")
+    assert.is_true(unlocks[MACHINE], "the tech must unlock the lava-manufacturer that crafts it")
+    assert.is_true(unlocks[CAST_IRON], "the tech must unlock the Cindra iron cast")
+    assert.is_true(unlocks[CAST_COPPER], "the tech must unlock the Cindra copper cast")
 
     -- Gated behind the foundry (you need the Vulcanus metal path lava feeds) AND
-    -- Cindra discovery (so it is Cindra-progression content).
+    -- Cindra discovery (so the recipe is Cindra-progression content).
     assert.is_not_nil(tech.prerequisites["foundry"],
       "gated behind the foundry -- the Vulcanus metal chain manufactured lava feeds")
     assert.is_not_nil(tech.prerequisites["planet-discovery-cindra"],
       "gated behind Cindra discovery -- Cindra-progression content")
   end)
 
-  it("feeds the foundry chain: molten recipes consume this lava, unmodified", function()
-    -- BROUGHT, NOT RE-UNLOCKED: the Vulcanus molten recipes are untouched and
-    -- still eat the `lava` fluid this recipe produces. That IS the integration.
-    for _, name in ipairs({ "molten-iron-from-lava", "molten-copper-from-lava" }) do
-      local r = prototypes.recipe[name]
-      assert.is_not_nil(r, name .. " must exist (brought from Vulcanus)")
-      assert.are.equal(500, amount_of(r.ingredients, "lava"),
-        name .. " still consumes 500 lava (unmodified Vulcanus value)")
+  it("casts through Cindra-exclusive recipes: they consume cindra-lava -> vanilla molten", function()
+    -- ci-669: the Cindra casting tier eats the Cindra-only fluid and yields the
+    -- vanilla 250 molten metal (so the downstream casting chain is unchanged).
+    for _, spec in ipairs({
+      { name = CAST_IRON, molten = "molten-iron" },
+      { name = CAST_COPPER, molten = "molten-copper" },
+    }) do
+      local r = prototypes.recipe[spec.name]
+      assert.is_not_nil(r, spec.name .. " must exist (the Cindra casting tier)")
+      assert.are.equal(500, amount_of(r.ingredients, LAVA_FLUID),
+        spec.name .. " consumes 500 cindra-lava (not the shared fluid)")
+      assert.is_nil(amount_of(r.ingredients, "lava"),
+        spec.name .. " must NOT consume shared vanilla lava")
       assert.are.equal(1, amount_of(r.ingredients, "calcite"),
-        name .. " still consumes 1 calcite (unmodified Vulcanus value)")
+        spec.name .. " keeps the 1-calcite cost")
+      assert.are.equal(250, amount_of(r.products, spec.molten),
+        spec.name .. " yields the vanilla 250 " .. spec.molten .. " (downstream chain unchanged)")
+      assert.is_true(contains(r.categories, "metallurgy"),
+        spec.name .. " lives in metallurgy so the brought foundry crafts it")
     end
   end)
 
-  it("loops stone back: the molten recipes return stone as a byproduct", function()
-    -- The stone loop-back is the foundry's own byproduct feeding fresh lava, so
-    -- mining is a top-up, not the whole supply. These are OUTPUT stone, proving
-    -- the loop closes with cindra-lava's stone input.
-    assert.are.equal(10, amount_of(prototypes.recipe["molten-iron-from-lava"].products, "stone"),
-      "molten iron returns 10 stone (loop-back byproduct, unmodified Vulcanus value)")
-    assert.are.equal(15, amount_of(prototypes.recipe["molten-copper-from-lava"].products, "stone"),
-      "molten copper returns 15 stone (loop-back byproduct, unmodified Vulcanus value)")
+  it("returns a SMALL, productivity-IMMUNE stone byproduct (the ci-669 loop-back)", function()
+    -- The loop-back stone is small and fully `ignored_by_productivity`, so NO
+    -- module tier can inflate it -- the mechanism that kills the self-sustain.
+    for _, name in ipairs({ CAST_IRON, CAST_COPPER }) do
+      local sp = product_of(prototypes.recipe[name].products, "stone")
+      assert.is_not_nil(sp, name .. " must still hand some stone back (the loop-back)")
+      assert.is_true(sp.amount <= 6,
+        name .. " must return only a small stone byproduct, got " .. tostring(sp.amount))
+      assert.are.equal(sp.amount, sp.ignored_by_productivity,
+        name .. " must fully exclude its stone byproduct from productivity (returned stone is fixed)")
+    end
   end)
 
-  it("does not mutate the shared molten recipes (never-mutate-other-planets)", function()
-    -- Guard the invariant directly: the Vulcanus recipes keep their canonical
-    -- 250-molten output. If a future change clones-not-mutates went wrong, this
-    -- fails before it can leak onto Vulcanus.
+  it("does not mutate the shared vanilla lava fluid OR molten recipes (never-mutate)", function()
+    -- Guard the invariant DIRECTLY: the shared Vulcanus recipes + fluid keep their
+    -- canonical values. If a future change mutated-not-cloned, this fails before it
+    -- can leak onto Vulcanus.
+    assert.are.equal(500, amount_of(prototypes.recipe["molten-iron-from-lava"].ingredients, "lava"),
+      "vanilla molten iron still consumes 500 shared lava (Vulcanus value intact)")
+    assert.are.equal(500, amount_of(prototypes.recipe["molten-copper-from-lava"].ingredients, "lava"),
+      "vanilla molten copper still consumes 500 shared lava (Vulcanus value intact)")
     assert.are.equal(250, amount_of(prototypes.recipe["molten-iron-from-lava"].products, "molten-iron"),
-      "molten iron still yields 250 (Vulcanus value intact)")
+      "vanilla molten iron still yields 250 (Vulcanus value intact)")
     assert.are.equal(250, amount_of(prototypes.recipe["molten-copper-from-lava"].products, "molten-copper"),
-      "molten copper still yields 250 (Vulcanus value intact)")
+      "vanilla molten copper still yields 250 (Vulcanus value intact)")
+    assert.are.equal(10, amount_of(prototypes.recipe["molten-iron-from-lava"].products, "stone"),
+      "vanilla molten iron keeps its 10-stone byproduct (unmutated)")
+    assert.are.equal(15, amount_of(prototypes.recipe["molten-copper-from-lava"].products, "stone"),
+      "vanilla molten copper keeps its 15-stone byproduct (unmutated)")
+    -- The shared fluid keeps its vanilla colour (we tinted a CLONE, not this).
+    local vanilla = prototypes.fluid["lava"]
+    assert.is_true(math.abs(vanilla.base_color.r - 1.0) < 0.01
+        and math.abs(vanilla.base_color.g - 0.4) < 0.01
+        and math.abs(vanilla.base_color.b - 0.1) < 0.01,
+      "the shared vanilla lava fluid keeps its canonical base_color (unmutated)")
+  end)
+
+  -- ===== ci-669 STONE INVARIANT (mandatory) ================================
+  describe("ci-669: the stone loop-back never self-sustains", function()
+    for _, spec in ipairs({
+      { name = CAST_IRON, label = "iron" },
+      { name = CAST_COPPER, label = "copper" },
+    }) do
+      it("net-consumes stone at NO modules on the lava->" .. spec.label .. " chain", function()
+        local manufacturer = prototypes.entity[MACHINE]
+        local foundry = prototypes.entity["foundry"]
+        -- "No modules" still carries the machines' inherent BASE productivity.
+        local stone_in, stone_out =
+          chain_stone(spec.name, base_productivity(manufacturer), base_productivity(foundry))
+        assert.is_true(stone_out < stone_in,
+          string.format("no-modules must net-consume stone (in %.2f, back %.2f)", stone_in, stone_out))
+      end)
+
+      it("net-consumes stone, returned <= ~1/3 of consumed, at LEGENDARY prod on lava->"
+        .. spec.label, function()
+        local manufacturer = prototypes.entity[MACHINE]
+        local foundry = prototypes.entity["foundry"]
+        local stone_in, stone_out =
+          chain_stone(spec.name, legendary_productivity(manufacturer), legendary_productivity(foundry))
+        assert.is_true(stone_out < stone_in,
+          string.format("legendary must still net-consume stone (in %.2f, back %.2f)", stone_in, stone_out))
+        assert.is_true(stone_out <= stone_in / 3 + 1e-9,
+          string.format("legendary returned stone must be <= 1/3 of consumed (in %.2f, back %.2f, ratio %.2f)",
+            stone_in, stone_out, stone_out / stone_in))
+      end)
+
+      it("never goes stone-neutral/positive at ANY module tier on lava->" .. spec.label, function()
+        -- The worst case for the loop is the engine's hard productivity cap (+300%)
+        -- on BOTH recipes: max lava-per-stone AND max byproduct. Because the
+        -- byproduct is ignored_by_productivity it cannot grow, so even here the loop
+        -- must net-CONSUME. This is the "no module configuration self-sustains" guard.
+        local stone_in, stone_out = chain_stone(spec.name, MAX_CONCEIVABLE_PROD, MAX_CONCEIVABLE_PROD)
+        assert.is_true(stone_out < stone_in,
+          string.format("even at the +300%% cap the loop must net-consume (in %.2f, back %.2f)",
+            stone_in, stone_out))
+      end)
+    end
   end)
 
   it("a lava-manufacturer on Cindra accepts the lava recipe (fluid output + category fit)", function()
@@ -290,6 +426,19 @@ describe("cindra manufactured lava", function()
     assert.are.equal(RECIPE, set.name,
       "the manufacturer accepts cindra-lava: private category + a fluid-output box for lava")
     machine.destroy()
+  end)
+
+  it("a foundry on Cindra accepts the Cindra iron cast (metallurgy + cindra-lava input)", function()
+    -- The brought-not-re-unlocked foundry crafts the Cindra casting recipe: proves
+    -- the metallurgy-category fit + a fluid box that takes cindra-lava.
+    local s = H.cindra_surface()
+    game.forces["player"].recipes[CAST_IRON].enabled = true
+
+    local foundry = s.create_entity({ name = "foundry", position = { 0, 0 }, force = "player" })
+    foundry.set_recipe(CAST_IRON)
+    assert.are.equal(CAST_IRON, foundry.get_recipe().name,
+      "the foundry casts cindra-lava into molten iron (the Cindra casting tier)")
+    foundry.destroy()
   end)
 
   it("accepts a productivity module in-machine: the bonus actually applies", function()
