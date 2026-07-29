@@ -59,6 +59,10 @@ for i, spec in ipairs(terrain.TILES) do
   -- The clone carries its own noise-expression autoplace keyed to the ribbon axis.
   t.autoplace = { probability_expression = terrain.probability_expr(spec.name, CFG) }
   t.layer = base_layer + i
+  -- Override the inherited (muddy vanilla) map_color with Cindra's danger-zone
+  -- gradient so the hot/cold lethal bands read as an alarming coloured edge on the
+  -- map view (ci-4h7). Set only on the clone -- the vanilla tile is untouched.
+  t.map_color = terrain.map_color(spec.name)
   -- A cloned fluid tile (lava) would otherwise behave like a liquid (unbuildable,
   -- offshore-pump target). Strip the fluid so it is solid, buildable lethal ground.
   t.fluid = nil

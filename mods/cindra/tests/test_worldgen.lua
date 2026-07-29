@@ -166,6 +166,48 @@ describe("cindra worldgen: a real noise-driven ribbon world (§4, §15-2; ci-3yl
     assert.is_not_nil(prototypes.item["cindra-volatiles"], "the volatiles item survives")
   end)
 
+  it("marks the danger zone on the map: lethal tiles carry a distinct map_color (ci-4h7)", function()
+    -- The danger zone must read on the map view like a Vulcanus demolisher tint,
+    -- produced positionally by the tile bands (no demolisher territory API). Prove
+    -- the ACTUAL tile prototypes carry the coordinated danger map_color, and that
+    -- the lethal edges are clearly distinct from the safe terminator centre so the
+    -- safe<->damaging boundary is legible on the map.
+    -- The engine normalises a map_color to 0..255 at runtime; normalise back to
+    -- 0..1 so we can compare against the 0..1 source of truth in terrain.lua.
+    local function mc(name)
+      local c = prototypes.tile[name].map_color
+      assert.is_not_nil(c, name .. " has a map_color")
+      local scale = (c.r > 1 or c.g > 1 or c.b > 1) and 255 or 1
+      return { c.r / scale, c.g / scale, c.b / scale }
+    end
+    local function dist(a, b)
+      return math.abs(a[1] - b[1]) + math.abs(a[2] - b[2]) + math.abs(a[3] - b[3])
+    end
+    local center = mc("cindra-terminator")
+    local lava, ice = mc("cindra-lava"), mc("cindra-deep-ice")
+    local margin = mc("cindra-molten-rock")
+    mc("cindra-frost") -- present too
+    assert.is_true(dist(lava, center) > 0.6, "the lava danger edge is a distinct map_color from the safe centre")
+    assert.is_true(dist(ice, center) > 0.6, "the deep-ice danger edge is a distinct map_color from the safe centre")
+    -- Matches the source of truth in scripts/terrain.lua (map_color coordinated
+    -- with the same hot->cold gradient as the terrain + damage), within the 8-bit
+    -- rounding the engine applies (1/255 ~= 0.004 per channel).
+    assert.is_true(dist(lava, terrain.map_color("cindra-lava")) < 0.02, "lava map_color follows terrain.lua")
+    assert.is_true(dist(center, terrain.map_color("cindra-terminator")) < 0.02, "terminator map_color follows terrain.lua")
+    -- Hot band reads red/orange; cold band reads blue: the gradient is on the map.
+    assert.is_true(lava[1] > lava[2] and lava[1] > lava[3], "lava reads red/orange on the map")
+    assert.is_true(margin[1] > margin[2], "the hot margin reads warm on the map")
+    assert.is_true(ice[3] > ice[1], "deep-ice reads cold (blue) on the map")
+    -- The vanilla clone-source is NEVER recoloured (no cross-planet leakage): the
+    -- Cindra lava tile carries its own colour, distinct from the vanilla lava tile.
+    local vlava = prototypes.tile["lava"]
+    if vlava and vlava.map_color then
+      local vs = (vlava.map_color.r > 1 or vlava.map_color.g > 1 or vlava.map_color.b > 1) and 255 or 1
+      assert.is_true(dist(lava, { vlava.map_color.r / vs, vlava.map_color.g / vs, vlava.map_color.b / vs }) > 0.05,
+        "Cindra lava has its own map_color; vanilla lava is untouched")
+    end
+  end)
+
   it("the ice field is a single-product drop: ONLY the oxide chunk, no volatiles (ci-4xx)", function()
     -- ci-4xx relocated volatiles from a mining yield to a processing recipe. The
     -- field must now drop ONLY the vanilla oxide chunk; nothing on the resource

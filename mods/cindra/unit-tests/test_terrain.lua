@@ -63,6 +63,39 @@ test("only lava (heat) and deep-ice (cold) are lethal; the margins are safe", fu
   assert_eq(2, n, "exactly two lethal tiles")
 end)
 
+test("every tile has a map_color; the danger edges are distinct from the safe centre (ci-4h7)", function()
+  -- The danger zone must read on the map view (ci-4h7). Each Cindra tile carries a
+  -- {r,g,b} map_color, and the lethal edges are visually distinct from the safe
+  -- terminator centre so the safe<->damaging boundary is legible on the map.
+  local center = terrain.map_color("cindra-terminator")
+  assert_true(center ~= nil, "the safe centre has a map_color")
+  for _, t in ipairs({ "cindra-terminator", "cindra-molten-rock", "cindra-lava",
+                       "cindra-frost", "cindra-deep-ice" }) do
+    local c = terrain.map_color(t)
+    assert_true(c ~= nil, t .. " has a map_color")
+    assert_eq(3, #c, t .. " map_color is {r,g,b}")
+  end
+  assert_true(terrain.map_color("unknown-tile") == nil, "unknown tiles have no map_color")
+
+  -- Manhattan distance in RGB: the two lethal edges must clearly differ from the
+  -- neutral centre (not a near-identical muddy brown, the vanilla-clone problem).
+  local function dist(a, b)
+    return math.abs(a[1] - b[1]) + math.abs(a[2] - b[2]) + math.abs(a[3] - b[3])
+  end
+  local lava, ice = terrain.map_color("cindra-lava"), terrain.map_color("cindra-deep-ice")
+  assert_true(dist(lava, center) > 0.6, "the lethal lava edge is a distinct colour from the safe centre")
+  assert_true(dist(ice, center) > 0.6, "the lethal deep-ice edge is a distinct colour from the safe centre")
+
+  -- The hot danger band reddens toward its lethal edge (deep red margin -> hot
+  -- orange lava): red channel dominates and the edge is brighter/hotter than the
+  -- margin. The cold band brightens toward its lethal edge (blue channel dominant).
+  local margin = terrain.map_color("cindra-molten-rock")
+  assert_true(lava[1] > lava[2] and lava[1] > lava[3], "lava reads red/orange (red channel dominates)")
+  assert_true(margin[1] > margin[2] and margin[1] > margin[3], "the hot margin reads red")
+  assert_true(lava[1] >= margin[1], "the lethal lava edge is at least as hot/bright as the hot margin")
+  assert_true(ice[3] > ice[1], "deep-ice reads cold (blue channel over red)")
+end)
+
 test("the terminator is a constant baseline so it wins the wide safe centre", function()
   assert_eq("1", terrain.probability_expr("cindra-terminator", CFG),
     "the centre tile is the constant fallback (guarantees full coverage)")
