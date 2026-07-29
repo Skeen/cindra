@@ -75,6 +75,9 @@ if script.active_mods["factorio-test"] then
     "tests/test_storage",
     "tests/test_catchability",
     "tests/test_power_prototypes",
+    -- ci-ezk: ABSOLUTE solar output magnitudes (baseline ~400 kW > Vulcanus,
+    -- flare peak in the MW range, dim sky does not suppress production).
+    "tests/test_solar_magnitude",
     -- §15-12 the headline Cindra science pack (crafted in a stock assembler) + the
     -- folded tech tree (petrochemical-free, native inputs, a real energy cost).
     "tests/test_science",

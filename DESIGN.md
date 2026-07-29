@@ -235,15 +235,19 @@ two-temperature quench — is retired, ci-84s: the fire/ice terrain stays as a
 hazard and water source, not a craft.)
 
 Power is **high-intensity solar via the daylight curve**: a dark-weighted cycle
-whose night floor ≈ Nauvis full day (runs the factory) and whose day peak ≈ the
-**solar flare** (~100× baseline). The flare is **sporadic but telegraphed**
-(ci-2ba, overriding the old "regular/predictable cadence" of §10): its *timing*
-is randomized within a band so you cannot predict the next one by clock, yet
-every event is still preceded by a **warning window** (alarm + countdown) so you
-can react and circuit-automate a response per event, and the magnitude stays
-~100× so capacity sizing still matters. It must **never be 100%-catchable**, and
-undisposed surplus **damages the panels producing it** (self-correcting,
-dissipator-as-fuse, degrade-before-death).
+whose night floor is **400 kW per panel** (runs the factory; ci-ezk re-based it
+up from the old ~Nauvis-full-day 60 kW so Cindra beats Vulcanus's 240 kW and
+reads as the best solar planet) and whose day peak ≈ the **solar flare** (~6 MW
+per panel, a ~15× spike into the MW range). The sky LOOKS dark at the baseline
+(tidal-lock deep-dusk), but production is **decoupled** from that visual dimness.
+The flare is **sporadic but telegraphed** (ci-2ba, overriding the old
+"regular/predictable cadence" of §10): its *timing* is randomized within a band
+so you cannot predict the next one by clock, yet every event is still preceded by
+a **warning window** (alarm + countdown) so you can react and circuit-automate a
+response per event, and the magnitude stays MW-scale so capacity sizing still
+matters. It must **never be 100%-catchable**, and undisposed surplus **damages
+the panels producing it** (self-correcting, dissipator-as-fuse,
+degrade-before-death).
 Storage is a two-tier puzzle: **capacitor** (fast spike, slight self-discharge
 leak) + **molten-salt battery** (bulk plateau, punishing heat-upkeep leak). Both
 bleed when idle; the capacitor only a gentle trickle (~15-20 min to empty), the
@@ -410,9 +414,9 @@ is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 | Lava power cost | very high | rival/exceed baseline solar at scale |
 | Molten iron | 500 lava + 1 calcite + 10 stone → 250 | Vulcanus values |
 | Molten copper | 500 lava + 1 calcite + 15 stone → 250 | Vulcanus values |
-| Surface solar multiplier | ~10000% (validate) | set by working back from lava energy cost |
-| Baseline (night floor) | ≈ Nauvis full day | dark-weighted, never true zero |
-| Flare peak vs baseline | ~100× | must stay relevant; <100% catchable |
+| Surface solar multiplier | ~10000% (100× Nauvis) | set by working back from lava energy cost |
+| Baseline (night floor) | 400 kW/panel (> Vulcanus 240 kW) | ci-ezk; dark-weighted look but full production, never true zero |
+| Flare peak | ~6 MW/panel (~15× baseline) | ci-ezk; MW-scale spike, must stay relevant; <100% catchable |
 | Flare interval (calm gap) | random ~5–10 min | sporadic, not a metronome (ci-1c7); each event still telegraphed |
 | Electric heater temp cap | 600° | below reactor, above steam threshold |
 | Stone loop-back net | slightly net-consuming | fresh mining stays a slow activity |

@@ -5,7 +5,7 @@
 -- flare.solar_factor(intensity) are pure (no game.* / storage), so their whole
 -- surface is reachable here. The factorio-test in tests/test_flare.lua asserts
 -- the SAME shape under the real runtime plus the engine embodiment (real solar
--- output swings ~100x, and a long run really produces randomized gaps); keep the
+-- output swings ~15x, and a long run really produces randomized gaps); keep the
 -- two in sync.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
@@ -71,7 +71,7 @@ test("telegraphs with a warning + countdown before power moves", function()
   assert_eq(C.WARNING_TICKS - 10, mid.countdown, "countdown ticks down toward the ramp")
 end)
 
-test("ramps fast, plateaus at the ~100x peak, then decays fast", function()
+test("ramps fast, plateaus at the MW peak, then decays fast", function()
   local ramp = flare.state(RAMP_MID, WS)
   assert_eq(P.RAMP, ramp.phase, "mid-ramp phase")
   assert_true(ramp.is_flare, "ramp is a flare")
@@ -86,9 +86,14 @@ test("ramps fast, plateaus at the ~100x peak, then decays fast", function()
   assert_true(decay.intensity > C.BASELINE_INTENSITY and decay.intensity < C.PEAK_INTENSITY, "decay between peak and base")
 end)
 
-test("peak is ~100x baseline (the signature magnitude, unchanged by sporadic timing)", function()
-  assert_eq(100, C.PEAK_INTENSITY / C.BASELINE_INTENSITY, "100x baseline")
-  assert_eq(C.SOLAR_MULT, C.PEAK_INTENSITY / C.BASELINE_INTENSITY, "peak = the surface multiplier")
+test("baseline is 400 kW and the flare peaks in the MW range (the signature magnitude, ci-ezk)", function()
+  -- Re-based (ci-ezk): a 400 kW between-flare floor (> Vulcanus's 240 kW) swings up
+  -- to the natural full-daylight ceiling (~6 MW), a ~15x spike that stays MW-scale.
+  assert_eq(400e3, C.BASELINE_W, "400 kW baseline (the best solar planet)")
+  assert_eq(6e6, C.PEAK_W, "~6 MW flare peak (MW range)")
+  assert_eq(C.PANEL_NOMINAL_W * C.BASELINE_INTENSITY, C.BASELINE_W, "baseline intensity encodes 400 kW")
+  assert_eq(C.SOLAR_MULT, C.PEAK_INTENSITY, "peak intensity = the surface multiplier (full daylight)")
+  assert_true(C.PEAK_INTENSITY / C.BASELINE_INTENSITY > 10, "a large swing, still MW-scale")
 end)
 
 test("phases occur in order across one event", function()

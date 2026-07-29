@@ -3,14 +3,16 @@
 --
 -- Implemented via the ENGINE DAYLIGHT CURVE plus a fixed high surface solar
 -- multiplier - no bespoke power system, no artificial overdrive. The flare is
--- the daylight cycle driven to full day; the "dim" between-flare trough is a
--- near-night daytime whose non-zero solar factor, scaled by the fixed
--- SOLAR_MULT, still delivers a Nauvis-full-day-grade baseline (the night floor
--- that runs the factory between flares).
+-- the daylight cycle driven to full day (~6 MW/panel peak); the "dim"
+-- between-flare trough is a near-night daytime whose non-zero solar factor,
+-- scaled by the fixed 100x surface multiplier, still delivers a 400 kW baseline
+-- (ci-ezk: the night floor that runs the factory between flares, and beats
+-- Vulcanus's 240 kW -- Cindra is the best solar planet). The sky LOOKS dark at
+-- baseline (a deep-dusk daytime) but production is decoupled from that dimness.
 --
 -- SPORADIC timing (ci-2ba): flares no longer fire on a fixed metronome. The
 -- calm gap before each event is a random draw (unpredictable WHEN), while the
--- event's telegraph -> fast ramp -> plateau -> fast decay SHAPE and its ~100x
+-- event's telegraph -> fast ramp -> plateau -> fast decay SHAPE and its ~6 MW peak
 -- magnitude are unchanged (so capacity sizing still matters, and every event is
 -- still telegraphed so you can react per-event). The design splits into:
 --   * `state(tick, warning_start)` - a PURE function: the flare shape at `tick`
@@ -27,9 +29,10 @@
 --     warning device instead of a schedule display.
 --
 -- Intensity is expressed in "Nauvis full-day equivalents": BASELINE_INTENSITY
--- (=1) between flares, PEAK_INTENSITY (=SOLAR_MULT, ~100x) at the plateau. The
--- engine's actual per-panel output = PANEL_NOMINAL_W * intensity, because we
--- drive daytime so that solar_factor = intensity / SOLAR_MULT.
+-- (~6.67 => 400 kW) between flares, PEAK_INTENSITY (=SOLAR_MULT => ~6 MW, full
+-- daylight) at the plateau -- a ~15x swing (ci-ezk). The engine's actual
+-- per-panel output = PANEL_NOMINAL_W * intensity, because we drive daytime so
+-- that solar_factor = intensity / SOLAR_MULT.
 
 local C = require("scripts.flare-config")
 

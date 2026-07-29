@@ -1,5 +1,5 @@
 -- PROOF: sporadic flares (ci-2ba) - randomized timing, but every event still
--- telegraphed with the fixed ramp/plateau/decay shape and ~100x peak (§15-7;
+-- telegraphed with the fixed ramp/plateau/decay shape and an MW-scale peak (§15-7;
 -- DESIGN.md §5, §7). Integrated from flare-poc.
 --
 -- Layers:
@@ -8,7 +8,7 @@
 --   * sporadic scheduling in-engine (a long run really yields randomized calm
 --     gaps, never a fixed period),
 --   * engine embodiment (applying an event to the real Cindra surface swings
---     solar output ~100x),
+--     solar output ~15x, a 400 kW floor up to a ~6 MW peak),
 --   * the reactive forecast source the environmental scanner reads.
 
 local H = require("tests.helpers")
@@ -30,7 +30,7 @@ describe("flare cycle - canonical shape", function()
     assert.is_false(s.is_flare)
   end)
 
-  it("telegraphs, then ramps to the ~100x peak, then decays", function()
+  it("telegraphs, then ramps to the MW peak, then decays", function()
     local warn = flare.state(WS, WS)
     assert.are.equal(P.WARNING, warn.phase)
     assert.is_true(warn.warning)
@@ -40,7 +40,11 @@ describe("flare cycle - canonical shape", function()
     local plateau = flare.state(PLATEAU_TICK, WS)
     assert.are.equal(P.PLATEAU, plateau.phase)
     assert.are.equal(C.PEAK_INTENSITY, plateau.intensity)
-    assert.are.equal(100, C.PEAK_INTENSITY / C.BASELINE_INTENSITY) -- the signature magnitude
+    -- The signature magnitude (ci-ezk): a 400 kW baseline swings up to a ~6 MW peak
+    -- (a ~15x spike into the MW range). Peak = the natural full-daylight ceiling.
+    assert.are.equal(400e3, C.BASELINE_W)
+    assert.are.equal(6e6, C.PEAK_W)
+    assert.is_true(C.PEAK_INTENSITY / C.BASELINE_INTENSITY > 10) -- a large swing, still MW-scale
   end)
 end)
 
@@ -93,7 +97,7 @@ describe("flare cycle - sporadic timing", function()
 end)
 
 describe("flare cycle - engine embodiment", function()
-  it("driving daytime really swings real solar output ~100x (non-zero floor)", function()
+  it("driving daytime really swings real solar output ~15x (400 kW floor -> MW peak)", function()
     local s = H.cindra_surface()
     H.power_reset()
     flare.set_schedule(WS) -- pin a deterministic event so the ticks below land right
@@ -115,8 +119,10 @@ describe("flare cycle - engine embodiment", function()
       after_ticks(120, function()
         local peak_e = sink.energy
         local ratio = peak_e / base_e
-        assert.is_true(ratio > 50 and ratio < 150,
-          "real solar output must swing ~100x baseline; got " .. string.format("%.1f", ratio))
+        -- ci-ezk re-baseline: the floor is now 400 kW (was 60 kW) so the swing is
+        -- ~15x (6 MW / 400 kW), not the old 100x. Still a large, MW-scale spike.
+        assert.is_true(ratio > 10 and ratio < 20,
+          "real solar output must swing ~15x baseline; got " .. string.format("%.1f", ratio))
         done()
       end)
     end)

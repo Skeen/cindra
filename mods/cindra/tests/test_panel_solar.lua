@@ -110,7 +110,7 @@ describe("position-scaled solar - real engine output", function()
     end)
   end)
 
-  it("composes with the flare: a placed panel still swings ~100x baseline", function()
+  it("composes with the flare: a placed panel still swings ~15x baseline", function()
     local s = H.cindra_surface()
     H.power_reset()
     flare.set_schedule(WS)
@@ -132,7 +132,9 @@ describe("position-scaled solar - real engine output", function()
       flare.apply(s, PEAK_TICK)
       after_ticks(120, function()
         local ratio = sink.energy / base_e
-        assert.is_true(ratio > 50 and ratio < 150,
+        -- ci-ezk re-baseline: swing is ~15x (6 MW / 400 kW), not the old 100x.
+        -- Position scaling multiplies the flare, it does not flatten it.
+        assert.is_true(ratio > 10 and ratio < 20,
           "position scaling multiplies the flare, it does not flatten it; got "
             .. string.format("%.1f", ratio))
         done()

@@ -244,7 +244,7 @@ data:extend({
 -- so it absorbs a panel's full output WITHOUT throttling. Registered ONLY when
 -- factorio-test is loaded, so the shipped mod never carries it. Reading its
 -- energy delta over a window measures real, unthrottled engine solar output
--- (proves the ~100x peak against the engine, not just the canonical model).
+-- (proves the ~6 MW peak / 400 kW baseline against the engine, not just the model).
 if mods and mods["factorio-test"] then
   local measure = util.table.deepcopy(data.raw["accumulator"]["accumulator"])
   measure.name = C.MEASURE_SINK

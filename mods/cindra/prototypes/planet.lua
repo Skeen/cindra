@@ -164,8 +164,8 @@ data:extend({
       -- reads 100 here; 10000 = 100x, the fixed high multiplier the flare swings
       -- across via the daylight curve. scripts/flare.lua re-affirms the matching
       -- surface.solar_power_multiplier at runtime as it drives the curve, and the
-      -- dim between-flare floor still delivers ~one Nauvis-full-day (runs the
-      -- factory). (tune) §15-14 validates this against the lava recipe's cost.
+      -- dim between-flare floor still delivers a 400 kW baseline (ci-ezk: > Vulcanus's
+      -- 240 kW, runs the factory). (tune) §15-14 validates this against the lava cost.
       ["solar-power"] = 10000,
       -- No atmosphere to speak of ("the air itself would boil, were there any"):
       -- a thin envelope over molten rock.
