@@ -2,12 +2,12 @@
 -- Run: cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_branding.lua
 --
 -- Branding is pure text (info.json + the locale .cfg), so its invariants live
--- here rather than in a Factorio integration test. This guards the ci-06j
--- requirements:
+-- here rather than in a Factorio integration test. This guards the ci-06j /
+-- ci-8ua requirements:
 --
---   * the "The Ribbon World" tagline appears NOWHERE user-facing (info.json
---     title/description, or any value in the locale .cfg). It may live in
---     internal docs only, never in a string the player sees.
+--   * the old two-word tagline appears NOWHERE in the whole repo -- not in
+--     user-facing strings, not in docs, not in code comments. The mod is just
+--     "Cindra". A repo-wide `git grep` guard (below) fails if it creeps back.
 --   * info.json title is exactly "Cindra" (no tagline);
 --   * info.json author is "Vuza" (not the "you" placeholder);
 --   * a mod thumbnail.png ships at the mod root (Factorio thumbnail spec:
@@ -81,29 +81,40 @@ test("the mod ships a thumbnail.png at its root", function()
   end
 end)
 
--- The tagline must appear in NO user-facing string. Scan info.json and every
--- value in the locale .cfg (both the main mod and the cindra-start sibling).
-local function assert_no_tagline(label, text)
-  assert_true(text:lower():find("ribbon world", 1, true) == nil,
-    "the 'Ribbon World' tagline must not appear in " .. label
-      .. " (docs-only, never user-facing)")
+-- REGRESSION GUARD (ci-8ua): the old two-word tagline must appear in ZERO
+-- tracked files across the WHOLE repo -- docs, code comments, locale, info.json,
+-- everything. Earlier branding work only purged it from user-facing strings and
+-- let it linger in docs; from here it is banned everywhere so it cannot creep
+-- back in.
+--
+-- The forbidden needle is assembled from fragments so this guard file does not
+-- itself contain the contiguous phrase it hunts for (otherwise it would report
+-- itself). The search runs via `git grep`, which only sees tracked files, so a
+-- fresh clone with the string scrubbed passes.
+local FORBIDDEN = "ribbon" .. " " .. "world"
+
+local function repo_root()
+  local f = io.popen("git rev-parse --show-toplevel 2>/dev/null")
+  if not f then return nil end
+  local root = f:read("*l")
+  f:close()
+  if root == nil or root == "" then return nil end
+  return root
 end
 
-test("no 'Ribbon World' tagline in info.json", function()
-  assert_no_tagline("info.json", info)
-end)
-
-test("no 'Ribbon World' tagline anywhere in the locale .cfg", function()
-  assert_no_tagline("locale/en/cindra.cfg", read_file("locale/en/cindra.cfg"))
-end)
-
-test("no 'Ribbon World' tagline in the cindra-start sibling locale", function()
-  local path = "../cindra-start/locale/en/cindra-start.cfg"
-  local f = io.open(path, "r")
-  if not f then return end -- sibling not present in this checkout; nothing to guard
-  local body = f:read("*a")
+test("the old tagline appears in NO tracked file anywhere in the repo", function()
+  local root = repo_root()
+  assert_true(root ~= nil,
+    "regression guard needs git (a git working tree) to scan tracked files")
+  -- -I skips binary files, -i is case-insensitive, -n prints line numbers.
+  local cmd = "git -C '" .. root .. "' grep -I -i -n -e '" .. FORBIDDEN
+    .. "' 2>/dev/null"
+  local f = assert(io.popen(cmd), "could not run git grep")
+  local hits = f:read("*a") or ""
   f:close()
-  assert_no_tagline(path, body)
+  assert_true(hits == "",
+    "the forbidden tagline reappeared in tracked files (the mod is just "
+      .. "'Cindra'); offending lines:\n" .. hits)
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

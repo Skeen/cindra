@@ -1,6 +1,6 @@
 # Agent orientation — Cindra mod
 
-Factorio 2.1 / Space Age mod adding **Cindra**, a tidally-locked "Ribbon World"
+Factorio 2.1 / Space Age mod adding **Cindra**, a tidally-locked "ribbon planet"
 where survival is **routing the star's surplus between fire and ice**. A molten
 dayside, a frozen nightside, and a narrow survivable ribbon at the terminator.
 No oil, no biology: it runs on rock, ice, metal, and dangerous starlight. Mod

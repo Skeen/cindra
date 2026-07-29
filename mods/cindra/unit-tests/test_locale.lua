@@ -99,7 +99,7 @@ test("map name is just 'Cindra' with no tagline (ci-2sr)", function()
   assert_true(name == "Cindra",
     "[space-location-name] cindra must read exactly 'Cindra'; got " .. tostring(name))
   assert_true(not name:lower():find("ribbon"),
-    "the 'Ribbon World' tagline must not leak into the map name (docs only)")
+    "the tagline must not leak into the map name (map reads just Cindra)")
 end)
 
 test("stone resource reads just 'Stone', never 'Cindra stone' (ci-by8)", function()
