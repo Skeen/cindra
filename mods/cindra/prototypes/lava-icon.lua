@@ -1,11 +1,11 @@
--- Pure icon spec for the manufactured-lava recipe (§15-5, ci-e8a).
+-- Pure icon spec for manufactured lava (§15-5, ci-e8a; ci-669).
 --
--- The recipe OUTPUTS the shared vanilla `lava` fluid -- the Vulcanus foundry
--- chain eats it ("brought, not re-unlocked"), so we MUST NOT retint the fluid
--- itself: that would leak onto Vulcanus (never-mutate-other-planets). The only
--- surface we own is the RECIPE's own icon, so we color-layer THAT. Manufactured
--- lava reads a touch hotter/brighter than the natural Vulcanus pour: distinct
--- at a glance, still obviously lava.
+-- Since ci-669 the lava recipe outputs a Cindra-EXCLUSIVE `cindra-lava` fluid, not
+-- the shared vanilla `lava` the Vulcanus chain eats, so we can carry this warm tint
+-- on BOTH the recipe icon and the Cindra fluid itself without leaking onto Vulcanus
+-- (the shared `lava` fluid is never touched -- never-mutate-other-planets holds).
+-- Manufactured lava reads a touch hotter/brighter than the natural Vulcanus pour:
+-- distinct at a glance, still obviously lava.
 --
 -- The runtime prototype API does NOT expose recipe icons, so -- exactly like
 -- prototypes/space-appearance.lua -- the icon lives in a PURE module the data

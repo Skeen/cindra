@@ -32,9 +32,11 @@
 --   * cindra-improvised-metallurgy -- ci-arw: native lubricant (crude coal +
 --     renewable silica oil) and the Cindra-buildable `cindra-field-foundry`.
 --   * foundry                       -- the Vulcanus foundry tech; on Cindra its
---     own build recipe stays pressure-locked (we use the field recipe instead),
---     but it unlocks the molten-iron/copper-from-lava recipes the economy needs.
---   * cindra-lava                   -- `1 stone + power -> 5 lava`, the spine.
+--     own build recipe stays pressure-locked (we use the field recipe instead).
+--     Since ci-669 the Cindra casting recipes ride on the cindra-lava tech, not
+--     this one, but the foundry MACHINE (which runs them) still needs it.
+--   * cindra-lava                   -- `1 stone + power -> 10 cindra-lava` (ci-669),
+--                                      the spine; also unlocks the Cindra casting recipes.
 --
 -- The ice chain (crush oxide-asteroid-chunk -> ice + calcite; melt ice -> water in
 -- the chemical plant) needs no entry here: it hangs off planet-discovery-cindra,

@@ -123,7 +123,7 @@ workflow.
 Cindra is a 1D **ribbon**: long east–west along the terminator, shallow
 perpendicular (the sunward–nightward temperature axis). Push sunward and heat
 kills you; push nightward and cold does. The factory lives in the seam.
-Manufactured **lava** (`1 stone + ruinous power → 5 lava`) is the central
+Manufactured **lava** (`1 stone + ruinous power → 10 lava`) is the central
 intermediate; the signature product is **aluminium**, electrolysed from rock+ice
 feedstock with brute electricity (`stone + calcite → alumina → ruinous power →
 aluminium`) — the planet's biggest power sink and its primary export. Goods leave

@@ -216,10 +216,14 @@ track's files or a shared file.**
 ## 5. Systems still to build (summary; detail in TODO.md)
 
 Manufactured **lava** is the central intermediate (`1 stone + [ruinous power] →
-5 lava`), cast in a **dedicated Cindra lava-manufacturer** (a high-speed,
+10 lava`, ci-669), cast in a **dedicated Cindra lava-manufacturer** (a high-speed,
 high-draw machine, not the shared foundry — ci-e8a) and then processed via
 **Vulcanus foundries** (brought, not re-unlocked) into metal, with a **stone
-loop-back** that stays slightly net-consuming. The manufacturer exists to fix
+loop-back** that is clearly net-consuming at every module tier. Lava is a
+Cindra-exclusive `cindra-lava` fluid, and Cindra-exclusive casting recipes
+(`cindra-molten-iron/copper-from-lava`) return only a small, productivity-immune
+stone byproduct — so even at legendary productivity the loop cannot self-sustain
+(ci-669); the shared Vulcanus lava fluid + molten recipes are left untouched. The manufacturer exists to fix
 usability without cheapening lava: the machine's crafting speed sets how many
 machines feed a foundry (a **single-digit** count, vs ~100 on the plain
 foundry), while its draw is pinned proportional to that speed so **energy per
@@ -409,14 +413,15 @@ is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 | Ribbon lethal-at | 96 tiles | damage saturates |
 | Ribbon wall-at | 128 tiles | hard backstop |
 | Ribbon peak dps | 200 | survivable briefly with gear |
-| Lava recipe | 1 stone → 5 lava | fixed per spec; power is the lever |
+| Lava recipe | 1 stone → 10 cindra-lava | ci-669; power is the lever; outputs the Cindra-exclusive fluid |
 | Lava manufacturer | crafting_speed 64, 40 MW draw | dedicated caster (ci-e8a); draw÷speed matched to the foundry so energy-per-lava is fixed; a single-digit count feeds one foundry |
 | Lava power cost | very high | rival/exceed baseline solar at scale |
-| Molten iron | 500 lava + 1 calcite + 10 stone → 250 | Vulcanus values |
-| Molten copper | 500 lava + 1 calcite + 15 stone → 250 | Vulcanus values |
+| Cindra molten iron | 500 cindra-lava + 1 calcite → 250 + 4 stone | ci-669 cast; byproduct is `ignored_by_productivity` (never self-sustains) |
+| Cindra molten copper | 500 cindra-lava + 1 calcite → 250 + 4 stone | ci-669 cast; byproduct is `ignored_by_productivity` |
+| Vanilla molten iron/copper | 500 lava + 1 calcite → 250 + 10/15 stone | untouched Vulcanus recipes (never-mutate); uncraftable on Cindra (no shared lava) |
 | Surface solar multiplier | ~10000% (100× Nauvis) | set by working back from lava energy cost |
 | Baseline (night floor) | 400 kW/panel (> Vulcanus 240 kW) | ci-ezk; dark-weighted look but full production, never true zero |
 | Flare peak | ~6 MW/panel (~15× baseline) | ci-ezk; MW-scale spike, must stay relevant; <100% catchable |
 | Flare interval (calm gap) | random ~5–10 min | sporadic, not a metronome (ci-1c7); each event still telegraphed |
 | Electric heater temp cap | 600° | below reactor, above steam threshold |
-| Stone loop-back net | slightly net-consuming | fresh mining stays a slow activity |
+| Stone loop-back net | clearly net-consuming at every module tier | ci-669: returned ≤ ~1/3 of consumed even at legendary; mining is a real top-up, never free |

@@ -1,89 +1,137 @@
--- Manufactured lava, the central economy spine (§15-5; DESIGN.md §1, §2, §5, §7).
+-- Manufactured lava, the central economy spine (§15-5; DESIGN.md §1, §2, §5, §7),
+-- carrying the ci-669 balance fix (the stone loop-back must NEVER self-sustain).
 --
 -- Cindra has no lava lakes to pump (that is Vulcanus). Here lava is MADE from
--- stone with ruinous electric power at the fixed spec ratio `1 stone -> 5 lava`.
--- That fluid then feeds the Vulcanus foundry chain (molten iron / copper), so
--- the whole metal economy routes through a recipe whose real cost is the star's
+-- stone with ruinous electric power at `1 stone -> 10 lava` (ci-669). That fluid
+-- then feeds a Vulcanus-foundry casting chain into molten iron / copper, so the
+-- whole metal economy routes through a recipe whose real cost is the star's
 -- surplus.
 --
--- THROUGHPUT RESCALE (ci-e8a, follow-up to ci-095). The problem was USABILITY,
--- not the ratio: at the old `1 stone -> 5 lava` on the shared 2.5 MW / speed-4
--- foundry it took ~100 lava-crafting foundries to keep ONE melting foundry fed
--- (unusable; the user was rightly angry). The fix, per the mayor's resolution,
--- is NOT to cheapen lava (do not touch energy-per-lava) but to CONCENTRATE the
--- draw: craft lava on a DEDICATED, HIGH-SPEED, HIGH-DRAW Cindra machine (the
+-- === ci-669 BALANCE FIX: the stone loop-back must net-consume at every tier ===
+-- The playtest bug: casting lava into metal returns a STONE byproduct, and at
+-- LEGENDARY productivity that byproduct nearly equalled the stone spent to make
+-- the lava, so the stone->lava->metal loop almost self-sustained and stone (thus
+-- the whole power economy) became effectively free. The root is COMPOUNDING
+-- productivity: a prod bonus on the lava recipe makes each stone yield more lava,
+-- while a prod bonus on the casting recipe multiplies the returned stone -- both
+-- pull toward self-sustain at once.
+--
+-- Two vanilla facts box us in:
+--   * The Vulcanus `molten-iron/copper-from-lava` recipes return 10 / 15 stone and
+--     let productivity scale it. They are SHARED prototypes; editing them would
+--     leak onto Vulcanus (never-mutate-other-planets), so we cannot cut it there.
+--   * Recipe availability is per-FORCE, not per-surface: leaving the generous
+--     vanilla recipe reachable means a legendary player just uses it. So a nerfed
+--     clone only bites if its INPUT fluid differs.
+--
+-- The fix, foreseen by the old §15-5 balance note ("a Cindra casting tier",
+-- §15-14 / ci-63d):
+--   1. The lava recipe outputs a Cindra-EXCLUSIVE `cindra-lava` fluid (a tinted
+--      clone of vanilla lava), never the shared `lava` the Vulcanus chain eats.
+--   2. Cindra-exclusive `cindra-molten-iron/copper-from-lava` recipes consume
+--      `cindra-lava` and return only a SMALL stone byproduct that is
+--      `ignored_by_productivity` -- productivity can never inflate it. They still
+--      output the vanilla 250 molten-iron/copper, so the downstream casting chain
+--      is unchanged. They live in `metallurgy`, so the brought-not-re-unlocked
+--      Vulcanus foundry crafts them (no new melting machine).
+-- The shared vanilla `lava` fluid and molten recipes are left COMPLETELY untouched
+-- (guarded in tests); Vulcanus is unaffected. On Cindra the vanilla molten recipes
+-- simply have no input (no vanilla lava is produced there), so the player casts
+-- through the Cindra recipes.
+--
+-- STONE INVARIANT (ci-669, asserted in tests/test_lava.lua): across the full
+-- stone->lava->molten-iron and ->molten-copper chains the loop NET-CONSUMES stone
+-- at no-modules AND legendary prod, with returned stone <= ~1/3 of consumed at
+-- legendary, and NO module tier makes it stone-neutral/positive. With
+-- `1 stone -> 10 lava`, 500 lava per cast, byproduct 4 (ignored_by_productivity):
+-- stone-in per cast = 500 / (10 * (1 + P_lava)); legendary P_lava=1.5 -> 20 in vs
+-- 4 back (ratio 0.20); no-modules P_lava=0.5 -> 33.3 in vs 4 (0.12); the fixed 4
+-- back can never exceed even the >=12.5 stone-in of the theoretical +300% cap.
+--
+-- THROUGHPUT RESCALE (ci-e8a, follow-up to ci-095). The other problem was
+-- USABILITY, not the ratio: at the old rate on the shared 2.5 MW / speed-4 foundry
+-- it took ~100 lava-crafting foundries to keep ONE melting foundry fed (unusable;
+-- the user was rightly angry). The fix, per the mayor's resolution, is NOT to
+-- cheapen lava (do not touch energy-per-lava) but to CONCENTRATE the draw: craft
+-- lava on a DEDICATED, HIGH-SPEED, HIGH-DRAW Cindra machine (the
 -- `cindra-lava-manufacturer` below) instead of the shared foundry. A few hungry
 -- machines replace a hundred tiny ones; the TOTAL grid power to sustain foundry-
 -- scale lava is UNCHANGED (still ruinous), just delivered by single-digit
--- buildings. Machine count is set by the machine's crafting_speed; energy-per-
--- lava is set by the recipe, and stays fixed. See MACHINE-COUNT vs POWER below.
+-- buildings. Machine count is set by the machine's crafting_speed; energy-per-lava
+-- is set by the recipe, and stays fixed. See MACHINE-COUNT vs POWER below.
 --
--- FOUR PARTS:
+-- FIVE PARTS:
 --
--- 1. THE LAVA RECIPE. `1 stone -> 5 lava` (ratio + energy fixed by spec, §7).
---    Its own private category `cindra-lava-manufacturing`, so ONLY the Cindra
---    lava-manufacturer crafts it -- the shared Vulcanus foundry does NOT (that
---    is the whole point: we own our machine, we never touch theirs). "Power is
---    the lever": the stone/lava amounts are fixed, and the cost knob is
---    `energy_required` against the manufacturer's electric draw. Productivity is
---    ALLOWED: lava is the central intermediate and its cost is ruinous power, so
---    a productivity bonus is a fair reward and matches vanilla intermediate
---    conventions (the downstream molten recipes allow it too).
+-- 1. THE LAVA RECIPE. `1 stone -> 10 lava` (ci-669), outputting the Cindra-only
+--    `cindra-lava` fluid. Its own private category `cindra-lava-manufacturing`, so
+--    ONLY the Cindra lava-manufacturer crafts it -- the shared Vulcanus foundry
+--    does NOT. "Power is the lever": the stone/lava amounts are fixed, and the
+--    cost knob is `energy_required` against the manufacturer's electric draw
+--    (doubled alongside the doubled lava output, so energy-per-lava is UNCHANGED
+--    and ruinous). Productivity is ALLOWED: lava is the central intermediate and
+--    its cost is ruinous power, so a productivity bonus is a fair reward.
 --
--- 2. THE LAVA-MANUFACTURER MACHINE. A dedicated Cindra building (a foundry clone
---    for v1 art reuse) with a BIG crafting_speed and a PROPORTIONALLY big
---    electric draw, so `energy_usage / crafting_speed` EQUALS the foundry's --
---    i.e. the same energy per unit lava, just concentrated. A single-digit count
---    of these sustains one melting foundry (usable), while the aggregate draw
---    stays a serious sink (ruinous). We DEEP-COPY the shared foundry prototype
---    before touching it, and give the machine its own recipe category, so we
---    never mutate Vulcanus content (the never-mutate-other-planets invariant).
+-- 2. THE `cindra-lava` FLUID. A Cindra-exclusive tinted clone of vanilla lava
+--    (deep-copied so we never alias/mutate the shared fluid). The tint carries the
+--    "manufactured, not natural" identity, and -- crucially for ci-669 -- being a
+--    DISTINCT fluid is what lets the Cindra casting recipes replace the generous
+--    vanilla ones without leaving the vanilla ones exploitable.
 --
--- 3. FOUNDRY INTEGRATION -- BROUGHT, NOT RE-UNLOCKED. The foundry and its
---    `molten-iron-from-lava` / `molten-copper-from-lava` recipes are Vulcanus
---    content the player already owns by the time Cindra is reachable (§6 gates
---    Cindra after Vulcanus). We do NOT clone or re-unlock them; the manufactured
---    `lava` fluid simply IS the fluid they consume. That is the integration.
+-- 3. THE LAVA-MANUFACTURER MACHINE. A dedicated Cindra building (a foundry clone
+--    for v1 art reuse) with a BIG crafting_speed and a PROPORTIONALLY big electric
+--    draw, so `energy_usage / crafting_speed` EQUALS the foundry's -- i.e. the same
+--    energy per unit lava, just concentrated. We DEEP-COPY the shared foundry
+--    prototype before touching it, and give the machine its own recipe category,
+--    so we never mutate Vulcanus content.
 --
--- 4. STONE LOOP-BACK. The Vulcanus molten recipes return stone as a BYPRODUCT
---    (10 stone per 250 molten iron, 15 per 250 molten copper -- an OUTPUT, not
---    an input). That returned stone loops back into fresh lava, so mining is a
---    top-up, not the whole supply. We rely on the vanilla byproduct and MUST NOT
---    touch those shared recipes (mutating them would leak onto Vulcanus). See
---    BALANCE NOTE below.
+-- 4. CINDRA CASTING RECIPES + STONE LOOP-BACK. Cindra-exclusive
+--    `cindra-molten-iron/copper-from-lava` cast `cindra-lava` into the vanilla
+--    250 molten-iron/copper, returning a SMALL `ignored_by_productivity` stone
+--    byproduct (the ci-669 loop-back that can never self-sustain). They sit in the
+--    shared `metallurgy` category so the foundry the player already owns crafts
+--    them -- brought, not re-unlocked -- and are additive: the vanilla recipes are
+--    untouched and Vulcanus never sees `cindra-lava`.
 --
--- MACHINE-COUNT vs POWER (the ci-e8a tension, resolved). On the SHARED foundry
--- the two are ONE knob: the count of lava foundries to feed one melt and the
--- energy spent per lava are both proportional to `energy_required / LAVA_OUT`,
--- so you cannot cut the count without cheapening lava. The fix DECOUPLES them by
--- giving lava its own machine:
+-- 5. THE TECH. Unlocks the recipe, the manufacturer, AND the two Cindra casting
+--    recipes together, gated behind the foundry + Cindra discovery.
+--
+-- MACHINE-COUNT vs POWER (the ci-e8a tension, resolved). On the SHARED foundry the
+-- two are ONE knob: the count of lava foundries to feed one melt and the energy
+-- spent per lava are both proportional to `energy_required / LAVA_OUT`, so you
+-- cannot cut the count without cheapening lava. The fix DECOUPLES them by giving
+-- lava its own machine:
 --     count N  = (500 lava/melt / melt_rate) / (LAVA_OUT * manufacturer_speed
 --                                               / energy_required)
 --     energy-per-lava = manufacturer_draw * energy_required
 --                       / manufacturer_speed / LAVA_OUT
 -- Raising `manufacturer_speed` cuts N; keeping `manufacturer_draw / speed` equal
--- to the foundry's keeps energy-per-lava fixed. Both goals, one machine.
+-- to the foundry's keeps energy-per-lava fixed. Both goals, one machine. (ci-669
+-- doubled LAVA_OUT and energy_required together, so N and energy-per-lava are both
+-- exactly as ci-e8a left them; only the stone:lava material ratio changed.)
 --
--- BALANCE NOTE (deferred to §15-14, ci-63d): the spec wants the loop "net
--- SLIGHTLY consuming" so fresh mining stays a slow activity. With the values
--- fixed here (1:5 stone:lava, and vanilla's ~10-15 stone back per 500 lava
--- consumed) the loop is in fact net-heavily-consuming. Both sides are locked --
--- the ratio is "fixed per spec" and the foundry byproduct is a shared Vulcanus
--- prototype we cannot edit -- so reconciling the aspiration is a balance-pass
--- decision, flagged, not silently shipped.
---
--- v1 ART: the vanilla lava fluid icon, color-layered warmer on the RECIPE so the
--- manufactured pour reads distinct from natural Vulcanus lava
--- (prototypes/lava-icon.lua). The machine reuses the foundry art.
+-- v1 ART: the vanilla lava fluid icon, color-layered warmer (prototypes/
+-- lava-icon.lua) on BOTH the recipe and the Cindra fluid. The machine reuses the
+-- foundry art.
 local util = require("util")
 local lava_icon = require("prototypes.lava-icon")
 
--- The ratio + energy are fixed by spec (§7): 1 stone in, 5 lava out, at a real
--- crafting time. UNCHANGED by the ci-e8a rescale -- usability comes from the
--- machine, never from cheapening lava (energy-per-lava must stay ruinous).
+-- The ratio + energy are the ci-669 balance values: 1 stone in, 10 lava out, at a
+-- real crafting time. LAVA_OUT and ENERGY_REQUIRED were doubled together from the
+-- pre-ci-669 (1:5 / 15) values so energy-per-lava stays IDENTICAL and ruinous --
+-- only the stone-per-lava material cost fell (the user's `1 stone -> 10 lava`).
 local STONE_IN = 1
-local LAVA_OUT = 5
-local ENERGY_REQUIRED = 15
+local LAVA_OUT = 10
+local ENERGY_REQUIRED = 30
+
+-- The Cindra-exclusive fluid the lava recipe outputs and the Cindra casting
+-- recipes consume. NOT the shared vanilla `lava` (see ci-669 fix above).
+local LAVA_FLUID = "cindra-lava"
+
+-- ci-669 loop-back byproduct: the stone each Cindra cast returns. Small and
+-- `ignored_by_productivity`, so the returned stone is FIXED at this value at every
+-- module tier and can never approach the (>=12.5) stone spent to make the 500
+-- lava a cast consumes. Chosen so returned <= ~1/3 of consumed even at legendary.
+local CAST_STONE_BYPRODUCT = 4
 
 -- Private recipe category: lava manufacturing lives ONLY in the Cindra
 -- lava-manufacturer, never in the shared Vulcanus foundry (which keeps its
@@ -102,6 +150,21 @@ local MANUFACTURER_SPEED = 64
 local MANUFACTURER_DRAW = "40000kW" -- 40 MW = 625 kW/speed * 64, foundry-matched.
 
 data:extend({ { type = "recipe-category", name = LAVA_CATEGORY } })
+
+-- === The cindra-lava fluid ==================================================
+-- A Cindra-exclusive, tinted clone of vanilla lava. Deep-copied so we never alias
+-- or mutate the shared `lava` fluid the Vulcanus chain consumes. Being a DISTINCT
+-- fluid is load-bearing for ci-669: only the Cindra casting recipes eat it, so the
+-- generous vanilla molten recipes have no input on Cindra and stay unexploitable.
+local lava_fluid = util.table.deepcopy(data.raw["fluid"]["lava"])
+lava_fluid.name = LAVA_FLUID
+lava_fluid.icons = lava_icon.build()
+lava_fluid.icon = nil -- superseded by the layered `icons`
+-- Warmer/brighter in pipes + tanks than the natural Vulcanus pour, so manufactured
+-- lava reads distinct at a glance while still obviously being lava.
+lava_fluid.base_color = { r = 1.0, g = 0.55, b = 0.15 }
+lava_fluid.flow_color = { r = 0.5, g = 0.18, b = 0.02 }
+lava_fluid.localised_name = { "fluid-name.cindra-lava" }
 
 -- === The lava-manufacturer machine =========================================
 -- A dedicated Cindra caster: a deep-copied foundry (v1 art reuse) retuned to a
@@ -167,23 +230,62 @@ local recipe = {
     { type = "item", name = "stone", amount = STONE_IN },
   },
   results = {
-    { type = "fluid", name = "lava", amount = LAVA_OUT },
+    { type = "fluid", name = LAVA_FLUID, amount = LAVA_OUT },
   },
   -- Central intermediate + ruinous power cost: productivity is a fair reward and
   -- matches vanilla intermediate conventions. Power stays the dominant cost.
   allow_productivity = true,
   -- Single fluid product, shown color-layered warmer so manufactured lava reads
-  -- distinct from the natural Vulcanus pour. The tint lives on the RECIPE icon
-  -- ONLY -- never on the shared `lava` fluid the Vulcanus chain consumes, which
-  -- would leak onto Vulcanus.
+  -- distinct from the natural Vulcanus pour. The tint lives on the RECIPE icon and
+  -- the Cindra-exclusive fluid, NEVER on the shared `lava` the Vulcanus chain
+  -- consumes.
   icons = lava_icon.build(),
-  main_product = "lava",
+  main_product = LAVA_FLUID,
 }
+
+-- === Cindra casting recipes (ci-669) ========================================
+-- Cindra-exclusive clones of the Vulcanus molten recipes: same 250 molten-metal
+-- output (so the downstream casting chain is unchanged) and same calcite cost, but
+-- they consume the Cindra-only `cindra-lava` fluid and return only a SMALL stone
+-- byproduct that productivity can NEVER inflate (`ignored_by_productivity`). This
+-- is the ci-669 loop-back: net stone consumption stays strongly positive at every
+-- module tier. Built by deep-copying the shared Vulcanus recipe (never mutating
+-- it), then retargeting its lava input and stone byproduct.
+local function cindra_cast_recipe(vanilla_name, cindra_name, molten_fluid)
+  local r = util.table.deepcopy(data.raw["recipe"][vanilla_name])
+  r.name = cindra_name
+  r.localised_name = { "recipe-name." .. cindra_name }
+  r.enabled = false
+  r.order = "z[cindra]-b[" .. molten_fluid .. "]"
+  -- Consume the Cindra-exclusive fluid, not the shared vanilla lava.
+  r.ingredients = {
+    { type = "fluid", name = LAVA_FLUID, amount = 500 },
+    { type = "item", name = "calcite", amount = 1 },
+  }
+  -- Vanilla 250 molten metal (unchanged) + the small, prod-immune stone loop-back.
+  r.results = {
+    { type = "fluid", name = molten_fluid, amount = 250 },
+    {
+      type = "item",
+      name = "stone",
+      amount = CAST_STONE_BYPRODUCT,
+      -- The whole byproduct is excluded from productivity: no module tier can grow
+      -- the returned stone, so the loop can never approach self-sustain (ci-669).
+      ignored_by_productivity = CAST_STONE_BYPRODUCT,
+    },
+  }
+  r.main_product = molten_fluid
+  return r
+end
+
+local molten_iron = cindra_cast_recipe("molten-iron-from-lava", "cindra-molten-iron-from-lava", "molten-iron")
+local molten_copper = cindra_cast_recipe("molten-copper-from-lava", "cindra-molten-copper-from-lava", "molten-copper")
 
 -- Its own tech, gated behind BOTH the foundry (you need the Vulcanus metal path
 -- the manufactured lava feeds) and Cindra discovery (so the recipe is Cindra-
 -- progression content, never an option a Vulcanus-only player stumbles into).
--- Unlocks the manufacturer AND the recipe together. Purely additive.
+-- Unlocks the manufacturer, the recipe, AND the two Cindra casting recipes
+-- together. Purely additive.
 local technology = {
   type = "technology",
   name = "cindra-lava",
@@ -193,6 +295,8 @@ local technology = {
   effects = {
     { type = "unlock-recipe", recipe = "cindra-lava-manufacturer" },
     { type = "unlock-recipe", recipe = "cindra-lava" },
+    { type = "unlock-recipe", recipe = "cindra-molten-iron-from-lava" },
+    { type = "unlock-recipe", recipe = "cindra-molten-copper-from-lava" },
   },
   prerequisites = { "foundry", "planet-discovery-cindra" },
   unit = {
@@ -206,4 +310,13 @@ local technology = {
   },
 }
 
-data:extend({ manufacturer, manufacturer_item, manufacturer_build, recipe, technology })
+data:extend({
+  lava_fluid,
+  manufacturer,
+  manufacturer_item,
+  manufacturer_build,
+  recipe,
+  molten_iron,
+  molten_copper,
+  technology,
+})

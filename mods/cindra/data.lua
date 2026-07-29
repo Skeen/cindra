@@ -5,7 +5,7 @@
 -- require them here, following the §15 implementation order, e.g.
 --
 --   require("prototypes.ice-processing")  -- §15-4  ice -> water (+ calcite)
---   require("prototypes.lava")            -- §15-5  1 stone + power -> 5 lava
+--   require("prototypes.lava")            -- §15-5  1 stone + power -> 10 cindra-lava
 --   require("prototypes.aluminium")       -- signature: power-manufactured metal
 --   require("prototypes.flare")           -- §15-7  solar + flare event
 --   require("prototypes.storage")         -- §15-9  capacitor + molten-salt battery
@@ -36,9 +36,10 @@ require("prototypes.planet")
 -- the chain hangs off the Cindra discovery tech.
 require("prototypes.ice-processing")
 
--- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 5
--- lava` (crafted in the brought-not-re-unlocked Vulcanus foundry), feeding the
--- foundry's molten iron/copper chain with its stone byproduct looping back.
+-- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 10
+-- cindra-lava` (ci-669), cast in the brought-not-re-unlocked Vulcanus foundry via
+-- Cindra-exclusive casting recipes whose small, productivity-immune stone
+-- byproduct loops back (net-consuming at every tier, never self-sustaining).
 require("prototypes.lava")
 
 -- ci-arw start-on-Cindra foundry bootstrap: a native, petrochemical-free lubricant
