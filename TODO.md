@@ -44,46 +44,48 @@ merge queue.
   - Tested: `tests/test_worldgen.lua`, `unit-tests/test_resource_field.lua`.
   - *Unblocks 4, 5* — the mechanics track consumes `stone` / `ice`
     (recipes are theirs to add).
-- [x] **§15-5 — Lava + metal.** `ci-8mw`, `ci-669` (mechanics track).
-  - `prototypes/lava.lua`: recipe `cindra-lava` — `1 stone + [ruinous power] → 10
-    lava` (ci-669), outputting the Cindra-exclusive `cindra-lava` fluid, in a
-    private category so ONLY the dedicated caster (ci-e8a) crafts it. Power is the
-    cost lever (single-stone input, cost carried by `energy_required`, productivity
-    allowed as an intermediate reward); gated behind a dedicated `cindra-lava` tech
-    (prereqs foundry + `planet-discovery-cindra`).
-  - Foundry integration is *brought, not re-unlocked*: the foundry is the
-    Vulcanus machine, but the casting recipes are Cindra-exclusive clones
-    (`cindra-molten-iron/copper-from-lava`) that consume `cindra-lava` and return
-    only a small, `ignored_by_productivity` stone byproduct (4). The shared
-    Vulcanus `lava` fluid + `molten-*-from-lava` recipes are left untouched
-    (never-mutate) and are simply uncraftable on Cindra (no shared lava produced).
-  - Tested: `tests/test_lava.lua` (ratio, power lever, gating, foundry-category
-    fit, the ci-669 stone invariant at no-modules/legendary/cap, never-mutate
-    guard on the shared fluid + molten recipes, live foundry casts on Cindra).
-  - **ci-669 (was the §15-14 balance note):** the stone loop-back now clearly
-    net-consumes at every module tier. Resolved by the Cindra casting tier +
-    distinct `cindra-lava` fluid above (the shared Vulcanus byproduct cannot be
-    cut without leaking, and a distinct input fluid is what stops a legendary
-    player defaulting to the generous vanilla recipe).
+- [x] **§15-5 — Lava + metal.** `ci-8mw`, `ci-669`, **`ci-9yg` (current model)**,
+  `ci-eat` (sulfur), `ci-4ee` (spazz fix) (mechanics track).
+  - **The ci-9yg REDO supersedes ci-669's `cindra-lava` fluid.** `prototypes/lava.lua`:
+    recipe `cindra-lava` — `1 stone + [ruinous power] → 5 lava` (nerfed from 1:10),
+    cast as a 64:320 batch, outputting the **ONE vanilla `lava` fluid** (no
+    `cindra-lava` fluid at all), in a private `cindra-lava-manufacturing` category
+    so ONLY the dedicated caster (ci-e8a) crafts it. Cindra casts through the
+    **unmodified vanilla** `molten-iron/copper-from-lava` recipes — no Cindra cast
+    clone. Productivity is **DISABLED** so stone-in per cast is fixed. Gated behind
+    the `cindra-lava` tech (prereqs foundry + `planet-discovery-cindra`).
+  - **The exploit is closed by ECONOMICS, not gating:** one cast's 500 lava costs
+    100 stone in (fixed, prod off); the vanilla casts return ≤ 10·4=40 (iron) /
+    15·4=60 (copper) stone at the +300% cap — both below 100 — so `stone → lava →
+    cast → metal + stone` net-consumes stone on every surface at every module tier.
+  - **Sulfur (ci-eat):** the melt IS the roast — the stone→lava recipe also yields
+    a small `sulfur` byproduct (`ignored_by_productivity`), which feeds the vanilla
+    `sulfur + water + iron-plate → sulfuric-acid` recipe the tech unlocks (never
+    mutated). This is the Option-B acid route the ci-6vj graph (§8) builds on.
+  - Tested: `tests/test_lava.lua` (1:5 ratio, single vanilla fluid, prod-off
+    invariant, the ci-9yg stone net-negativity proof at 0%/+300% for both metals,
+    never-mutate guard on the shared fluid + molten recipes, throughput/power pins,
+    live foundry casts on Cindra) and `tests/test_sulfur.lua` (small byproduct,
+    productivity double-lock, vanilla acid chain closes). See DESIGN §5 / §7 / §8.
 
 ## Backlog (§15 order)
-- [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or`, `ci-3mx` —
-  `prototypes/ice-processing.lua`: **pure vanilla-recipe reuse** (ci-3mx: "ice
-  crushing should just be oxide asteroid crushing", "the existing ice melting in
-  the chemical plant", "stop adding equivalent technologies"). The nightside ice
-  field yields the vanilla `oxide-asteroid-chunk`; the ONE custom prototype is a
-  ground `cindra-ice-crusher` (clone of the space crusher; drops the zero-gravity
-  gate + heating draw) that runs the vanilla `crushing` recipes —
-  `oxide-asteroid-crushing` (chunk → ice) and `advanced-oxide-asteroid-crushing`
-  (chunk → ice + calcite, the ratio knob + the local calcite source). Melting is
-  the vanilla `ice-melting` recipe in the vanilla chemical plant (ice → water); no
-  custom melter/item/recipe/category. No new tech: the crusher build + the three
-  vanilla recipes are unlocked by the existing `planet-discovery-cindra` tech
-  (APS enables them from tick zero on a Cindra start). Tested:
-  `tests/test_ice_processing.lua` (no custom duplicate survives, crusher uses the
-  vanilla crushing category + is ground-placeable, the vanilla recipes are
-  unchanged, discovery unlocks the chain, and an end-to-end powered crush chunk →
-  ice then chemical-plant melt ice → water on Cindra).
+- [x] **§15-4 — Ice processing.** `ci-rgv`, `ci-4or`, `ci-3mx`, **`ci-9l6`
+  (current model)** — `prototypes/ice-processing.lua`. **The ci-9l6 rework
+  SUPERSEDES the old oxide-chunk/crusher model** (ci-3mx/ci-4xx): there is no
+  feedstock chunk and **no ground crusher** any more. The nightside ice field
+  (`cindra-ice`, in `resources.lua`) is now a **multi-product resource** — one
+  mining action drops a fixed **`ice` + `calcite` mix** (ice-majority), making
+  `calcite` a native mined resource. `ice-processing.lua` adds **nothing but the
+  melt-unlock effect**: melting is the vanilla `ice-melting` recipe in the vanilla
+  chemical plant (ice → water); no custom melter/item/recipe/category/tech. The
+  melt is unlocked by the existing `planet-discovery-cindra` tech (APS enables it
+  from tick zero on a Cindra start). The ci-8n6 free-metal/coal exploit is closed
+  BY CONSTRUCTION (no crushing machine, no asteroid chunk to reprocess). Tested:
+  `tests/test_ice_processing.lua` (field mines the fixed ice+calcite mix, no
+  crusher/oxide-chunk/custom-ice survives, no free-metal/coal path reachable,
+  vanilla prototypes unchanged, discovery unlocks the melt, end-to-end powered
+  drill → ice+calcite then chemical-plant melt ice → water on Cindra). See
+  DESIGN §4a / §5a.
 - [x] **§15-6 — Cryo-hardened alloy. DROPPED (superseded by `ci-84s`).** The
   original signature was a two-temperature quench (`prototypes/cryo-alloy.lua`,
   `ci-gd4`): a `cindra-cryo-quench` building crafting `cindra-cryo-hardened-alloy`
@@ -195,17 +197,43 @@ merge queue.
   `cindra-field-foundry` recipe path and its APS tech pre-research; the **remaining
   follow-up** is the physical starting KIT (a starter foundry / metal seed) plus an
   end-to-end APS-mods bootstrap proof, after which the tripwire is revisited.
+- [~] **§8 — Materials/petrochemical economy: the authoritative recipe graph.**
+  `ci-6vj` (EPIC). The design of record for Cindra's full chemistry is now
+  **DESIGN §8** — the canonical recipe graph (lava/sulfur, water electrolysis,
+  calcination → quicklime + CO2, alumina acid-leaching, alumina electrolysis + O2,
+  nano-Al powder, ALICE + methanol rocket fuels, methanol synthesis, MTO+poly, the
+  two catalyst systems with make/reprocess/regen loops, quicklime disposal, and the
+  byproduct vents). It **reconciles** the already-merged ci-400 (plastics), ci-eat
+  (sulfur), ci-8g1 (ALICE), ci-9l6 (ice mix). Implementation is staged
+  dependency-ordered under the epic (see `bd show ci-6vj`); land in order:
+  1. **[x] quicklime rename + disposal sink** (`ci-6vj.1`, landed) — `cindra-lime`
+     → `cindra-quicklime`; added quicklime disposal (`quicklime + lava → stone`,
+     prod off, net stone-negative) and the vent-quicklime/vent-CO2 emergency sinks.
+     Tested in `tests/test_plastics.lua`.
+  2. **aluminium line reshape** — alumina by acid leaching (`stone + acid + water →
+     alumina + 70% stone + sulfur`); alumina electrolysis emits 30 O2.
+  3. **calcination move** — into the lava manufacturer, product renamed quicklime.
+  4. **catalyst systems** — methanol-catalyst + zeolite-catalyst, each with a
+     make recipe + a reprocess/regen loop; methanol synthesis + MTO+poly consume
+     them (70% return / 20% spent); remove the ci-400 `olefins` intermediate and
+     `cu-al-catalyst`.
+  5. **rocket fuels** — ALICE takes O2 as oxidiser; add methanol rocket fuel.
+  6. **balance + invariant proof** — the O2 economy balances (sinks absorb the
+     electrolysis flood or vent), and a graph-balance test proves the stone/metal/
+     carbon loops stay net-negative at the +300% productivity cap.
+  Every stage keeps the shared item/fluid/machine interfaces in DESIGN §8 and adds
+  its tests. Feeds directly into §15-14.
 - [ ] **§15-14 — Balance pass.** `ci-63d` — tune all `(tune)` values against the
   lava energy cost; verify exportable buildings are **situational-not-strictly-
-  better** than vanilla (§12 guardrail).
+  better** than vanilla (§12 guardrail). Depends on the §8/ci-6vj graph landing.
 
 ## Deferred / cross-cutting
 
 - **Custom art.** v1 reuses vanilla Vulcanus icons. Bespoke ribbon/terminator
   ground, star-map, and orbital-backdrop art is a later art pass — see
   [`PLAYTEST.md`](PLAYTEST.md).
-- **Optional self-sufficiency mode (§11).** CO₂ + water + power → carbon →
-  plastic/sulfur synthesis, as an optional flare-timed endgame flex. Ship
-  zero-chemistry/import first; not required for v1.
+- **~~Optional self-sufficiency mode (§11).~~ PROMOTED to core (ci-6vj, §8).** The
+  CO₂/water/power → plastic + sulfur chemistry is no longer an optional flex: it is
+  the authoritative materials graph in DESIGN §8, tracked by the ci-6vj epic above.
 - **Flare-response circuit building (§12-8).** Power-grid sensor / priority-switch
   for first-class flare automation.

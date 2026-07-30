@@ -11,9 +11,10 @@
 --        The star's power splits the nightside's water. Hydrogen is the reducer
 --        that makes the calcite carbon usable; oxygen is a byproduct (vented).
 --        (2 H2O -> 2 H2 + O2.)
---   2. CALCITE CALCINATION  calcite + [heat] -> lime + carbon dioxide
+--   2. CALCITE CALCINATION  calcite + [heat] -> quicklime + carbon dioxide
 --        Roasting the ice chain's calcite drives off CO2 -- the CARBON that will
---        become plastic -- and leaves lime (a solid byproduct, vented).
+--        become plastic -- and leaves quicklime (a solid byproduct; sinkable via
+--        disposal or the vent, ci-6vj).
 --        (CaCO3 --heat--> CaO + CO2.)
 --   3. METHANOL-TO-OLEFINS (the CTO route), via a copper-on-aluminium catalyst:
 --        a. bridge:  CO2 + hydrogen -> methanol (+ water)   -- makes the calcite
@@ -41,10 +42,12 @@
 -- and aluminium follow).
 --
 -- BYPRODUCT SINKS (bead requirement -- the chain must never deadlock): oxygen
--- (from electrolysis) and lime (from calcination) each get a dedicated vent
--- recipe that consumes them to nothing, so a backed-up byproduct pipe/box can
--- always be drained. Water is PARTLY RECOVERED (methanol + MTO hand water back),
--- which trims the chain's water draw without ever creating matter.
+-- (from electrolysis), CO2 (from calcination), and quicklime (from calcination)
+-- each get a dedicated vent recipe that consumes them to nothing, so a backed-up
+-- byproduct pipe/box can always be drained. Quicklime additionally has a real
+-- (non-vent) sink -- disposal back into the lava melt (ci-6vj #16). Water is
+-- PARTLY RECOVERED (methanol + MTO hand water back), which trims the chain's water
+-- draw without ever creating matter.
 --
 -- 🚨 NEVER MUTATE OTHER PLANETS: every prototype here is brand new. The shared
 -- vanilla `water` / `calcite` / `copper-plate` / `plastic-bar` are read as
@@ -55,8 +58,8 @@
 -- returns stone or metal.
 --
 -- v1 ART: placeholder art. The gases reuse the vanilla petroleum-gas cloud icon
--- (distinct tints per gas); methanol reuses the water icon tinted; lime reuses
--- the calcite icon tinted; the catalyst reuses the copper-plate icon tinted.
+-- (distinct tints per gas); methanol reuses the water icon tinted; quicklime
+-- reuses the calcite icon tinted; the catalyst reuses the copper-plate icon tinted.
 
 local util = require("util")
 
@@ -68,9 +71,19 @@ local CO2      = "cindra-carbon-dioxide"
 local METHANOL = "cindra-methanol"
 local OLEFINS  = "cindra-olefins"
 
--- New solids.
-local LIME     = "cindra-lime"
+-- New solids. QUICKLIME (CaO, ci-6vj rename of the old "lime"): the calcination
+-- co-product and, in the authoritative graph (DESIGN §8), the zeolite-catalyst
+-- feed. Named `cindra-quicklime` so the whole graph shares one interface.
+local QUICKLIME = "cindra-quicklime"
 local CATALYST = "cindra-cu-al-catalyst"
+
+-- Vanilla fluids/items the ci-6vj sinks read (never mutated).
+local LAVA  = "lava"
+local STONE = "stone"
+
+-- The lava-manufacturer's private category (defined in prototypes/lava.lua, which
+-- loads before this file). Quicklime disposal runs here, in the high-heat furnace.
+local LAVA_CATEGORY = "cindra-lava-manufacturing"
 
 -- The signature power-metal (prototypes/aluminium.lua) the catalyst carries.
 local ALUMINIUM = "cindra-aluminium"
@@ -151,15 +164,15 @@ local methanol = {
 }
 
 -- ---------------------------------------------------------------------------
--- Solids: lime (calcination byproduct) + the Cu/Al catalyst.
+-- Solids: quicklime (calcination byproduct) + the Cu/Al catalyst.
 -- ---------------------------------------------------------------------------
-local lime = util.table.deepcopy(data.raw.item["calcite"])
-lime.name = LIME
-lime.order = "z[cindra]-lime"
-lime.stack_size = 100
-set_icon(lime, CALCITE_ICON, { r = 0.95, g = 0.93, b = 0.85, a = 1.0 }) -- pale cream
-lime.localised_name = { "item-name." .. LIME }
-lime.localised_description = { "item-description." .. LIME }
+local quicklime = util.table.deepcopy(data.raw.item["calcite"])
+quicklime.name = QUICKLIME
+quicklime.order = "z[cindra]-quicklime"
+quicklime.stack_size = 100
+set_icon(quicklime, CALCITE_ICON, { r = 0.95, g = 0.93, b = 0.85, a = 1.0 }) -- pale cream
+quicklime.localised_name = { "item-name." .. QUICKLIME }
+quicklime.localised_description = { "item-description." .. QUICKLIME }
 
 local catalyst = util.table.deepcopy(data.raw.item["copper-plate"])
 catalyst.name = CATALYST
@@ -205,7 +218,7 @@ local calcination = {
     { type = "item", name = "calcite", amount = 2 },
   },
   results = {
-    { type = "item", name = LIME, amount = 2 },
+    { type = "item", name = QUICKLIME, amount = 2 },
     { type = "fluid", name = CO2, amount = 40 },
   },
   allow_productivity = false, -- fixed carbon budget: no free CO2
@@ -326,22 +339,75 @@ local vent_oxygen = {
   localised_description = { "recipe-description.cindra-vent-oxygen" },
 }
 
-local vent_lime = {
+local vent_quicklime = {
   type = "recipe",
-  name = "cindra-vent-lime",
-  -- default "crafting": an assembler can dump lime (a solid) with no fluid box.
+  name = "cindra-vent-quicklime",
+  -- default "crafting": an assembler can dump quicklime (a solid) with no fluid box.
   subgroup = "raw-material",
-  order = "z[cindra]-y[vent-lime]",
+  order = "z[cindra]-y[vent-quicklime]",
   enabled = false,
   energy_required = 1,
   ingredients = {
-    { type = "item", name = LIME, amount = 10 },
+    { type = "item", name = QUICKLIME, amount = 10 },
   },
   results = {}, -- discarded: a pure sink
   allow_productivity = false,
   icons = { { icon = CALCITE_ICON, icon_size = 64, tint = { r = 0.95, g = 0.93, b = 0.85, a = 1.0 } } },
-  localised_name = { "recipe-name.cindra-vent-lime" },
-  localised_description = { "recipe-description.cindra-vent-lime" },
+  localised_name = { "recipe-name.cindra-vent-quicklime" },
+  localised_description = { "recipe-description.cindra-vent-quicklime" },
+}
+
+-- CO2 emergency vent (ci-6vj #18). Calcination frees CO2; if methanol demand
+-- lags the CO2 supply the gas would back up and stall calcination. This drains
+-- it to nothing, so a backed-up CO2 pipe never deadlocks the line.
+local vent_co2 = {
+  type = "recipe",
+  name = "cindra-vent-co2",
+  categories = { "chemistry" }, -- gas: needs a fluid box, so a chemical plant
+  subgroup = "fluid-recipes",
+  order = "z[cindra]-y[vent-co2]",
+  enabled = false,
+  energy_required = 1,
+  ingredients = {
+    { type = "fluid", name = CO2, amount = 100 },
+  },
+  results = {}, -- vented to atmosphere: a pure sink
+  allow_productivity = false,
+  icons = { { icon = GAS_ICON, icon_size = 64, tint = { r = 0.60, g = 0.60, b = 0.65, a = 1.0 } } },
+  localised_name = { "recipe-name.cindra-vent-co2" },
+  localised_description = { "recipe-description.cindra-vent-co2" },
+}
+
+-- Quicklime DISPOSAL (ci-6vj #16): the designated SURPLUS quicklime sink. Runs in
+-- the lava manufacturer (LAVA_CATEGORY, the high-heat furnace) -- fluxing surplus
+-- quicklime back into the melt with lava. Deliberately net stone-NEGATIVE: it
+-- returns 5 stone but consumes 50 lava, and 50 lava cost 10 stone to make (1 stone
+-- -> 5 lava, prototypes/lava.lua), so the loop spends 10 stone to hand back 5. The
+-- stone output is `ignored_by_productivity` and productivity is off, so that stays
+-- fixed at every module tier -- it can never become a free-stone/free-lava source
+-- (ci-669 invariant, DESIGN §8.6). Lava in -> uses the manufacturer's fluid box.
+local quicklime_disposal = {
+  type = "recipe",
+  name = "cindra-quicklime-disposal",
+  categories = { LAVA_CATEGORY }, -- lava-manufacturer only (never the shared foundry)
+  subgroup = "raw-material",
+  order = "z[cindra]-y[quicklime-disposal]",
+  enabled = false,
+  energy_required = 2,
+  ingredients = {
+    { type = "item", name = QUICKLIME, amount = 10 },
+    { type = "fluid", name = LAVA, amount = 50 },
+  },
+  results = {
+    -- Net-negative sink: 5 stone back for 10 stone-worth of lava consumed. Pinned
+    -- out of any productivity bonus so it never mints stone (ci-669).
+    { type = "item", name = STONE, amount = 5, ignored_by_productivity = 5 },
+  },
+  allow_productivity = false,
+  main_product = STONE,
+  icons = { { icon = CALCITE_ICON, icon_size = 64, tint = { r = 0.85, g = 0.80, b = 0.72, a = 1.0 } } },
+  localised_name = { "recipe-name.cindra-quicklime-disposal" },
+  localised_description = { "recipe-description.cindra-quicklime-disposal" },
 }
 
 -- ---------------------------------------------------------------------------
@@ -365,7 +431,9 @@ local technology = {
     { type = "unlock-recipe", recipe = "cindra-polymerisation" },
     { type = "unlock-recipe", recipe = CATALYST },
     { type = "unlock-recipe", recipe = "cindra-vent-oxygen" },
-    { type = "unlock-recipe", recipe = "cindra-vent-lime" },
+    { type = "unlock-recipe", recipe = "cindra-vent-quicklime" },
+    { type = "unlock-recipe", recipe = "cindra-vent-co2" },
+    { type = "unlock-recipe", recipe = "cindra-quicklime-disposal" },
   },
   prerequisites = { "cindra-aluminium" },
   unit = {
@@ -381,15 +449,15 @@ local technology = {
 
 data:extend({
   hydrogen, oxygen, carbon_dioxide, methanol, olefins,
-  lime, catalyst,
+  quicklime, catalyst,
   electrolysis, calcination, methanol_synthesis, mto, polymerisation,
-  catalyst_recipe, vent_oxygen, vent_lime,
+  catalyst_recipe, vent_oxygen, vent_quicklime, vent_co2, quicklime_disposal,
   technology,
 })
 
 -- Exposed for tests + downstream integration.
 return {
   H2 = H2, O2 = O2, CO2 = CO2, METHANOL = METHANOL, OLEFINS = OLEFINS,
-  LIME = LIME, CATALYST = CATALYST, PLASTIC = PLASTIC, TECH = TECH,
+  QUICKLIME = QUICKLIME, CATALYST = CATALYST, PLASTIC = PLASTIC, TECH = TECH,
   CATALYST_RETURN = CATALYST_RETURN,
 }

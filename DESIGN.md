@@ -181,8 +181,8 @@ There is **no standalone ice-derived ore or map-gen slider** beyond stone + ice
 (ci-3yl). The ice field is a **multi-product resource**: mining it drops a FIXED
 mix of both `ice` and `calcite` in one action (ci-9l6), in an ice-majority ratio
 (tuned in `resources.lua`). This makes `calcite` a **native mined resource** — the
-planet's calcite source for the aluminium refine, the science pack, and the
-calcite→olefins chemistry (ci-400) — while `ice` still melts to `water` (§5a) and
+planet's calcite source for the science pack and the CO2/quicklime chemistry
+(§8, ci-6vj: calcination → quicklime + CO2) — while `ice` still melts to `water` (§5a) and
 is the science pack's deep-nightside cold-edge input (ci-ml1). There is no feedstock
 chunk and no ground crusher any more (ci-9l6 supersedes the ci-3mx/ci-4xx chunk
 model). Dealing with the mix — sorting the two products apart and handling the
@@ -204,7 +204,7 @@ the Vulcanus-legacy tungsten metal is off Cindra entirely rather than shipped
 alongside a bespoke foundry. The coal in particular is the **only coal
 on the planet** (no mineable coal source), spent once and never scalable. **Role
 only lives here** — the recipes that *consume* these (ice processing §15-4, lava
-§15-5, chemistry §11, the foundry bootstrap `prototypes/lubricant.lua`) belong to the
+§15-5, the materials/petrochemical chemistry §8, the foundry bootstrap `prototypes/lubricant.lua`) belong to the
 mechanics track.
 
 ## 4b. File-ownership map (parallel tracks — avoid conflicts)
@@ -255,7 +255,9 @@ manufacturer exists to fix usability and calm the animation: crafting_speed **2*
 (the ci-4ee spazz fix, down from 64) with the recipe batch scaled up to keep
 per-machine throughput unchanged, and a big fixed draw so a **single-digit** count
 feeds one foundry while **energy per unit lava stays ruinous**. The signature product is **aluminium** (ci-txh), electrolysed from
-rock+ice feedstock (`stone + calcite → alumina → [ruinous power] → aluminium`) in
+rock feedstock (`stone + acid → alumina → [ruinous power] → aluminium`; the full
+leaching/electrolysis chain and its O2/sulfur byproducts are the authoritative §8,
+ci-6vj, which supersedes the old `stone + calcite → alumina` refine) in
 a **dedicated high-draw electrolysis cell** — the planet's biggest continuous
 power sink and its primary mass-driver export. Aluminium carries the core thesis
 (power-manufactured metal, petrochemical-free) and is the input to the headline
@@ -347,10 +349,11 @@ existing ice melting in the chemical plant", "stop adding equivalent technologie
   items. Dealing with the mix — sorting the two apart, and the backpressure that
   stalls the drill when either output backs up (choking the other) — is the
   nightside logistics puzzle (the same mixed-output pressure as Fulgora scrap).
-- **`calcite` is the planet's native calcite source.** It feeds the aluminium
-  refine (`stone + calcite → alumina`), the science pack, and the calcite→olefins
-  chemistry (ci-400). Early game it typically runs surplus (few sinks) and must be
-  voided; later chem-tech sinks relax that pressure — intended pacing.
+- **`calcite` is the planet's native calcite source.** It feeds the science pack
+  and the materials/petrochemical chemistry (§8, ci-6vj: calcination →
+  quicklime + CO2, the carbon feed for methanol/plastic). Early game it typically
+  runs surplus (few sinks) and must be voided; later chem-tech sinks relax that
+  pressure — intended pacing.
 - **Melt = the vanilla `ice-melting` in the vanilla chemical plant.** The vanilla
   `chemical-plant` (category `chemistry`, placeable on any gravity) runs the vanilla
   `ice-melting` recipe (`ice` → `water`). No custom melter is cloned at all.
@@ -442,3 +445,178 @@ is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 | Flare interval (calm gap) | random ~5–10 min | sporadic, not a metronome (ci-1c7); each event still telegraphed |
 | Electric heater temp cap | 600° | below reactor, above steam threshold |
 | Stone loop-back net | net-consuming at every module tier | ci-9yg: 100 stone in per cast (fixed, prod off) vs ≤ 60 back at the +300% cap; mining is a real top-up, never free |
+
+## 8. Materials & petrochemical economy — the AUTHORITATIVE recipe graph (ci-6vj)
+
+**This section is the design of record for Cindra's full materials/petrochemical
+economy.** It is the single canonical chain; where earlier prose (§5, §7) or an
+already-merged piecemeal implementation (ci-400 plastics, ci-eat sulfur, ci-8g1
+ALICE, ci-9l6 ice mix) differs, **this graph wins** and the code is reconciled to
+match. It supersedes the scattered arrow-notation in §5. Every `(tune)` number
+below is a starting value for the §15-14 balance pass (ci-63d).
+
+The chain has one idea (§1): **rock + ice + the star's surplus → metal, plastic,
+and fuel, with no oil and no biology.** Carbon comes from the ice field's
+`calcite`, never coal; hydrogen from electrolysed water; power is always the real
+cost. Every recipe is a brand-new `cindra-*` prototype or a deep-copied clone; the
+only shared-prototype touches are additive tech-unlock effects and the lab-inputs
+append (§6 never-mutate).
+
+### 8.1 Machines (the crafting surface)
+
+- **Lava manufacturer** (`cindra-lava-manufacturer`, ci-e8a) — the high-heat
+  furnace. Runs stone melting, calcite calcination, and quicklime disposal (its
+  private `cindra-lava-manufacturing` category). Ruinous electric draw; the roast/
+  melt/calcine heat is paid as electricity.
+- **Electrolysis cell** (`cindra-electrolysis-cell`, the §2 signature building) —
+  the single biggest continuous power sink. Runs alumina electrolysis only
+  (private `cindra-electrolysis` category). **Reconciliation note:** the ci-6vj
+  brief lists alumina electrolysis "(CHEMICAL PLANT)", but §2 makes the dedicated
+  electrolysis cell Cindra's signature building and §5 its "biggest continuous
+  power sink". We keep the cell (it *is* the "shitton of electricity" machine the
+  brief describes) rather than demote electrolysis to a generic plant; the brief's
+  intent (huge draw) is preserved, the signature-building invariant is not broken.
+- **Chemical plant** (vanilla) — all the wet chemistry: water electrolysis,
+  methanol synthesis, MTO+polymerisation, both catalyst-reprocessing/regeneration
+  steps, alumina leaching, methanol rocket fuel, and the vanilla `sulfuric-acid`
+  and `ice-melting` recipes (unlocked, never mutated).
+- **Assembling machine** (any vanilla) — the dry solid crafts: methanol catalyst,
+  zeolite catalyst, nano-aluminium powder, and ALICE rocket fuel.
+
+### 8.2 The recipe table
+
+Machine key: **LM** = lava manufacturer, **EC** = electrolysis cell, **CP** =
+chemical plant, **AM** = assembling machine. Fluids are marked *(f)*. All Cindra
+recipes are `enabled=false` and gated by a Cindra tech (§8.5). "prod" = whether
+productivity modules are allowed.
+
+| # | Recipe | Machine | Ingredients | Products | prod |
+|---|---|---|---|---|---|
+| 1 | Stone melting | LM | 64 stone | 320 lava *(f)* + 8 sulfur `ignored_by_prod` | **off** |
+| 2 | Sulfuric acid (vanilla, unlocked) | CP | 5 sulfur + 1 iron-plate + 100 water *(f)* | 50 sulfuric-acid *(f)* | vanilla |
+| 3 | Water electrolysis | CP | 40 water *(f)* | 40 H2 *(f)* + 20 O2 *(f)* | **off** |
+| 4 | Calcite calcination | LM | 2 calcite | 2 quicklime + 40 CO2 *(f)* | **off** |
+| 5 | Alumina leaching | CP | 20 stone + 30 sulfuric-acid *(f)* + 20 water *(f)* | 10 alumina + 14 stone `ignored_by_prod` + 2 sulfur `ignored_by_prod` | **off** |
+| 6 | Alumina electrolysis | EC | 4 alumina | 2 aluminium + 30 O2 *(f)* `ignored_by_prod` | on |
+| 7 | Nano-aluminium powder | AM | 1 aluminium | 2 powder | on |
+| 8 | ALICE rocket fuel | AM | 2 powder + 2 ice + 10 O2 *(f)* | 1 rocket-fuel (vanilla) | **off** |
+| 9 | Methanol rocket fuel | CP | 50 methanol *(f)* + 50 O2 *(f)* | 10 rocket-fuel (vanilla) | **off** |
+| 10 | Methanol synthesis | CP | 20 CO2 *(f)* + 60 H2 *(f)* + 1 methanol-catalyst | 20 methanol *(f)* + 20 water *(f)* + methanol-catalyst `p=0.70` + spent-methanol-catalyst `p=0.20` | **off** |
+| 11 | Methanol catalyst | AM | 10 copper-plate + 2 alumina | 1 methanol-catalyst | **off** |
+| 12 | Methanol catalyst reprocessing | CP | 1 spent-methanol-catalyst + 20 sulfuric-acid *(f)* | 6 copper-plate + 1 alumina | **off** |
+| 13 | MTO + polymerisation | CP | 40 methanol *(f)* + 1 zeolite-catalyst | 2 plastic-bar (vanilla) + 40 water *(f)* + zeolite-catalyst `p=0.70` + spent-zeolite-catalyst `p=0.20` | **off** |
+| 14 | Zeolite catalyst | AM | 8 stone + 3 alumina + 2 quicklime + 100 steam *(f)* | 1 zeolite-catalyst | **off** |
+| 15 | Zeolite catalyst regeneration | CP | 1 spent-zeolite-catalyst + 20 O2 *(f)* | 1 zeolite-catalyst | **off** |
+| 16 | Quicklime disposal (surplus sink) | LM | 10 quicklime + 50 lava *(f)* | 5 stone `ignored_by_prod` | **off** |
+| 17 | Vent oxygen (emergency sink) | CP | 100 O2 *(f)* | — | **off** |
+| 18 | Vent CO2 (emergency sink) | CP | 100 CO2 *(f)* | — | **off** |
+| 19 | Vent quicklime (emergency sink) | AM | 10 quicklime | — | **off** |
+
+New **fluids**: `cindra-hydrogen`, `cindra-oxygen`, `cindra-carbon-dioxide`,
+`cindra-methanol` (the `cindra-olefins` intermediate of ci-400 is **removed** —
+MTO+polymerisation is one step). New **items**: `cindra-alumina`,
+`cindra-aluminium`, `cindra-quicklime` (renamed from ci-400 `cindra-lime`),
+`cindra-methanol-catalyst`, `cindra-spent-methanol-catalyst`,
+`cindra-zeolite-catalyst`, `cindra-spent-zeolite-catalyst`,
+`cindra-aluminium-powder`, `cindra-science-pack`. `plastic-bar`, `rocket-fuel`,
+`sulfur`, `sulfuric-acid`, `steam`, `iron-plate`, `copper-plate`, `calcite`,
+`ice`, `water`, `lava` are all **vanilla** (read only).
+
+### 8.3 Resolved design decisions (the "maybe"s in the brief)
+
+- **Sulfur → acid = Option B (reuse vanilla chemistry).** Stone melting emits a
+  small `sulfur` byproduct (ci-eat, already merged); the player makes acid via the
+  **unmodified vanilla `sulfuric-acid` recipe** (`5 sulfur + 1 iron-plate + 100
+  water → 50 sulfuric-acid`), which the `cindra-lava` tech merely *unlocks*. The
+  vanilla recipe's iron-plate ingredient *is* the brief's "iron plate = used
+  catalyst". Option A (a bespoke `stone + O2 → acid` LM recipe) is rejected: B
+  reuses real chemistry and adds a second sulfur sink (leaching also emits sulfur).
+- **Calcination machine = lava manufacturer, electric heat, no lava input.** The
+  brief marks the lava-heat and stone-output as "maybe". We choose electric heat
+  (like every other Cindra cost) and **no stone output**, so calcination opens no
+  new stone vector at all — the stone balance proof (§8.4) stays simple. It runs
+  in the LM (the thematic calciner/roaster) via that machine's private category.
+- **Alumina = acid leaching of stone (not stone+calcite).** ci-6vj replaces the
+  ci-txh `stone + calcite → alumina` assembler refine with `20 stone + sulfuric-
+  acid + water → 10 alumina + 14 stone + 2 sulfur` in a CP. This ties alumina to
+  the sulfur/acid loop and frees calcite to be a pure carbon/quicklime feed. The
+  70%-stone return is `ignored_by_productivity` (fixed) so leaching stays net
+  stone-*negative* (20 in, 14 back) at every module tier.
+- **Alumina electrolysis emits O2** (`30`, `ignored_by_productivity`), the O2
+  economy's dominant source alongside water electrolysis.
+- **ALICE fuel takes O2** as an explicit oxidiser (`2 powder + 2 ice + 10 O2`), so
+  it is both a fuel route and a real O2 sink; **methanol rocket fuel** (`methanol +
+  O2 → rocket-fuel`) is the second methanol product and a second O2 sink.
+- **Two distinct catalysts, each a closed loop.** Methanol synthesis uses the
+  `methanol-catalyst` (make: `10 copper + 2 alumina`; reprocess spent: `+ acid → 6
+  copper + 1 alumina`). MTO+polymerisation uses the `zeolite-catalyst` (make: `8
+  stone + 3 alumina + 2 quicklime + 100 steam`; regenerate spent: `+ O2`). Each
+  returns 70% intact and 20% spent per craft (independent rolls); the ~10% total
+  loss is topped up by the make recipe — a small make-up feed, exactly as the brief
+  requires. Productivity is **off** on every matter-conversion step (no minting
+  free carbon/metal/plastic), matching the lava/aluminium rule.
+
+### 8.4 Loop closure & byproduct sinks (no chain hard-deadlocks)
+
+Every byproduct has a real consumer plus an emergency vent so a backed-up pipe/box
+never stalls the whole line:
+
+- **O2** — produced by water electrolysis (#3) and, dominantly, alumina
+  electrolysis (#6). Consumed by zeolite regeneration (#15), methanol rocket fuel
+  (#9), and ALICE (#8). Emergency drain: vent-oxygen (#17). Because alumina
+  electrolysis alone floods O2, the vent is expected to run in the early/mid game
+  until the O2 sinks scale — documented, not a deadlock.
+- **CO2** — produced by calcination (#4), consumed by methanol synthesis (#10),
+  emergency drain vent-CO2 (#18).
+- **quicklime** — the calcination co-product; consumed by zeolite catalyst (#14)
+  and, in bulk, quicklime disposal (#16, the designated surplus sink); emergency
+  drain vent-quicklime (#19).
+- **sulfur** — produced by stone melting (#1) and alumina leaching (#5); consumed
+  by the vanilla sulfuric-acid recipe (#2).
+- **sulfuric-acid** — produced by #2; consumed by alumina leaching (#5) and
+  methanol-catalyst reprocessing (#12).
+- **spent catalysts** — each reprocessed/regenerated back to the live catalyst
+  (#12 / #15); never a dead item.
+- **water** — from ice-melting; partially recovered by methanol synthesis (#10)
+  and MTO (#13), trimming the draw without minting matter.
+
+**Catalyst loops close with a make-up feed:** 0.70 return + 0.20 spent means every
+craft, on average, needs 0.10 fresh catalyst; reprocessing/regeneration recover
+the 0.20 spent back into a fresh catalyst's inputs, so the standing catalyst pool
+is topped up by a trickle of the make recipe, never a full rebuild.
+
+### 8.5 Tech / progression
+
+The chemistry hangs off the existing spine. `cindra-lava` (unlocks stone melting +
+the vanilla sulfuric-acid recipe) → `cindra-aluminium` (leaching + electrolysis +
+the cell + powder) → `cindra-calcite-olefins` renamed in spirit to the **materials
+chemistry** tech (calcination, electrolysis, methanol, both catalyst systems, MTO,
+rocket fuels, the vents), prereq `cindra-aluminium`. Early game has few sinks
+(voiding via the vents is fine); the full loop lights up once the chemistry tech is
+in hand, matching the ci-9l6 pacing intent. No unlock costs the product it gates
+(no soft-lock); researched with brought vanilla packs, not the Cindra pack.
+
+### 8.6 The load-bearing invariants (§6; proven at the +300% productivity cap)
+
+- **No self-sustaining free-stone loop (ci-669).** Stone is consumed by: stone
+  melting (#1, 64/craft, prod off) and alumina leaching (#5, net −6/craft: 20 in,
+  14 `ignored_by_prod` back). Stone is *returned* by: leaching (#5, 14, fixed) and
+  quicklime disposal (#16, 5, fixed, and only in exchange for 50 lava that itself
+  cost 10 stone to make — net −5). The vanilla casts return ≤ 60 stone per 100
+  spent (ci-9yg). Because every stone-returning step is `ignored_by_productivity`
+  and every stone-spending step is either prod-off or dominant, **the net stone
+  balance is negative at 0% and at +300%** — mining is always a real top-up.
+- **No free-metal loop.** Aluminium is only ever produced by electrolysis of
+  leached alumina (real power + real stone). Nothing crafts stone/ore/coal for
+  free (ci-8n6; there is no ground crusher, §5a).
+- **No free-carbon / free-plastic loop.** Carbon enters only as `calcite` →
+  calcination → CO2; every conversion step disables productivity, so a prod bonus
+  can never mint CO2, methanol, or plastic.
+- **Rocket fuel is a terminal sink, never an energy loop (ci-669 energy analog).**
+  Both fuel recipes consume metal/methanol worth far more electricity than the
+  vanilla `rocket-fuel`'s ~100 MJ; fuel is exported/launched, never burned back
+  into the grid to power its own production.
+
+All of the above are guarded by tests (`test_lava`, `test_aluminium`,
+`test_plastics`, `test_sulfur`, `test_mass_driver`, and a new ci-6vj graph-balance
+test); the fix for any regression must add a test that fails on the old graph.
