@@ -110,6 +110,10 @@ if script.active_mods["factorio-test"] then
     -- ci-gcd one-way power transfer PoC: energy flows A->B up to a rate cap,
     -- never B->A; the two networks stay isolated.
     "tests/test_power_diode",
+    -- ci-xor: the standalone env-scanner mod (the radio tower) loads alongside
+    -- cindra via a required (~ env-scanner) dependency, so its buildable scanner
+    -- exists in every Cindra playtest instead of silently going missing.
+    "tests/test_env_scanner",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the

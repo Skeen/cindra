@@ -114,6 +114,11 @@
             version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ft_mod/info.json" | head -1)"
             mkdir -p "$data_dir/mods"
             ln -sfn "$ft_mod" "$data_dir/mods/factorio-test_$version"
+            # env-scanner is a required (~) dependency of cindra: cindra will not
+            # load without it, and its scanner must exist for the suite to assert
+            # on. It is a sibling local mod (not on the portal), so seed it into
+            # the data dir like factorio-test; cindra's ~ dep then auto-enables it.
+            ln -sfn "$repo/mods/env-scanner" "$data_dir/mods/env-scanner"
 
             if [ ! -x "$factorio_path" ]; then
               echo "error: Factorio binary not found at $factorio_path" >&2

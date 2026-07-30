@@ -57,7 +57,7 @@ grep -qx -- 'mods-bundle' "$TMP/launch-args.txt" \
 [ -f "$LIST" ] || fail "no mod-list.json generated"
 jq -e . "$LIST" >/dev/null || fail "mod-list.json is not valid JSON"
 
-for mod in cindra cindra-start cindra-dev-default any-planet-start helmod \
+for mod in cindra env-scanner cindra-start cindra-dev-default any-planet-start helmod \
            base elevated-rails quality recycler space-age; do
   jq -e --arg m "$mod" \
     'any(.mods[]; .name == $m and .enabled == true)' "$LIST" >/dev/null \
@@ -65,7 +65,9 @@ for mod in cindra cindra-start cindra-dev-default any-planet-start helmod \
 done
 
 # --- Assert the symlinks resolve ----------------------------------------------
-for name in cindra cindra-start cindra-dev-default; do
+# env-scanner is a required (~) dependency of cindra: it MUST travel with cindra
+# in the bundle or Factorio refuses the whole set (ci-xor).
+for name in cindra env-scanner cindra-start cindra-dev-default; do
   [ -d "$BUNDLE/$name" ] || fail "bundle symlink '$name' does not resolve to a dir"
 done
 # Zipped mods keep their name_version.zip filename (Factorio requires it).

@@ -97,6 +97,10 @@ link_mod() {
 }
 
 link_mod cindra mods/cindra
+# env-scanner is a required (~) dependency of cindra, so the two MUST load
+# together or Factorio refuses the whole set. It is a sibling local mod, not on
+# the portal, so wire it straight from mods/ like cindra itself.
+link_mod env-scanner mods/env-scanner
 
 # find_local_mod <mod-name> [extra-dir...] : echo the first local copy of a mod
 # found as either an unzipped dir (<name>/) or a versioned zip (<name>_*.zip),
@@ -185,6 +189,7 @@ cat > "$MODS/mod-list.json" <<JSON
 {
   "mods": [
     { "name": "cindra", "enabled": true },
+    { "name": "env-scanner", "enabled": true },
 $APS_LINES
 $HELMOD_LINE
     { "name": "base", "enabled": true },
