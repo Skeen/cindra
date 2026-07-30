@@ -113,6 +113,19 @@
 
             version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ft_mod/info.json" | head -1)"
             mkdir -p "$data_dir/mods"
+            # CANONICAL settings: drop any persisted mod-settings.dat so every run
+            # regenerates it from the CURRENT settings.lua defaults. Factorio only
+            # reads a startup setting's default_value when the name is ABSENT from
+            # mod-settings.dat; once the file exists it keeps the stored value and
+            # IGNORES a changed default. A data dir reused across runs (locally, or
+            # on the refinery's persistent workspace) therefore pins STALE zone
+            # widths, so a geometry change (e.g. ci-qqt's thin 128-tile ribbon) reads
+            # green on a fresh checkout but red on a reused one -- the exact false-
+            # green/stale-red split that rejected the first ci-qqt attempt. Deleting
+            # it makes every run deterministic against the code's own defaults (the
+            # tests already assume vanilla-default settings). Custom local tuning is
+            # transient test state, not source, so nothing durable is lost.
+            rm -f "$data_dir/mods/mod-settings.dat"
             ln -sfn "$ft_mod" "$data_dir/mods/factorio-test_$version"
             # env-scanner is a required (~) dependency of cindra: cindra will not
             # load without it, and its scanner must exist for the suite to assert

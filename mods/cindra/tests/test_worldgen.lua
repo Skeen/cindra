@@ -21,7 +21,7 @@
 --   5. ZERO NAUVIS LEAKAGE: no un-cloned grass, no water anywhere.
 --   6. NATIVE RESOURCES: stone on the hot ribbon, ice on the cold cap, never crossed.
 --   7. BAND-WIDE BOOTSTRAP ROCKS across the building band.
---   8. CLIFFS: Vulcanus-style cliffs generate in the volcanic zones only.
+--   8. NO CLIFFS: the thin 128-tile ribbon (ci-qqt) is cliff-free (a cliff would wall it).
 --
 -- The pure zone geometry is proven in unit-tests/test_terrain + test_resource_field;
 -- this proves it actually generates on a live surface.
@@ -37,9 +37,10 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   -- fixed seed pins the resource patches.
   local s
   local ready = false
-  -- The default ribbon is 900 wide (x in [-450, 450]); sample resources over a
-  -- long-axis span wide enough to catch the sparse spot-noise patches out on the
-  -- cold cap (whose band excludes the origin's guaranteed starting patch).
+  -- The default ribbon is 454 wide (x in [-227, 227]) after the ci-qqt thin-ribbon
+  -- compression; sample resources over a long-axis span wide enough to catch the
+  -- sparse spot-noise patches out on the cold cap (whose band excludes the origin's
+  -- guaranteed starting patch).
   local RY = 300
 
   before_each(function()
@@ -54,8 +55,9 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     local fd = terrain.finite_dimension()
     mgs[fd.key] = fd.value
     s = game.surfaces["cindra-worldgen-test"] or game.create_surface("cindra-worldgen-test", mgs)
-    -- Radius 18 chunks (~576 tiles) covers the full x in [-450,450] out to y ~= +/-RY
-    -- (the far cold-cap corner at (450, 300) is ~541 tiles from the origin).
+    -- Radius 18 chunks (~576 tiles) covers the full x in [-227,227] out to y ~= +/-RY
+    -- (the far cold-cap corner at (227, 300) is ~376 tiles from the origin); everything
+    -- beyond the 454-wide ribbon is out-of-map void.
     s.request_to_generate_chunks({ 0, 0 }, 18)
     s.force_generate_chunk_requests()
     ready = true
@@ -63,20 +65,23 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   local function tile(x, y) return s.get_tile(x, y).name end
 
-  -- The centre of each TEMPERATE->COLD zone's X band (default widths). The gradient is
-  -- centred on the origin: cold (ice) east. At a 50-wide zone's centre the plateau
-  -- margin guarantees a member of THAT zone (a noisy mix). The three HOT zones
-  -- (hot_lava/lava_mix/lava_crust) are NOT flat sub-bands anymore -- they are the
+  -- The centre of each TEMPERATE->COLD zone's X band (default widths, ci-qqt thin
+  -- ribbon). The gradient is centred on the origin: cold (ice) east. At a zone's centre
+  -- the plateau margin guarantees a member of THAT zone (a noisy mix). The three HOT
+  -- zones (hot_lava/lava_mix/lava_crust) are NOT flat sub-bands anymore -- they are the
   -- heightmap RING region (ci-cwk), proven separately below, so they are excluded here.
+  -- x = -perp: volcanic_warm perp[64,77], basalt [51,64], scorched [38,51], dry_dirt
+  -- [25,38], building [-25,25], cold_dust [-38,-25], rough_ice [-51,-38], deep_ice
+  -- [-227,-51].
   local ZONE_AT = {
-    { -275, "volcanic_warm" },
-    { -225, "basalt" },
-    { -175, "scorched" },
-    { -125, "dry_dirt" },
-    { 0,    "building" },
-    { 125,  "cold_dust" },
-    { 175,  "rough_ice" },
-    { 325,  "deep_ice" },
+    { -70, "volcanic_warm" },
+    { -57, "basalt" },
+    { -44, "scorched" },
+    { -31, "dry_dirt" },
+    { 0,   "building" },
+    { 31,  "cold_dust" },
+    { 44,  "rough_ice" },
+    { 139, "deep_ice" },
   }
 
   -- Hot-region tile classes for the ring assertions (ci-cwk).
@@ -89,12 +94,54 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   -- 1. FINITE PERPENDICULAR via the map-gen (width = sum of zone widths) ----------
   it("is finite perpendicular: the map-gen voids beyond the total width, interior playable", function()
-    -- width = 900 by default -> playable X is roughly [-450, 450].
-    assert.are.equal("out-of-map", tile(-460, 0), "sunward (west) beyond the ribbon is void")
-    assert.are.equal("out-of-map", tile(460, 0), "nightward (east) beyond the ribbon is void")
+    -- width = 454 by default (ci-qqt) -> playable X is roughly [-227, 227].
+    assert.are.equal("out-of-map", tile(-240, 0), "sunward (west) beyond the ribbon is void")
+    assert.are.equal("out-of-map", tile(240, 0), "nightward (east) beyond the ribbon is void")
     assert.are_not.equal("out-of-map", tile(0, 0), "the building centre is playable")
-    assert.are_not.equal("out-of-map", tile(-425, 0), "the hot-lava edge is still land")
-    assert.are_not.equal("out-of-map", tile(425, 0), "the cold-ice edge is still land")
+    assert.are_not.equal("out-of-map", tile(-215, 0), "the hot-lava edge is still land")
+    assert.are_not.equal("out-of-map", tile(215, 0), "the cold-ice edge is still land")
+  end)
+
+  -- 1a. THIN RIBBON + IMPASSABLE ICE WALL (ci-qqt) -------------------------------
+  -- The FUNCTIONAL band -- the survivable playfield between the LAVA TRIGGER (heat
+  -- death begins) and the ICE WALL / ICE TRIGGER (cold death + impassable ice begins)
+  -- -- is tuned to ~128 tiles, the vanilla ribbon-world default. And the cold side now
+  -- carries a REAL, visible, impassable ICE WALL (the twin of the lava sea), which was
+  -- the prerequisite bug: previously the cold cap was walkable, so there was no wall.
+  it("thins the functional band to ~128 tiles between the lava trigger and the ice wall (ci-qqt)", function()
+    local db = terrain.damage_bounds()
+    -- Geometry: functional = hot_from - cold_from (the survivable band between the
+    -- heat-death trigger and the cold-death / ice-wall trigger).
+    assert.are.equal(128, db.hot_from - db.cold_from,
+      "the functional band is ~128 tiles (ribbon-world default)")
+    -- Both triggers are real: the lava trigger (perp hot_from) starts heat death, one
+    -- step nightward is survivable; the ice-wall trigger (perp cold_from) starts cold
+    -- death, one step sunward is survivable -- so 128 tiles of true functional space lie
+    -- between them.
+    assert.are.equal("heat", terrain.lethal_at(db.hot_from), "the lava trigger begins heat death")
+    assert.is_nil(terrain.lethal_at(db.hot_from - 5), "just nightward of the lava trigger is functional")
+    assert.are.equal("cold", terrain.lethal_at(db.cold_from), "the ice-wall trigger begins cold death")
+    assert.is_nil(terrain.lethal_at(db.cold_from + 5), "just sunward of the ice wall is functional")
+  end)
+
+  it("generates a REAL, visible, IMPASSABLE ice wall on the cold side (ci-qqt prereq)", function()
+    -- The smooth deep-ice cap (zone 11) generates as a solid band on the cold side, deep
+    -- past the ice-wall trigger. Sample deep in the cap (x=80, perp -80) across rows.
+    local ice_seen = 0
+    for y = -120, 120, 24 do
+      if tile(80, y) == "cindra-ice-smooth" then ice_seen = ice_seen + 1 end
+    end
+    assert.is_true(ice_seen >= 10,
+      "the smooth-ice wall generates as a solid band deep in the cold cap (" .. ice_seen .. "/11 rows)")
+    -- IMPASSABLE: a building cannot be placed on the smooth-ice cap -- the wall blocks it,
+    -- exactly like the lava wall. Pave a patch far down the ribbon (gradient-independent).
+    local paved = {}
+    for x = -4, 4 do
+      for y = 2596, 2604 do paved[#paved + 1] = { name = "cindra-ice-smooth", position = { x, y } } end
+    end
+    s.set_tiles(paved, true)
+    assert.is_false(s.can_place_entity({ name = "stone-furnace", position = { 0, 2600 } }),
+      "the smooth-ice ice wall is impassable/unbuildable, the cold-side twin of the lava wall")
   end)
 
   -- 2. ZONED MIXED GRADIENT: each zone's centre is a MEMBER of that zone ----------
@@ -114,10 +161,10 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   it("ALWAYS generates a SOLID hot-lava SEA at the sunward edge, zero gaps (ci-48z/ci-a35)", function()
     -- Zone 1 (hot_lava) MUST be a solid, contiguous hot-lava sea: pure lava-hot, no
-    -- pools/gaps/rings. Its band is perp [400,450] -> x in [-450,-400] at default widths.
-    -- Scan the interior of that band (x in [-449,-401], clear of the wavy inner edge) and
-    -- assert EVERY non-lava-hot Cindra tile count is ZERO -- the sea has no holes.
-    local box = { { -449, -RY }, { -401, RY } }
+    -- pools/gaps/rings. Its band is perp [177,227] -> x in [-227,-177] at default widths
+    -- (ci-qqt). Scan the interior of that band (x in [-225,-179], clear of the wavy inner
+    -- edge) and assert EVERY non-lava-hot Cindra tile count is ZERO -- the sea has no holes.
+    local box = { { -225, -RY }, { -179, RY } }
     local non_lava_hot = 0
     for _, name in ipairs(terrain.tile_names()) do
       if name ~= "cindra-lava-hot" then
@@ -142,9 +189,9 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       mgs[fd.key] = fd.value
       local sname = "cindra-sea-seed-" .. seed
       local ss = game.surfaces[sname] or game.create_surface(sname, mgs)
-      ss.request_to_generate_chunks({ -425, 0 }, 5) -- ~160 tiles: covers the west sea band
+      ss.request_to_generate_chunks({ -202, 0 }, 5) -- ~160 tiles: covers the west sea band
       ss.force_generate_chunk_requests()
-      local box = { { -449, -100 }, { -401, 100 } }
+      local box = { { -225, -100 }, { -179, 100 } }
       local gaps = 0
       for _, name in ipairs(terrain.tile_names()) do
         if name ~= "cindra-lava-hot" then
@@ -173,13 +220,13 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   end
 
   it("arranges the hot region as POOLS: lava and hot-cracks intermix at a fixed x (not a flat band)", function()
-    -- At x ~= -360 (perp 360) the OLD flat-band model painted only lava-hot/lava (the
-    -- old zone-2 'lava_mix' stripe); with the heightmap, lava POOLS and their
-    -- volcanic-cracks-hot rings both appear along that column -> proof it is a 2-D
+    -- At x ~= -150 (perp 150, the lava_mix pool region just inside the solid sea) the
+    -- OLD flat-band model painted only lava-hot/lava; with the heightmap, lava POOLS and
+    -- their volcanic-cracks-hot rings both appear along that column -> proof it is a 2-D
     -- pool field, not a Y-invariant vertical stripe.
-    local lava = count_in(LAVA, -370, -350, -200, 200)
+    local lava = count_in(LAVA, -160, -140, -200, 200)
     local cracks_hot = s.count_tiles_filtered({
-      name = "cindra-volcanic-cracks-hot", area = { { -370, -200 }, { -350, 200 } } })
+      name = "cindra-volcanic-cracks-hot", area = { { -160, -200 }, { -140, 200 } } })
     assert.is_true(lava > 0, "lava pools appear in the mid-hot column")
     assert.is_true(cracks_hot > 0,
       "volcanic-cracks-hot rings appear intermixed in the SAME mid-hot column (pools, not a stripe)")
@@ -194,7 +241,7 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     -- adjacent to the lava; cracks-hot rings IT one step further out).
     local ring_smooth, ring_other, leaks = 0, 0, 0
     local lava_seen = 0
-    for x = -445, -310, 1 do
+    for x = -225, -100, 1 do
       for y = -150, 150, 3 do
         if LAVA[tile(x, y)] then
           lava_seen = lava_seen + 1
@@ -224,8 +271,8 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   it("keeps lava gated by the X gradient: dense to the west, thinning to none by the temperate zone (ci-cwk)", function()
     -- Lava is dense/large toward the sunward (west) edge and thins out toward the
     -- temperate zone (the elevation bias falls with distance from the hot edge).
-    local west = count_in(LAVA, -445, -395, -RY, RY) -- perp [395,445]
-    local temperate_edge = count_in(LAVA, -315, -305, -RY, RY) -- perp [305,315]
+    local west = count_in(LAVA, -225, -179, -RY, RY) -- perp [179,225] (the solid sea)
+    local temperate_edge = count_in(LAVA, -105, -95, -RY, RY) -- perp [95,105] (near the temperate zone)
     assert.is_true(west > 0, "lava is dense at the sunward edge")
     assert.is_true(west > temperate_edge * 3,
       "lava thins out toward the temperate zone (west=" .. west .. ", temperate_edge=" .. temperate_edge .. ")")
@@ -233,11 +280,11 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   it("MIXES tiles within a zone (adjacent members interpenetrate, not a single tile)", function()
     -- Zone 7 (dry_dirt) mixes dirt-1..3 / sand-1..3 / red-desert-1..3. Over a patch
-    -- at its band (x ~= [-150,-100]) more than one member tile must appear -- proof
+    -- at its band (x ~= [-38,-25], ci-qqt) more than one member tile must appear -- proof
     -- the zones are a noisy MIX, not one flat tile.
     local members = terrain.zone_tiles("dry_dirt")
     local seen = {}
-    for x = -148, -102, 2 do
+    for x = -37, -26, 1 do
       for y = -100, 100, 10 do
         local n = tile(x, y)
         if members[n] then seen[n] = true end
@@ -249,13 +296,13 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   end)
 
   it("draws ORGANIC (wavy) zone boundaries, never raw straight lines", function()
-    -- Scan the volcanic-warm -> basalt boundary (x ~= -250) across many Y rows: the
-    -- X at which a basalt member first appears scanning east. A straight line =>
+    -- Scan the volcanic-warm -> basalt boundary (x ~= -64, ci-qqt) across many Y rows:
+    -- the X at which a basalt member first appears scanning east. A straight line =>
     -- identical X on every row; the basis-noise wiggle makes it VARY.
     local basalt = terrain.zone_tiles("basalt")
     local first = {}
-    for y = -160, 160, 16 do
-      for x = -300, -200 do
+    for y = -160, 160, 10 do
+      for x = -90, -45 do
         if basalt[tile(x, y)] then first[#first + 1] = x; break end
       end
     end
@@ -272,30 +319,32 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   it("separates rough-ice from the smooth deep-ice cap (ci-da2 zone 11 wall)", function()
     -- Scanning outward (east / colder) the ground goes rough-ice zone -> smooth
     -- deep-ice cap: the rough ice (zone 10, walkable, safe) is the near side, the
-    -- smooth deep-ice cap (zone 11, cold-lethal) the far side. The "cliff/wall"
-    -- between them is realised as the smooth-ice cold-lethal barrier + the out-of-map
-    -- void beyond (a bespoke ice-mountain cliff TILE is deferred to ci-70r; Vulcanus-
-    -- style cliffs generate on the volcanic side, tested below).
+    -- smooth deep-ice cap (zone 11, cold-lethal) the far side. The rough->smooth-ice
+    -- boundary is the ICE WALL: the smooth-ice cap is now IMPASSABLE (ci-qqt) as well as
+    -- cold-lethal, the cold-side twin of the lava wall, with the out-of-map void beyond.
+    -- Rough_ice band is x in [38,51], the smooth deep-ice cap x in [51,227]; scan east
+    -- for the first smooth-ice tile on each row to prove the transition exists on the map.
     local first_deep = {}
     for y = -120, 120, 24 do
-      for x = 150, 320 do
+      for x = 40, 120 do
         if tile(x, y) == "cindra-ice-smooth" then first_deep[#first_deep + 1] = x; break end
       end
     end
     assert.is_true(#first_deep >= 6, "sampled the rough-ice -> deep-ice boundary on enough rows")
-    -- Deep-ice (the cold-lethal cap) is the far/upper side; the near/lower side is
-    -- NOT smooth deep-ice (it is rough ice / dust, safe).
-    local bx = first_deep[1]
-    assert.are_not.equal("cindra-ice-smooth", tile(bx - 12, -120), "the near (lower) side of the wall is not the deep-ice cap")
-    assert.are.equal("cindra-ice-smooth", tile(bx + 8, -120), "smooth deep-ice on the far (upper) side of the wall")
-    assert.are.equal("cold", terrain.lethal_at(-(bx + 8)), "the smooth-ice cap is the lethal cold wall (perp = -x)")
-    assert.is_nil(terrain.lethal_at(-(bx - 12)), "the rough ice below the wall is safe/walkable")
+    -- Deep-ice (the cold-lethal cap) is the far/upper side; the near/lower side is NOT
+    -- smooth deep-ice (it is rough ice / dust, safe). Sample points sit well clear of the
+    -- narrow boundary so noise bleed can't flip them: x=80 is deep in the cap, x=44 in
+    -- the rough-ice safe margin.
+    assert.are_not.equal("cindra-ice-smooth", tile(44, -120), "the near (warm) side of the wall is not the deep-ice cap")
+    assert.are.equal("cindra-ice-smooth", tile(80, -120), "smooth deep-ice deep in the cap (far/cold side of the wall)")
+    assert.are.equal("cold", terrain.lethal_at(-80), "the smooth-ice cap is the lethal cold wall (perp = -x)")
+    assert.is_nil(terrain.lethal_at(-44), "the rough ice below the wall is safe/walkable")
   end)
 
-  -- 3. WALKABILITY: the two lava tiles impassable, everything else buildable -------
-  it("makes the two lava tiles impassable and every other tile buildable ground", function()
+  -- 3. WALKABILITY: the lava tiles AND the ice wall impassable, everything else buildable
+  it("makes the lava tiles AND the smooth-ice wall impassable, every other tile buildable", function()
     -- Pave a deterministic patch of each tile far from the gradient and test whether
-    -- a standard building can be placed (impassable lava blocks it).
+    -- a standard building can be placed (the impassable lava/ice-wall mask blocks it).
     local function pave(name, cx, cy)
       local tiles = {}
       for x = cx - 4, cx + 4 do
@@ -310,9 +359,11 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     end
     assert.is_false(buildable("cindra-lava-hot"), "hot lava is impassable (unbuildable)")
     assert.is_false(buildable("cindra-lava"), "lava is impassable (unbuildable)")
+    -- ci-qqt: the smooth deep-ice cap is the impassable cold ICE WALL, the twin of the
+    -- lava wall -- unbuildable and blocks movement, exactly like the lava tiles.
+    assert.is_false(buildable("cindra-ice-smooth"), "the smooth-ice cap is the impassable ice wall (unbuildable)")
     for _, walk in ipairs({ "cindra-volcanic-cracks-hot", "cindra-volcanic-cracks-warm",
-                            "cindra-sand-1", "cindra-dust-flat", "cindra-ice-rough",
-                            "cindra-ice-smooth" }) do
+                            "cindra-sand-1", "cindra-dust-flat", "cindra-ice-rough" }) do
       assert.is_true(buildable(walk), walk .. " is buildable ground")
     end
   end)
@@ -321,18 +372,18 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   it("flags the damage zones: hot zones 1+2+3 (heat), smooth-ice cap (cold), middle safe", function()
     -- Damage is keyed to POSITION on the perpendicular axis (perp = -x), because the
     -- mixed zones share tiles (tests/test_tile_damage proves the sweep bites).
-    assert.are.equal("heat", terrain.lethal_at(-(-425)), "zone 1 (hot lava) is heat-lethal")
-    assert.are.equal("heat", terrain.lethal_at(-(-375)), "zone 2 (lava mix) is heat-lethal")
-    assert.are.equal("heat", terrain.lethal_at(-(-325)), "zone 3 (lava crust) is heat-lethal")
-    assert.are.equal("cold", terrain.lethal_at(-(325)), "the smooth-ice cap is cold-lethal")
+    assert.are.equal("heat", terrain.lethal_at(-(-202)), "zone 1 (hot lava) is heat-lethal")
+    assert.are.equal("heat", terrain.lethal_at(-(-152)), "zone 2 (lava mix) is heat-lethal")
+    assert.are.equal("heat", terrain.lethal_at(-(-102)), "zone 3 (lava crust) is heat-lethal")
+    assert.are.equal("cold", terrain.lethal_at(-(139)), "the smooth-ice cap is cold-lethal")
     assert.is_nil(terrain.lethal_at(-(0)), "the building centre is safe")
-    assert.is_nil(terrain.lethal_at(-(-275)), "zone 4 (volcanic warm) is safe")
-    assert.is_nil(terrain.lethal_at(-(175)), "zone 10 (rough ice) is safe")
+    assert.is_nil(terrain.lethal_at(-(-70)), "zone 4 (volcanic warm) is safe")
+    assert.is_nil(terrain.lethal_at(-(44)), "zone 10 (rough ice) is safe")
   end)
 
   -- 5. ZERO NAUVIS LEAKAGE --------------------------------------------------------
   it("generates NO un-cloned grass and NO water anywhere (no nauvis terrain leakage)", function()
-    local box = { { -440, -RY }, { 440, RY } }
+    local box = { { -225, -RY }, { 225, RY } }
     for _, n in ipairs({ "grass-1", "grass-2", "grass-3", "grass-4", "water", "deepwater" }) do
       assert.are.equal(0, s.count_tiles_filtered({ name = n, area = box }),
         "Cindra must generate no un-cloned " .. n)
@@ -342,7 +393,7 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   it("paints ONLY Cindra tiles across the interior (every point is a cindra-* tile)", function()
     local cindra_set = {}
     for _, n in ipairs(terrain.tile_names()) do cindra_set[n] = true end
-    for x = -440, 440, 40 do
+    for x = -220, 220, 40 do
       for y = -120, 120, 60 do
         local n = tile(x, y)
         assert.is_true(cindra_set[n] == true,
@@ -357,36 +408,34 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   end
 
   it("places stone on the building ribbon + survivable hot margin, never on the cold cap", function()
-    -- stone zone perp [-100, 280) -> x in (-280, 100]: reaches INTO the survivable hot
-    -- margin (the edge-push) but stops a margin short of the lethal heat cap (ci-4iw).
-    assert.is_true(count(field.STONE, -275, 100) > 0, "stone patches on the hot ribbon")
-    assert.are.equal(0, count(field.STONE, 110, 450), "no stone on the cold cap (east)")
+    -- stone zone perp [-25, 67.5) -> x in (-67.5, 25] (ci-qqt): reaches INTO the survivable
+    -- hot margin (the edge-push) but stops a margin short of the lethal heat cap (ci-4iw).
+    assert.is_true(count(field.STONE, -65, 25) > 0, "stone patches on the hot ribbon")
+    assert.are.equal(0, count(field.STONE, 30, 227), "no stone on the cold cap (east)")
   end)
 
   it("places ice on the survivable cold margin, never on the hot/temperate ribbon", function()
-    -- ice zone perp (-180, -100) -> x in (100, 180): reaches INTO the survivable cold
-    -- margin (rough-ice edge-push) but stops a margin short of the deep-ice cap (ci-4iw).
-    assert.is_true(count(field.ICE, 101, 179) > 0, "ice patches on the survivable cold margin")
-    assert.are.equal(0, count(field.ICE, -350, 100), "no ice on the hot/temperate ribbon")
+    -- ice zone perp (-41.5, -25) -> x in (25, 41.5) (ci-qqt): reaches INTO the survivable
+    -- cold margin (rough-ice edge-push) but stops a margin short of the deep-ice cap (ci-4iw).
+    assert.is_true(count(field.ICE, 26, 41) > 0, "ice patches on the survivable cold margin")
+    assert.are.equal(0, count(field.ICE, -227, 24), "no ice on the hot/temperate ribbon")
   end)
 
   -- ci-fb9 (margin ci-4iw): NO harvestable field may sit in the LETHAL damage zone
-  -- (visible-but-unreachable UX). Heat zones 1-3 = perp [300,450] -> x in [-450,-300];
-  -- cold zone 11 (deep-ice cap) = perp [-450,-200] -> x in [200,450]. ci-fb9 clamped
-  -- fields EXACTLY to these boundaries, but the lethal TILES bleed ~14 tiles warmward
-  -- across them, so patches at the very edge landed on the bled cap (ice "in the frost
-  -- death zone"). ci-4iw adds a keep-back margin. Assert ZERO fields in each lethal
-  -- band (still true), and prove the boundary really is lethal.
+  -- (visible-but-unreachable UX). Heat zones 1-3 = perp [77,227] -> x in [-227,-77];
+  -- cold zone 11 (deep-ice cap) = perp [-227,-51] -> x in [51,227] (ci-qqt). Fields are
+  -- clamped a keep-back margin short of these boundaries so the noise-bled lethal tiles
+  -- stay field-free too. Assert ZERO fields in each lethal band, and prove it is lethal.
   it("keeps ALL harvestable fields OUT of the heat damage zone (zones 1-3)", function()
-    assert.are.equal(0, count(field.STONE, -450, -305), "no stone in the heat damage zone")
-    assert.are.equal(0, count(field.ICE, -450, -305), "no ice in the heat damage zone")
-    assert.are.equal("heat", terrain.lethal_at(-(-330)), "the scanned band really is heat-lethal")
+    assert.are.equal(0, count(field.STONE, -227, -78), "no stone in the heat damage zone")
+    assert.are.equal(0, count(field.ICE, -227, -78), "no ice in the heat damage zone")
+    assert.are.equal("heat", terrain.lethal_at(-(-90)), "the scanned band really is heat-lethal")
   end)
 
   it("keeps ALL harvestable fields OUT of the cold damage zone (deep-ice cap, zone 11)", function()
-    assert.are.equal(0, count(field.STONE, 205, 450), "no stone in the cold damage zone")
-    assert.are.equal(0, count(field.ICE, 205, 450), "no ice in the cold damage zone")
-    assert.are.equal("cold", terrain.lethal_at(-(300)), "the scanned band really is cold-lethal")
+    assert.are.equal(0, count(field.STONE, 52, 227), "no stone in the cold damage zone")
+    assert.are.equal(0, count(field.ICE, 52, 227), "no ice in the cold damage zone")
+    assert.are.equal("cold", terrain.lethal_at(-(139)), "the scanned band really is cold-lethal")
   end)
 
   -- The load-bearing invariant, proven tile-by-tile (ci-4iw): walk EVERY stone/ice
@@ -404,7 +453,7 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       ["cindra-volcanic-cracks-hot"] = true, -- glowing lava crust (the hot damage zone 3)
     }
     local function scan(name)
-      local ents = s.find_entities_filtered({ name = name, area = { { -450, -RY }, { 450, RY } } })
+      local ents = s.find_entities_filtered({ name = name, area = { { -227, -RY }, { 227, RY } } })
       local on_death = 0
       for _, e in ipairs(ents) do
         local p = e.position
@@ -422,7 +471,7 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   -- 6a. ZONE PURITY (ci-7w0), proven on the LIVE map: STONE never in the cold zone,
   -- ICE never in the hot/temperate zone, and the hot/cold TILE families obey the
-  -- same split (the divider is the building's cold edge, perp -100 -> x 100).
+  -- same split (the divider is the building's cold edge, perp -25 -> x 25; ci-qqt).
   local function count_tiles(names, x1, x2)
     local n = 0
     for _, name in ipairs(names) do
@@ -432,69 +481,74 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   end
 
   it("keeps stone OUT of the ENTIRE cold cap, right up to the divider", function()
-    assert.are.equal(0, count(field.STONE, 101, 450), "no stone anywhere on the cold cap")
+    assert.are.equal(0, count(field.STONE, 30, 227), "no stone anywhere on the cold cap")
     assert.is_true(count_tiles({ "cindra-dust-flat", "cindra-dust-crests", "cindra-ice-rough",
-                                 "cindra-ice-smooth" }, 101, 450) > 0,
+                                 "cindra-ice-smooth" }, 30, 227) > 0,
       "the scanned cold zone is real cold terrain, so the purity check is meaningful")
   end)
 
   it("keeps ice OUT of the ENTIRE hot + temperate zone (never west of the divider)", function()
-    assert.are.equal(0, count(field.ICE, -350, 100), "no ice anywhere west of the divider")
-    assert.is_true(count_tiles({ "cindra-volcanic-cracks-hot", "cindra-volcanic-cracks", "cindra-sand-1" }, -350, 100) > 0,
+    assert.are.equal(0, count(field.ICE, -227, 24), "no ice anywhere west of the divider")
+    assert.is_true(count_tiles({ "cindra-volcanic-cracks-hot", "cindra-volcanic-cracks", "cindra-sand-1" }, -227, 24) > 0,
       "the scanned hot/temperate zone is real terrain, so the purity check is meaningful")
   end)
 
   it("keeps the hot MOLTEN tiles west and the COLD tiles east of the divider", function()
-    -- Hot molten / volcanic tiles must never generate on the cold cap (x > 100)...
+    -- Hot molten / volcanic tiles must never generate on the cold cap (x > 25)...
     assert.are.equal(0, count_tiles({ "cindra-lava-hot", "cindra-lava", "cindra-volcanic-cracks-hot",
                                       "cindra-volcanic-cracks-warm", "cindra-volcanic-cracks",
-                                      "cindra-volcanic-jagged-ground" }, 105, 450),
+                                      "cindra-volcanic-jagged-ground" }, 30, 227),
       "no hot molten/volcanic tiles east of the divider")
-    -- ...and the icy tiles must never generate on the hot/temperate side (x < -100).
+    -- ...and the icy tiles must never generate on the hot/temperate side (x < -25).
     assert.are.equal(0, count_tiles({ "cindra-ice-rough", "cindra-ice-smooth",
-                                      "cindra-dust-crests", "cindra-dust-flat" }, -450, -105),
+                                      "cindra-dust-crests", "cindra-dust-flat" }, -227, -30),
       "no cold ice/dust tiles west of the building band")
   end)
 
   -- 7. BAND-WIDE BOOTSTRAP ROCKS --------------------------------------------------
   it("scatters bootstrap rocks across the WARM building band, fading before ice (ci-9bb, ci-18n)", function()
-    -- Sandy rocks span perp [-80, 100] -> x in [-100, 80] (ci-18n pulls the cold
-    -- edge warm of the divider so they fade before the frost). Present near spawn...
+    -- Sandy rocks span perp [-20, 25] -> x in [-25, 20] (ci-18n pulls the cold edge warm
+    -- of the divider so they fade before the frost; ci-qqt widths). Present near spawn...
     local near = s.count_entities_filtered({
-      name = field.ROCK, area = { { -100, -100 }, { 80, 100 } } })
+      name = field.ROCK, area = { { -24, -100 }, { 19, 100 } } })
     assert.is_true(near > 0, "bootstrap rocks scatter across the warm building band")
     -- ...and far down the ribbon (band-wide, not a spawn disk).
     local far = s.count_entities_filtered({
-      name = field.ROCK, area = { { -100, 130 }, { 80, RY } } })
+      name = field.ROCK, area = { { -24, 130 }, { 19, RY } } })
     assert.is_true(far > 0, "bootstrap rocks also generate far down the ribbon")
     -- Masked OUT of the hot margin (never past the building band on the perp axis).
     local outside = s.count_entities_filtered({
-      name = field.ROCK, area = { { -300, -100 }, { -130, 100 } } })
+      name = field.ROCK, area = { { -80, -100 }, { -30, 100 } } })
     assert.are.equal(0, outside, "no rocks out past the building band (masked to the ribbon)")
-    -- ci-18n: FADE BEFORE ICE. The cold-edge strip x in (80, 130] (perp -130..-80),
-    -- which straddles the building/cold_dust frost divider, must carry NO sandy rock.
+    -- ci-18n: FADE BEFORE ICE. The cold-edge strip x in (20, 45] (perp -45..-20), which
+    -- straddles the building/cold_dust frost divider, must carry NO sandy rock.
     local on_frost = s.count_entities_filtered({
-      name = field.ROCK, area = { { 85, -RY }, { 130, RY } } })
+      name = field.ROCK, area = { { 22, -RY }, { 45, RY } } })
     assert.are.equal(0, on_frost, "no sandy rocks on the frosty cold edge (fades before ice, ci-18n)")
   end)
 
   -- 7a. ICE-ROCKS in the safe cold band (ci-18n) ----------------------------------
   -- A cold-side finite bootstrap rock: yields ice + stone, in the SAFE cold/ice band
-  -- (cold of the divider, warm of the lethal deep-ice cap). perp (-200, -100] ->
-  -- x in [100, 200).
+  -- (cold of the divider, warm of the lethal deep-ice cap). perp (-51, -25] ->
+  -- x in [25, 51) (ci-qqt).
   it("scatters ice-rocks across the safe cold band, never the lethal deep-ice cap (ci-18n)", function()
-    -- Present on the safe cold side (cold_dust + rough_ice, x in [100, 200))...
+    -- Present on the safe cold side (cold_dust + rough_ice, x in [25, 51); ci-qqt)...
     local safe = s.count_entities_filtered({
-      name = field.ICE_ROCK, area = { { 100, -RY }, { 199, RY } } })
+      name = field.ICE_ROCK, area = { { 26, -RY }, { 50, RY } } })
     assert.is_true(safe > 0, "ice-rocks scatter across the safe cold/ice band")
-    -- ...NEVER on the lethal deep-ice cap (x >= 200, perp <= -200, damage cold zone).
+    -- ...NEVER on the lethal deep-ice cap / ICE WALL (x >= 51, perp <= -51, damage cold zone).
     local lethal = s.count_entities_filtered({
-      name = field.ICE_ROCK, area = { { 205, -RY }, { 450, RY } } })
+      name = field.ICE_ROCK, area = { { 52, -RY }, { 227, RY } } })
     assert.are.equal(0, lethal, "no ice-rocks in the lethal deep-ice damage zone (zone 11, ci-18n)")
-    -- ...and NEVER on the warm/temperate + hot side (x < 100).
-    local warm = s.count_entities_filtered({
-      name = field.ICE_ROCK, area = { { -450, -RY }, { 90, RY } } })
-    assert.are.equal(0, warm, "no ice-rocks on the warm/temperate ribbon (cold-side only)")
+    -- ...and NEVER on the warm/temperate + hot side (centre warm of the divider x=25).
+    -- Check entity CENTRES (not bounding-box overlap): a rock legitimately placed at the
+    -- first cold column x=25 has a box that laps a tile warmward, but its centre is cold.
+    local near = s.find_entities_filtered({ name = field.ICE_ROCK, area = { { -227, -RY }, { 30, RY } } })
+    local warm_leak, xs = 0, {}
+    for _, e in ipairs(near) do
+      if e.position.x < 24 then warm_leak = warm_leak + 1; xs[#xs + 1] = string.format("%.1f", e.position.x) end
+    end
+    assert.are.equal(0, warm_leak, "no ice-rocks centred on the warm/temperate ribbon (cold-side only); xs=" .. table.concat(xs, ","))
   end)
 
   it("mining an ice-rock yields ICE + STONE, and it is a finite simple-entity (ci-18n)", function()
@@ -510,26 +564,25 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     assert.are.equal(2, #ice_rock.mineable_properties.products, "ice-rock yields ONLY ice + stone")
   end)
 
-  -- 8. CLIFFS: Vulcanus-style cliffs in the volcanic zones only -------------------
-  it("grows cliffs in the volcanic zones, but not in the building band or ice cap", function()
-    -- Cliffs are driven by cindra_cliff_elevation, gated to the volcanic band
-    -- (perp [150, 350] -> x in [-350, -150]). The building band + icy cap stay flat
-    -- so no zone is walled off (ci-da2 cliff comment: keep the building area workable).
-    local function cliffs(x1, x2)
-      return s.count_entities_filtered({ type = "cliff", area = { { x1, -RY }, { x2, RY } } })
-    end
-    assert.is_true(cliffs(-350, -150) > 0, "Vulcanus-style cliffs generate in the volcanic zones")
-    assert.are.equal(0, cliffs(-90, 90), "the building band is cliff-free (workable)")
-    assert.are.equal(0, cliffs(210, 450), "the deep-ice cap is cliff-free")
+  -- 8. NO CLIFFS: the thin ribbon is cliff-free (ci-qqt) ------------------------
+  it("generates NO cliffs: the thin 128-tile ribbon stays flat and traversable (ci-qqt)", function()
+    -- ci-da2 grew Vulcanus-style cliffs in the (then wide) volcanic band. The ci-qqt
+    -- thin ribbon leaves no room: a cliff would wall the narrow traversable band, and
+    -- Factorio strips any cliff that would block passage through the ribbon (they only
+    -- ever survived out in the impassable lava region). So the cliff system is dropped
+    -- and the WHOLE ribbon -- volcanic band, building band, and icy cap alike -- is
+    -- cliff-free, guaranteeing no zone is walled off and every lane stays workable.
+    local cliffs = s.count_entities_filtered({ type = "cliff", area = { { -227, -RY }, { 227, RY } } })
+    assert.are.equal(0, cliffs, "the thin ribbon-world is cliff-free (no cliff walls the narrow band)")
   end)
 
   -- 5a. BURNED VOLCANIC ROCKS in the hot/lava region (ci-qy0, re-banded ci-da2) --
   -- Charred Vulcanus-style boulders generate in the HOT region only, clustered
   -- toward the lava, and mining one yields STONE + COAL ONLY. ci-da2 re-bands them
-  -- to the zone geometry: perp in (building_half=100, hot_edge=350] -> x in
-  -- [-350, -100) (the walkable hot margin, from the building band's hot edge out to
+  -- to the zone geometry: perp in (scorched.lo=38, lava_crust.hi=127] -> x in
+  -- [-127, -38) (the walkable hot margin, from the volcanic band's cold edge out to
   -- the lava-crust edge, never into the building band, the cold cap, or the
-  -- impassable lava wall). Placement is native worldgen autoplace, not a script.
+  -- impassable lava wall; ci-qqt). Placement is native worldgen autoplace, not a script.
   local function count_burned(x1, x2)
     local n = 0
     for _, name in ipairs(field.burned_rock_names()) do
@@ -540,26 +593,26 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   it("generates burned volcanic rocks in the hot/lava region via worldgen (ci-qy0)", function()
     -- Present across the hot margin (west, out toward the lava wall).
-    assert.is_true(count_burned(-350, -110) > 0,
+    assert.is_true(count_burned(-125, -40) > 0,
       "burned volcanic rocks generate in the hot region (the lava areas)")
     -- Clustered toward the lava: more rocks in the outer (lava-crust) band than the
     -- inner (building-adjacent) band of the hot margin.
-    local near_lava = count_burned(-350, -250)
-    local inner = count_burned(-200, -110)
+    local near_lava = count_burned(-125, -85)
+    local inner = count_burned(-60, -40)
     assert.is_true(near_lava >= inner,
       "burned rocks cluster toward the lava side (near_lava=" .. near_lava .. ", inner=" .. inner .. ")")
   end)
 
   it("keeps burned volcanic rocks OUT of the temperate/building, dry_dirt and ice zones (ci-qy0, ci-18n)", function()
-    -- Temperate/building band (|x| <= building_half = 100): none.
-    assert.are.equal(0, count_burned(-90, 90),
+    -- Temperate/building band (|x| <= building_half = 25): none.
+    assert.are.equal(0, count_burned(-20, 20),
       "no burned rocks in the temperate/building band")
-    -- ci-18n: the dry_dirt zone (x in (-150, -100], perp [100, 150]) is NON-volcanic
+    -- ci-18n: the dry_dirt zone (x in [-38, -25], perp [25, 38]) is NON-volcanic
     -- terrain -- the tighten drops it, so no burned rocks spill onto its dirt/sand.
-    assert.are.equal(0, count_burned(-149, -105),
+    assert.are.equal(0, count_burned(-37, -26),
       "no burned rocks in the dry_dirt zone (tightened to volcanic tiles, ci-18n)")
     -- Cold/ice zone (east of the divider): none.
-    assert.are.equal(0, count_burned(110, 450),
+    assert.are.equal(0, count_burned(30, 227),
       "no burned rocks in the ice/cold zone")
   end)
 
@@ -567,14 +620,14 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     -- Removing coal from the sandy rock must NOT soft-lock the from-nothing bootstrap:
     -- the player must be able to gather coal (the lubricant feedstock) from the
     -- volcanic rocks WITHOUT entering the heat-lethal zone. The safe (non-lethal) hot
-    -- margin is perp [150, 300) -> x in (-300, -150]; heat damage is perp >= 300
-    -- (x <= -300). Prove volcanic rocks actually generate in that safe band.
-    local safe = count_burned(-295, -155)
+    -- margin is perp [38, 77) -> x in (-77, -38]; heat damage is perp >= 77 (x <= -77;
+    -- ci-qqt). Prove volcanic rocks actually generate in that safe band.
+    local safe = count_burned(-75, -40)
     assert.is_true(safe > 0,
       "volcanic rocks (the coal source) generate in the SAFE hot margin -- coal is reachable without heat damage")
     -- Confirm the sampled band really is non-lethal (perp = -x), so the check is meaningful.
-    assert.is_nil(terrain.lethal_at(-(-155)), "the inner edge of the sampled band is safe/walkable")
-    assert.is_nil(terrain.lethal_at(-(-295)), "the outer edge of the sampled band is still safe/walkable")
+    assert.is_nil(terrain.lethal_at(-(-40)), "the inner edge of the sampled band is safe/walkable")
+    assert.is_nil(terrain.lethal_at(-(-75)), "the outer edge of the sampled band is still safe/walkable")
   end)
 
   it("mining a burned volcanic rock yields STONE + COAL ONLY (ci-qy0)", function()
@@ -608,7 +661,7 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     local live = game.surfaces["cindra"]
       or (game.planets["cindra"] and game.planets["cindra"].create_surface())
     local mg = live.map_gen_settings
-    assert.are.equal(900, mg.width, "the cindra surface is finite (900) on the perpendicular (X) axis")
+    assert.are.equal(454, mg.width, "the cindra surface is finite (454) on the perpendicular (X) axis")
     assert.is_true(mg.height == 0 or mg.height > 100000,
       "the ribbon is infinite along its long (Y) axis; got height=" .. tostring(mg.height))
   end)

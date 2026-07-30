@@ -67,10 +67,12 @@ for i, spec in ipairs(terrain.TILES) do
     t.destroys_dropped_items = nil
     t.default_destroyed_dropped_item_trigger = nil
   else
-    -- Impassable lava (hot-lava, lava): keep the cloned lava collision mask + fluid
-    -- so it is unbuildable and blocks movement exactly like Vulcanus lava -- the
-    -- hot backstop. Only the vanilla lava tiles are cloned here, so their fluid/
-    -- collision are already the impassable ones; we leave them intact.
+    -- Impassable tiles: the two lava tiles (hot-lava, lava) AND the smooth deep-ice
+    -- cap (ci-qqt). Give each the lava() collision mask so it is unbuildable and
+    -- blocks movement exactly like Vulcanus lava -- the lava sea is the hot backstop,
+    -- the smooth-ice cap the cold ICE WALL. The lava tiles keep their cloned fluid
+    -- (a liquid surface); smooth-ice is already a solid tile (no fluid), so its lava()
+    -- collision mask alone makes the wall -- no fluid to strip.
     t.collision_mask = tile_collision_masks.lava()
     t.allowed_neighbors = nil
   end

@@ -194,7 +194,12 @@ end
 -- a cold_dust dust tile bleeds warmward across the building/cold_dust divider, no
 -- sandy rock is placed on it. The hot (sunward) edge stays at the building band's hot
 -- edge -- that neighbour is warm sandy/dirt terrain, never ice, so it needs no pull.
-M.ROCK_COLD_MARGIN = 20
+--
+-- Scaled down with the ci-qqt thin-ribbon compression: the building band shrank from
+-- 200 to 50 tiles and the tile-boundary bleed shrank with the noise amplitudes
+-- (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE = 3.5 now), so the pull-back stays a small
+-- fraction of the building band (margin 5 > 3.5 bleed) rather than swallowing it.
+M.ROCK_COLD_MARGIN = 5
 function M.rock_zone(y, cfg)
   local b = bounds(cfg)
   return y <= b.building_half and y >= b.building_lo + M.ROCK_COLD_MARGIN

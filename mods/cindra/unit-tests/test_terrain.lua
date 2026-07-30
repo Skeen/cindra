@@ -104,13 +104,15 @@ test("all clone sources are real vanilla/space-age tile family names", function(
   assert_eq("cindra-ice-smooth", names[#names], "coldest tile is last")
 end)
 
-test("only the two lava tiles are impassable; every other tile is walkable ground", function()
-  -- Spec: NOT WALKABLE = zones 1 + 2 (pure lava). Walkability is per TILE: only the
-  -- lava tiles are impassable, which makes zones 1+2 the impassable wall.
+test("the lava tiles AND the smooth-ice cap are impassable; every other tile walkable", function()
+  -- Spec (ci-qqt): NOT WALKABLE = zones 1+2 (pure lava, the hot WALL) AND zone 11
+  -- (smooth-ice, the cold ICE WALL). Walkability is per TILE. The rough-ice safe cold
+  -- margin and every other tile stay walkable/buildable ground.
   assert_eq(false, terrain.is_walkable("cindra-lava-hot"), "hot lava impassable")
   assert_eq(false, terrain.is_walkable("cindra-lava"), "lava impassable")
+  assert_eq(false, terrain.is_walkable("cindra-ice-smooth"), "the smooth-ice cap is the impassable ice wall")
   for _, v in ipairs({ "volcanic-cracks-hot", "volcanic-cracks-warm", "sand-1",
-                       "dust-flat", "ice-rough", "ice-smooth", "grass-4" }) do
+                       "dust-flat", "ice-rough", "grass-4" }) do
     assert_eq(true, terrain.is_walkable("cindra-" .. v), "cindra-" .. v .. " is walkable ground")
   end
   assert_eq(nil, terrain.is_walkable("cindra-not-a-tile"), "unknown tile -> nil")
@@ -121,14 +123,16 @@ test("zone-geometry damage bounds: heat over zones 1+2+3, cold over zone 11, mid
   -- ci-4jl moved the RUNTIME damage to per-tile intensity (terrain.tile_damage),
   -- but these positional descriptors remain and the worldgen tests still read them.
   local db = terrain.damage_bounds()
-  assert_eq(300, db.hot_from, "heat band starts at the cold edge of zone 3 (lava-crust)")
-  assert_eq(-200, db.cold_from, "cold band starts at the hot edge of zone 11 (deep-ice cap)")
-  -- Zone centres (perp): 1..3 hot (425/375/325), 11 cold (-325); 4 (275), 10 (-175) safe.
-  assert_eq("heat", terrain.lethal_at(425), "zone 1 burns")
-  assert_eq("heat", terrain.lethal_at(325), "zone 3 (lava-crust) burns")
-  assert_eq("cold", terrain.lethal_at(-325), "zone 11 (deep ice) freezes")
-  assert_eq(nil, terrain.lethal_at(275), "zone 4 (volcanic-warm) is safe")
-  assert_eq(nil, terrain.lethal_at(-175), "zone 10 (rough ice) is safe")
+  -- ci-qqt thin ribbon: functional band = hot_from - cold_from = 77 - (-51) = 128.
+  assert_eq(77, db.hot_from, "heat band (lava trigger) starts at the cold edge of zone 3 (lava-crust)")
+  assert_eq(-51, db.cold_from, "cold band (ice wall) starts at the hot edge of zone 11 (deep-ice cap)")
+  assert_eq(128, db.hot_from - db.cold_from, "the functional band between the triggers is ~128 tiles")
+  -- Zone centres (perp): 1 (202), 3 (102) hot; 11 (-139) cold; 4 (70.5), 10 (-44.5) safe.
+  assert_eq("heat", terrain.lethal_at(202), "zone 1 burns")
+  assert_eq("heat", terrain.lethal_at(102), "zone 3 (lava-crust) burns")
+  assert_eq("cold", terrain.lethal_at(-139), "zone 11 (deep ice) freezes")
+  assert_eq(nil, terrain.lethal_at(70.5), "zone 4 (volcanic-warm) is safe")
+  assert_eq(nil, terrain.lethal_at(-44.5), "zone 10 (rough ice) is safe")
   assert_eq(nil, terrain.lethal_at(0), "the building centre is safe")
 end)
 
@@ -191,12 +195,12 @@ test("every tile has a map_color: reds sunward, cyan nightward, neutral building
   assert_true(dist(ice, center) > 0.6, "the cold edge is distinct from the safe centre")
 end)
 
-test("the total ribbon width is the SUM of the zone widths (default 900)", function()
+test("the total ribbon width is the SUM of the zone widths (default 454, ci-qqt)", function()
   local bands, total = terrain.bands()
   local sum = 0
   for _, z in ipairs(terrain.ZONES) do sum = sum + z.width end
   assert_eq(sum, total, "total = sum of zone widths")
-  assert_eq(900, total, "default total is 900 (7x50 + 200 + 2x50 + 250)")
+  assert_eq(454, total, "default total is 454 (3x50 + 4x13 + 50 + 2x13 + 176)")
   assert_eq(#terrain.ZONES, #bands, "one band per zone")
 end)
 
@@ -204,11 +208,13 @@ test("the gradient is centred on the origin: building band straddles spawn", fun
   local bands = terrain.bands()
   local bi
   for i, z in ipairs(terrain.ZONES) do if z.role == "building" then bi = i end end
-  assert_eq(-100, bands[bi].lo, "building band cold edge")
-  assert_eq(100, bands[bi].hi, "building band hot edge at p=100")
+  -- ci-qqt: zones 1-7 (202) balance zones 9-11 (202), so the 50-wide building band is
+  -- centred on spawn even after the thin-ribbon compression + the wide ice wall.
+  assert_eq(-25, bands[bi].lo, "building band cold edge")
+  assert_eq(25, bands[bi].hi, "building band hot edge at p=25")
   assert_true(bands[bi].lo < 0 and bands[bi].hi > 0, "spawn (p=0) is inside the building band")
-  assert_eq(450, bands[1].hi, "hot-lava reaches the sunward map edge (p = +total/2)")
-  assert_eq(-450, bands[#bands].lo, "deep-ice reaches the nightward map edge (p = -total/2)")
+  assert_eq(227, bands[1].hi, "hot-lava reaches the sunward map edge (p = +total/2)")
+  assert_eq(-227, bands[#bands].lo, "deep-ice reaches the nightward map edge (p = -total/2)")
 end)
 
 test("bands are contiguous, ordered high->low perpendicular (no gaps, no overlap)", function()
@@ -223,9 +229,9 @@ end)
 
 test("changing one zone width changes only that band + the total, never the rest", function()
   local base_bands, base_total = terrain.bands()
-  local cfg = { building = 400 } -- widen the building area by 200
+  local cfg = { building = 400 } -- widen the building area from 50 to 400 (delta 350)
   local bands, total = terrain.bands(cfg)
-  assert_eq(base_total + 200, total, "total grew by exactly the delta (world width = sum)")
+  assert_eq(base_total + 350, total, "total grew by exactly the delta (world width = sum)")
   local function width(b) return b.hi - b.lo end
   assert_eq(width(base_bands[1]), width(bands[1]), "hot-lava keeps its width")
   local bi
@@ -235,16 +241,16 @@ end)
 
 test("resource_bounds splits stone (hot) from ice (cold) at the building's cold edge", function()
   local rb = terrain.resource_bounds()
-  assert_eq(100, rb.building_half, "the safe building half-width")
-  assert_eq(-100, rb.building_lo, "the stone/ice divider is the building's cold edge")
-  assert_eq(350, rb.hot_edge, "stone reaches the outer walkable hot zone (lava-crust), not the lava wall")
-  assert_eq(-450, rb.cold_edge, "ice reaches the cold cap edge")
+  assert_eq(25, rb.building_half, "the safe building half-width")
+  assert_eq(-25, rb.building_lo, "the stone/ice divider is the building's cold edge")
+  assert_eq(127, rb.hot_edge, "stone reaches the outer walkable hot zone (lava-crust), not the lava wall")
+  assert_eq(-227, rb.cold_edge, "ice reaches the cold cap edge")
 end)
 
 test("the volcanic cliff band spans the rocky zones (lava-crust .. scorched)", function()
   local cb = terrain.cliff_band()
-  assert_eq(150, cb.lo, "cliff band cold edge = scorched zone lo")
-  assert_eq(350, cb.hi, "cliff band hot edge = lava-crust zone hi")
+  assert_eq(38, cb.lo, "cliff band cold edge = scorched zone lo")
+  assert_eq(127, cb.hi, "cliff band hot edge = lava-crust zone hi")
 end)
 
 test("a temperate tile's probability_expr is a noise-wiggled plateau + weight + speckle", function()
@@ -290,19 +296,21 @@ test("ring_tile_at maps an elevation to its ring tile (lava core down to warm cr
 end)
 
 test("a hot tile's probability_expr is a sea-anchored heightmap ring term (not a flat sub-band)", function()
-  -- The hot region [300, 450] is driven by the sea-anchored lava heightmap: a steep
-  -- hot_gate that confines the tile to the hot region + a ring selector on the elevation
-  -- field E, whose SOLID-SEA floor forces lava-hot across zone 1 (perp >= sea_lo = 400).
+  -- The hot region [77, 227] (ci-qqt; zones 1-3 kept at 50 each so the ring model is
+  -- untouched, only shifted by the smaller total) is driven by the sea-anchored lava
+  -- heightmap: a steep hot_gate that confines the tile to the hot region + a ring
+  -- selector on the elevation field E, whose SOLID-SEA floor forces lava-hot across
+  -- zone 1 (perp >= sea_lo = 177).
   local hot = terrain.probability_expr("cindra-lava-hot")
   contains(hot, "max(0,", "the gate + ring selector fall off via max(0, ...)")
   contains(hot, axis.perp_expr(), "the gate + sea floor are keyed to the perpendicular axis")
-  contains(hot, "300", "the hot region's temperate (inner) edge")
-  contains(hot, "450", "the hot region's sunward (outer) edge")
+  contains(hot, "77", "the hot region's temperate (inner) edge")
+  contains(hot, "227", "the hot region's sunward (outer) edge")
   contains(hot, "140", "the lava-core elevation threshold")
   contains(hot, "seed1 = 42", "the elevation field is the lava heightmap noise (seed 42)")
-  -- The SOLID SEA is anchored at zone 1's cold edge (sea_lo = 400 at default widths): a
+  -- The SOLID SEA is anchored at zone 1's cold edge (sea_lo = 177 at default widths): a
   -- forced elevation floor (SEA_FILL) confined to perp >= sea_lo, NOT a flat sub-band.
-  contains(hot, "400", "the solid-sea anchor (zone 1's cold edge, sea_lo)")
+  contains(hot, "177", "the solid-sea anchor (zone 1's cold edge, sea_lo)")
   contains(hot, tostring(terrain.SEA_FILL), "the sea floor forces lava-hot across zone 1")
   -- cracks-warm is BOTH a hot-region ring AND a temperate (zone 4) member, so it has a
   -- ring term (heightmap) AND a flat perp-band weight term.
@@ -340,8 +348,8 @@ end)
 test("the world is finite perpendicular via the map-gen = the total width", function()
   local d = terrain.finite_dimension()
   assert_eq("width", d.key, "vertical orientation bounds the X axis (width)")
-  assert_eq(900, d.value, "the finite dimension is the total ribbon width (sum of zones)")
-  assert_eq(1100, terrain.finite_dimension({ building = 400 }).value, "tracks the widths")
+  assert_eq(454, d.value, "the finite dimension is the total ribbon width (sum of zones)")
+  assert_eq(804, terrain.finite_dimension({ building = 400 }).value, "tracks the widths")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

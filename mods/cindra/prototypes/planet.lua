@@ -72,8 +72,9 @@ local NO_DAY_NIGHT_CYCLE = 300000 * minute
 --     basis-noise wiggle, so they are ORGANIC curves, never raw straight lines.
 --   * ZERO NAUVIS LEAKAGE: only Cindra tiles are placement candidates -- NO grass,
 --     no water, no vanilla terrain. No trees / enemies. Decoratives are Cindra-only
---     clones, zone-gated to the gradient (ci-6fq, prototypes/decoratives). Cliffs DO
---     generate, but only Vulcanus-style cliffs gated to the volcanic zones (ci-da2).
+--     clones, zone-gated to the gradient (ci-6fq, prototypes/decoratives). NO cliffs:
+--     the thin 128-tile ribbon (ci-qqt) has no room for cliffs without walling the
+--     narrow band, so the ci-da2 volcanic cliffs are dropped and the ribbon is flat.
 --   * ELEVATION: pinned flat (prototypes/noise.lua) so no lake is ever carved.
 --
 -- Resources (stone + ice) and the finite bootstrap rocks are NATIVE autoplace
@@ -115,10 +116,13 @@ local function cindra_map_gen()
     -- terrain property Cindra overrides (prototypes/noise.lua).
     property_expression_names = {
       elevation = "cindra_ribbon_elevation",
-      -- Cliffs are driven by a SEPARATE cliff-elevation field (prototypes/noise.lua)
-      -- gated to the volcanic zones, so elevation stays flat (no lakes) while the
-      -- rocky band grows Vulcanus-style cliffs as flavour (ci-da2 cliff comment).
-      cliff_elevation = "cindra_cliff_elevation",
+      -- NO cliffs (ci-qqt): the ci-da2 world grew Vulcanus-style cliffs in the volcanic
+      -- zones, but the thin 128-tile functional ribbon has no room for them -- a cliff
+      -- walls the narrow traversable band, so the engine strips any placed in the
+      -- walkable ribbon (an in-engine measurement found zero survive). A thin ribbon-
+      -- world is cliff-free by design; the volcanic zones stay flat and workable.
+      -- (cliff_settings and cindra_cliff_elevation are gone; terrain.cliff_band survives
+      -- only as the volcanic-tile band geometry the burned-rock autoplace reads.)
     },
     -- ONLY Cindra's own resource controls -> the map-gen screen shows just Stone
     -- and Ice (ordered below Aquilo, see prototypes/resources.lua). No Nauvis
@@ -141,15 +145,14 @@ local function cindra_map_gen()
       -- ice/snow clones, each gated to its gradient zone. No Nauvis grass tufts.
       decorative = { treat_missing_as_default = false, settings = decorative_settings },
     },
-    -- CLIFFS (ci-da2): Vulcanus-style cliffs in the volcanic zones only. The
-    -- cindra_cliff_elevation field is 0 outside the volcanic band, so cliffs appear
-    -- ONLY where the rocky-zone hump crosses cliff_elevation_0 (= CLIFF_BASE in
-    -- prototypes/noise.lua); the building band, lava walls and icy cap stay cliff-
-    -- free. Reuses the existing cliff-vulcanus prototype (referenced, never mutated),
-    -- since it is the volcanic look these zones want and no ice-cliff prototype
-    -- exists in the base game (a bespoke ice-mountain cliff for the zone-11 wall is
-    -- deferred to ci-70r; the rough->smooth-ice wall is the lethal-cold barrier).
-    cliff_settings = { name = "cliff-vulcanus", cliff_elevation_0 = 8, cliff_elevation_interval = 40 },
+    -- NO cliff_settings (ci-qqt): the ci-da2 world grew Vulcanus-style cliffs gated to
+    -- the volcanic zones, but the thin 128-tile functional ribbon leaves no room -- a
+    -- cliff would wall the narrow traversable band, and Factorio strips any cliff that
+    -- would block passage through the ribbon (an in-engine measurement on the thinned
+    -- world found zero cliffs survive in the walkable volcanic band). The thin ribbon-
+    -- world is cliff-free by design, so no zone is walled off and the whole ribbon stays
+    -- workable. A bespoke thin-ribbon cliff treatment (and the deferred zone-11 ice-
+    -- mountain cliff) remain future work under ci-70r.
   }
 
   return mg

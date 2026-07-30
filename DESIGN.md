@@ -68,17 +68,24 @@ edge inward:
 1 hot-lava → 2 hot-lava/lava → 3 lava/volcanic-cracks-hot (+warm cracks & smooth
 stone) → 4 warm cracks → cracks/smooth-stone/soil-dark → 5 → jagged/soil-light/
 ash-soil → 6 → grass-4/dry-dirt/dirt-4..7 → 7 dirt-1..3/sand-1..3/red-desert-1..3
-→ **8 building** (200-wide sandy soils at spawn) → 9 sand→dust → 10 dust→rough-ice
+→ **8 building** (50-wide sandy soils at spawn) → 9 sand→dust → 10 dust→rough-ice
 → 11 smooth **deep-ice cap**.
 
 Each zone width is a mod setting; the **total ribbon width is DERIVED = the SUM of
-all zone widths** (default 900, hot side == cold side so the building band straddles
-spawn). Walkability is per-TILE: only the two lava tiles are impassable, so zones
-1+2 (pure lava) are the impassable hot WALL. Damage is **positional** (the mixed
-zones share tiles, so lethality reads the perpendicular axis, not the tile): zones
-1+2+3 burn (heat), the smooth-ice cap (zone 11) freezes (cold); the walkable middle
-is safe (`scripts/tile-damage.lua`). Boundaries carry a `basis_noise` wiggle + a
-per-tile speckle, so they are organic curves with a real mix, never raw stripes.
+all zone widths** (default 454, hot side == cold side so the building band straddles
+spawn). The **THIN RIBBON** (ci-qqt): the **functional band** — the survivable
+playfield between the LAVA TRIGGER (heat death, zone 3's cold edge) and the ICE WALL
+(zone 11's hot edge) — is the sum of zones 4–10 = **~128 tiles**, the vanilla
+ribbon-world default. The hot region (zones 1–3) keeps its 50/50/50 widths so the
+lava heightmap/ring model is untouched; the wide deep-ice zone balances the two
+sides so spawn stays centred. Walkability is per-TILE: the two lava tiles **and the
+smooth deep-ice cap** are impassable, so zones 1+2 are the impassable hot WALL and
+zone 11 is the impassable **ICE WALL** (ci-qqt, the cold-side twin of the lava wall).
+Damage is **positional** (the mixed zones share tiles, so lethality reads the
+perpendicular axis, not the tile): zones 1+2+3 burn (heat), the smooth-ice cap (zone
+11) freezes (cold); the walkable middle is safe (`scripts/tile-damage.lua`).
+Boundaries carry a `basis_noise` wiggle + a per-tile speckle (scaled down with the
+thin zones), so they are organic curves with a real mix, never raw stripes.
 
 `mods/cindra/scripts/ribbon.lua` is the **single source of truth** for the
 hot–cold axis. It is a pure module (no `game.*` / `prototypes.*`) mapping a
@@ -145,12 +152,15 @@ recommendation — both **IMPLEMENTED (item 2)**:
   `basis_noise` wiggle so band boundaries are organic, never straight. ONLY Cindra
   tiles are candidates → no grass, no water, zero Nauvis leakage. No trees /
   enemies / decoratives; elevation is pinned flat (`prototypes/noise.lua`).
-  **Cliffs** DO generate (ci-da2): a separate `cindra_cliff_elevation` field, gated
-  to the volcanic zones (3–6), grows Vulcanus-style cliffs there as terrain flavour
-  while the building band, lava walls and icy cap stay flat/cliff-free so no zone is
-  walled off. (A bespoke ice-mountain cliff for the zone-11 wall is deferred to
-  ci-70r; the rough→smooth-ice wall is the lethal-cold barrier.) Resources are
-  native autoplace (see §4a).
+  **NO cliffs** (ci-qqt): ci-da2 grew Vulcanus-style cliffs in the volcanic zones,
+  but the thin 128-tile ribbon has no room — a cliff walls the narrow traversable
+  band, and Factorio strips any cliff that would block passage through it (they only
+  survived out in the impassable lava region). So the cliff system was dropped and
+  the ribbon is flat/cliff-free; no zone is walled off. (`terrain.cliff_band` remains
+  only as the volcanic-tile band geometry the burned-rock autoplace reads. A bespoke
+  thin-ribbon cliff treatment and the deferred zone-11 ice-mountain cliff are ci-70r;
+  the impassable smooth-ice cap is the cold wall.) Resources are native autoplace
+  (see §4a).
 - **Surface properties:** heavy gravity (20), thin atmosphere (pressure 500), no
   biology. `solar-power` = 400 is a **placeholder baseline**; §15 item 7 sets the
   real ~10000%-of-Nauvis surface multiplier + dark-weighted daylight curve that

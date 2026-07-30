@@ -11,18 +11,30 @@
 -- zone draft -- each zone is a MIX of several tiles blended by noise, so adjacent
 -- tile types interpenetrate as a noisy gradient rather than a hard stripe:
 --
+-- THIN RIBBON (ci-qqt): the FUNCTIONAL band -- the survivable playfield measured
+-- between the LAVA TRIGGER (where heat death begins, zone 3's cold edge) and the
+-- ICE WALL (where the impassable/cold-lethal deep ice begins, zone 11's hot edge)
+-- -- is tuned to ~128 tiles, matching the vanilla ribbon-world preset. That band is
+-- exactly the SUM of the widths of zones 4..10 (see M.damage_bounds). The functional
+-- zones were compressed ~proportionally from the old 500-wide band; the HOT REGION
+-- (zones 1-3) keeps its 50/50/50 widths so the ci-cwk heightmap/ring model (whose
+-- pool/ring geometry is tuned to that span) is untouched, and the deep-ice WALL is
+-- sized so the building band still straddles spawn (sum of zones 1-7 = sum of 9-11).
+--
 --   1  hot_lava   [50]  pure hot lava.
 --   2  lava_mix   [50]  hot-lava -> lava (a molten gradient). WALL (impassable).
 --   3  lava_crust [50]  lava + volcanic-cracks-hot, + some cracks-warm / smooth-
 --                       stone-warm. (heat-lethal margin.)
---   4  volcanic_warm [50] cracks-warm -> cracks / smooth-stone / soil-dark.
---   5  basalt     [50]  cracks/smooth-stone/soil-dark -> jagged / soil-light / ash-soil.
---   6  scorched   [50]  jagged/soil-light/ash-soil -> grass-4 / dry-dirt / dirt-4..7.
---   7  dry_dirt   [50]  dirt-1..3 / sand-1..3 / red-desert-1..3 (dirt -> sand).
---   8  building   [200] MAIN BUILDING AREA: sandy soils (sand-1..3) at spawn.
---   9  cold_dust  [50]  sand -> dust (crests / flat / lumpy / patchy).
---   10 rough_ice  [50]  dust -> rough ice.
---   11 deep_ice   [250] the smooth-ice cap beyond the cliff (cold-lethal).
+--   4  volcanic_warm [13] cracks-warm -> cracks / smooth-stone / soil-dark.
+--   5  basalt     [13]  cracks/smooth-stone/soil-dark -> jagged / soil-light / ash-soil.
+--   6  scorched   [13]  jagged/soil-light/ash-soil -> grass-4 / dry-dirt / dirt-4..7.
+--   7  dry_dirt   [13]  dirt-1..3 / sand-1..3 / red-desert-1..3 (dirt -> sand).
+--   8  building   [50]  MAIN BUILDING AREA: sandy soils (sand-1..3) at spawn.
+--   9  cold_dust  [13]  sand -> dust (crests / flat / lumpy / patchy).
+--   10 rough_ice  [13]  dust -> rough ice.
+--   11 deep_ice   [176] the smooth-ice cap beyond the cliff: cold-lethal AND an
+--                       IMPASSABLE ice WALL (ci-qqt), the cold-side twin of the lava
+--                       wall. Wide so zones 9-11 balance zones 1-7 (spawn centred).
 --
 -- HOT REGION = A SOLID SEA + RINGS RADIATING OUT (ci-cwk, reworked ci-48z). The far-west
 -- band (zone 1, hot_lava) is ALWAYS a SOLID, CONTIGUOUS hot-lava SEA -- pure lava-hot, no
@@ -58,13 +70,15 @@
 -- WIDTHS. Each zone width is a mod setting (settings.lua); the TOTAL ribbon width
 -- is DERIVED = the SUM of all widths (ci-a35 / ci-da2 clarification): changing one
 -- zone's width changes only that band and the total, never rescales the others.
--- Defaults sum to 900 with the hot side (zones 1-7 = 350) equal to the cold side
--- (zones 9-11 = 350), so the 200-wide building band straddles the origin (spawn).
+-- Defaults sum to 454 with the hot side (zones 1-7 = 202) equal to the cold side
+-- (zones 9-11 = 202), so the 50-wide building band straddles the origin (spawn). The
+-- functional band (zones 4-10) sums to 128 -- the thin ribbon-world playfield (ci-qqt).
 --
--- WALKABILITY is a per-TILE property: only the two lava tiles (lava-hot, lava) are
--- impassable fluid, so zones 1+2 (pure lava) are the impassable hot WALL, while
--- zone 3 is mostly walkable crust with occasional impassable lava hazards, and
--- every other zone is buildable ground.
+-- WALKABILITY is a per-TILE property: the two lava tiles (lava-hot, lava) AND the
+-- smooth deep-ice cap (ice-smooth) are impassable, so zones 1+2 (pure lava) are the
+-- impassable hot WALL and zone 11 (smooth ice) is the impassable cold ICE WALL (ci-qqt,
+-- the cold-side twin of the lava wall). Zone 3 is mostly walkable crust with occasional
+-- impassable lava hazards; every other zone is buildable ground.
 --
 -- DAMAGE is PER TILE (ci-4jl): each damaging tile carries an intensity (0..1) x
 -- peak-dps and a kind (M.TILE_DAMAGE_BY_VANILLA / M.tile_damage), and
@@ -116,39 +130,39 @@ M.ZONES = {
     members = { m("volcanic-cracks-hot", 0.4, 1), m("lava", 0.6, 0.12),
                 m("volcanic-cracks-warm", 0, 0.35), m("volcanic-smooth-stone-warm", 0, 0.3) } },
 
-  { role = "volcanic_warm", width = 50, setting = "cindra-zone-width-volcanic-warm",
+  { role = "volcanic_warm", width = 13, setting = "cindra-zone-width-volcanic-warm",
     members = { m("volcanic-cracks-warm", 1, 0.3), m("volcanic-cracks", 0.2, 1),
                 m("volcanic-smooth-stone", 0.1, 0.7), m("volcanic-soil-dark", 0, 0.6) } },
 
-  { role = "basalt", width = 50, setting = "cindra-zone-width-basalt",
+  { role = "basalt", width = 13, setting = "cindra-zone-width-basalt",
     members = { m("volcanic-cracks", 1, 0.2), m("volcanic-smooth-stone", 0.8, 0.25),
                 m("volcanic-soil-dark", 0.6, 0.25), m("volcanic-jagged-ground", 0.2, 1),
                 m("volcanic-soil-light", 0.1, 0.7), m("volcanic-ash-soil", 0, 0.6) } },
 
-  { role = "scorched", width = 50, setting = "cindra-zone-width-scorched",
+  { role = "scorched", width = 13, setting = "cindra-zone-width-scorched",
     members = { m("volcanic-jagged-ground", 1, 0.2), m("volcanic-soil-light", 0.8, 0.25),
                 m("volcanic-ash-soil", 0.7, 0.25), m("grass-4", 0.1, 0.7),
                 m("dry-dirt", 0.2, 1), m("dirt-4", 0, 0.6), m("dirt-5", 0, 0.6),
                 m("dirt-6", 0, 0.5), m("dirt-7", 0, 0.5) } },
 
-  { role = "dry_dirt", width = 50, setting = "cindra-zone-width-dry-dirt",
+  { role = "dry_dirt", width = 13, setting = "cindra-zone-width-dry-dirt",
     members = { m("dirt-1", 1, 0.3), m("dirt-2", 0.9, 0.3), m("dirt-3", 0.8, 0.3),
                 m("sand-1", 0.3, 1), m("sand-2", 0.3, 0.9), m("sand-3", 0.3, 0.9),
                 m("red-desert-1", 0.6, 0.5), m("red-desert-2", 0.5, 0.5), m("red-desert-3", 0.5, 0.5) } },
 
-  { role = "building", width = 200, setting = "cindra-zone-width-building",
+  { role = "building", width = 50, setting = "cindra-zone-width-building",
     members = { m("sand-1", 1, 1), m("sand-2", 1, 1), m("sand-3", 1, 1) } },
 
-  { role = "cold_dust", width = 50, setting = "cindra-zone-width-cold-dust",
+  { role = "cold_dust", width = 13, setting = "cindra-zone-width-cold-dust",
     members = { m("sand-1", 0.7, 0.1), m("sand-2", 0.6, 0.1), m("sand-3", 0.6, 0.1),
                 m("dust-crests", 0.2, 1), m("dust-flat", 0.2, 1),
                 m("dust-lumpy", 0.1, 0.9), m("dust-patchy", 0.1, 0.9) } },
 
-  { role = "rough_ice", width = 50, setting = "cindra-zone-width-rough-ice",
+  { role = "rough_ice", width = 13, setting = "cindra-zone-width-rough-ice",
     members = { m("dust-crests", 1, 0.15), m("dust-flat", 0.9, 0.15), m("dust-lumpy", 0.8, 0.15),
                 m("dust-patchy", 0.8, 0.15), m("ice-rough", 0.25, 1) } },
 
-  { role = "deep_ice", width = 250, setting = "cindra-zone-width-deep-ice", damage = "cold",
+  { role = "deep_ice", width = 176, setting = "cindra-zone-width-deep-ice", damage = "cold",
     members = { m("ice-smooth", 1, 1) } },
 }
 
@@ -163,8 +177,12 @@ end
 local function cindra_name(vanilla) return "cindra-" .. vanilla end
 M.cindra_name = cindra_name
 
--- Only the two lava tiles are impassable fluid; every other tile is walkable ground.
-local IMPASSABLE = { ["lava-hot"] = true, ["lava"] = true }
+-- Impassable tiles: the two lava tiles (the hot WALL, zones 1+2) and the smooth
+-- deep-ice cap (the cold ICE WALL, zone 11; ci-qqt). prototypes/tiles.lua gives each
+-- the lava() collision mask so the player cannot walk onto or build on them -- the
+-- lava sea and the ice wall are the two hard, visible edges of the survivable ribbon.
+-- Every other tile is walkable ground.
+local IMPASSABLE = { ["lava-hot"] = true, ["lava"] = true, ["ice-smooth"] = true }
 
 -- ---------------------------------------------------------------------------
 -- Per-TILE environmental damage (ci-4jl). The ribbon's danger is a property of the
@@ -291,20 +309,25 @@ end
 -- band boundary so zones are organic curves, not straight lines. A per-tile SPECKLE
 -- (shorter wavelength) randomises which co-present member wins point-by-point, so
 -- the members of a zone interpenetrate as a real mix. Fixed seeds -> the ribbon has
--- the same structure on every map seed and stays deterministic for tests. (tune)
-M.NOISE_AMPLITUDE = 6
-M.NOISE_WAVELENGTH = 48
-M.SPECKLE_AMPLITUDE = 8
-M.SPECKLE_WAVELENGTH = 11
+-- the same structure on every map seed and stays deterministic for tests.
+--
+-- These amplitudes/wavelengths were scaled DOWN with the ci-qqt thin-ribbon
+-- compression: the functional zones shrank from 50 to 13 tiles, so the boundary
+-- wiggle + speckle must shrink to keep a zone's centre resolvable (see the PLATEAU
+-- guarantee below) while still reading as organic, not straight. (tune)
+M.NOISE_AMPLITUDE = 2
+M.NOISE_WAVELENGTH = 14
+M.SPECKLE_AMPLITUDE = 1.5
+M.SPECKLE_WAVELENGTH = 4
 -- Plateau height and the membership-weight scale. The plateau falls off at 1/tile
--- outside a band, so at a 50-wide zone's centre (25 tiles from either edge) an
--- adjacent zone's plateau is ~25 below, shifted at most NOISE_AMPLITUDE by the
--- boundary wiggle. Keeping WEIGHT_SCALE + SPECKLE_AMPLITUDE (14) < 25 - NOISE_AMPLITUDE
--- (19) guarantees a zone's centre is always won by one of ITS OWN members
--- (deterministic membership for the regression tests) while the ~15-tile boundary
+-- outside a band, so at a 13-wide functional zone's centre (~6.5 tiles from either
+-- edge) an adjacent zone's plateau is ~6.5 below, shifted at most NOISE_AMPLITUDE by
+-- the boundary wiggle. Keeping WEIGHT_SCALE + SPECKLE_AMPLITUDE (3.5) < 6.5 -
+-- NOISE_AMPLITUDE (4.5) guarantees a zone's centre is always won by one of ITS OWN
+-- members (deterministic membership for the regression tests) while the boundary
 -- regions still blend the two zones' members.
 M.PLATEAU = 1000
-M.WEIGHT_SCALE = 6
+M.WEIGHT_SCALE = 2
 
 -- ---------------------------------------------------------------------------
 -- HOT REGION heightmap / ring model (ci-cwk).
