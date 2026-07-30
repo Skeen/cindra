@@ -10,7 +10,7 @@
 --
 --   1. ROOT IS FINITE + HAND-OBTAINABLE. The bootstrap rock is a simple-entity
 --      (destroyed when mined -> finite, per §6), yielding stone + a small metal
---      trickle; stone/ice/volatiles are placed, minable raws. So the root of the
+--      trickle; stone + ice are placed, minable raws. So the root of the
 --      chain is real and cannot become a per-craft supply of the main loop.
 --
 --   2. THE SPINE TURNS ON, DRIVEN FOR REAL. A powered foundry on a Cindra
@@ -104,7 +104,7 @@ describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", funct
   end)
 
   it("stone + ice are placed, hand-minable raws (the other roots)", function()
-    -- Only Stone and Ice are standalone mined resources (ci-3yl: no volatiles ore).
+    -- Only Stone and Ice are standalone mined resources (ci-3yl).
     for _, name in ipairs({ "cindra-stone", "cindra-ice" }) do
       local res = prototypes.entity[name]
       assert.is_not_nil(res, name .. " resource must exist")
@@ -113,26 +113,24 @@ describe("cindra bootstrap: the root (stone + finite hand-minable rocks)", funct
     -- The stone resource yields the vanilla `stone` item that the lava spine eats.
     assert.are.equal("stone", prototypes.entity["cindra-stone"].mineable_properties.products[1].name,
       "the Cindra stone resource must yield the `stone` item (the lava recipe's input)")
-    -- The ice field yields ONLY the vanilla ice chunk (ci-4xx): volatiles are no
-    -- longer a mining yield. The chunk feeds the crush->melt chain (ci-3mx) AND the
-    -- volatiles-extraction recipe (below); mining the field is a single-product drop.
+    -- The ice field yields ONLY the vanilla oxide chunk (ci-4xx). The chunk feeds
+    -- the crush->melt chain (ci-3mx), whose `ice` output is also the science pack's
+    -- cold-edge input (ci-ml1); mining the field is a single-product drop.
     local ice_products = {}
     for _, p in ipairs(prototypes.entity["cindra-ice"].mineable_properties.products) do
       ice_products[p.name] = true
     end
     assert.is_true(ice_products["oxide-asteroid-chunk"], "the ice field yields the vanilla ice chunk")
-    assert.is_nil(ice_products["cindra-volatiles"],
-      "the ice field must NOT yield volatiles any more -- they come from a PROCESSING recipe (ci-4xx)")
 
-    -- Volatiles are now a PROCESSING output: a recipe produces them from the chunk,
-    -- so working the mined chunk (not the mining drop) is the root for volatiles.
-    local vol_recipe = prototypes.recipe["cindra-volatiles"]
-    assert.is_not_nil(vol_recipe, "a processing recipe must produce cindra-volatiles (ci-4xx)")
-    local makes_volatiles = false
-    for _, p in pairs(vol_recipe.products) do
-      if p.name == "cindra-volatiles" then makes_volatiles = true end
+    -- `ice` is a PROCESSING output: crushing the chunk on the Cindra crusher makes
+    -- it, so working the mined chunk (not the mining drop) is the root for ice.
+    local ice_recipe = prototypes.recipe["cindra-oxide-asteroid-crushing"]
+    assert.is_not_nil(ice_recipe, "a processing recipe must produce ice from the oxide chunk (ci-8n6)")
+    local makes_ice = false
+    for _, p in pairs(ice_recipe.products) do
+      if p.name == "ice" then makes_ice = true end
     end
-    assert.is_true(makes_volatiles, "the cindra-volatiles recipe must actually produce the volatiles item")
+    assert.is_true(makes_ice, "the cindra-oxide-asteroid-crushing recipe must actually produce the ice item")
   end)
 end)
 
@@ -249,7 +247,7 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     { r = "cindra-alumina",                  m = "hand" },                 -- stone + calcite -> alumina
     { r = "cindra-electrolysis-cell",        m = "hand" },                 -- build the electrolysis cell
     { r = "cindra-aluminium",                m = "cindra-electrolysis-cell" }, -- alumina + [power] -> aluminium
-    { r = "cindra-science-pack",             m = "hand" },                 -- aluminium + volatiles + calcite -> pack (stock assembler)
+    { r = "cindra-science-pack",             m = "hand" },                 -- aluminium + ice + calcite -> pack (stock assembler)
   }
 
   -- Fixpoint over PRODUCTIONS. `seed` is a set {name -> true}. Returns the closed
@@ -282,10 +280,11 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
   end
 
   -- What a from-nothing player hand-gathers on Cindra (the true roots): the
-  -- `stone` the ribbon yields, the `oxide-asteroid-chunk` the nightside ice field
-  -- yields (crushed into ice + calcite), and the deep-nightside `cindra-volatiles`
-  -- item (the science pack's native input).
-  local HAND_ROOTS = { stone = true, ["oxide-asteroid-chunk"] = true, ["cindra-volatiles"] = true }
+  -- `stone` the ribbon yields and the `oxide-asteroid-chunk` the nightside ice
+  -- field yields (crushed into ice + calcite -- the ice is the science pack's
+  -- cold-edge input, ci-ml1). No raw science input is hand-gathered: every pack
+  -- input is worked from these two roots.
+  local HAND_ROOTS = { stone = true, ["oxide-asteroid-chunk"] = true }
 
   -- The FINITE brought bootstrap seed a post-Vulcanus arrival carries. A foundry
   -- (imported, per DESIGN §8) plus a little metal stock to build the FIRST
@@ -429,7 +428,7 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
     -- metal, and melting still needs the (unbuildable-on-Cindra) foundry -- so
     -- from bare hand roots there is neither a caster nor a foundry, and the chain
     -- cannot even make lava.
-    local have = reach({ stone = true, ["oxide-asteroid-chunk"] = true, ["cindra-volatiles"] = true })
+    local have = reach({ stone = true, ["oxide-asteroid-chunk"] = true })
     assert.is_falsy(have["cindra-lava"],
       "from bare hand roots there is no metal to build a caster and no foundry -> the APS start soft-locks (ci-arw)")
     assert.is_falsy(have["molten-iron"],
@@ -445,7 +444,7 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
     -- metal. This is the target ci-arw + the APS kit must satisfy; the end-to-end
     -- APS-mods proof lives in the follow-up bead.
     local have = reach({
-      stone = true, ["oxide-asteroid-chunk"] = true, ["cindra-volatiles"] = true,
+      stone = true, ["oxide-asteroid-chunk"] = true,
       foundry = true, calcite = true,                  -- one kitted foundry + a pinch of starter calcite
       ["steel-plate"] = true, ["iron-gear-wheel"] = true, ["stone-brick"] = true, -- starter metal for the caster
     })

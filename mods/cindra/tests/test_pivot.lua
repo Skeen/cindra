@@ -120,8 +120,8 @@ describe("pivot: the cold economy survives (only the quench-specific bits are cu
     -- and alloy-specific pieces are removed. Prove the retained cold economy.
     assert.is_not_nil(prototypes.recipe["ice-melting"],
       "ice -> water must survive via the vanilla chemical-plant recipe (a core nightside use, not quench-specific)")
-    assert.is_not_nil(prototypes.item["cindra-volatiles"],
-      "the deep-nightside volatiles (a science-pack input) must survive")
+    assert.is_not_nil(prototypes.recipe["cindra-oxide-asteroid-crushing"],
+      "the deep-nightside ice-crushing chain (a science-pack input, ci-ml1) must survive")
     assert.is_not_nil(prototypes.recipe["cindra-alumina"],
       "aluminium's alumina refine (stone + ice-chain calcite) must survive")
   end)

@@ -81,7 +81,7 @@ require("prototypes.electric-heater")
 require("prototypes.mass-driver")
 
 -- Worldgen track (§15 items 2-3): the two lethal-edge damage types, and the
--- ribbon's world resources (stone / ice / volatiles / bootstrap rocks). Placed
+-- ribbon's world resources (stone / ice / bootstrap rocks). Placed
 -- at runtime by scripts/worldgen.lua; see DESIGN.md file-ownership map.
 require("prototypes.damage-types")
 require("prototypes.resources")

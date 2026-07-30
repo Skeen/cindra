@@ -39,11 +39,11 @@ merge queue.
 - [x] **§15-3 — Resources.** `ci-l72` (worldgen track `ci-9nj`).
   - `prototypes/resources.lua` + `scripts/resource-field.lua` (pure band geometry)
     + runtime placement in `scripts/worldgen.lua`: stone (ribbon), ice
-    (nightside), scattered finite bootstrap rocks near the terminator, deep
-    volatiles; best nodes at the lethal margins (edge-pushing).
+    (nightside), scattered finite bootstrap rocks near the terminator;
+    best nodes at the lethal margins (edge-pushing).
   - Tested: `tests/test_worldgen.lua`, `unit-tests/test_resource_field.lua`.
-  - *Unblocks 4, 5* — the mechanics track consumes `stone` / `ice` /
-    `cindra-volatiles` (recipes are theirs to add).
+  - *Unblocks 4, 5* — the mechanics track consumes `stone` / `ice`
+    (recipes are theirs to add).
 - [x] **§15-5 — Lava + metal.** `ci-8mw`, `ci-669` (mechanics track).
   - `prototypes/lava.lua`: recipe `cindra-lava` — `1 stone + [ruinous power] → 10
     lava` (ci-669), outputting the Cindra-exclusive `cindra-lava` fluid, in a
@@ -159,8 +159,9 @@ merge queue.
     pack (an advanced, headline-gated export capability).
 - [x] **§15-12 — Cindra science pack + tech tree.** `ci-3or` — the HEADLINE
   science, `prototypes/science.lua`: a petrochemical-free `cindra-science-pack`
-  (native inputs only — the signature aluminium + deep-nightside volatiles +
-  ice-chain calcite; re-based off the retired cryo-hardened alloy by ci-84s)
+  (native inputs only — the signature aluminium + deep-nightside ice +
+  ice-chain calcite; the former volatiles input was removed entirely by ci-ml1,
+  re-based off the retired cryo-hardened alloy by ci-84s)
   crafted in an ordinary assembling machine (stock `crafting` category) via a
   long, power-hungry craft, so the largest continuous activity is another flare-timed power sink
   (ties to ci-9k6 / ci-63d). Gated behind the signature aluminium tech

@@ -34,15 +34,11 @@
 --   2. MELT (vanilla `chemistry` category) -- the vanilla `ice-melting` recipe in
 --      the vanilla CHEMICAL PLANT turns that `ice` into `water`. No custom melter,
 --      and `chemistry` holds no exploitable recipe, so it needs no private category.
---   3. EXTRACT VOLATILES (ci-4xx; `cindra-crushing` category) -- a Cindra recipe:
---      crushing deep-nightside oxide chunks in the same ground crusher sublimes out
---      their frozen volatile fraction (`oxide-asteroid-chunk -> cindra-volatiles`).
---      This is where the science pack's volatiles come from now: a PROCESSING
---      output, not a mining yield of the ice field (DESIGN §11, "volatile ice ->
---      CO2/frozen gases"). Petrochemical-free (a solid chunk in, a solid volatiles
---      item out), unlocked by the same planet-discovery-cindra tech as the rest of
---      the chain, so by the time you can research the science pack the volatiles
---      are already producible (no chicken-and-egg).
+--
+-- The `ice` this chain produces is also the science pack's nightside input
+-- (prototypes/science.lua): crushing deep-nightside chunks into ice is the worked,
+-- petrochemical-free cold-edge feedstock for the headline pack, reachable with the
+-- rest of the chain via the same planet-discovery-cindra unlocks.
 --
 -- WHY ONE CUSTOM ENTITY (the crusher) AND NOTHING ELSE: the vanilla `crusher` is
 -- gated to zero gravity (`surface_conditions` gravity 0..0) so it cannot stand on
@@ -143,33 +139,6 @@ local R_OXIDE_ADV = "cindra-advanced-oxide-asteroid-crushing"
 local oxide_crushing = cindra_oxide_clone("oxide-asteroid-crushing", R_OXIDE)
 local oxide_crushing_adv = cindra_oxide_clone("advanced-oxide-asteroid-crushing", R_OXIDE_ADV)
 
--- === Volatiles extraction (ci-4xx): the PROCESSING source of frozen volatiles ==
--- A NEW Cindra recipe (never a mutation of a vanilla one) in the `cindra-crushing`
--- category, so the ground crusher above runs it just like the oxide-crushing
--- recipes. It sublimes the frozen volatile fraction out of the deep-nightside oxide
--- chunk: `oxide-asteroid-chunk -> cindra-volatiles`. This REPLACES the old
--- mining-yield source (the ice field no longer drops volatiles, ci-4xx) with an
--- honest processing step. Petrochemical-free (solid in, solid out), gated by the
--- same discovery tech as the rest of the chain (unlock appended below).
--- (tune) §15-14: amounts/time are a balance decision -- kept a real cost so
--- volatiles stay a worked output, not free.
-local VOLATILES = "cindra-volatiles"
-local volatiles_recipe = {
-  type = "recipe",
-  name = VOLATILES,
-  categories = { CINDRA_CRUSHING },
-  enabled = false, -- gated: unlocked by planet-discovery-cindra (below), never free.
-  energy_required = 2,
-  ingredients = {
-    { type = "item", name = "oxide-asteroid-chunk", amount = 2 },
-  },
-  results = {
-    { type = "item", name = VOLATILES, amount = 1 },
-  },
-  allow_productivity = true,
-  main_product = VOLATILES,
-}
-
 data:extend({
   { type = "recipe-category", name = CINDRA_CRUSHING },
   crusher,
@@ -177,7 +146,6 @@ data:extend({
   crusher_build,
   oxide_crushing,
   oxide_crushing_adv,
-  volatiles_recipe,
 })
 
 -- === Unlock the chain via the existing Cindra discovery tech (no new tech) =====
@@ -194,7 +162,6 @@ for _, recipe in ipairs({
   R_OXIDE,               -- chunk -> ice (Cindra clone)
   R_OXIDE_ADV,           -- chunk -> ice + calcite (Cindra clone; the ratio knob)
   "ice-melting",         -- ice -> water in the chemical plant (vanilla; safe category)
-  VOLATILES,             -- chunk -> volatiles (ci-4xx; the science-pack input)
 }) do
   table.insert(discovery.effects, { type = "unlock-recipe", recipe = recipe })
 end

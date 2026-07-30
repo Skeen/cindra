@@ -541,17 +541,20 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       "the ribbon is infinite along its long (Y) axis; got height=" .. tostring(mg.height))
   end)
 
-  it("exposes real map-gen sliders (Stone + Ice only, no standalone volatiles)", function()
+  it("exposes real map-gen sliders (Stone + Ice only)", function()
     for _, n in ipairs({ "cindra-stone", "cindra-ice" }) do
       local ctrl = prototypes.autoplace_control[n]
       assert.is_not_nil(ctrl, n .. " autoplace-control exists")
       assert.are.equal("resource", ctrl.category, n .. " is a resource slider")
     end
+    -- Frozen volatiles were removed entirely (ci-ml1): no slider, no resource
+    -- entity, and no item -- the science pack's cold-edge input is `ice` now.
     assert.is_nil(prototypes.autoplace_control["cindra-volatiles"],
-      "the standalone volatiles resource slider is gone (volatiles come from a processing recipe)")
+      "there is no standalone cindra-volatiles resource slider")
     assert.is_nil(prototypes.entity["cindra-volatiles"],
-      "there is no standalone volatiles resource entity")
-    assert.is_not_nil(prototypes.item["cindra-volatiles"], "the volatiles item survives")
+      "there is no standalone cindra-volatiles resource entity")
+    assert.is_nil(prototypes.item["cindra-volatiles"],
+      "the cindra-volatiles item is gone entirely (ci-ml1)")
   end)
 
   it("marks the danger zone on the map: hot + cold edges carry a distinct map_color (ci-4h7)", function()
@@ -596,14 +599,12 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     assert.is_true(ice.g > iron.g + 0.25, "ice map_color is more cyan than iron ore")
   end)
 
-  it("the ice field is a single-product drop: ONLY the oxide chunk, no volatiles (ci-4xx)", function()
+  it("the ice field is a single-product drop: ONLY the oxide chunk (ci-4xx)", function()
     local products = prototypes.entity["cindra-ice"].mineable_properties.products
     local names = {}
     for _, p in ipairs(products) do names[p.name] = true end
     assert.is_true(names["oxide-asteroid-chunk"], "the ice field still yields the vanilla oxide chunk")
-    assert.is_nil(names["cindra-volatiles"],
-      "mining the ice field must NOT drop volatiles -- they are a processing output now")
     assert.are.equal(1, #products,
-      "the ice field is a single-product resource (just the oxide chunk)")
+      "the ice field is a single-product resource (just the oxide chunk); everything else is worked from it")
   end)
 end)
