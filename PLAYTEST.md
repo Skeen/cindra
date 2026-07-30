@@ -57,16 +57,39 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   longer oversized, and it is no longer two Vulcanus planets), and a SHORT length
   (currently **12000**, was 80000). Travelling the leg, the asteroid field reads as
   a hot Vulcanus/Gleba-tier route (ci-bu4: sparse Vulcanus/Gleba chunks + medium
-  asteroids), NOT the dense Nauvis-tier field it used to show. The globe reads FIERY
-  (radiant molten dayside) -> SANDY (a clearly
-  lit warm terminator band down the middle, NOT black) -> ICY (dark blue-shimmer
-  nightside); it does NOT rotate (tidally locked) while the terminator steam band
-  and the flares off the fire limb animate in place. The baked star-map sprite
-  split is verified off-game (`unit-tests/test_planet_maps.py`: centre ~RGB
-  [185,150,88] sandy, fire limb ~[189,73,20] molten orange, ice limb ~[57,93,135]
-  icy blue); only the LIVE orbital backdrop is the playtest.
+  asteroids), NOT the dense Nauvis-tier field it used to show. The globe reads as a
+  NATURAL left-lit gradient (ci-i9m): a radiant molten LAVA hemisphere on the left
+  (sunward) falling off through a smooth sandy-neutral terminator into a dark ICE
+  hemisphere on the right, with NO hard painted seam down the middle; it does NOT
+  rotate (tidally locked) while the terminator steam band drifts. The baked
+  star-map sprite is verified off-game (`unit-tests/test_planet_maps.py`); only the
+  LIVE orbital backdrop is the playtest.
 
-- [ ] **[LANDED] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
+- [ ] **[LANDED] From-space planet: natural left-lit gradient, ice reads as ice,
+  no plume artifact (ci-i9m).** Supersedes the ci-fg6 painted-sandy-seam look. The
+  bake now lights the globe with a single PARALLEL sun from the LEFT, so the
+  day/night terminator is a natural light falloff, not a self-lit stripe; the
+  surface albedo follows the in-game terrain ramp (lava -> volcanic -> sandy ->
+  pale frost -> icy white-blue); and the orbital backdrop's oversized hero-flare
+  overlay (which rendered as white/yellow **rocket-plume** streaks at the bottom of
+  the globe) is REMOVED. *Repro:* open the star-map and the orbital-approach view
+  of Cindra (`./play.sh`, then navigate/travel to it). *Look for:* a **bright fiery
+  lava limb on the LEFT** fading smoothly to a **dark, shimmery-blue ICE hemisphere
+  on the right** with **NO hard vertical seam**; the cold side reads as recognisable
+  **ICE** (pale frosted blue), NOT Fulgora electric-blue lightning on black; and
+  **NO plume/streak artifact** anywhere (esp. the bottom). Dark overall with the
+  lava glowing (self-lit even where the light grazes) and the ice softly shimmering;
+  fire faces the star, ice faces away (tidal-lock orientation preserved). *Fallback:*
+  the baked star-map sprite + maps are verified off-game
+  (`unit-tests/test_planet_maps.py` guards the smooth ramp / no self-lit seam / pale
+  non-electric ice / strongly glowing lava; `unit-tests/test_space_appearance.lua`
+  guards the removed hero-flare overlay). This entry is only the "the live orbital
+  backdrop looks right (gradient, ice, no plume)" confirmation a still-image test
+  cannot judge. Re-bake via `scripts/render-planet.sh`. **Note:** a tasteful
+  limb-flare visual could return as a follow-up bead (the flare spritesheet art
+  `graphics/space/cindra-flare.png` still exists for reuse).
+
+- [ ] **[SUPERSEDED by ci-i9m] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
   earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
   *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
   then navigate/travel to it). *Look for:* the LAVA hemisphere (left limb, sunward

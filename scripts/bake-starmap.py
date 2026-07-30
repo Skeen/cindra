@@ -15,12 +15,15 @@
 # static PNG it can never spin; the orbital backdrop is frozen separately (see
 # prototypes/space-appearance.lua, rotation_seconds very large).
 #
-# The star sits perilously close, so lighting is a strong, hot KEY sun from the
-# dayside limb; the emission map carries the magma glow. A soft warm WORLD ambient
-# plus a gentle FRONT fill light the presented face directly, so the sandy ribbon
-# down the centre reads as lit sand (not the black disc the grazing-only lighting
-# used to produce); a dim cold blue fill keeps the frozen hemisphere blue, not
-# pure black.
+# LIGHTING (ci-i9m): a single strong PARALLEL (directional) sun from the LEFT.
+# On a sphere this yields a natural bright->dark day/night gradient -- the fiery
+# left limb is fully lit and the frozen right hemisphere falls into shadow across
+# the central meridian -- which IS the tidally-locked terminator, for free, with
+# no painted seam. The emission map carries the self-lit magma glow (so the lava
+# still glows even where the light grazes). A dim COOL world ambient keeps the
+# shadowed ice hemisphere from going pitch black so it reads as shimmery blue ICE
+# rather than a void; there is deliberately NO head-on front fill (it used to
+# flatten the gradient into the flat, hard-seam look the mayor flagged).
 #
 #   blender -b -P scripts/bake-starmap.py -- <space_maps_dir> <out_png>
 
@@ -114,50 +117,35 @@ links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
 
 sphere.data.materials.append(mat)
 
-# --- World ambient: a soft warm base so the lit albedo (esp. the sandy ribbon
-# down the centre) never falls to pure black where no key light grazes. -----
+# --- World ambient: a dim COOL base so the shadowed (ice) hemisphere never falls
+# to pure black -- it reads as dark shimmery blue ICE, not a void. Cool (not warm)
+# so the shadow side does not pick up an orange cast. Kept low so the day/night
+# contrast from the single key light stays strong. -------------------------
 world = bpy.data.worlds.new("cindra_world")
 scene.world = world
 world.use_nodes = True
 wbg = world.node_tree.nodes.get("Background")
 if wbg is not None:
-    wbg.inputs["Color"].default_value = (0.12, 0.10, 0.09, 1.0)   # warm dim ambient
-    wbg.inputs["Strength"].default_value = 0.35
+    # Cool blue ambient: dim enough that the fiery key still dominates and the ice
+    # hemisphere stays clearly the DARK side, but bright enough that the pale ice
+    # albedo reads as a dim SHIMMERY BLUE frozen hemisphere rather than a black void
+    # (the glossy frost also reflects this ambient for a soft cold sheen).
+    wbg.inputs["Color"].default_value = (0.11, 0.17, 0.30, 1.0)   # cool blue ambient
+    wbg.inputs["Strength"].default_value = 0.55
 
-# --- Lights: hot key from the dayside limb + dim cold blue fill ------------
-# The star is perilously close: a bright, hot, white key from the fire (left,
-# world -X) side, grazing the dayside limb.
+# --- Light: a single PARALLEL sun from the LEFT (the fire limb) -------------
+# Point the sun toward +X (rays travel +X), so it comes FROM -X: the left/fire
+# hemisphere is lit and the right/ice hemisphere falls into shadow across the
+# central meridian -- the tidally-locked terminator, produced by the light itself.
+# Strong and warm-white; the raw sun angle is tiny so the shadow terminator is
+# crisp (a directional star). No fill/front lights: the falloff must be natural.
 key = bpy.data.lights.new("key", "SUN")
-key.energy = 3.5
-key.color = (1.0, 0.90, 0.74)
-key.angle = radians(3)
+key.energy = 4.0
+key.color = (1.0, 0.91, 0.76)
+key.angle = radians(2)
 key_obj = bpy.data.objects.new("key", key)
 scene.collection.objects.link(key_obj)
-# Point the sun toward +X (rays travel +X), so it comes FROM -X (the fire limb).
-key_obj.rotation_euler = (radians(90), radians(-8), radians(-90))
-
-# Cold blue fill from the ice (right, +X) side so the frozen hemisphere reads as
-# a SHIMMERY blue, not flat navy (ci-fg6): brighter and bluer than before so the
-# glossy frost ridges glint. Still below the hot key so the dayside dominates.
-fill = bpy.data.lights.new("fill", "SUN")
-fill.energy = 1.4
-fill.color = (0.40, 0.60, 1.0)
-fill.angle = radians(8)
-fill_obj = bpy.data.objects.new("fill", fill)
-scene.collection.objects.link(fill_obj)
-fill_obj.rotation_euler = (radians(90), radians(8), radians(90))
-
-# Gentle FRONT fill from the camera side (rays travel +Y, toward the sphere's
-# front face) so the presented disc -- and the sandy ribbon crossing its centre,
-# whose normal faces the camera -- is lit head-on instead of only grazed by the
-# two limb suns. Warm-neutral and modest so the molten emission still dominates.
-front = bpy.data.lights.new("front", "SUN")
-front.energy = 0.8
-front.color = (1.0, 0.94, 0.82)
-front.angle = radians(12)
-front_obj = bpy.data.objects.new("front", front)
-scene.collection.objects.link(front_obj)
-front_obj.rotation_euler = (radians(90), 0.0, 0.0)
+key_obj.rotation_euler = (radians(90), 0.0, radians(-90))
 
 # --- Camera: orthographic, framing the unit sphere -------------------------
 cam = bpy.data.cameras.new("cam")

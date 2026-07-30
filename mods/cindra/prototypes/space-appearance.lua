@@ -17,9 +17,10 @@
 -- it cannot spin. The orbital backdrop is frozen here by setting rotation_seconds
 -- to an enormous value (NO_ROTATION): the engine's spin becomes imperceptible, so
 -- the same molten-day / terminator / frozen-night face is presented permanently.
--- Only the CLOUD and FLARE layers animate, via rotate_with_planet = false, so the
--- terminator steam band drifts and the solar flares arc in place while the GLOBE
--- stays still (planet_design.md: "only the GLOBE must be static").
+-- Only the CLOUD layer animates, via rotate_with_planet = false, so the terminator
+-- steam band drifts while the GLOBE stays still (planet_design.md: "only the GLOBE
+-- must be static"). The hero solar-flare overlay was removed in ci-i9m (it rendered
+-- as a bottom-of-globe plume artifact); the flare GAMEPLAY event is separate.
 
 local util = require("util")
 
@@ -96,27 +97,13 @@ end
 function M.build_render_parameters(nauvis_params)
   local params = util.table.deepcopy(nauvis_params)
 
-  -- Solar-flare hero spritesheet: 24 frames on a 6-wide sheet, 256px cells.
-  -- The star is perilously close and periodically throws flares off the dayside
-  -- limb. Emissive, animated, placed with rotate_with_planet = false so it is an
-  -- in-place flourish while the globe stays frozen.
-  local flare = {
-    filename = "__cindra__/graphics/space/cindra-flare.png",
-    width = 256, height = 256, line_length = 6, frame_count = 24, animation_speed = 0.4,
-  }
-
-  -- Two flare instances along the dayside (fire) limb, which sits on the LEFT of
-  -- the presented face (negative x on the disc). Staggered frame offsets so a
-  -- flare is almost always mid-arc. front-only keeps them draped on the visible
-  -- hemisphere. rotate_with_planet = false: they arc in place, the globe does not.
-  local hero = {
-    { sprite_index = 1, rotate_with_planet = false, positions = { { -0.55, 0.05 } },
-      projection_style = "front-only", position_deviation = { 0.03, 0.03 },
-      rotation_deviation = 0.0, starting_frame_offset = 0, size = { 0.70, 0.95 } },
-    { sprite_index = 1, rotate_with_planet = false, positions = { { -0.50, -0.35 } },
-      projection_style = "front-only", position_deviation = { 0.03, 0.03 },
-      rotation_deviation = 0.0, starting_frame_offset = 12, size = { 0.55, 0.75 } },
-  }
+  -- NO hero-flare overlay on the orbital backdrop (ci-i9m). The old flare-arc
+  -- sprites were placed as huge (up to 0.95 of the disc) front-only quads and
+  -- rendered as garish white/yellow vertical PLUMES near the bottom of the globe
+  -- -- the "rocket-engine plume" junk artifact the mayor flagged. They are removed
+  -- here so the from-space planet is a clean fire/ice globe. This is the ART view
+  -- only; the GAMEPLAY solar-flare power event (prototypes/flare.lua) is untouched.
+  -- A tasteful limb-flare visual can return later as its own bead (see PLAYTEST.md).
 
   params.platform_backdrop = {
     emission_scales_with_shadow = false,   -- magma glows on its own, across the disc
@@ -146,10 +133,6 @@ function M.build_render_parameters(nauvis_params)
     light_direction = { -0.62, 0.20, 0.55 },
     light_radius = 6.0,
     light_intensity_contrast = 0.45,
-
-    hero_clouds_are_emissive = true,
-    hero_cloud_texture_1 = flare,
-    hero_clouds = hero,
 
     -- Surface + relief + reflectivity: the molten/frozen crust.
     planet_surface = map("cindra.png"),

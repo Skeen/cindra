@@ -9,13 +9,20 @@
 # is a dark frozen vault. The signature visual tension is fire vs ice, seamed by
 # a lit sandy ribbon.
 #
-# The presented face reads FIERY (left limb) -> SANDY (centre) -> ICY (right limb):
+# The presented face reads FIERY (left limb) -> SANDY (centre) -> ICY (right limb)
+# via a SMOOTH albedo ramp that mirrors the in-game map-view terrain ramp (ci-i9m,
+# terrain.lua COLOR_STOPS), so the from-space planet reads as the terrain we play:
 #   • SUNWARD hemisphere  : lava, radiant molten orange/red, strong emission,
 #                           bright veins as if the crust is being blasted apart.
-#   • MIDDLE / terminator  : SANDY YELLOW, warm and clearly LIT (a modest sandy
-#                           self-emission guarantees the seam never reads black).
-#   • NIGHTWARD hemisphere : the DARKEST part, deep dark, with SHIMMERING ICY-BLUE
-#                           glinting through the darkness (sparse frost-ridge glow).
+#   • MIDDLE / terminator  : a smooth sandy-neutral crossover -- NOT a painted
+#                           stripe. It carries no self-glow, so it falls into
+#                           shadow naturally where the key light does not reach:
+#                           the tidal-lock terminator comes from the LIGHT, not a
+#                           seam (ci-i9m supersedes the ci-fg6 self-lit sandy band).
+#   • NIGHTWARD hemisphere : PALE ICE (frost -> icy white-blue), reading as our
+#                           frozen terrain, with a faint icy-blue frost shimmer.
+#                           It goes dark via the light falloff, not a black albedo,
+#                           so it is ICE -- not a Fulgora-electric near-black vault.
 #
 # TIDALLY LOCKED means the planet presents ONE face permanently: it must not spin
 # in either the star-map sprite or the orbital backdrop. We bake that into the
@@ -112,6 +119,39 @@ def smoothstep(a, b, x):
     return t * t * (3.0 - 2.0 * t)
 
 
+# Hot -> cold surface colour ramp, MIRRORING the in-game map-view ramp in
+# scripts/terrain.lua (COLOR_STOPS, ci-4h7): reds sunward, a sandy neutral centre,
+# pale cyan/frost nightward. Sampling the SAME ramp for the from-space art is what
+# makes the orbital/star-map planet "read as our terrain" (ci-i9m): the fiery
+# hemisphere is lava/volcanic, the frozen hemisphere is PALE ICE (not a near-black
+# Fulgora-electric vault), and the terminator is a smooth sandy blend -- NOT a
+# painted stripe. The day/night falloff is supplied by the parallel key light
+# (bake) / light_direction (orbit), not by a self-lit seam.
+TERRAIN_STOPS = [
+    (0.00, (0.98, 0.42, 0.06)),   # lava, orange-red
+    (0.18, (0.80, 0.30, 0.10)),   # molten crust
+    (0.35, (0.55, 0.40, 0.28)),   # warm volcanic brown
+    (0.50, (0.62, 0.56, 0.42)),   # sandy building neutral (terminator)
+    (0.66, (0.60, 0.64, 0.64)),   # cool grey dust
+    (0.82, (0.66, 0.82, 0.88)),   # pale frost
+    (1.00, (0.82, 0.95, 1.00)),   # icy white-blue
+]
+
+
+def terrain_ramp(t):
+    """Vectorised piecewise-linear lookup into TERRAIN_STOPS.
+
+    t is the normalised hot->cold position in [0,1] (0 = hottest lava,
+    1 = coldest ice). Returns an RGB array shaped t.shape + (3,).
+    """
+    xs = np.array([s[0] for s in TERRAIN_STOPS], np.float32)
+    cols = np.array([s[1] for s in TERRAIN_STOPS], np.float32)   # (K,3)
+    out = np.empty(t.shape + (3,), np.float32)
+    for ch in range(3):
+        out[..., ch] = np.interp(t, xs, cols[:, ch])
+    return out
+
+
 def normal_map(h, strength):
     """Tangent-space normal map from a scalar height field."""
     gy, gx = np.gradient(h.astype(np.float32))
@@ -146,29 +186,28 @@ def generate_maps(W=W, H=H, seed=SEED):
         return fbm(unit, s, **kw).reshape(H, W)
 
     # -- The tidally-locked axis --------------------------------------------
-    # sol in [-1, 1]: +1 sub-stellar (fire), 0 terminator ribbon, -1 anti-stellar
-    # (ice). A little noise warps the boundary so the seam is a ragged coastline.
+    # sol in [-1, 1]: +1 sub-stellar (fire), 0 terminator, -1 anti-stellar (ice).
+    # A little noise warps the boundary so the fire/ice coastline is ragged.
     sol = (-cy).reshape(H, W)
     warp = (field(seed + 400, base_freq=3.0, octaves=4) - 0.5)
-    # Warp amplitude scaled down with the slimmed band (ci-fg6): the seam is now a
-    # THIN terminator, so a large warp would scatter sand blobs deep into the
-    # hemispheres. Keep it comparable to the band half-width for a ragged-but-thin
-    # coastline.
-    sol = np.clip(sol + 0.035 * warp, -1.0, 1.0)
+    sol = np.clip(sol + 0.06 * warp, -1.0, 1.0)
 
-    # THIN sandy terminator (ci-fg6): the mayor's space-view refinement slims the
-    # sandy middle band ~10x, so the planet reads as mostly FIERY hemisphere + ICY
-    # hemisphere with only a thin sand seam between them (consistent with tidal
-    # lock: fire limb -> thin sand terminator -> ice limb). The old band was the
-    # middle THIRD of the disc (smoothstep 0.12..0.48, half-width ~0.30 in sol,
-    # which maps ~linearly to screen-x; see the header). Here the smoothstep
-    # midpoint drops to ~0.033 (half-width ~10x smaller), so the hemispheres reach
-    # full fire/ice strength almost to the centre with only a sliver of sand. This
-    # is ART only (equirect maps -> baked sprite + orbital backdrop); it does NOT
-    # touch the in-game mapgen zone widths (planet.lua / ribbon.lua, ci-da2).
-    day = smoothstep(0.013, 0.053, sol)                    # molten hemisphere
-    night = smoothstep(0.013, 0.053, -sol)                 # frozen hemisphere
-    ribbon = np.clip(1.0 - day - night, 0.0, 1.0)          # thin sandy seam
+    # NATURAL terminator, NOT a painted stripe (ci-i9m). The albedo below is a
+    # SMOOTH hot->cold ramp along `t` (terrain_ramp), so the fiery hemisphere melts
+    # into the frozen one through a sandy-neutral midpoint with no hard seam. The
+    # day/night light falloff is supplied by the LEFT parallel key (bake) and
+    # light_direction (orbit) -- the map no longer self-lights a sandy band.
+    #
+    # t = normalised hot->cold position in [0,1]: 0 = hottest lava, 1 = coldest ice.
+    t = np.clip(0.5 * (1.0 - sol), 0.0, 1.0)
+    # Soft masks still tag the hemispheres + the transition band so EMISSION can be
+    # gated day-side (lava self-glow) / night-side (dim ice shimmer) and tests can
+    # address the fire / terminator / ice regions. These are analytic gates, not a
+    # painted colour band. This is ART only; it does NOT touch the in-game mapgen
+    # zone widths (planet.lua / ribbon.lua, ci-da2).
+    day = smoothstep(0.05, 0.30, sol)                      # molten hemisphere
+    night = smoothstep(0.05, 0.30, -sol)                   # frozen hemisphere
+    ribbon = np.clip(1.0 - day - night, 0.0, 1.0)          # terminator transition
     heat = np.clip(sol, 0.0, 1.0)                           # 0..1 toward substellar
     cold = np.clip(-sol, 0.0, 1.0)                          # 0..1 toward antistellar
 
@@ -186,30 +225,34 @@ def generate_maps(W=W, H=H, seed=SEED):
 
     D, N, R = day[..., None], night[..., None], ribbon[..., None]
 
-    # -- Albedo (RGBA) -------------------------------------------------------
-    # Dayside: a hot ember crust so the lava reads as radiant molten rock even
-    # where the emission is masked; bright lava veins push it toward a glowing
-    # orange. Brighter + more saturated than the old dull-peach crust (ci-fg6) so
-    # the fire limb reads as GLOWING lava, not matte rock.
-    day_v = 0.30 + 0.30 * height + 0.55 * lava
-    day_rgb = np.stack([day_v * 1.35, day_v * 0.52, day_v * 0.14], -1)     # molten orange-red
-    # Ribbon: SANDY YELLOW, the survivable seam. Bright, warm, gently duned by
-    # the height field so it is not a flat wash.
-    sand = np.array([0.84, 0.68, 0.40])
-    rib_v = 0.82 + 0.22 * (height - 0.5) + 0.10 * (detail - 0.5)
-    rib_rgb = sand[None, None, :] * np.clip(rib_v, 0.4, 1.15)[..., None]
-    # Nightside: the DARKEST zone, but no longer flat navy (ci-fg6). A near-black
-    # deep-blue base with SHIMMERING icy-blue glints where frost ridges catch the
-    # last starlight -- brighter, cooler and more plentiful glints so the ice limb
-    # reads as a shimmery blue frozen vault, while the base stays the darkest zone.
-    night_base = np.array([0.015, 0.030, 0.075])
-    glint = frost * (0.35 + 0.65 * height)
-    glint_col = np.array([0.46, 0.74, 1.00])
-    ice_rgb = night_base[None, None, :] + 0.95 * glint[..., None] * glint_col[None, None, :]
+    # -- Albedo (RGBA): the SMOOTH hot->cold terrain ramp (ci-i9m) -----------
+    # Base colour is the in-game terrain ramp sampled along `t`, so the surface
+    # reads as OUR terrain: molten orange-red -> volcanic brown -> sandy neutral ->
+    # pale frost -> icy white-blue, with NO hard painted seam (the old bright sandy
+    # stripe is gone; the terminator is now just where the ramp -- and the light --
+    # cross over). Height gives gentle relief shading.
+    base = terrain_ramp(t)                                  # (H,W,3), the terrain look
+    shade = np.clip(0.80 + 0.34 * (height - 0.5) + 0.10 * (detail - 0.5), 0.55, 1.15)
+    alb = base * shade[..., None]
 
-    albedo = day_rgb * D + ice_rgb * N + rib_rgb * R
+    # Hot side: brighten the lava veins toward glowing orange so the fiery limb
+    # reads as radiant molten rock even under the raw albedo (the emission map
+    # carries the actual glow on top).
+    vein = np.clip(lava * heat, 0.0, 1.0)
+    lava_col = np.array([1.00, 0.55, 0.14])
+    alb = alb * (1.0 - 0.55 * vein[..., None]) + lava_col[None, None, :] * (0.55 * vein)[..., None]
+
+    # Cold side: a SOFT, WHITE-cyan frost sheen on the frost ridges -- a frosted ICE
+    # surface, deliberately NOT the near-black base + saturated electric-blue cracks
+    # that read as Fulgora lightning (ci-i9m). The pale ramp base already reads as
+    # ice; the sheen just adds a little sparkle. Darkness on the ice limb comes from
+    # the light falloff, not from a black albedo.
+    fr = np.clip(frost * cold, 0.0, 1.0)
+    frost_col = np.array([0.86, 0.93, 1.00])
+    alb = alb * (1.0 - 0.35 * fr[..., None]) + frost_col[None, None, :] * (0.35 * fr)[..., None]
+
     alpha = np.full((H, W), 255.0)
-    albedo = np.concatenate([np.clip(albedo, 0, 1) * 255.0, alpha[..., None]], -1)
+    albedo = np.concatenate([np.clip(alb, 0, 1) * 255.0, alpha[..., None]], -1)
 
     # -- Emission (RGBA): the identity --------------------------------------
     # Molten dayside glow, hottest (white/yellow) at the sub-stellar point,
@@ -232,19 +275,19 @@ def generate_maps(W=W, H=H, seed=SEED):
     warm = mid * (1 - white_t) + hot_white[None, None, :] * white_t
     em = glow[..., None] * warm
 
-    # Ribbon: a modest WARM SANDY self-glow. This is the fix for the black
-    # centre -- the seam carries its own light, so it reads sandy-lit in both the
-    # baked star-map sprite and the orbital backdrop regardless of key-light angle.
-    rib_glow = ribbon * (0.20 + 0.12 * height + 0.06 * (detail - 0.5))
-    sand_em = np.array([1.00, 0.80, 0.46])
-    em += np.clip(rib_glow, 0, 1)[..., None] * sand_em[None, None, :]
+    # NO sandy-seam self-glow (ci-i9m): the terminator is a NATURAL dark falloff
+    # supplied by the parallel key light, not a self-lit painted stripe. The old
+    # rib_glow injected a bright band down the centre -- exactly the "hard seam" the
+    # mayor flagged -- so it is removed. The sandy midpoint now simply goes dark
+    # where the light does not reach it, giving the tidal-lock terminator for free.
 
-    # Nightside: SHIMMERING ICY-BLUE glinting through the dark -- a self-glow on
-    # the frost ridges, lifted (ci-fg6) so the ice limb visibly shimmers blue,
-    # yet still kept below the sandy seam's glow so the vault stays the darkest,
-    # dimmest-lit zone (the test guards ice_emax < seam_emax).
-    shimmer = np.clip(frost * night, 0, 1) * 0.24
-    shimmer_col = np.array([0.30, 0.64, 1.00])
+    # Nightside: a faint SHIMMERING ICY-BLUE self-glow on the frost ridges, kept
+    # DIM so the frozen hemisphere stays dark overall (the light falloff, not the
+    # albedo, makes it dark) yet still shimmers blue rather than reading pitch black.
+    # Whiter/cooler than the old saturated electric blue so it reads as ICE sparkle,
+    # not Fulgora lightning.
+    shimmer = np.clip(frost * night, 0, 1) * 0.22
+    shimmer_col = np.array([0.55, 0.76, 1.00])
     em += shimmer[..., None] * shimmer_col[None, None, :]
 
     em = np.clip(em, 0, 1)
@@ -261,7 +304,11 @@ def generate_maps(W=W, H=H, seed=SEED):
     reflectivity = np.stack([refl, refl, refl], -1)
 
     # -- Normal map ----------------------------------------------------------
-    relief = height * (0.6 * day + 1.0 * ribbon + 0.35 * night)
+    # Keep the TERMINATOR relief modest (ci-i9m): the old strong ribbon relief
+    # (weight 1.0) caught the grazing key light as a rocky RIDGE down the centre,
+    # re-introducing a seam-like band. A gentler terminator relief lets the
+    # fire->ice light gradient stay smooth.
+    relief = height * (0.6 * day + 0.45 * ribbon + 0.35 * night)
     relief += 0.15 * lava * day + 0.10 * frost * night
     normal = normal_map(relief, 55.0)
 

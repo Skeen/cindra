@@ -129,26 +129,25 @@ test("points the backdrop maps at the baked Cindra fire/ice art", function()
   assert_eq("__cindra__/graphics/space/cindra.png", b.planet_surface.filename)
   assert_eq("__cindra__/graphics/space/cindra-emission.png", b.planet_emission.filename)
   assert_eq("__cindra__/graphics/space/cindra-cloud.png", b.global_cloud.filename)
-  assert_eq("__cindra__/graphics/space/cindra-flare.png", b.hero_cloud_texture_1.filename)
-  assert_eq(24, b.hero_cloud_texture_1.frame_count, "24-frame flare sheet")
 end)
 
-test("flares/clouds animate in place while the globe stays frozen", function()
+-- ci-i9m: the hero solar-flare overlay is REMOVED. It rendered as garish white/
+-- yellow vertical PLUMES near the bottom of the globe (the "rocket-engine plume"
+-- junk artifact the mayor flagged). Guard its absence so a later tweak cannot
+-- quietly reintroduce the plume: no hero-cloud texture, no hero-cloud instances.
+test("no hero-flare overlay -> no bottom-of-globe plume artifact (ci-i9m)", function()
   local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
-  assert_eq(2, #b.hero_clouds, "two staggered flares")
-  for i, h in ipairs(b.hero_clouds) do
-    assert_eq(false, h.rotate_with_planet, "flare #" .. i .. " arcs in place, not with the frozen globe")
-  end
-  assert_eq(true, b.hero_clouds_are_emissive, "flares glow")
+  assert_nil(b.hero_cloud_texture_1, "no hero-flare spritesheet on the backdrop")
+  assert_nil(b.hero_clouds, "no hero-flare instances on the backdrop")
 end)
 
--- The redesign (ci-hmc) fixes a BLACK presented middle. The sandy ribbon carries
--- its own emission in the map, but that only reaches the orbital view if the
--- backdrop shows emission regardless of the shadow side. Guard that wiring: the
--- self-glow must NOT be gated on shadow, and the emission scalar must be positive.
-test("emission self-glow always shows -> the sandy middle is never black in orbit", function()
+-- The dayside/ice emission still self-lights across the disc so the fiery limb
+-- glows even where the key light grazes (ci-i9m: the terminator falls dark from
+-- the LIGHT, not because emission is missing). Guard that wiring: the self-glow
+-- must NOT be gated on shadow, and the emission scalar must be positive.
+test("emission self-glow always shows -> lava glows across the disc, not only in light", function()
   local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
-  assert_eq(false, b.emission_scales_with_shadow, "dayside+sandy-seam glow must show across the disc, not only in light")
+  assert_eq(false, b.emission_scales_with_shadow, "dayside glow must show across the disc, not only in light")
   assert_true(b.emission_scalar and b.emission_scalar > 0, "positive emission scalar so the glow reads")
 end)
 
