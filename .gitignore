@@ -36,3 +36,11 @@ result-*
 .claude/
 .runtime/
 CLAUDE.md
+
+# Gas Town (added by gt)
+.opencode/
+.logs/
+__pycache__/
+state.json
+CLAUDE.local.md
+GEMINI.md
