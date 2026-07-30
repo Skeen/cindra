@@ -15,6 +15,7 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 SPACE="$ROOT/mods/cindra/graphics/space"
 ICONS="$ROOT/mods/cindra/graphics/icons"
+MODROOT="$ROOT/mods/cindra"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$ICONS"
@@ -27,10 +28,10 @@ echo "== 2/3 baking star-map sphere (Blender/Cycles) =="
 nix shell nixpkgs#blender -c blender -b -P scripts/bake-starmap.py -- \
   "$SPACE" "$TMP/starmap-1024.png"
 
-echo "== 3/3 downscaling sprite + building icon mip strip =="
+echo "== 3/3 downscaling sprite + building icon mip strip + mod thumbnail =="
 nix shell nixpkgs#imagemagick -c bash -c '
   set -e
-  src="$1"; icons="$2"
+  src="$1"; icons="$2"; modroot="$3"
   # Static star-map sprite: 512x512 (vanilla starmap_icon_size). 8-bit RGBA.
   magick "$src" -resize 512x512 -depth 8 "$icons/starmap-planet-cindra.png"
   # Icon: mipmapped 120x64 strip (icon_size=64, icon_mipmaps=4), each mip
@@ -41,9 +42,14 @@ nix shell nixpkgs#imagemagick -c bash -c '
     \( "$src" -resize 16x16 \) -geometry +96+0 -composite \
     \( "$src" -resize 8x8   \) -geometry +112+0 -composite \
     -depth 8 "$icons/cindra.png"
-' _ "$TMP/starmap-1024.png" "$ICONS"
+  # Mod-portal thumbnail (thumbnail.png at the mod root, Factorio thumbnail spec):
+  # the SAME baked globe so the portal card matches the in-game star-map planet.
+  # 144x144 8-bit RGBA on the bake transparent film.
+  magick "$src" -resize 144x144 -depth 8 "$modroot/thumbnail.png"
+' _ "$TMP/starmap-1024.png" "$ICONS" "$MODROOT"
 
 echo "done:"
 echo "  $ICONS/starmap-planet-cindra.png"
 echo "  $ICONS/cindra.png"
+echo "  $MODROOT/thumbnail.png"
 echo "  $SPACE/ (equirectangular maps for the orbital backdrop)"

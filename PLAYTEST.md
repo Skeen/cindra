@@ -89,6 +89,54 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   limb-flare visual could return as a follow-up bead (the flare spritesheet art
   `graphics/space/cindra-flare.png` still exists for reuse).
 
+- [ ] **[LANDED] Star-map icon: soft ~55%-lit terminator (ci-nyj).** The baked
+  star-map globe used to split at a HARD 50% Lambertian half. The bake now adds a
+  subtle wrap-around ambient/reflected-ground bleed so a little light spills just
+  PAST the terminator onto the near-dark side: the terminator softens and ~55% of
+  the disc reads as lit, while the deep ice limb stays dark. *Repro:* open the
+  star-map / navigate to Cindra (`./play.sh`). *Look for:* the fire->ice boundary
+  is clearly SOFTER than a crisp centre line, with a thin lit spill onto the near
+  side, yet still a clear lit/dark planet (dark side still reads as shadowed ice).
+  *Fallback:* the baked sprite is verified off-game -- `unit-tests/test_starmap_lighting.py`
+  guards the ~55% lit fraction and the soft-terminator bleed (both FAIL on the old
+  hard-50% bake), on top of the existing left-sun / blow-out / no-wedge guards.
+  Re-bake via `scripts/render-planet.sh` (also regenerates the mod `thumbnail.png`
+  from the same globe so the portal card matches).
+
+- [ ] **[IN-FLIGHT] In-game ORBITAL view parity with the star-map icon (ci-nyj).**
+  The user reported the LIVE orbital/platform globe does NOT read like the polished
+  star-map icon. The star-map softening above is baked in Blender (icon only); the
+  orbital backdrop is engine-lit from `platform_surface_render_parameters`
+  (`prototypes/space-appearance.lua`) and does NOT yet carry the matching soft ~55%
+  terminator. *This requires an ACTUAL in-engine orbital screenshot to tune, which
+  could NOT be captured in the headless polecat worktree:* Factorio's SDL demands a
+  GLX-capable display and the box's Xvfb has no working software GLX ("GLX is not
+  supported" / "no RGB GLX visual"); there is a GPU render node but no running X
+  server. *Repro (display-capable operator):* build a tiny scenario that spawns a
+  platform in orbit and screenshots that surface, then load it graphically:
+  ```lua
+  -- mods/cindra/scenarios/orbit-shot/control.lua
+  script.on_event(defines.events.on_tick, function(e)
+    if e.tick ~= 120 then return end
+    local f = game.forces["player"]
+    if f.unlock_space_platforms ~= nil then f.unlock_space_platforms = true end
+    local p = f.create_space_platform{name="shot", planet="cindra",
+      starter_pack="space-platform-starter-pack"}
+    for _, z in ipairs({0.05, 0.1, 0.2}) do
+      game.take_screenshot{surface=p.surface, position={0,0}, zoom=z,
+        resolution={1280,1280}, path="orbit-z"..z..".png", force_render=true}
+    end
+  end)
+  ```
+  `factorio --load-scenario cindra/orbit-shot` under a real display (or Xvfb WITH
+  working GLX). *Look for:* the engine-lit globe reads like the icon -- single sun
+  from the LEFT, ~55% lit soft terminator, emissive lava, blue-ice dark side.
+  *Levers if it does not match:* `light_direction` (make it near-horizontal from
+  the left to match the bake's perpendicular sun), `light_radius` (larger = softer
+  terminator), `light_intensity_contrast`, and `emission_scalar`. The albedo
+  (`graphics/space/cindra.png`) already carries NO baked day/night shadow, so the
+  engine does all the shading.
+
 - [ ] **[LANDED] Planet is STATIC in the space view: no rotate, no wobble (ci-ane).**
   The Overseer flagged the Cindra globe as ROTATING / WOBBLING in the space/starmap
   view when it should sit still (tidal lock). The spin was already frozen

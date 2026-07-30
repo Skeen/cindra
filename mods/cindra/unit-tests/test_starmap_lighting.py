@@ -155,5 +155,31 @@ check("ice side is not a pure-black void (right-third luminance > 15)",
       right_lum > 15.0,
       f"right-third lum={right_lum:.1f}")
 
+# --- SOFT TERMINATOR: a slight ambient bleed past 90deg -> ~55% lit (ci-nyj) ---
+# The bare Lambert key gives a HARD terminator exactly at the disc centre (a clean
+# 50% half). ci-nyj adds a subtle wrap-around ambient/reflected-ground bleed in the
+# bake so a little light spills just PAST the terminator onto the near-dark side:
+# the terminator softens and ~55% of the disc reads as lit, WITHOUT washing out the
+# deep dark ice limb (which the right-third guards above still hold dark). We assert
+# the effect two ways so a future re-bake cannot silently revert to the hard 50%:
+#
+# 1. The near-terminator centre band (mid third) is clearly LIFTED above the deep
+#    dark ice (right third) by the bleed. Before the softening the mid third fell to
+#    -- or below -- the ambient ice floor (mid ~= right); the bleed now lifts it a
+#    clear margin above. (This FAILS on the pre-ci-nyj hard-terminator bake.)
+check("soft terminator: bleed lifts the mid band above the deep-dark ice "
+      "(mid third >= right third + 4)",
+      mid_lum >= right_lum + 4.0,
+      f"mid={mid_lum:.1f} right={right_lum:.1f} (delta={mid_lum - right_lum:.1f})")
+
+# 2. The lit fraction of the disc sits around ~55% (not a hard 50%, not a wash).
+#    "Lit" = clearly above the cool ice ambient floor (luminance > 60). Before the
+#    softening this was ~0.48 (under half); the bleed pushes it to ~0.54-0.55. Kept
+#    below 0.62 so the planet still reads as a clear lit/dark globe, not over-lit.
+lit_frac = float((disc & (lum > 60.0)).sum()) / float(disc.sum())
+check("terminator softened to ~55% of the disc lit (0.50 <= lit fraction <= 0.62)",
+      0.50 <= lit_frac <= 0.62,
+      f"lit fraction (lum>60) = {lit_frac:.3f}")
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(0 if failed == 0 else 1)

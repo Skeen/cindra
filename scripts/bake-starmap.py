@@ -137,6 +137,62 @@ nmap.inputs["Strength"].default_value = 0.9
 links.new(tex_n.outputs["Color"], nmap.inputs["Color"])
 links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
 
+# --- Soft terminator: a subtle wrap-around AMBIENT BLEED just past 90deg (ci-nyj)
+# The bare Lambert key gives a HARD terminator exactly at the disc centre (a clean
+# 50% half). The overseer wants it SOFTER, with a little light spilling past the
+# terminator onto the near-dark side so ~55% of the disc reads as lit -- modelled
+# as faint AMBIENT / reflected-ground light that wraps a few degrees past 90deg.
+#
+# We add it as an isolated self-lit layer (Add Shader) so the existing key light
+# -- the near-white blow-out, the hard fire->ice falloff, the deep-dark ice limb
+# and the specular ice sheen -- is left completely intact. The bleed is a
+# TRIANGULAR hump in Lambert space d = N.L (L = direction to the sun):
+#
+#   bleed(d) = max(0, min(d + WRAP, -d))
+#
+# which is 0 on the lit side (d > 0, so the sunlit hemisphere is untouched), rises
+# just past the terminator, peaks at d = -WRAP/2, and returns to 0 for d < -WRAP
+# (so the DEEP dark ice limb stays dark -- it is NOT a uniform ambient wash). Tinted
+# by the albedo so it reads as the icy ground catching a little reflected light.
+# WRAP ~0.30 wraps light ~a few degrees past 90deg -> ~55% of the disc lit.
+WRAP = 0.30          # how far (in N.L units) the ground-bleed reaches past 90deg
+WRAP_STRENGTH = 1.2  # brightness of the bleed (kept subtle: a soft edge, not a wash)
+
+geom = nodes.new("ShaderNodeNewGeometry")
+# d = N . L, with L = direction TO the sun = (-1,0,0): the sun shines toward +X
+# (rays travel +X) so it comes FROM the left, matching the key light above.
+dot = nodes.new("ShaderNodeVectorMath")
+dot.operation = "DOT_PRODUCT"
+dot.inputs[1].default_value = (-1.0, 0.0, 0.0)
+links.new(geom.outputs["Normal"], dot.inputs[0])
+add = nodes.new("ShaderNodeMath")
+add.operation = "ADD"
+add.inputs[1].default_value = WRAP
+links.new(dot.outputs["Value"], add.inputs[0])
+neg = nodes.new("ShaderNodeMath")
+neg.operation = "MULTIPLY"
+neg.inputs[1].default_value = -1.0
+links.new(dot.outputs["Value"], neg.inputs[0])
+hump = nodes.new("ShaderNodeMath")
+hump.operation = "MINIMUM"
+links.new(add.outputs["Value"], hump.inputs[0])
+links.new(neg.outputs["Value"], hump.inputs[1])
+clamp0 = nodes.new("ShaderNodeMath")
+clamp0.operation = "MAXIMUM"
+clamp0.inputs[1].default_value = 0.0
+links.new(hump.outputs["Value"], clamp0.inputs[0])
+scale = nodes.new("ShaderNodeMath")
+scale.operation = "MULTIPLY"
+scale.inputs[1].default_value = WRAP_STRENGTH
+links.new(clamp0.outputs["Value"], scale.inputs[0])
+bleed = nodes.new("ShaderNodeEmission")
+links.new(tex_albedo.outputs["Color"], bleed.inputs["Color"])
+links.new(scale.outputs["Value"], bleed.inputs["Strength"])
+addsh = nodes.new("ShaderNodeAddShader")
+links.new(bsdf.outputs["BSDF"], addsh.inputs[0])
+links.new(bleed.outputs["Emission"], addsh.inputs[1])
+links.new(addsh.outputs["Shader"], out.inputs["Surface"])
+
 sphere.data.materials.append(mat)
 
 # --- World ambient: a dim COOL base so the shadowed (ice) hemisphere never falls
