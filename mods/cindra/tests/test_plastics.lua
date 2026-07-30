@@ -36,6 +36,7 @@ local MCAT_SPENT = "cindra-spent-methanol-catalyst"
 local ZCAT       = "cindra-zeolite-catalyst"
 local ZCAT_SPENT = "cindra-spent-zeolite-catalyst"
 local PLASTIC  = "plastic-bar"
+local ROCKET_FUEL = "rocket-fuel" -- vanilla product of methanol rocket fuel (ci-6vj S5 #9)
 local TECH     = "cindra-calcite-olefins"
 
 -- The petrochemistry Cindra forbids anywhere in the plastic chain (DESIGN §1):
@@ -72,6 +73,7 @@ local function roll(p) return (p.probability or p.independent_probability or 1) 
 -- Every matter-conversion / catalyst recipe on the chain -- all prod OFF.
 local CONVERSION_RECIPES = {
   "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
+  "cindra-methanol-rocket-fuel", -- #9 (ci-6vj S5): burns methanol + O2, prod off
   MCAT, "cindra-methanol-catalyst-reprocessing",
   "cindra-mto-polymerisation", ZCAT, "cindra-zeolite-catalyst-regeneration",
 }
@@ -153,6 +155,51 @@ describe("cindra plastic chain: the chemistries connect end to end", function()
     assert.are.equal(2, amount_of(r.products, PLASTIC),
       "2 vanilla plastic-bar out (plugs straight into vanilla recipes)")
     assert.are.equal(40, amount_of(r.products, "water"), "40 water recovered (loops back)")
+  end)
+end)
+
+-- ci-6vj S5 #9: methanol rocket fuel -- the SECOND methanol product and the SECOND
+-- O2 sink (DESIGN §8.2, §8.4). Burns methanol against surplus oxygen into the
+-- vanilla rocket-fuel item, prod off, a terminal launch/export sink.
+describe("cindra methanol rocket fuel (ci-6vj S5 #9): a second methanol product + O2 sink", function()
+  it("burns 50 methanol + 50 O2 -> 10 vanilla rocket-fuel", function()
+    local r = prototypes.recipe["cindra-methanol-rocket-fuel"]
+    assert.is_not_nil(r, "the methanol rocket fuel recipe must exist")
+    assert.are.equal(50, amount_of(r.ingredients, METHANOL), "50 methanol in (the fuel-stock)")
+    assert.are.equal(50, amount_of(r.ingredients, O2), "50 oxygen in (the oxidiser -- an O2 sink)")
+    -- Output is the VANILLA rocket-fuel item (no bespoke fuel type), like ALICE.
+    assert.are.equal(10, amount_of(r.products, ROCKET_FUEL), "10 vanilla rocket-fuel out")
+    assert.is_not_nil(prototypes.item[ROCKET_FUEL], "vanilla rocket-fuel item must exist (the product)")
+  end)
+
+  it("is a real O2 sink: it CONSUMES oxygen (not produces it)", function()
+    local r = prototypes.recipe["cindra-methanol-rocket-fuel"]
+    assert.is_true(has_ingredient("cindra-methanol-rocket-fuel", O2),
+      "methanol rocket fuel must consume oxygen -- the second O2 sink after ALICE + zeolite regen")
+    assert.is_nil(product(r.products, O2),
+      "it must not emit oxygen (it is a sink, not a source)")
+  end)
+
+  it("runs in the shared chemical plant (two fluid inputs), prod OFF", function()
+    local r = prototypes.recipe["cindra-methanol-rocket-fuel"]
+    local in_chemistry = false
+    for _, c in pairs(r.categories or {}) do
+      if c == "chemistry" then in_chemistry = true end
+    end
+    assert.is_true(in_chemistry, "two fluid inputs -> runs in the vanilla chemical plant")
+    assert.is_false(r.allowed_effects and r.allowed_effects.productivity,
+      "methanol rocket fuel must disable productivity (never mint free rocket-fuel, ci-669)")
+  end)
+
+  it("is a TERMINAL energy sink: rocket-fuel holds far less energy than its inputs cost (ci-669)", function()
+    -- rocket-fuel can be burned as a fuel item, so making it must never be an energy
+    -- profit. 10 rocket-fuel = ~1 GJ of fuel_value, made from 50 methanol + 50 O2 +
+    -- chemical-plant power -- the methanol alone (roasted calcite + electrolysis H2)
+    -- cost far more electricity than that. Pin the vanilla fuel_value as a sanity
+    -- guard: fuel is a launch/export good, never fed back to power its own line.
+    local rf = prototypes.item[ROCKET_FUEL]
+    assert.is_true(rf.fuel_value ~= nil and rf.fuel_value <= 200e6,
+      "sanity: vanilla rocket-fuel holds ~100 MJ, far under the power sunk into its methanol + O2")
   end)
 end)
 
@@ -278,6 +325,7 @@ end)
 describe("cindra plastic chain: gated behind the signature aluminium", function()
   local GATED_RECIPES = {
     "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
+    "cindra-methanol-rocket-fuel",
     MCAT, "cindra-methanol-catalyst-reprocessing",
     "cindra-mto-polymerisation", ZCAT, "cindra-zeolite-catalyst-regeneration",
     "cindra-vent-oxygen", "cindra-vent-quicklime", "cindra-vent-co2",

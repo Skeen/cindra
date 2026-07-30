@@ -98,6 +98,7 @@ local LAVA  = "lava"
 local STONE = "stone"
 local STEAM = "steam"
 local SULFURIC_ACID = "sulfuric-acid"
+local ROCKET_FUEL   = "rocket-fuel" -- vanilla product: the terminal launch/export fuel + second methanol/O2 sink (ci-6vj S5 #9)
 
 -- The lava-manufacturer's private category (defined in prototypes/lava.lua, which
 -- loads before this file). Calcination and quicklime disposal run here, in the
@@ -123,6 +124,7 @@ local MCAT_SECONDS         = 8
 local ZCAT_SECONDS         = 8
 local REPROCESS_SECONDS    = 4
 local REGEN_SECONDS        = 4
+local METHANOL_FUEL_SECONDS = 3  -- methanol rocket fuel (#9): the burn craft time (ci-6vj S5)
 -- Each catalyst survives 70% of crafts intact and is 20% spent (independent
 -- rolls); the ~10% net loss is topped up by the make recipe (DESIGN §8.3).
 local CAT_RETURN = 0.70
@@ -300,6 +302,38 @@ local methanol_synthesis = {
   allow_productivity = false,
   main_product = METHANOL,
   crafting_machine_tint = { primary = { r = 0.9, g = 0.85, b = 0.55 } },
+}
+
+-- #9 Methanol rocket fuel (CP, ci-6vj S5, DESIGN §8.2): burn methanol against the
+-- economy's surplus oxygen to mint the VANILLA rocket-fuel item -- the SECOND
+-- methanol product (alongside plastic) and the SECOND O2 sink (alongside ALICE and
+-- zeolite regeneration, DESIGN §8.4). Both inputs are fluids, so it runs in the
+-- shared chemical plant. Productivity is OFF (matter honesty): rocket-fuel is a
+-- terminal launch/export good, and its ~100 MJ is worth far less electricity than
+-- the methanol + O2 chain sunk into it, so this is a deep net-negative energy trade
+-- that can never be burned back for a power profit (ci-669 energy analog). Unlocked
+-- by the materials-chemistry tech (DESIGN §8.5 lists rocket fuels there): methanol
+-- itself only exists once that tech is in hand, so this recipe cannot be reachable
+-- any earlier -- unlike ALICE, whose nano-aluminium powder is a launch-tech unlock,
+-- this route is native to the chemistry tree.
+local methanol_rocket_fuel = {
+  type = "recipe",
+  name = "cindra-methanol-rocket-fuel",
+  categories = { "chemistry" }, -- two fluid inputs: the vanilla chemical plant
+  subgroup = "fluid-recipes",
+  order = "z[cindra]-c[methanol]-b[rocket-fuel]", -- sits just after methanol synthesis
+  enabled = false,
+  energy_required = METHANOL_FUEL_SECONDS,
+  ingredients = {
+    { type = "fluid", name = METHANOL, amount = 50 },
+    { type = "fluid", name = O2, amount = 50 },
+  },
+  results = { { type = "item", name = ROCKET_FUEL, amount = 10 } },
+  allow_productivity = false, -- terminal sink: never mint free rocket-fuel (ci-669)
+  main_product = ROCKET_FUEL,
+  crafting_machine_tint = { primary = { r = 0.85, g = 0.55, b = 0.35 } },
+  localised_name = { "recipe-name.cindra-methanol-rocket-fuel" },
+  localised_description = { "recipe-description.cindra-methanol-rocket-fuel" },
 }
 
 -- #11 Methanol catalyst (AM): copper (from the lava-cast copper chain) + the
@@ -531,6 +565,7 @@ local technology = {
     { type = "unlock-recipe", recipe = "cindra-electrolysis" },
     { type = "unlock-recipe", recipe = "cindra-calcination" },
     { type = "unlock-recipe", recipe = "cindra-methanol-synthesis" },
+    { type = "unlock-recipe", recipe = "cindra-methanol-rocket-fuel" }, -- #9 (ci-6vj S5): second methanol product + O2 sink
     { type = "unlock-recipe", recipe = MCAT },
     { type = "unlock-recipe", recipe = "cindra-methanol-catalyst-reprocessing" },
     { type = "unlock-recipe", recipe = "cindra-mto-polymerisation" },
@@ -557,7 +592,7 @@ data:extend({
   hydrogen, oxygen, carbon_dioxide, methanol,
   quicklime, methanol_catalyst, spent_methanol_catalyst,
   zeolite_catalyst, spent_zeolite_catalyst,
-  electrolysis, calcination, methanol_synthesis,
+  electrolysis, calcination, methanol_synthesis, methanol_rocket_fuel,
   methanol_catalyst_recipe, methanol_catalyst_reprocessing,
   mto_polymerisation, zeolite_catalyst_recipe, zeolite_catalyst_regeneration,
   vent_oxygen, vent_quicklime, vent_co2, quicklime_disposal,

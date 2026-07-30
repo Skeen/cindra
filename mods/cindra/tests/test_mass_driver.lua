@@ -31,6 +31,9 @@ local FUEL_RECIPE = "cindra-solid-rocket-fuel"
 -- powder (fuel) + ice (frozen-water oxidizer). ICE is a legal native input (mined
 -- from the nightside ice field's fixed ice+calcite mix, ci-9l6), NOT petrochemistry.
 local ICE = "ice"
+-- ci-6vj S5: ALICE now also consumes cindra-oxygen as an explicit gaseous oxidiser,
+-- making it a real O2 sink for the petrochemical economy (DESIGN §8.2 #8, §8.4).
+local OXYGEN = "cindra-oxygen"
 local CHARGE = "cindra-launch-charge"
 local CHARGE_CATEGORY = "cindra-mass-driver-charge"
 local TECH = "cindra-orbital-launch"
@@ -198,8 +201,8 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
       "aluminium powder is ground from Cindra aluminium (so rocket fuel traces to aluminium)")
   end)
 
-  -- === ci-8g1: the ALICE model (nano-aluminium powder + ICE) =================
-  it("the fuel recipe is ALICE: nano-aluminium powder + ICE (frozen-water oxidizer)", function()
+  -- === ci-8g1 + ci-6vj S5: the ALICE model (nano-aluminium powder + ICE + O2) ==
+  it("the fuel recipe is ALICE: nano-aluminium powder + ICE + O2 (the oxidiser package)", function()
     local fuel = prototypes.recipe[FUEL_RECIPE]
     assert.is_not_nil(fuel, "the ALICE solid rocket fuel recipe must exist")
 
@@ -213,13 +216,19 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
     -- fails on the powder-only main recipe and passes once ice is added.
     assert.is_not_nil(ing[ICE],
       "ALICE fuel must consume ICE (the frozen-water oxidizer) -- the AL-ICE in ALICE (ci-8g1)")
-    -- Exactly those two native inputs, nothing else.
-    assert.are.equal(2, #fuel.ingredients,
-      "ALICE fuel is exactly { nano-aluminium powder + ice } -- two native inputs")
+    -- The gaseous oxidiser: cindra-oxygen (ci-6vj S5). ALICE is now an explicit O2
+    -- SINK -- this fails on the ice-only recipe and passes once O2 is added.
+    assert.is_not_nil(ing[OXYGEN],
+      "ALICE fuel must consume cindra-oxygen (the gaseous oxidiser, an O2 sink -- ci-6vj S5)")
+    -- Exactly those three native inputs, nothing else.
+    assert.are.equal(3, #fuel.ingredients,
+      "ALICE fuel is exactly { nano-aluminium powder + ice + oxygen } -- three native inputs")
 
     -- ICE is mined straight from the nightside ice field's fixed ice+calcite mix
     -- (ci-9l6): the same `ice` item the science pack and ice-melting consume.
     assert.is_not_nil(prototypes.item[ICE], "ice must be a real item (the nightside ice field's mined output)")
+    -- O2 is the shared electrolysis gas (plastics.lua): a real fluid the economy floods out.
+    assert.is_not_nil(prototypes.fluid[OXYGEN], "cindra-oxygen must be a real fluid (the electrolysis surplus gas)")
   end)
 
   it("ALICE fuel stays a NET-NEGATIVE energy trade (no burn-back power exploit, ci-669)", function()

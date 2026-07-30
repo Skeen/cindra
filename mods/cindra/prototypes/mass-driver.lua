@@ -68,9 +68,10 @@ M.DRIVER = "cindra-mass-driver"            -- the reskinned rocket-silo
 M.TECH = "cindra-orbital-launch"           -- the unlock tech (folded into the Cindra tree)
 M.POWDER = "cindra-aluminium-powder"       -- nano-aluminium powder (the reactive fuel base of ALICE)
 M.ICE = "ice"                              -- VANILLA ice: the frozen-water oxidizer/matrix of ALICE (ci-8g1)
+M.OXYGEN = "cindra-oxygen"                 -- shared fluid (defined in plastics.lua §8): ALICE's gaseous oxidiser + an O2 sink (ci-6vj S5)
 M.ALUMINIUM = "cindra-aluminium"           -- the launch-vehicle body, fed RAW (no pre-made can, ci-loa)
 M.ROCKET_FUEL = "rocket-fuel"              -- VANILLA rocket-fuel: Cindra makes it from aluminium + ice (ci-519, ci-8g1)
-M.FUEL_RECIPE = "cindra-solid-rocket-fuel" -- recipe "ALICE solid rocket fuel": nano-aluminium powder + ice -> vanilla rocket-fuel
+M.FUEL_RECIPE = "cindra-solid-rocket-fuel" -- recipe "ALICE solid rocket fuel": nano-aluminium powder + ice + O2 -> vanilla rocket-fuel
 M.CHARGE = "cindra-launch-charge"          -- the silo's rocket-part analog (the internal launch vehicle)
 M.CHARGE_CATEGORY = "cindra-mass-driver-charge"  -- PRIVATE: only the driver crafts the charge
 
@@ -81,25 +82,29 @@ M.ALUMINIUM_PER_LAUNCH = 5  -- raw aluminium the silo assembles into the launch 
 M.FUEL_PER_LAUNCH = 10      -- vanilla rocket-fuel (Cindra's aluminium-made "Solid rocket fuel") per launch
 M.MODULE_SLOTS = 4          -- keep the vanilla silo's module bay (supports productivity, ci-loa)
 
--- === ALICE solid-rocket-fuel tune block (ci-8g1) =============================
+-- === ALICE solid-rocket-fuel tune block (ci-8g1, ci-6vj S5) ==================
 -- Real ALICE propellant = nano-aluminium powder (fuel) + frozen water (oxidizer).
--- Modelled here as { nano-aluminium POWDER + ICE } -> one vanilla rocket-fuel.
--- Both inputs are plain ITEMS, so the recipe stays craftable in any assembler and
--- belt-feeds cleanly (no fluid box, unlike a water route). The ice draws demand
--- straight onto the nightside crushing chain (ice-processing.lua), so the fuel
--- pulls on BOTH halves of the economy -- metal (dayside power) and ice (nightside).
+-- Modelled here as { nano-aluminium POWDER + ICE + O2 } -> one vanilla rocket-fuel.
+-- ci-6vj S5 adds `cindra-oxygen` as an EXPLICIT gaseous oxidiser, so ALICE is now a
+-- real O2 SINK for the petrochemical economy (DESIGN §8.2 #8, §8.4): the O2 that
+-- alumina/water electrolysis floods out gets a second consumer here (alongside
+-- zeolite regeneration and methanol rocket fuel). The fluid input means the recipe
+-- now needs a fluid box, so it runs in an assembling-machine-2/3 (any vanilla
+-- assembler with a fluid box), not the box-less AM1. The ice+powder still draw on
+-- BOTH halves of the economy -- metal (dayside power) and ice (nightside).
 --
--- BALANCE (vs the earlier powder-only route, and vs vanilla). The ice is the
--- oxidizer, so per unit of rocket-fuel the METAL fuel drops 3 -> 2 powder while ice
--- makes up the reactive balance. 1 aluminium grinds to 2 powder, so a rocket-fuel
--- now traces to ~1 aluminium (was ~1.5). Aluminium is the ruinous-power metal
--- (~200 MJ/unit of electricity), and rocket-fuel holds 100 MJ, so making fuel is
--- still a deep NET-NEGATIVE energy trade (~200 MJ in -> 100 MJ out): it can never
--- be burned back for a power profit, and adding cheap nightside ice does not open a
--- self-sustaining loop (ci-669 -- rocket-fuel is a terminal launch/export good, never
--- fed back into metal). Ice keeps the recipe honestly ALICE without trivialising it.
+-- BALANCE (vs vanilla). The ice + O2 are the oxidiser package, so per unit of
+-- rocket-fuel the METAL fuel stays 2 powder. 1 aluminium grinds to 2 powder, so a
+-- rocket-fuel traces to ~1 aluminium. Aluminium is the ruinous-power metal (~200
+-- MJ/unit of electricity), and rocket-fuel holds 100 MJ, so making fuel is still a
+-- deep NET-NEGATIVE energy trade (~200 MJ in -> 100 MJ out): it can never be burned
+-- back for a power profit, and adding cheap nightside ice + surplus O2 does not open
+-- a self-sustaining loop (ci-669 -- rocket-fuel is a terminal launch/export good,
+-- never fed back into metal). O2 keeps ALICE honestly oxidising while draining the
+-- economy's dominant surplus gas.
 M.POWDER_PER_FUEL = 2       -- nano-aluminium powder (the reactive metal fuel) per rocket-fuel
 M.ICE_PER_FUEL = 2          -- ice (the frozen-water oxidizer/matrix) per rocket-fuel
+M.OXYGEN_PER_FUEL = 10      -- cindra-oxygen (the gaseous oxidiser) per rocket-fuel -- makes ALICE an O2 sink (ci-6vj S5)
 M.FUEL_SECONDS = 3          -- the ALICE reaction craft time
 
 -- Delivered mass-driver icon (graphics/ART-MANIFEST.md, ci-pru): a 64px mipmap strip.
@@ -207,25 +212,31 @@ local powder_recipe = {
   results = { { type = "item", name = M.POWDER, amount = 2 } },
 }
 
--- "ALICE solid rocket fuel": nano-aluminium powder + ICE -> VANILLA rocket-fuel
--- (ci-519, ci-8g1). This is Cindra's petrochemical-free ROUTE to rocket fuel, modelled
--- on the real ALICE propellant (ALuminium-ICE): the fine metal is the fuel, frozen
--- water is the oxidizer. It PRODUCES the vanilla rocket-fuel item (no bespoke fuel
--- type) from two native inputs -- no oil, no coal, no plastic, no acid. The recipe
--- name differs from its product (localised "ALICE solid rocket fuel"), so it reads
--- as an alternative recipe sitting next to vanilla rocket-fuel in the crafting menu.
--- Both inputs are items, so it belt-feeds and runs in any assembler (no fluid box).
+-- "ALICE solid rocket fuel": nano-aluminium powder + ICE + O2 -> VANILLA rocket-fuel
+-- (ci-519, ci-8g1, ci-6vj S5). This is Cindra's petrochemical-free ROUTE to rocket
+-- fuel, modelled on the real ALICE propellant (ALuminium-ICE): the fine metal is the
+-- fuel, frozen water + oxygen are the oxidiser package. It PRODUCES the vanilla
+-- rocket-fuel item (no bespoke fuel type) from three native inputs -- no oil, no coal,
+-- no plastic, no acid. ci-6vj S5 adds `cindra-oxygen` so ALICE is also a real O2 SINK
+-- (DESIGN §8.4): the surplus O2 the electrolysis steps flood out gets a consumer here.
+-- The recipe name differs from its product (localised "ALICE solid rocket fuel"), so
+-- it reads as an alternative recipe next to vanilla rocket-fuel in the crafting menu.
+-- O2 is a fluid, so the recipe now needs a fluid box: it runs in `crafting-with-fluid`
+-- (assembling-machine-2/3), not the box-less assembling-machine-1.
 local fuel_recipe = {
   type = "recipe",
   name = M.FUEL_RECIPE,
+  categories = { "crafting-with-fluid" }, -- fluid input (O2): needs an assembler with a fluid box
   enabled = false,
   energy_required = M.FUEL_SECONDS,
   ingredients = {
     { type = "item", name = M.POWDER, amount = M.POWDER_PER_FUEL },
     { type = "item", name = M.ICE, amount = M.ICE_PER_FUEL },
+    { type = "fluid", name = M.OXYGEN, amount = M.OXYGEN_PER_FUEL },
   },
   results = { { type = "item", name = M.ROCKET_FUEL, amount = 1 } },
   main_product = M.ROCKET_FUEL,
+  allow_productivity = false, -- prod off: fuel is a metal/O2 sink, never a way to mint free rocket-fuel (ci-669)
 }
 
 -- The launch charge (the silo's fixed_recipe): the launch vehicle assembled INSIDE
