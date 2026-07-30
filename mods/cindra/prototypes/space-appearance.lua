@@ -107,18 +107,36 @@ function M.build_render_parameters(nauvis_params)
 
   params.platform_backdrop = {
     emission_scales_with_shadow = false,   -- magma glows on its own, across the disc
-    emission_scalar = 2.4,                 -- STRONGLY GLOWING dayside (ci-fg6)
+    -- The emission map does DOUBLE duty (see cindra-emission.png): a white-hot
+    -- magma core on the dayside AND a faint blue self-glow on the ice side. The
+    -- engine has no cool world-ambient field like the Blender bake's (0.11,0.17,
+    -- 0.30 @ 0.40), so this emission IS the engine's stand-in for it: scaled high
+    -- and independent of shadow, it both blows the sunward limb out to near-WHITE
+    -- (matching the star-map icon's hot highlight) and lifts the shadowed ice
+    -- hemisphere off pure black into a dim shimmery BLUE (ci-6y9 orbital parity).
+    emission_scalar = 5.5,                 -- blow out lava + lift the blue ice glow
 
     radius = 600,
     -- TIDAL LOCK: the globe does not spin. See NO_ROTATION above.
     rotation_seconds = NO_ROTATION,
 
-    cloudiness = 0.4,                      -- drifting terminator steam band
+    -- Was 0.4: a heavy grey steam band muddied the whole terminator into an
+    -- opaque wall, nothing like the icon's clean fire->ice boundary. Thinned so
+    -- the seam still drifts with life (cloud_* below) but the lit/dark gradient
+    -- reads through it.
+    cloudiness = 0.09,                     -- thin drifting terminator steam
     surface_vertical_offset = 0.1,
     cloud_vertical_offset = 0.02,
-    specular_intensity = 0.95,             -- shimmery icy nightside sheen (ci-fg6)
-    -- Dark, faintly warm twilight rim (the atmosphere itself is thin here).
-    atmosphere_color = { 0.06, 0.04, 0.05, 0.1 },
+    -- Was 0.95: at the grazing terminator angle that high sheen lit the sandy
+    -- transition strip into a bright pale-CREAM wall, far brighter than the icon's
+    -- darker rocky terminator. Dropped so the fire->ice boundary stays a readable
+    -- gradient and the ice keeps a subtle (not glaring) cold glint (ci-6y9).
+    specular_intensity = 0.5,              -- subtle icy nightside sheen
+    -- COOL blue twilight rim (ci-6y9): the icon's dark hemisphere reads as deep
+    -- blue ICE, not a warm void. A faintly warm rim (the old {0.06,0.04,0.05})
+    -- tinted the whole night side olive; a cool blue rim pushes it toward the
+    -- icy blue the emission glow is already lifting.
+    atmosphere_color = { 0.05, 0.08, 0.14, 0.08 },
     cloud_flow_intensity = 0.8,
     cloud_panning_rate = -0.06,
 
@@ -136,11 +154,25 @@ function M.build_render_parameters(nauvis_params)
     position = { -400, 300 },
     parallax_strength = { 0.95, 0.95 },
 
-    -- Hot key light FROM the dayside (fire) limb on the left: strong, warm,
-    -- high-contrast so the terminator falls into deep shadow toward the nightside.
-    light_direction = { -0.62, 0.20, 0.55 },
-    light_radius = 6.0,
-    light_intensity_contrast = 0.45,
+    -- Key light FROM the dayside (fire) limb on the left. The star-map bake aims
+    -- a single sun EXACTLY HORIZONTAL from the left, perpendicular to the vertical
+    -- terminator meridian (bake-starmap.py), so the sunward limb blows out and the
+    -- disc falls to shadow across the centre. Match that here: near-horizontal
+    -- from the left (x dominant, y/z small) instead of the old three-quarter angle
+    -- that pulled the terminator off-vertical and left <50% lit (ci-6y9).
+    light_direction = { -0.90, 0.05, 0.24 },
+    -- Larger radius softens the terminator and wraps a little light past 90deg so
+    -- ~55% of the disc reads as lit (the icon's soft, slightly-past-centre seam,
+    -- ci-nyj), instead of the old crisp <50% half.
+    light_radius = 12.0,
+    -- Raised (was 0.45): a harder falloff drops the sandy transition strip at the
+    -- terminator out of the bright-cream wall it was reading as into the icon's
+    -- darker mid-brown rocky terminator, and sharpens the icon's DRAMATIC
+    -- fire->ice pop so the shadowed ice hemisphere stays clearly the dark side.
+    light_intensity_contrast = 0.58,
+    -- Cool blue frost sheen on the icy nightside (the bake's glossy ice catches
+    -- the cool ambient); a warm/white specular would wash the ice yellow.
+    specular_color = { 0.5, 0.7, 1.0, 1 },
 
     -- Surface + relief + reflectivity: the molten/frozen crust.
     planet_surface = map("cindra.png"),

@@ -22,18 +22,67 @@ full 1024x1024 for inspection.
 
 ## Why this bake and not an in-engine screenshot
 
-The live orbital backdrop (`platform_surface_render_parameters.platform_backdrop`)
-is drawn by Factorio's expansion-shaders pass, which is disabled on headless /
-0-VRAM machines (see the note carried over from the Cindra tooling in
-`scripts/screenshot-cindra.sh`). A headless in-engine capture therefore cannot
-show the globe at all. The Cycles bake is the faithful, deterministic stand-in:
-it is built from the exact same equirectangular maps the engine samples, so it
-reads as the same planet, and it renders identically on any machine.
+The Cycles bake is the deterministic, machine-independent stand-in for the
+star-map sprite: it is built from the exact same equirectangular maps the engine
+samples, so it reads as the same planet and renders identically anywhere.
+
+**Update (ci-6y9): the live orbital backdrop CAN now be captured headless.** The
+old claim here was that Factorio's expansion-shaders pass is disabled on headless
+/ 0-VRAM machines so an in-engine capture "cannot show the globe at all." That is
+no longer true: the full client runs under `Xvfb` with software GL via **EGL +
+llvmpipe** (the ci-036 / ci-ijk incantation, `SDL_VIDEO_FORCE_EGL=1`), which gets
+a real GL context without a working GLX. `scripts/render-orbit.sh` uses that path
+to drive `scenarios/orbit-shot` (a platform spawned in orbit of Cindra, then
+`game.take_screenshot` of its surface) and produce the real orbital screenshots
+below. The bake is still the canonical star-map sprite; the live backdrop is now
+tunable against an actual engine render instead of blind.
 
 To regenerate everything (maps, bake, sprite, icon):
 
 ```bash
 scripts/render-planet.sh
+```
+
+---
+
+# In-game orbital parity with the star-map icon (ci-6y9)
+
+![Orbital backdrop before/after vs the star-map icon](ci-6y9-orbital-parity.png)
+
+`ci-6y9-orbital-parity.png` is the before/after for tuning the LIVE orbital
+backdrop (`platform_surface_render_parameters.platform_backdrop`, wired in
+`prototypes/space-appearance.lua`) to read like the baked star-map icon. All
+three panels are real, unedited renders:
+
+- **BEFORE** and **AFTER** are ACTUAL in-engine orbital screenshots (headless
+  Factorio under Xvfb + EGL/llvmpipe, `scripts/render-orbit.sh`) of a space
+  platform in orbit of Cindra. The small chip near the centre is the platform's
+  starter hub.
+- **TARGET** is the baked star-map icon (`starmap-planet-cindra.png`), untouched
+  by this bead.
+
+## What it verifies
+
+- **Single sun from the LEFT, blown-out molten limb.** The engine light was
+  aimed near-HORIZONTAL from the left (matching the bake's perpendicular sun) and
+  the emission scalar cranked so the sunward limb clips to near-WHITE like the
+  icon's hot highlight, falling off through orange/red toward the terminator.
+- **Deep-blue ICE nightside, not a warm void.** Before, the shadowed hemisphere
+  read dark olive/brown. The engine has no cool world-ambient field like the
+  Blender bake's, so the emission map's blue ice-side self-glow (kept
+  independent of shadow) is scaled up to stand in for it, and the atmosphere rim
+  turned cool blue: the ice now reads as the icon's deep blue.
+- **Soft ~half-lit terminator, clean seam.** The heavy grey steam band was
+  thinned and the grazing specular sheen dropped so the sandy transition strip
+  no longer reads as a bright cream wall but as the icon's darker rocky
+  terminator.
+
+The tuned values are guarded off-game and under the real runtime
+(`unit-tests/test_space_appearance.lua`, `tests/test_space_appearance.lua`:
+"orbital parity"). To reproduce the screenshots:
+
+```bash
+scripts/render-orbit.sh   # writes orbit-close.png / orbit-wide.png to .orbit-render/script-output/
 ```
 
 ---

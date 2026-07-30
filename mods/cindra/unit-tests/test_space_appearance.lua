@@ -165,14 +165,42 @@ test("emission self-glow always shows -> lava glows across the disc, not only in
   assert_true(b.emission_scalar and b.emission_scalar > 0, "positive emission scalar so the glow reads")
 end)
 
--- ci-fg6: the orbital backdrop was too DULL. The dayside must GLOW STRONGLY and
--- the icy nightside must SHIMMER. Guard the two vividness knobs so a later tweak
--- cannot quietly flatten them back: a strong emissive dayside glow and a high
--- specular icy sheen (both well above the old 1.5 / 0.6 baseline).
-test("dayside glows STRONGLY and the ice SHIMMERS in orbit (vividness knobs)", function()
+-- ci-6y9: ORBITAL parity with the baked star-map icon. The live backdrop is
+-- engine-lit from these knobs; they were tuned against a REAL in-engine orbital
+-- screenshot (scripts/render-orbit.sh + scenarios/orbit-shot) so the live view
+-- reads like the icon: a single sun from the LEFT, a blown-out molten limb, a
+-- soft ~half-lit terminator, and a deep-blue ICE nightside. This supersedes the
+-- old ci-fg6 vividness guard (it demanded specular >= 0.85, which at the grazing
+-- terminator lit the sandy transition into a bright CREAM wall, nothing like the
+-- icon's darker rocky terminator). Guard the tuned values so a later tweak cannot
+-- quietly drift the live view back off the icon.
+test("orbital parity: blown-out lava limb, near-horizontal left sun, cool ice (ci-6y9)", function()
   local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
-  assert_true(b.emission_scalar >= 2.0, "strong emissive dayside glow (>= 2.0)")
-  assert_true(b.specular_intensity and b.specular_intensity >= 0.85, "shimmery icy specular sheen (>= 0.85)")
+  -- Dayside blown out past the old 2.4: the emission map's white-hot core clips to
+  -- near-white like the icon's hot highlight, and its blue ice-side self-glow lifts
+  -- the shadowed hemisphere off black -- the engine's stand-in for the Blender
+  -- bake's cool world-ambient, since the engine exposes no ambient-colour field.
+  assert_true(b.emission_scalar >= 3.0, "dayside blown out (emission >= 3.0)")
+  -- Single sun near-HORIZONTAL from the LEFT (the bake's perpendicular sun): x
+  -- strongly negative and dominant over the small viewer-tilt z, so the terminator
+  -- runs vertical down the disc, not the old three-quarter angle.
+  local L = b.light_direction
+  assert_true(L[1] < -0.7, "sun comes from the LEFT (x strongly negative)")
+  assert_true(math.abs(L[1]) > math.abs(L[3]), "near-horizontal: |x| dominates the viewer-tilt |z|")
+  -- Soft, wide terminator so ~half the disc reads lit behind a gentle seam (the
+  -- icon's soft ~55% boundary), not a crisp hard half.
+  assert_true(b.light_radius >= 8.0, "soft wide terminator (light_radius >= 8)")
+  -- COOL atmosphere rim: the icon's dark hemisphere is deep-blue ICE, so the rim
+  -- is blue-dominant (blue over red), not the old warm twilight that tinted the
+  -- night side olive.
+  local a = b.atmosphere_color
+  assert_true(a[3] > a[1], "cool blue atmosphere rim (blue > red)")
+  -- Icy sheen still present but SUBTLE: dropped well below the old cream-wall 0.95.
+  assert_true(b.specular_intensity and b.specular_intensity > 0, "icy sheen present")
+  assert_true(b.specular_intensity < 0.85, "sheen subtle (dropped from the old cream-wall 0.95)")
+  -- Cool-tinted specular so the frost glints blue, not warm/white.
+  assert_true(b.specular_color and b.specular_color[3] > b.specular_color[1],
+    "cool blue frost sheen (specular blue > red)")
 end)
 
 test("REGRESSION: build_render_parameters never mutates the passed nauvis params", function()

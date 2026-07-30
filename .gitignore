@@ -14,6 +14,11 @@ aps-test-data-dir/
 factorio-test-output.json
 package-lock.json
 mods-bundle/
+# Scratch write-data dir for the in-engine orbital render harness
+# (scripts/render-orbit.sh): a throwaway Factorio data dir + screenshots.
+# Regenerable; never committed (an auto-checkpoint once swept it in, ci-6y9).
+.orbit-render/
+.orbit-render
 # Mods play.sh fetches from the portal (any-planet-start, helmod) are cached
 # here so we download each at most once. Never committed.
 .play-cache/

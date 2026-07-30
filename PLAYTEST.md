@@ -103,39 +103,32 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   Re-bake via `scripts/render-planet.sh` (also regenerates the mod `thumbnail.png`
   from the same globe so the portal card matches).
 
-- [ ] **[IN-FLIGHT] In-game ORBITAL view parity with the star-map icon (ci-nyj).**
-  The user reported the LIVE orbital/platform globe does NOT read like the polished
-  star-map icon. The star-map softening above is baked in Blender (icon only); the
-  orbital backdrop is engine-lit from `platform_surface_render_parameters`
-  (`prototypes/space-appearance.lua`) and does NOT yet carry the matching soft ~55%
-  terminator. *This requires an ACTUAL in-engine orbital screenshot to tune, which
-  could NOT be captured in the headless polecat worktree:* Factorio's SDL demands a
-  GLX-capable display and the box's Xvfb has no working software GLX ("GLX is not
-  supported" / "no RGB GLX visual"); there is a GPU render node but no running X
-  server. *Repro (display-capable operator):* build a tiny scenario that spawns a
-  platform in orbit and screenshots that surface, then load it graphically:
-  ```lua
-  -- mods/cindra/scenarios/orbit-shot/control.lua
-  script.on_event(defines.events.on_tick, function(e)
-    if e.tick ~= 120 then return end
-    local f = game.forces["player"]
-    if f.unlock_space_platforms ~= nil then f.unlock_space_platforms = true end
-    local p = f.create_space_platform{name="shot", planet="cindra",
-      starter_pack="space-platform-starter-pack"}
-    for _, z in ipairs({0.05, 0.1, 0.2}) do
-      game.take_screenshot{surface=p.surface, position={0,0}, zoom=z,
-        resolution={1280,1280}, path="orbit-z"..z..".png", force_render=true}
-    end
-  end)
-  ```
-  `factorio --load-scenario cindra/orbit-shot` under a real display (or Xvfb WITH
-  working GLX). *Look for:* the engine-lit globe reads like the icon -- single sun
-  from the LEFT, ~55% lit soft terminator, emissive lava, blue-ice dark side.
-  *Levers if it does not match:* `light_direction` (make it near-horizontal from
-  the left to match the bake's perpendicular sun), `light_radius` (larger = softer
-  terminator), `light_intensity_contrast`, and `emission_scalar`. The albedo
-  (`graphics/space/cindra.png`) already carries NO baked day/night shadow, so the
-  engine does all the shading.
+- [ ] **[LANDED] In-game ORBITAL view parity with the star-map icon (ci-6y9).**
+  The user reported the LIVE orbital/platform globe did NOT read like the polished
+  star-map icon: it was a dull orange globe with a muddy tan terminator and a dark
+  olive nightside, not the icon's blown-out fire limb + deep-blue ice. The orbital
+  backdrop is engine-lit from `platform_surface_render_parameters.platform_backdrop`
+  (`prototypes/space-appearance.lua`), separate from the Blender-baked icon, so it
+  was tuned independently against an ACTUAL in-engine orbital screenshot. The old
+  "headless can't render the globe" blocker was WRONG: the full client runs under
+  Xvfb + software GL via **EGL/llvmpipe** (`SDL_VIDEO_FORCE_EGL=1`, the ci-036 /
+  ci-ijk path -- NOT the `SDL_VIDEO_X11_FORCE_EGL` variant that fails). Harness:
+  `scripts/render-orbit.sh` loads `scenarios/orbit-shot` (spawns a platform in
+  orbit of Cindra, screenshots its surface). Before/after/target proof:
+  `docs/verification/ci-6y9-orbital-parity.png`. Tuning applied: near-horizontal
+  left `light_direction`, `emission_scalar` cranked to blow out the lava AND lift
+  the emission map's blue ice-side self-glow (the engine has no cool-ambient field,
+  so that self-glow stands in for the bake's cool world-ambient), a cool-blue
+  `atmosphere_color`, thinned `cloudiness`, and dropped `specular_intensity` (its
+  old 0.95 lit the sandy terminator into a bright cream wall). *Repro:*
+  `scripts/render-orbit.sh`, or in-game open the star-map / travel to Cindra
+  (`./play.sh`). *Look for:* the engine-lit globe reads like the icon -- single sun
+  from the LEFT, blown-out molten limb, soft ~half-lit terminator, deep-blue ICE
+  nightside. *Fallback:* the tuned param values are guarded off-game and under the
+  real runtime (`unit-tests/test_space_appearance.lua`,
+  `tests/test_space_appearance.lua`: "orbital parity"). This entry is only the
+  "the live globe visibly reads like the icon in motion" confirmation a still image
+  cannot fully judge (the terminator steam still drifts, ci-ane).
 
 - [ ] **[LANDED] Planet is STATIC in the space view: no rotate, no wobble (ci-ane).**
   The Overseer flagged the Cindra globe as ROTATING / WOBBLING in the space/starmap

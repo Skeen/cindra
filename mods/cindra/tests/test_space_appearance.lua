@@ -155,13 +155,37 @@ describe("cindra space appearance (art wiring, ci-94v)", function()
       "positive emission scalar so the molten glow reads")
   end)
 
-  -- ci-fg6: the from-space graphic was too DULL. Guard the two vividness knobs so
-  -- a later tweak cannot quietly flatten the glow/shimmer (mirrors the unit test).
-  it("dayside glows STRONGLY and the ice SHIMMERS in orbit (vividness knobs)", function()
+  -- ci-6y9: ORBITAL parity with the baked star-map icon. The live backdrop is
+  -- engine-lit from these knobs, tuned against a REAL in-engine orbital screenshot
+  -- (scripts/render-orbit.sh + scenarios/orbit-shot) so the live view reads like
+  -- the icon: single sun from the LEFT, blown-out molten limb, soft ~half-lit
+  -- terminator, deep-blue ICE nightside. Supersedes the old ci-fg6 vividness guard
+  -- (it demanded specular >= 0.85, which at the grazing terminator lit the sandy
+  -- transition into a bright CREAM wall, unlike the icon's darker rocky terminator).
+  -- Mirrors the unit test; keep the two in sync.
+  it("orbital parity: blown-out lava limb, near-horizontal left sun, cool ice (ci-6y9)", function()
     local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
-    assert.is_true(b.emission_scalar >= 2.0, "strong emissive dayside glow (>= 2.0)")
-    assert.is_true(b.specular_intensity ~= nil and b.specular_intensity >= 0.85,
-      "shimmery icy specular sheen (>= 0.85)")
+    -- Dayside blown out past the old 2.4; the emission map's blue ice-side self-glow
+    -- also stands in for the Blender bake's cool ambient (the engine has no ambient
+    -- field), lifting the shadowed ICE off black so it reads deep blue.
+    assert.is_true(b.emission_scalar >= 3.0, "dayside blown out (emission >= 3.0)")
+    -- Single sun near-HORIZONTAL from the LEFT (the bake's perpendicular sun).
+    local L = b.light_direction
+    assert.is_true(L[1] < -0.7, "sun comes from the LEFT (x strongly negative)")
+    assert.is_true(math.abs(L[1]) > math.abs(L[3]),
+      "near-horizontal: |x| dominates the viewer-tilt |z|")
+    -- Soft, wide terminator (icon's soft ~55% seam), not a crisp hard half.
+    assert.is_true(b.light_radius >= 8.0, "soft wide terminator (light_radius >= 8)")
+    -- COOL atmosphere rim: blue-dominant, not the old warm twilight that tinted
+    -- the night side olive.
+    local a = b.atmosphere_color
+    assert.is_true(a[3] > a[1], "cool blue atmosphere rim (blue > red)")
+    -- Icy sheen present but SUBTLE, dropped well below the old cream-wall 0.95.
+    assert.is_true(b.specular_intensity ~= nil and b.specular_intensity > 0, "icy sheen present")
+    assert.is_true(b.specular_intensity < 0.85, "sheen subtle (dropped from the old cream-wall 0.95)")
+    -- Cool-tinted specular so the frost glints blue, not warm/white.
+    assert.is_true(b.specular_color ~= nil and b.specular_color[3] > b.specular_color[1],
+      "cool blue frost sheen (specular blue > red)")
   end)
 
   -- THE cross-planet invariant: build_render_parameters must deep-copy the passed
