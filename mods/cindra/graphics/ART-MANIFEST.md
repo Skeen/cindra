@@ -50,7 +50,7 @@ picture = {
 | Electrolysis cell ⭐        | (v1: reused electric-furnace)     | (v1 reuse)    | **ci-txh** (signature aluminium); art **ci-wfv** |
 | Aluminium (item)           | (v1: steel-plate, cool silver)    | —             | **ci-txh** |
 | Lava-manufacture building  | `icons/lava-manufacturer.png`     | —             | **ci-8mw** (§15-5 lava recipe) |
-| Ice crusher / processor    | `icons/ice-crusher.png`           | —             | **ci-rgv** (§15-4 ice processing) |
+| ~~Ice crusher / processor~~ | (retired ci-9l6)                 | —             | **ci-rgv** → retired: ice fields mine ice+calcite directly, no ground crusher |
 | Ice (item)                 | `icons/ice.png`                   | —             | **ci-rgv** / **ci-l72** (resources) |
 | Cindra stone (item)        | `icons/cindra-stone.png`          | —             | **ci-l72** (§15-3 resources) |
 | Electric heater            | `icons/electric-heater.png`       | —             | **ci-f5l** (§15-10 heater) |

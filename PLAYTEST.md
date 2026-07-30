@@ -302,8 +302,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   ribbon-tuning settings read as functional names with **no raw keys and no the
   word "Ribbon"**, and the orientation dropdown shows worded options (not raw
   `vertical`/`horizontal`). Patches: stone/ice appear as IRREGULAR natural patches
-  (not a grid); no water at any setting; the deep-nightside ice field yields the
-  vanilla oxide chunk when mined (ci-ml1: there is no volatiles item at all).
+  (not a grid); no water at any setting; the deep-nightside ice field yields a
+  fixed **mix of ice + calcite** when mined (ci-9l6: no oxide chunk, no volatiles
+  item).
 
 - [ ] **[LANDED] Ice field, stone patch + rocks read right (ci-9bb).**
   *Repro:* explore the ribbon on Cindra; mine an ice field and a stone patch; open
@@ -311,9 +312,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   ground (a pale frost-blue ore patch), clearly NOT the warm stone rubble and NOT
   the vanilla iron-ore look; its map colour is a pale cyan/frost, distinct from
   iron ore's steel-blue. The **stone** deposit is labelled just **Stone** (never
-  "Cindra stone"). Mining an ice field drops ONLY the vanilla oxide chunk (ci-ml1:
-  the Frozen volatiles item was removed entirely; the science pack's cold-edge
-  input is crushed `ice` now). **Rocks** appear scattered along
+  "Cindra stone"). Mining an ice field drops a fixed **mix of ice + calcite**
+  (ci-9l6: no oxide chunk, no volatiles item; the science pack's cold-edge input is
+  the mined `ice`). **Rocks** appear scattered along
   the WHOLE ribbon terminator band as you explore (naturally scattered, no lattice,
   finite per rock), not only around spawn. *Fallback:* `test_worldgen.lua` proves
   the icy map_color (distinct from stone AND iron) and band-wide rock generation;
@@ -400,15 +401,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Economy: lava, ice, aluminium
 
-- [ ] **[LANDED] Ice processing two-stage read (§15-4, ci-4or).** *Repro:* build a
-  `cindra-ice-crusher` and a `cindra-ice-melter`; run `Ice crushing (shards)` on
-  the crusher, belt the crushed-ice to the melter, run `Ice melting (water)`, and
-  pipe the melter's water out. *Look for:* the crusher is a clean solid-in/solid-out
-  machine with NO pipe stub (it emits no fluid); the melter reuses vanilla
-  chemical-plant art, so its pipe connections read as a chemical plant does.
-  Confirm the chain reads as "grind, then melt" and the crusher never sprouts a
-  water tap. (Both crush recipes, the no-fluid crusher, and the end-to-end ice ->
-  shards -> water chain are integration-tested.)
+- [ ] **[LANDED] Mixed ice field: sort + backpressure feel (§15-4, ci-9l6).**
+  *Repro:* drop an electric mining drill on an ice field and belt its output; the
+  drill emits a fixed **ice + calcite mix** (currently 2:1). Split the two apart,
+  melt the ice in a chemical plant (`Ice melting`) for water. Now let the calcite
+  side back up (no sink for it early). *Look for:* the mix reads clearly (the field
+  tooltip says it drops both, and both items ride out on the belt); when the calcite
+  belt fills, the drill **stalls and chokes the ice too** (the intended
+  mixed-output-patch puzzle, like Fulgora scrap). Confirm the ratio feels right:
+  plenty of ice for water/science/fuel, a steady minor calcite stream.
+  *(Structurally tested: the field yields ice+calcite at an ice-majority ratio, a
+  powered drill deposits both, and ice->water melts end-to-end. What a test cannot
+  judge is the feel of the ratio and whether the early backpressure is fun vs.
+  frustrating.)*
+
+- [ ] **[LANDED] Early calcite/ice surplus is not a hard soft-lock (ci-9l6).**
+  *Repro:* play the early game before any calcite sink (aluminium refine, ci-400
+  calcination) is unlocked, mining the mixed field. *Look for:* the surplus product
+  (usually calcite, sometimes ice) can be dealt with WITHOUT permanently deadlocking
+  the base -- e.g. buffered, or voided/vented lossily -- so the line keeps flowing.
+  The overseer's intended pacing is "burden early, resource later"; confirm early
+  players are not *hard* stuck. **If no acceptable early voiding path exists in
+  practice, file a follow-up bead** for a lossy calcite/ice voider (e.g. a
+  vent/dump), per the overseer's "consider ventable/voidable surplus" note. This is
+  a balance/feel judgement `factorio-test` cannot make.
 
 - [ ] **[LANDED] Manufactured lava: dedicated lava-manufacturer, ruinous power (§15-5, ci-e8a / ci-9yg).**
   Lava is cast in a dedicated **`cindra-lava-manufacturer`** (a 40 MW foundry clone in a

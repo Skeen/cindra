@@ -15,12 +15,13 @@ local H = require("tests.helpers")
 local PACK = "cindra-science-pack"
 local TECH = "cindra-science"
 local ALUMINIUM = "cindra-aluminium"
--- The nightside input is now `ice` (ci-ml1): crushed from the deep-nightside oxide
--- chunk on the Cindra crusher. Frozen volatiles are gone; ice is the worked,
--- petrochemical-free cold-edge feedstock that replaces them.
+-- The nightside input is `ice` (ci-ml1), now MINED directly from the ice field
+-- (ci-9l6): the field drops a fixed ice+calcite mix, so `ice` is a raw mining
+-- yield again. Frozen volatiles are gone; ice is the petrochemical-free cold-edge
+-- feedstock that replaces them.
 local ICE = "ice"
--- The Cindra crushing recipe that produces the science pack's ice input.
-local ICE_RECIPE = "cindra-oxide-asteroid-crushing"
+-- The nightside resource the science pack's ice + calcite are mined from (ci-9l6).
+local ICE_FIELD = "cindra-ice"
 
 -- Anything whose lineage passes through oil, coal, or biology. The pack must
 -- contain NONE of these, directly. (The whole planet ships zero oil/coal chemistry.)
@@ -34,8 +35,8 @@ local PETROCHEMICAL = {
 
 -- "Native inputs only": every ingredient is either a Cindra-exclusive item
 -- (cindra-*) or one of the plain materials the planet produces on its own (the
--- ice chain crushes nightside chunks into ice + calcite and melts ice to water;
--- the ribbon mines stone). This allowlist is
+-- ice field mines ice + calcite and the melt turns ice to water; the ribbon mines
+-- stone). This allowlist is
 -- deliberately narrow so a future (tune) that swapped in a petrochemical would
 -- fail here even if it slipped the blacklist above.
 local NATIVE_NON_CINDRA = {
@@ -79,50 +80,42 @@ describe("cindra science pack: petrochemical-free, native inputs only", function
       "and the deep-nightside ice -- both lethal edges in one pack")
   end)
 
-  it("sources its ice from a PROCESSING recipe, not a raw mining yield (ci-ml1)", function()
-    -- ci-ml1 removed frozen volatiles and repointed the science pack's cold-edge
-    -- input to `ice`. Ice is not a raw drop of the field either: it is a worked
-    -- output of crushing the deep-nightside oxide chunk on the Cindra crusher.
-    -- Prove the science-pack input is obtainable that way, end-to-end:
-    -- (1) a recipe produces ice, (2) it consumes only native inputs
-    -- (petrochemical-free like the pack itself), (3) the ice field drops the raw
-    -- oxide chunk (not ice), and (4) the recipe is reachable (unlocked before/with
-    -- the pack).
-    local ir = prototypes.recipe[ICE_RECIPE]
-    assert.is_not_nil(ir, "the cindra-oxide-asteroid-crushing recipe must exist (the processing source of ice)")
+  it("sources its ice + calcite from the ice field's mined mix (ci-9l6)", function()
+    -- ci-ml1 removed frozen volatiles and pointed the science pack's cold-edge
+    -- input at `ice`; ci-9l6 makes `ice` (and `calcite`) a RAW MINING YIELD again --
+    -- the nightside ice field drops a fixed mix of BOTH. Prove the pack's two
+    -- nightside-derived inputs are obtainable straight from the field:
+    -- (1) the field is a real minable resource, (2) mining it yields BOTH ice and
+    -- calcite, (3) neither product is petrochemical, and (4) it is reachable with no
+    -- tech gate (mining needs no research; melting ice to water hangs off discovery).
+    local field = prototypes.entity[ICE_FIELD]
+    assert.is_not_nil(field, "the cindra-ice field resource must exist")
+    assert.are.equal("resource", field.type, "the ice field is a minable resource")
 
-    local makes = false
-    for _, p in pairs(ir.products) do if p.name == ICE then makes = true end end
-    assert.is_true(makes, "the crushing recipe must actually produce the ice item")
-
-    assert.is_true(#ir.ingredients > 0, "ice must cost a real input (a worked output, not free)")
-    for _, ing in pairs(ir.ingredients) do
-      assert.is_nil(PETROCHEMICAL[ing.name],
-        "ice-processing input '" .. ing.name .. "' must be petrochemical-free")
+    local yields = {}
+    for _, p in ipairs(field.mineable_properties.products) do
+      yields[p.name] = (p.amount or p.amount_max or 1)
+      assert.is_nil(PETROCHEMICAL[p.name],
+        "ice-field product '" .. p.name .. "' must be petrochemical-free")
     end
+    assert.is_true((yields[ICE] or 0) > 0,
+      "mining the ice field must yield the ice item directly (ci-9l6)")
+    assert.is_true((yields["calcite"] or 0) > 0,
+      "mining the ice field must ALSO yield calcite -- the fixed mix (ci-9l6)")
 
-    -- The field itself drops the raw oxide chunk, not ice: ice is worked from it.
-    local field = prototypes.entity["cindra-ice"]
-    if field then
-      for _, p in ipairs(field.mineable_properties.products) do
-        assert.are_not.equal(ICE, p.name,
-          "mining the ice field must not yield the ice item directly -- ice is a processing output")
-      end
-    end
-
-    -- Reachable: the recipe is research-gated (never free) and unlocked by the
-    -- Cindra discovery tech -- which is transitively required before the pack tech
-    -- (cindra-science -> cindra-aluminium -> the discovery-gated ice chain), so the
-    -- science pack stays craftable end-to-end with no chicken-and-egg.
-    assert.is_false(ir.enabled, "the ice crushing recipe is unlocked by research, not free")
+    -- Mining is not research-gated, so ice + calcite are available as soon as the
+    -- player can drill the cold cap -- well before the pack tech (cindra-science ->
+    -- cindra-aluminium) is reachable. No chicken-and-egg; the pack stays craftable
+    -- end-to-end. The one gated step, ice -> water, is the vanilla ice-melting recipe
+    -- unlocked by planet-discovery-cindra (asserted in test_ice_processing.lua).
     local discovery = prototypes.technology["planet-discovery-cindra"]
     assert.is_not_nil(discovery, "the Cindra discovery tech must exist")
-    local unlocks_ice = false
+    local unlocks_melt = false
     for _, e in pairs(discovery.effects) do
-      if e.type == "unlock-recipe" and e.recipe == ICE_RECIPE then unlocks_ice = true end
+      if e.type == "unlock-recipe" and e.recipe == "ice-melting" then unlocks_melt = true end
     end
-    assert.is_true(unlocks_ice,
-      "planet-discovery-cindra must unlock the ice crushing recipe (reachable with the rest of the ice chain)")
+    assert.is_true(unlocks_melt,
+      "planet-discovery-cindra must unlock ice-melting (ice -> water, the one gated ice step)")
   end)
 
   it("produces a real science-pack item (in the science-pack subgroup)", function()

@@ -671,12 +671,21 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     assert.is_true(ice.g > iron.g + 0.25, "ice map_color is more cyan than iron ore")
   end)
 
-  it("the ice field is a single-product drop: ONLY the oxide chunk (ci-4xx)", function()
+  it("the ice field mines a FIXED MIX of ice + calcite, ice-majority (ci-9l6)", function()
     local products = prototypes.entity["cindra-ice"].mineable_properties.products
-    local names = {}
-    for _, p in ipairs(products) do names[p.name] = true end
-    assert.is_true(names["oxide-asteroid-chunk"], "the ice field still yields the vanilla oxide chunk")
-    assert.are.equal(1, #products,
-      "the ice field is a single-product resource (just the oxide chunk); everything else is worked from it")
+    local amt = {}
+    for _, p in ipairs(products) do amt[p.name] = (p.amount or p.amount_max or 1) end
+    -- Both products drop from one mining action -- calcite is a NATIVE mined
+    -- resource now (no crush step), ice still feeds the water/science/fuel sinks.
+    assert.is_true((amt["ice"] or 0) > 0, "the ice field must yield ice")
+    assert.is_true((amt["calcite"] or 0) > 0, "the ice field must ALSO yield calcite (the mix)")
+    assert.are.equal(2, #products,
+      "the ice field is the fixed ice+calcite mix (exactly two products); no oxide chunk any more")
+    -- Ice-majority: the many ice sinks (water/electrolysis, science, ALICE fuel)
+    -- must never be starved by the minor calcite stream.
+    assert.is_true(amt["ice"] > amt["calcite"],
+      "ice must be the MAJORITY product (ice " .. amt["ice"] .. " > calcite " .. amt["calcite"] .. ")")
+    -- The old feedstock chunk is gone from the field entirely.
+    assert.is_nil(amt["oxide-asteroid-chunk"], "the ice field no longer drops the oxide chunk (ci-9l6)")
   end)
 end)

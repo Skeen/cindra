@@ -54,9 +54,10 @@ local PACK_SECONDS = 60
 -- (tune) §15-14. Per-craft native inputs. Every one is a Cindra material with no
 -- petrochemical anywhere in its own lineage:
 --   * aluminium  -- the signature product (power-manufactured metal).
---   * ice        -- crushed from the deep, cold-lethal nightside ice field (the
---                   ice chain's worked cold-edge output; prototypes/ice-processing.lua).
---   * calcite    -- the ice chain's mineral output.
+--   * ice        -- mined from the deep, cold-lethal nightside ice field (which
+--                   drops a fixed ice+calcite mix, ci-9l6; ice melts to water in a
+--                   chemical plant, prototypes/ice-processing.lua).
+--   * calcite    -- the ice field's other mined product (ci-9l6).
 local ALUMINIUM = "cindra-aluminium"
 local ICE = "ice"
 local ALUMINIUM_PER_PACK = 1

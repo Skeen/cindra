@@ -120,9 +120,16 @@ describe("pivot: the cold economy survives (only the quench-specific bits are cu
     -- and alloy-specific pieces are removed. Prove the retained cold economy.
     assert.is_not_nil(prototypes.recipe["ice-melting"],
       "ice -> water must survive via the vanilla chemical-plant recipe (a core nightside use, not quench-specific)")
-    assert.is_not_nil(prototypes.recipe["cindra-oxide-asteroid-crushing"],
-      "the deep-nightside ice-crushing chain (a science-pack input, ci-ml1) must survive")
+    -- ci-9l6: the deep-nightside ice + calcite are MINED directly from the ice field
+    -- (a fixed mix), replacing the old crush chain -- the science-pack inputs survive
+    -- as mining yields.
+    local ice_field = prototypes.entity["cindra-ice"]
+    assert.is_not_nil(ice_field, "the nightside ice field must survive (the ice + calcite source)")
+    local mined = {}
+    for _, p in ipairs(ice_field.mineable_properties.products) do mined[p.name] = true end
+    assert.is_true(mined["ice"] and mined["calcite"],
+      "mining the ice field must yield both ice and calcite (ci-9l6)")
     assert.is_not_nil(prototypes.recipe["cindra-alumina"],
-      "aluminium's alumina refine (stone + ice-chain calcite) must survive")
+      "aluminium's alumina refine (stone + ice-field calcite) must survive")
   end)
 end)

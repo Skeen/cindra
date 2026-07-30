@@ -38,11 +38,12 @@
 --   * cindra-lava                   -- `1 stone + power -> 10 cindra-lava` (ci-669),
 --                                      the spine; also unlocks the Cindra casting recipes.
 --
--- The ice chain (crush oxide-asteroid-chunk -> ice + calcite; melt ice -> water in
--- the chemical plant) needs no entry here: it hangs off planet-discovery-cindra,
--- which APS removes for a Cindra start while ENABLING its unlocked recipes from
--- tick zero (vendor/any-planet-start/data-final-fixes.lua). So the crusher build +
--- vanilla crush/melt recipes are already available on an APS start (ci-3mx).
+-- The ice chain (mine the ice field for a fixed ice+calcite mix, ci-9l6; melt ice
+-- -> water in the chemical plant) needs no entry here: mining needs no tech, and
+-- the melt hangs off planet-discovery-cindra, which APS removes for a Cindra start
+-- while ENABLING its unlocked recipes from tick zero
+-- (vendor/any-planet-start/data-final-fixes.lua). So the vanilla ice-melting recipe
+-- is already available on an APS start (ci-3mx).
 local PRE_RESEARCHED = {
   "cindra-improvised-metallurgy",
   "foundry",

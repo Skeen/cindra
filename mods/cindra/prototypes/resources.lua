@@ -2,12 +2,15 @@
 --
 -- The resource LIST and where each lives on the ribbon axis:
 --   stone      -> the ribbon surface (feedstock for manufactured lava)
---   ice field  -> the nightside; yields ONLY the vanilla `oxide-asteroid-chunk`
---                 that the vanilla crush -> melt chain turns into water / calcite
---                 (ci-3mx). There is NO standalone ice-derived ore or map-gen
---                 slider beyond stone + ice (ci-3yl): everything the ice chain
---                 needs comes from PROCESSING the chunk
---                 (prototypes/ice-processing.lua), not from extra field drops.
+--   ice field  -> the nightside; mining it yields a FIXED MIX of BOTH `ice` and
+--                 `calcite` in one mining action (ci-9l6). There is no feedstock
+--                 chunk and no crush step: the drill emits the mix directly, so
+--                 calcite is a NATIVE mined resource (the planet's calcite source
+--                 for the aluminium refine, the science pack, and the
+--                 calcite->olefins chemistry, ci-400), and `ice` still feeds the
+--                 water/electrolysis + science + ALICE-fuel sinks. There is NO
+--                 standalone ice-derived ore or map-gen slider beyond stone + ice
+--                 (ci-3yl); the two products both come off the ONE ice resource.
 --   bootstrap rocks -> scattered near the terminator, hand-gathered, FINITE
 --                 (the landing-tier trickle of metal, §6)
 --
@@ -98,13 +101,22 @@ local function cindra_resource(name, item_yield, map_color, order, autoplace, ic
   return r
 end
 
--- The vanilla ice-chunk item a Cindra ice field yields (ci-3mx): the whole ice
--- chain reuses vanilla recipes (crush -> ice + calcite, melt -> water).
-local ICE_ITEM = "oxide-asteroid-chunk"
+-- The MIXED ice-field yield (ci-9l6): mining a Cindra ice field produces a FIXED
+-- mix of BOTH `ice` and `calcite` from ONE mining action (a multi-product
+-- resource), not a single feedstock chunk. There is no player choice of output and
+-- no intermediate crush step -- the drill itself emits the mix, so SORTING the two
+-- products apart and handling their backpressure (a full calcite belt stalls the
+-- drill and chokes the ice too) IS the nightside logistics puzzle: the same
+-- mixed-output-patch pressure as Fulgora scrap. Ice is the MAJORITY (it feeds the
+-- many water/science/fuel sinks); calcite is a steady MINOR stream (the native
+-- calcite source) that runs surplus early and gains real sinks as the chemistry
+-- tech unlocks (aluminium refine, science pack, ci-400 calcination). The ratio is
+-- fixed by these two amounts -- tune HERE (the one place), never re-derived.
+local ICE_YIELD = 2      -- `ice` per mining action (the majority product)
+local CALCITE_YIELD = 1  -- `calcite` per mining action (the minor product)
 
--- The Cindra ice resource: ice-chunk patches that yield ONLY the vanilla oxide
--- chunk (ci-4xx). Mining the field is a single-product drop of the vanilla chunk
--- that the crush -> melt chain (ci-3mx) turns into ice / calcite / water.
+-- The Cindra ice resource: nightside patches whose mining yields a FIXED MIX of
+-- `ice` + `calcite` (ci-9l6). One mining action drops BOTH products at once.
 --
 -- Icy world sprite (ci-9bb): the deep-copied vanilla `stone` resource carries the
 -- warm-tan stone rubble stage sheet, so the ice deposit READ as a stone patch. v1
@@ -131,7 +143,7 @@ local function tint_stages(stages, tint)
 end
 
 local function cindra_ice_resource()
-  local r = cindra_resource("cindra-ice", ICE_ITEM, ICE_MAP_COLOR, "b[cindra-ice]",
+  local r = cindra_resource("cindra-ice", "ice", ICE_MAP_COLOR, "b[cindra-ice]",
     -- Denser spot placement than the old narrow ribbon (ci-da2): ice now lives on
     -- the cold cap east of the building band (x > 100), so its guaranteed
     -- starting-area patch (placed at the origin) is masked out. A higher
@@ -141,6 +153,14 @@ local function cindra_ice_resource()
       { order = "b", base_density = 8, base_spots_per_km2 = 12, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/ice.png")
+  -- Override the single-product minable set up by cindra_resource with the FIXED
+  -- ice+calcite MIX (ci-9l6): both products drop from ONE mining action, in the
+  -- tuned ice-majority ratio (ICE_YIELD : CALCITE_YIELD).
+  r.minable.result = nil
+  r.minable.results = {
+    { type = "item", name = "ice", amount = ICE_YIELD },
+    { type = "item", name = "calcite", amount = CALCITE_YIELD },
+  }
   tint_stages(r.stages, ICE_STAGE_TINT)
   r.mining_visualisation_tint = ICE_MINING_TINT
   return r
@@ -181,15 +201,15 @@ data:extend({
       { order = "a", base_density = 8, base_spots_per_km2 = 2.5, has_starting_area_placement = true },
       field.stone_mask_expr(CFG), field.stone_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/cindra-stone.png"),
-  -- Ice: the nightside's single signature raw. It yields ONLY the VANILLA
-  -- `oxide-asteroid-chunk` (ci-4xx) so the whole ice chain reuses vanilla recipes
-  -- (crush -> ice + calcite, melt -> water; ci-3mx). Everything the ice chain and
-  -- the science pack need comes from PROCESSING the chunk
-  -- (prototypes/ice-processing.lua), not from extra field drops. Cold blue; patches
-  -- nightward of the safe band, richer the deeper (colder) they sit, with a
+  -- Ice: the nightside's signature raw. Mining it yields a FIXED MIX of BOTH
+  -- `ice` and `calcite` in one action (ci-9l6) -- calcite is now a NATIVE mined
+  -- resource (the planet's calcite source; ci-400's calcination consumes it), and
+  -- `ice` still feeds water/electrolysis + science + ALICE fuel. `ice` melts to
+  -- water in the vanilla chemical plant (prototypes/ice-processing.lua). Cold blue;
+  -- patches nightward of the safe band, richer the deeper (colder) they sit, with a
   -- starting patch near the terminator. The DEPOSIT reads as "Ice field"
-  -- (entity-name.cindra-ice); the mined item is the vanilla chunk (we never rename
-  -- the vanilla item).
+  -- (entity-name.cindra-ice); the mined items are the vanilla `ice`/`calcite` (we
+  -- never rename the vanilla items).
   cindra_ice_resource(),
 })
 

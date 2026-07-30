@@ -28,8 +28,8 @@ local POWDER = "cindra-aluminium-powder"
 local ROCKET_FUEL = "rocket-fuel"
 local FUEL_RECIPE = "cindra-solid-rocket-fuel"
 -- ci-8g1: the fuel recipe models real ALICE propellant (ALuminium-ICE): nano-aluminium
--- powder (fuel) + ice (frozen-water oxidizer). ICE is a legal native input (the
--- nightside crushing chain's output), NOT petrochemistry.
+-- powder (fuel) + ice (frozen-water oxidizer). ICE is a legal native input (mined
+-- from the nightside ice field's fixed ice+calcite mix, ci-9l6), NOT petrochemistry.
 local ICE = "ice"
 local CHARGE = "cindra-launch-charge"
 local CHARGE_CATEGORY = "cindra-mass-driver-charge"
@@ -217,9 +217,9 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
     assert.are.equal(2, #fuel.ingredients,
       "ALICE fuel is exactly { nano-aluminium powder + ice } -- two native inputs")
 
-    -- ICE traces to the Cindra ice/oxide crushing chain (a real native resource,
-    -- not conjured): the same `ice` item the science pack and ice-melting consume.
-    assert.is_not_nil(prototypes.item[ICE], "ice must be a real item (the nightside crushing output)")
+    -- ICE is mined straight from the nightside ice field's fixed ice+calcite mix
+    -- (ci-9l6): the same `ice` item the science pack and ice-melting consume.
+    assert.is_not_nil(prototypes.item[ICE], "ice must be a real item (the nightside ice field's mined output)")
   end)
 
   it("ALICE fuel stays a NET-NEGATIVE energy trade (no burn-back power exploit, ci-669)", function()

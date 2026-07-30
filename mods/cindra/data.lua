@@ -31,15 +31,12 @@ require("prototypes.decoratives")
 -- temperature-axis framing, generated as a REAL noise-driven ribbon planet.
 require("prototypes.planet")
 
--- §15-4 ice processing: reuse the vanilla crushing/melting MODEL (ci-3mx). The
--- nightside deposit yields the vanilla oxide-asteroid-chunk; a ground crusher (the
--- one custom entity, since the vanilla crusher is zero-gravity-gated) runs Cindra
--- clones of the vanilla oxide crushing recipes -> ice (+ calcite; the two recipes
--- are the ratio knob). The crusher is locked to a dedicated `cindra-crushing`
--- category so it CANNOT run the vanilla metallic/carbonic crushing or reprocessing
--- recipes -- those would grant free iron/coal (ci-8n6). The vanilla chemical plant
--- runs the vanilla ice-melting recipe -> water. No custom item, melter, or tech;
--- the chain hangs off the Cindra discovery tech.
+-- §15-4 ice processing: mining an ice field yields a FIXED MIX of `ice` + `calcite`
+-- directly (ci-9l6, see resources.lua) -- calcite is a native mined resource and
+-- there is no feedstock chunk or ground crusher any more. The ONLY processing step
+-- left is the vanilla `ice-melting` recipe (`ice` -> `water`) in the vanilla
+-- chemical plant (ci-3mx: reuse vanilla, no custom item/melter/tech). This file
+-- just appends that melt unlock to the Cindra discovery tech.
 require("prototypes.ice-processing")
 
 -- §15-5 manufactured lava: the central economy spine. `1 stone + [power] -> 10

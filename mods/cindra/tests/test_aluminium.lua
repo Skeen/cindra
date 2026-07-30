@@ -45,12 +45,12 @@ local function in_category(recipe_name, category)
 end
 
 describe("cindra aluminium chain (native, petrochemical-free)", function()
-  it("refines alumina from native rock + ice output only (stone + calcite)", function()
+  it("refines alumina from native raws only (stone + ice-field calcite)", function()
     local r = prototypes.recipe[ALUMINA]
     assert.is_not_nil(r, "the alumina recipe must exist")
     assert.is_true((amount_of(r.ingredients, "stone") or 0) > 0, "alumina uses stone (the ribbon raw)")
     assert.is_true((amount_of(r.ingredients, "calcite") or 0) > 0,
-      "alumina uses calcite (from the ice chain) -- pulling demand onto both economies")
+      "alumina uses calcite (mined from the ice field, ci-9l6) -- pulling demand onto both economies")
     -- Exactly two inputs, both native: no carrier, no chemistry.
     assert.are.equal(2, #r.ingredients, "alumina has exactly two native inputs")
     assert.are.equal(ALUMINA, r.products[1].name, "the recipe produces alumina")
@@ -149,14 +149,14 @@ describe("cindra aluminium: private category + gating", function()
     assert.is_true(unlocked[ALUMINIUM], "the tech unlocks the aluminium recipe")
     assert.is_true(unlocked[CELL], "the tech unlocks the electrolysis-cell build recipe")
 
-    -- The chain needs power+metal (lava) AND calcite (the ice chain). Gate directly
-    -- on the lava spine; the calcite is gated transitively -- cindra-lava requires
-    -- planet-discovery-cindra, which unlocks the crusher + vanilla oxide crushing
-    -- (the calcite source, ci-3mx). No separate ice tech to depend on.
+    -- The chain needs power+metal (lava) AND calcite. Calcite is a MINED resource
+    -- now (ci-9l6): it drops from the ice field, needing no tech at all. So the only
+    -- real gate is the lava spine; cindra-lava requires planet-discovery-cindra
+    -- (reaching Cindra), so aluminium stays behind both rock and the planet itself.
     assert.is_not_nil(tech.prerequisites["cindra-lava"],
       "gated behind the lava spine -- the metal economy + the power to electrolyse")
     assert.is_not_nil(prototypes.technology["cindra-lava"].prerequisites["planet-discovery-cindra"],
-      "cindra-lava requires Cindra discovery, which unlocks the crusher + oxide crushing (the calcite the refine step needs)")
+      "cindra-lava requires Cindra discovery -- so aluminium is unreachable until the player commands both rock and the planet (calcite is mined, no crush tech)")
   end)
 
   it("has an item that places the cell", function()
