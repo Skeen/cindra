@@ -122,9 +122,17 @@ function M.build_render_parameters(nauvis_params)
     cloud_flow_intensity = 0.8,
     cloud_panning_rate = -0.06,
 
+    -- Static presentation tilt of the globe's axis: a fixed angle, not motion.
     planet_axis = { -18.0, -4.0 },
-    planet_axis_deviation_amplitude = { 6.0, 6.0 },
-    planet_axis_deviation_seconds = { 900.0, 760.0 },
+    -- TIDAL LOCK => the axis must NOT wobble either (ci-ane). Vanilla planets set
+    -- a non-zero deviation amplitude so their globes gently NOD on the orbital
+    -- backdrop; Cindra inherited {6,6}, which left the rotation-frozen globe still
+    -- WOBBLING -- exactly the "planet rotates/wobbles in the space view" the report
+    -- flags. Freezing rotation_seconds (NO_ROTATION) alone is NOT enough: the axis
+    -- deviation is an independent periodic nod. Zero the amplitude so the tidally
+    -- locked face is truly static. At zero amplitude the deviation period is inert,
+    -- so the paired *_deviation_seconds knob is dropped.
+    planet_axis_deviation_amplitude = { 0.0, 0.0 },
     position = { -400, 300 },
     parallax_strength = { 0.95, 0.95 },
 

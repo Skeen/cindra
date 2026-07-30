@@ -124,6 +124,20 @@ test("freezes the globe (tidal lock): rotation_seconds is the huge NO_ROTATION",
   assert_true(params.platform_backdrop.rotation_seconds >= 1.0e9, "effectively infinite")
 end)
 
+-- ci-ane: tidal lock also means NO axis WOBBLE. Vanilla planets nod their globes
+-- with a non-zero planet_axis_deviation_amplitude ({10,10}); Cindra had inherited
+-- {6,6}, so the rotation-frozen globe still wobbled in the space view. Freezing
+-- rotation_seconds is not sufficient -- the axis deviation is a separate periodic
+-- nod. Guard that BOTH deviation components are zero so a later tweak cannot
+-- quietly reintroduce the wobble (mirrors tests/test_space_appearance.lua).
+test("does not wobble: axis deviation amplitude is zeroed (tidal lock, ci-ane)", function()
+  local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+  local amp = b.planet_axis_deviation_amplitude
+  assert_true(amp ~= nil, "axis deviation amplitude must be set (to zero), not left to a default")
+  assert_eq(0, amp[1], "no wobble on the first axis component")
+  assert_eq(0, amp[2], "no wobble on the second axis component")
+end)
+
 test("points the backdrop maps at the baked Cindra fire/ice art", function()
   local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
   assert_eq("__cindra__/graphics/space/cindra.png", b.planet_surface.filename)

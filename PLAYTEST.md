@@ -89,6 +89,23 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   limb-flare visual could return as a follow-up bead (the flare spritesheet art
   `graphics/space/cindra-flare.png` still exists for reuse).
 
+- [ ] **[LANDED] Planet is STATIC in the space view: no rotate, no wobble (ci-ane).**
+  The Overseer flagged the Cindra globe as ROTATING / WOBBLING in the space/starmap
+  view when it should sit still (tidal lock). The spin was already frozen
+  (`rotation_seconds = NO_ROTATION`), but the orbital backdrop had inherited a
+  non-zero `planet_axis_deviation_amplitude = {6,6}` (vanilla planets use this to
+  gently nod their globes), so the frozen face still wobbled on its axis. Zeroed
+  the amplitude (`{0,0}`) so the tidally-locked face is truly static. *Repro:* open
+  the star-map and select/navigate to Cindra, then WATCH the globe for ~30s
+  (`./play.sh`). *Look for:* the fire/ice globe holds a **completely still** pose --
+  no spin, no slow nod/wobble/tilt drift; the ONLY motion is the terminator steam
+  band drifting across the seam (clouds animate, globe does not). Fire limb stays
+  fixed on the left (sunward), ice on the right. *Fallback:* the zeroed deviation
+  amplitude is guarded off-game and under the real runtime
+  (`unit-tests/test_space_appearance.lua`, `tests/test_space_appearance.lua`); this
+  entry is only the "the live globe visibly holds still over time" confirmation a
+  static prototype assert cannot judge.
+
 - [ ] **[SUPERSEDED by ci-i9m] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
   earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
   *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
