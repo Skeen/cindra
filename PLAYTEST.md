@@ -242,6 +242,19 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   is a pixel-faithful before/after; this entry is only the "does it feel like stone
   against live terrain + lighting" confirmation a still cannot judge.
 
+- [ ] **[LANDED] Ice-rocks read as ICY and land in the safe cold band (ci-18n).**
+  *Repro:* explore the cold/ice side of the ribbon (east of the terminator, before
+  the lethal deep-ice cap) and look at the scattered hand-minable **ice-rocks**.
+  *Look for:* (1) a pale frost-blue **icy** boulder (the vanilla `huge-rock` under a
+  `{0.62, 0.82, 1.0}` cool multiply-tint) that reads as ice/frost, clearly distinct
+  from the warm yellow-tan sandy rocks on the other side; (2) it sits sensibly on the
+  cold-dust / rough-ice ground (not washed into it, not on bare sand); (3) mining one
+  gives an early **ice + stone** trickle. *Fallback:* `unit-tests/test_rock_tint.lua`
+  proves the tint is a cool blue multiply distinct from the stone tint, and
+  `tests/test_worldgen.lua` proves ice-rocks generate only in the safe cold band
+  (never the lethal deep-ice zone or the warm side) and yield ice + stone; only the
+  "does the frost tint read icy against live cold terrain + lighting" is the playtest.
+
 - [ ] **[LANDED] Nightside cold damage vs Aquilo freeze (feel).** Unheated
   machines past the cold threshold (axis temp < -30 °C default) take ticking cold
   damage rather than a reversible Aquilo-style freeze. *Look for:* the pace
@@ -267,16 +280,20 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 ## Bootstrap from nothing
 
 - [ ] **[LANDED] From-nothing bootstrap start works (ci-8nh / ci-fs4 / §6).**
-  Cindra has NO ore or coal patches at all; the finite hand-mined rocks
-  are the ONLY landing metal and drop stone + iron ore + copper ore + coal (and a
-  little tungsten). Yields and natural (off-lattice) scatter are prototype-tested
+  Cindra has NO ore or coal patches at all; the finite hand-mined rocks are the ONLY
+  landing metal. Split by side (ci-18n): the temperate **sandy rocks** drop stone +
+  iron ore + copper ore (NO coal, no tungsten); **coal** comes from the **volcanic
+  rocks** in the hot/lava margin (stone + coal); the cold-side **ice-rocks** drop ice
+  + stone. Yields and natural (off-lattice) scatter are prototype-tested
   (`tests/test_worldgen.lua`). *Repro:* start a fresh Cindra game with nothing,
-  hand-mine the terminator rocks. *Look for:* the rocks are scattered naturally
-  (NOT a repeating grid); enough stone to hand-craft stone furnaces AND enough
-  iron/copper ore + coal to smelt a first trickle of plates and fuel, i.e. you can
-  stand up the first foundry / power / ice-processing without a pre-existing ore
-  patch, after which the infinite lava->metal economy takes over. If a from-nothing
-  start soft-locks, that is a balance bug (coordinate with ci-arw / ci-uex).
+  hand-mine the terminator sandy rocks, then walk sunward to the volcanic rocks for
+  coal. *Look for:* the rocks are scattered naturally (NOT a repeating grid); enough
+  stone to hand-craft stone furnaces AND enough iron/copper ore from the sandy rocks
+  plus coal from the (safely reachable, non-lethal) volcanic rocks to smelt a first
+  trickle of plates and fuel, i.e. you can stand up the first foundry / power /
+  ice-processing without a pre-existing ore patch, after which the infinite
+  lava->metal economy takes over. If a from-nothing start soft-locks, that is a
+  balance bug (coordinate with ci-arw / ci-uex).
 
 - [ ] **[LANDED] Start-on-Cindra foundry bootstrap reads well (ci-arw).** The
   no-Vulcanus foundry path (finite bootstrap coal -> `cindra-crude-lubricant`,
@@ -285,8 +302,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   logic-tested (`tests/test_foundry_bootstrap.lua`, `tests/test_aps_foundry.lua`).
   *Repro:* start on Cindra via any-planet-start. *Look for* the *felt* opening: the
   improvised-metallurgy recipes are visible/craftable from tick zero (the APS start
-  pre-researches the tech), hand-mining a few rocks yields enough coal to
-  crude-liquefy the lubricant for a first `cindra-field-foundry`, and building +
+  pre-researches the tech), hand-mining a few volcanic rocks (the coal source since
+  ci-18n) yields enough coal to crude-liquefy the lubricant for a first
+  `cindra-field-foundry`, and building +
   running that foundry (lava -> molten metal) feels like a deliberate, non-tedious
   bootstrap rather than a soft-lock or a grind. Normal (post-Vulcanus) play imports
   finished foundries instead; those recipes reuse vanilla lubricant/foundry icons

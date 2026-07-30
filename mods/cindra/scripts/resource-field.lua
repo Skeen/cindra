@@ -19,7 +19,12 @@
 --   ice        the SAFE cold margin east of the building band, richer DEEPER
 --              (colder), but stopping SHORT of the cold-lethal deep-ice cap
 --              (ci-fb9); never into the hot/temperate zone.
---   rocks      scattered across the building band (finite bootstrap scatter, §6).
+--   sandy rocks   finite bootstrap scatter across the WARM part of the building band,
+--              fading out before the frosty cold zones (ci-18n): no rock-on-ice.
+--   ice-rocks  finite bootstrap scatter across the SAFE cold band (cold of the
+--              divider, warm of the lethal deep-ice cap); yields ice + stone (ci-18n).
+--   volcanic rocks  finite scatter across the volcanic-tile region, clustered toward
+--              the lava; yields stone + coal (ci-qy0, tightened to volcanic tiles ci-18n).
 --
 -- HARVESTABLE FIELDS NEVER SPAWN IN A DAMAGE ZONE (ci-fb9): a resource on a lethal
 -- tile is visible-but-unreachable. stone + ice are clamped to the damage-free band
@@ -47,6 +52,13 @@ M.PERP_AXIS = axis.perp_expr()
 M.STONE = "cindra-stone"
 M.ICE = "cindra-ice"
 M.ROCK = "cindra-rock"
+
+-- Ice-rocks (ci-18n): a cold-side counterpart to the sandy bootstrap rock. A finite
+-- hand-minable simple-entity that generates in the SAFE cold/ice band and yields an
+-- early ICE + STONE trickle (prototypes/resources.lua). Named here with the other
+-- Cindra worldgen entity names so resources.lua, the planet.lua autoplace allow-list
+-- and the tests all read the SAME name.
+M.ICE_ROCK = "cindra-ice-rock"
 
 -- Burned volcanic rocks (ci-qy0): charred Vulcanus-style boulders that generate in
 -- the HOT / lava region only, clustered toward the lava edge so they read as "in
@@ -150,28 +162,54 @@ function M.ice_richness(y, cfg)
   return math.floor(lerp(M.ICE_BASE, M.ICE_PEAK, f))
 end
 
--- Bootstrap rocks scatter across the building band (|p| <= building_half), so they
--- are reachable with no damage, along the WHOLE ribbon (not just near spawn).
--- Finiteness is a property of the ENTITY (a mined rock is a destroyed simple-
--- entity, one-shot, off every loop recipe), not of the placement (§6).
+-- Sandy bootstrap rocks scatter across the TEMPERATE/WARM part of the building band,
+-- along the WHOLE ribbon (not just near spawn). Finiteness is a property of the
+-- ENTITY (a mined rock is a destroyed simple-entity, one-shot, off every loop
+-- recipe), not of the placement (§6).
+--
+-- ci-18n: the cold edge is pulled a MARGIN warmward of the building band's cold edge
+-- (building_lo) so the sandy rocks FADE OUT BEFORE the frosty cold zones and never
+-- sit on ice/frost tiles. The margin is wider than the tile-boundary + speckle noise
+-- bleed (scripts/terrain.lua NOISE_AMPLITUDE + SPECKLE_AMPLITUDE = 14), so even where
+-- a cold_dust dust tile bleeds warmward across the building/cold_dust divider, no
+-- sandy rock is placed on it. The hot (sunward) edge stays at the building band's hot
+-- edge -- that neighbour is warm sandy/dirt terrain, never ice, so it needs no pull.
+M.ROCK_COLD_MARGIN = 20
 function M.rock_zone(y, cfg)
   local b = bounds(cfg)
-  return math.abs(y) <= b.building_half
+  return y <= b.building_half and y >= b.building_lo + M.ROCK_COLD_MARGIN
 end
 
 -- Per-tile spawn probability inside the rock band (sparse hand-gathered scatter).
 M.ROCK_PROBABILITY = 0.006
 
--- Burned volcanic rocks (ci-qy0) live in the HOT region only, re-banded to the
--- ci-da2 zone geometry: from the building band's hot (sunward) edge out to the
--- walkable hot margin (the lava-crust edge, terrain.resource_bounds.hot_edge). This
--- EXCLUDES the temperate/building band (|p| <= building_half) and the ENTIRE
--- cold/ice zone, and stops at the walkable hot edge (never into the impassable lava
--- wall, where a simple-entity could not place), so they read as "in the lava areas"
--- and never clutter the buildable ribbon or the nightside. Boolean, pure.
-function M.burned_rock_zone(y, cfg)
+-- Ice-rocks (ci-18n) scatter across the SAFE cold/ice band: cold of the building
+-- band's cold edge (building_lo, the stone/ice divider) but WARM of the lethal
+-- deep-ice damage zone (zone 11, p <= damage cold_from). So they read as "on the
+-- icy side" yet stay hand-gatherable with no cold damage -- the damage-zone
+-- exclusion the resource-reachability rule asks for. Finite simple-entities like the
+-- sandy rock (one-shot on mining), yielding an early ice + stone trickle.
+function M.ice_rock_zone(y, cfg)
   local b = bounds(cfg)
-  return y > b.building_half and y <= b.hot_edge
+  local d = terrain.damage_bounds(cfg)
+  return y <= b.building_lo and y > d.cold_from
+end
+
+-- Per-tile spawn probability inside the ice-rock band (sparse, like the sandy rock).
+M.ICE_ROCK_PROBABILITY = 0.006
+
+-- Burned volcanic rocks (ci-qy0) live in the HOT region only. ci-18n tightens them
+-- to the VOLCANIC-TILE region proper (terrain.cliff_band: lava_crust .. scorched),
+-- from the volcanic band's cold edge out to the walkable hot margin (the lava-crust
+-- edge). This is TIGHTER than the old (building_half, hot_edge] band: it drops the
+-- dry_dirt zone (perp [building_half, volcanic_lo)), whose dirt/sand tiles are NOT
+-- volcanic, so the burned rocks stop spilling onto non-volcanic tiles. Still EXCLUDES
+-- the temperate/building band and the ENTIRE cold/ice zone, and stops at the walkable
+-- hot edge (never into the impassable lava wall, where a simple-entity could not
+-- place), so they read as "in the lava areas". Boolean, pure.
+function M.burned_rock_zone(y, cfg)
+  local v = terrain.cliff_band(cfg)
+  return y > v.lo and y <= v.hi
 end
 
 -- Per-tile spawn probability at the two ends of the hot region: sparse at the
@@ -218,33 +256,53 @@ function M.ice_mask_expr(cfg)
          " * (" .. Y .. " > " .. num(b.cold_edge) .. ")"
 end
 
--- Bootstrap rocks: a native simple-entity autoplace confined to the building band
--- (|p| <= building_half) but present along the WHOLE ribbon. A comparison yields
--- 1/0, so the product is a logical AND masking the constant per-tile probability to
--- the band.
+-- Sandy bootstrap rocks: a native simple-entity autoplace confined to the WARM part
+-- of the building band -- the hot edge (building_half) down to a MARGIN warm of the
+-- building band's cold edge (building_lo + ROCK_COLD_MARGIN) -- but present along the
+-- WHOLE ribbon. The warmward cold bound (ci-18n) keeps sandy rocks off the frosty
+-- cold-zone tiles (no rock-on-ice). A comparison yields 1/0, so the product is a
+-- logical AND masking the constant per-tile probability to the band.
 function M.rock_probability_expr(cfg)
   local b = bounds(cfg)
-  local S = b.building_half
-  return "(" .. Y .. " < " .. num(S) .. ")" ..
-         " * (" .. Y .. " > " .. num(-S) .. ")" ..
+  local hi = b.building_half
+  local lo = b.building_lo + M.ROCK_COLD_MARGIN
+  return "(" .. Y .. " <= " .. num(hi) .. ")" ..
+         " * (" .. Y .. " >= " .. num(lo) .. ")" ..
          " * " .. num(M.ROCK_PROBABILITY)
 end
 
--- Burned volcanic rocks (ci-qy0): a native simple-entity autoplace confined to the
--- HOT region (sunward of the safe band, in to the wall) and CLUSTERED toward the
--- lava. Encodes M.burned_rock_zone as a noise-expression string (a comparison
--- yields 1/0, so the product is a logical AND masking probability to the band),
--- then ramps the per-tile probability from MIN at the inner (safe-band) edge to
--- MAX at the lethal lava edge and beyond -- so density rises toward the lava and
--- the rocks read as "in the lava areas". The mask zeroes probability across the
--- temperate/building band and the whole cold/ice zone, so burned rocks can NEVER
--- generate there (matches M.burned_rock_zone; keep the two in lockstep).
-function M.burned_rock_probability_expr(cfg)
+-- Ice-rocks (ci-18n): a native simple-entity autoplace confined to the SAFE cold/ice
+-- band -- cold of the divider (building_lo) but warm of the lethal deep-ice damage
+-- zone (damage cold_from) -- present along the WHOLE cold cap. Encodes M.ice_rock_zone
+-- as a noise-expression string (a comparison yields 1/0, so the product is a logical
+-- AND), masking the constant per-tile probability to the band. The mask zeroes
+-- probability across the whole hot/temperate zone AND the lethal deep-ice cap, so
+-- ice-rocks can NEVER generate there (matches M.ice_rock_zone; keep the two in step).
+function M.ice_rock_probability_expr(cfg)
   local b = bounds(cfg)
-  local S, L = b.building_half, b.hot_edge
+  local d = terrain.damage_bounds(cfg)
+  return "(" .. Y .. " <= " .. num(b.building_lo) .. ")" ..
+         " * (" .. Y .. " > " .. num(d.cold_from) .. ")" ..
+         " * " .. num(M.ICE_ROCK_PROBABILITY)
+end
+
+-- Burned volcanic rocks (ci-qy0): a native simple-entity autoplace confined to the
+-- VOLCANIC-TILE region (terrain.cliff_band: lava_crust .. scorched) and CLUSTERED
+-- toward the lava. ci-18n tightens the inner edge from the building band's hot edge
+-- to the volcanic band's cold edge, so the rocks sit on volcanic tiles rather than
+-- spilling onto the neighbouring dry_dirt zone. Encodes M.burned_rock_zone as a
+-- noise-expression string (a comparison yields 1/0, so the product is a logical AND
+-- masking probability to the band), then ramps the per-tile probability from MIN at
+-- the inner (safe) edge to MAX at the lethal lava edge and beyond -- so density rises
+-- toward the lava and the rocks read as "in the lava areas". The mask zeroes
+-- probability across the temperate/building band, the dry_dirt zone, and the whole
+-- cold/ice zone (matches M.burned_rock_zone; keep the two in lockstep).
+function M.burned_rock_probability_expr(cfg)
+  local v = terrain.cliff_band(cfg)
+  local S, L = v.lo, v.hi
   local in_zone = "(" .. Y .. " > " .. num(S) .. ")" ..
                   " * (" .. Y .. " <= " .. num(L) .. ")"
-  -- Fraction of the way from the building band's hot edge to the walkable lava edge
+  -- Fraction of the way from the volcanic band's cold edge to the walkable lava edge
   -- (clamped), so density ramps from sparse near the ribbon to densest at the lava.
   local span = math.max(1, L - S)
   local frac = "clamp((" .. Y .. " - " .. num(S) .. ") / " .. num(span) .. ", 0, 1)"

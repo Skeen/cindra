@@ -385,19 +385,57 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
   end)
 
   -- 7. BAND-WIDE BOOTSTRAP ROCKS --------------------------------------------------
-  it("scatters bootstrap rocks across the building band, not just near spawn (ci-9bb)", function()
-    -- The building band is x in [-100, 100]. Present near spawn...
+  it("scatters bootstrap rocks across the WARM building band, fading before ice (ci-9bb, ci-18n)", function()
+    -- Sandy rocks span perp [-80, 100] -> x in [-100, 80] (ci-18n pulls the cold
+    -- edge warm of the divider so they fade before the frost). Present near spawn...
     local near = s.count_entities_filtered({
-      name = field.ROCK, area = { { -100, -100 }, { 100, 100 } } })
-    assert.is_true(near > 0, "bootstrap rocks scatter across the building band")
+      name = field.ROCK, area = { { -100, -100 }, { 80, 100 } } })
+    assert.is_true(near > 0, "bootstrap rocks scatter across the warm building band")
     -- ...and far down the ribbon (band-wide, not a spawn disk).
     local far = s.count_entities_filtered({
-      name = field.ROCK, area = { { -100, 130 }, { 100, RY } } })
+      name = field.ROCK, area = { { -100, 130 }, { 80, RY } } })
     assert.is_true(far > 0, "bootstrap rocks also generate far down the ribbon")
     -- Masked OUT of the hot margin (never past the building band on the perp axis).
     local outside = s.count_entities_filtered({
       name = field.ROCK, area = { { -300, -100 }, { -130, 100 } } })
     assert.are.equal(0, outside, "no rocks out past the building band (masked to the ribbon)")
+    -- ci-18n: FADE BEFORE ICE. The cold-edge strip x in (80, 130] (perp -130..-80),
+    -- which straddles the building/cold_dust frost divider, must carry NO sandy rock.
+    local on_frost = s.count_entities_filtered({
+      name = field.ROCK, area = { { 85, -RY }, { 130, RY } } })
+    assert.are.equal(0, on_frost, "no sandy rocks on the frosty cold edge (fades before ice, ci-18n)")
+  end)
+
+  -- 7a. ICE-ROCKS in the safe cold band (ci-18n) ----------------------------------
+  -- A cold-side finite bootstrap rock: yields ice + stone, in the SAFE cold/ice band
+  -- (cold of the divider, warm of the lethal deep-ice cap). perp (-200, -100] ->
+  -- x in [100, 200).
+  it("scatters ice-rocks across the safe cold band, never the lethal deep-ice cap (ci-18n)", function()
+    -- Present on the safe cold side (cold_dust + rough_ice, x in [100, 200))...
+    local safe = s.count_entities_filtered({
+      name = field.ICE_ROCK, area = { { 100, -RY }, { 199, RY } } })
+    assert.is_true(safe > 0, "ice-rocks scatter across the safe cold/ice band")
+    -- ...NEVER on the lethal deep-ice cap (x >= 200, perp <= -200, damage cold zone).
+    local lethal = s.count_entities_filtered({
+      name = field.ICE_ROCK, area = { { 205, -RY }, { 450, RY } } })
+    assert.are.equal(0, lethal, "no ice-rocks in the lethal deep-ice damage zone (zone 11, ci-18n)")
+    -- ...and NEVER on the warm/temperate + hot side (x < 100).
+    local warm = s.count_entities_filtered({
+      name = field.ICE_ROCK, area = { { -450, -RY }, { 90, RY } } })
+    assert.are.equal(0, warm, "no ice-rocks on the warm/temperate ribbon (cold-side only)")
+  end)
+
+  it("mining an ice-rock yields ICE + STONE, and it is a finite simple-entity (ci-18n)", function()
+    local ice_rock = prototypes.entity[field.ICE_ROCK]
+    assert.is_not_nil(ice_rock, field.ICE_ROCK .. " must exist")
+    -- Finite like the bootstrap/volcanic rocks: destroyed when mined, so the ice/stone
+    -- is a one-shot trickle, never a per-craft loop input (§6).
+    assert.are.equal("simple-entity", ice_rock.type, "ice-rock must be a finite simple-entity")
+    local names = {}
+    for _, r in ipairs(ice_rock.mineable_properties.products) do names[r.name] = true end
+    assert.is_true(names["ice"], "ice-rock must yield ice (the cold-side head-start)")
+    assert.is_true(names["stone"], "ice-rock must yield stone")
+    assert.are.equal(2, #ice_rock.mineable_properties.products, "ice-rock yields ONLY ice + stone")
   end)
 
   -- 8. CLIFFS: Vulcanus-style cliffs in the volcanic zones only -------------------
@@ -440,13 +478,31 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       "burned rocks cluster toward the lava side (near_lava=" .. near_lava .. ", inner=" .. inner .. ")")
   end)
 
-  it("keeps burned volcanic rocks OUT of the temperate/building and ice zones (ci-qy0)", function()
+  it("keeps burned volcanic rocks OUT of the temperate/building, dry_dirt and ice zones (ci-qy0, ci-18n)", function()
     -- Temperate/building band (|x| <= building_half = 100): none.
     assert.are.equal(0, count_burned(-90, 90),
       "no burned rocks in the temperate/building band")
+    -- ci-18n: the dry_dirt zone (x in (-150, -100], perp [100, 150]) is NON-volcanic
+    -- terrain -- the tighten drops it, so no burned rocks spill onto its dirt/sand.
+    assert.are.equal(0, count_burned(-149, -105),
+      "no burned rocks in the dry_dirt zone (tightened to volcanic tiles, ci-18n)")
     -- Cold/ice zone (east of the divider): none.
     assert.are.equal(0, count_burned(110, 450),
       "no burned rocks in the ice/cold zone")
+  end)
+
+  it("coal is reachable SAFELY: volcanic rocks generate in the non-lethal hot margin (ci-18n no soft-lock)", function()
+    -- Removing coal from the sandy rock must NOT soft-lock the from-nothing bootstrap:
+    -- the player must be able to gather coal (the lubricant feedstock) from the
+    -- volcanic rocks WITHOUT entering the heat-lethal zone. The safe (non-lethal) hot
+    -- margin is perp [150, 300) -> x in (-300, -150]; heat damage is perp >= 300
+    -- (x <= -300). Prove volcanic rocks actually generate in that safe band.
+    local safe = count_burned(-295, -155)
+    assert.is_true(safe > 0,
+      "volcanic rocks (the coal source) generate in the SAFE hot margin -- coal is reachable without heat damage")
+    -- Confirm the sampled band really is non-lethal (perp = -x), so the check is meaningful.
+    assert.is_nil(terrain.lethal_at(-(-155)), "the inner edge of the sampled band is safe/walkable")
+    assert.is_nil(terrain.lethal_at(-(-295)), "the outer edge of the sampled band is still safe/walkable")
   end)
 
   it("mining a burned volcanic rock yields STONE + COAL ONLY (ci-qy0)", function()
@@ -463,6 +519,17 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       assert.is_true(names["coal"], name .. " must yield coal")
       assert.are.equal(2, #results, name .. " must yield ONLY stone + coal (no ore/tungsten)")
     end
+  end)
+
+  it("the sandy bootstrap rock no longer drops coal -- coal is the volcanic rocks' (ci-18n)", function()
+    -- ci-18n moves coal off the temperate/sandy rock onto the volcanic rocks (above).
+    -- The sandy rock keeps stone + its iron/copper trickle, but NEVER coal.
+    local rock = prototypes.entity[field.ROCK]
+    local names = {}
+    for _, r in ipairs(rock.mineable_properties.products) do names[r.name] = true end
+    assert.is_false(names["coal"] == true, "the sandy rock must NOT drop coal (moved to the volcanic rocks, ci-18n)")
+    assert.is_true(names["stone"], "the sandy rock still yields stone")
+    assert.is_true(names["iron-ore"] and names["copper-ore"], "the sandy rock keeps its iron/copper trickle")
   end)
 
   it("bounds the REAL cindra planet surface at creation (the runtime hook works)", function()

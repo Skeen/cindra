@@ -66,12 +66,37 @@ test("ice lives on the SAFE cold margin only, richer deeper (colder)", function(
     "ice richer the deeper (colder) it gets")
 end)
 
-test("bootstrap rocks scatter only across the building band", function()
+test("sandy bootstrap rocks scatter the WARM part of the building band, fading before ice (ci-18n)", function()
   assert_true(field.rock_zone(0), "rocks at the terminator")
   assert_true(field.rock_zone(100), "rocks to the hot edge of the building band")
-  assert_true(field.rock_zone(-100), "rocks to the cold edge of the building band")
+  -- ci-18n: the cold edge is pulled a MARGIN warm of the building band's cold edge
+  -- (building_lo -100 + ROCK_COLD_MARGIN 20 = -80), so the rocks fade out before the
+  -- frosty cold zones. Rocks reach the pulled-in cold edge but not the divider itself.
+  assert_true(field.rock_zone(-80), "rocks to the pulled-in (warm) cold edge")
+  assert_true(not field.rock_zone(-100), "NO rocks at the building band's cold edge (fades before ice)")
+  assert_true(not field.rock_zone(-90), "NO rocks in the cold margin next to the frost")
   assert_true(not field.rock_zone(200), "no rocks out in the hot margin")
   assert_true(not field.rock_zone(-200), "no rocks out on the cold cap")
+end)
+
+-- Ice-rocks (ci-18n): the cold-side counterpart, in the SAFE cold/ice band -- cold of
+-- the stone/ice divider (building_lo -100) but WARM of the lethal deep-ice damage
+-- zone (damage cold_from -200), so they are gatherable with no cold damage.
+test("ice-rocks scatter the SAFE cold/ice band, never on the lethal deep-ice cap (ci-18n)", function()
+  local d = terrain.damage_bounds()
+  assert_true(field.ice_rock_zone(-100), "ice-rocks at the cold edge of the building band (the divider)")
+  assert_true(field.ice_rock_zone(-150), "ice-rocks out on the safe cold cap (rough ice)")
+  assert_true(field.ice_rock_zone(-199), "ice-rocks right up to the lethal deep-ice edge")
+  assert_true(not field.ice_rock_zone(d.cold_from), "NO ice-rocks in the lethal deep-ice zone (boundary)")
+  assert_true(not field.ice_rock_zone(-250), "NO ice-rocks deep in the lethal deep-ice cap")
+  assert_true(not field.ice_rock_zone(-50), "NO ice-rocks in the warm/temperate building band")
+  assert_true(not field.ice_rock_zone(50), "NO ice-rocks on the hot side")
+  -- The two rock scatters are mutually exclusive across the divider: sandy warm-side,
+  -- icy cold-side, so no point ever grows both a sandy and an icy rock.
+  for p = -300, 200 do
+    assert_true(not (field.rock_zone(p) and field.ice_rock_zone(p)),
+      "sandy and ice rock bands overlap at p=" .. p)
+  end
 end)
 
 -- Zone purity (ci-7w0): the mutually-exclusive placement rule proven off the game.
@@ -157,9 +182,17 @@ end)
 
 test("bands honour a per-zone-width override (settings-driven tuning)", function()
   -- A wider building band -> rocks scatter across a wider centre; the divider moves.
+  -- building=400 -> building_half 200, building_lo -200, damage cold_from -300.
   local cfg = { building = 400 }
   assert_true(field.rock_zone(180, cfg), "rocks reach further with a wider building band")
   assert_true(not field.rock_zone(220, cfg), "but not past the wider building edge")
+  -- The sandy cold edge tracks the (moved) divider + margin (-200 + 20 = -180).
+  assert_true(field.rock_zone(-180, cfg), "sandy cold edge tracks the moved divider + margin")
+  assert_true(not field.rock_zone(-200, cfg), "sandy rocks still fade before the (moved) ice divider")
+  -- Ice-rocks track the moved divider and the moved lethal edge (cold_from -300).
+  assert_true(field.ice_rock_zone(-200, cfg), "ice-rocks start at the moved divider")
+  assert_true(field.ice_rock_zone(-299, cfg), "ice-rocks up to the moved lethal deep-ice edge")
+  assert_true(not field.ice_rock_zone(-300, cfg), "ice-rocks never in the moved lethal zone")
   assert_true(field.ice_richness(-250, cfg) > 0, "ice still on the (further-out) cold cap")
 end)
 
@@ -178,12 +211,23 @@ test("ice mask covers the SAFE cold margin, short of the cold-lethal cap", funct
   assert_eq("((0 - x) < -100) * ((0 - x) > -200)", field.ice_mask_expr(), "default ice band")
 end)
 
-test("bootstrap-rock autoplace masks to the building band across the WHOLE ribbon", function()
+test("sandy-rock autoplace masks to the WARM building band across the WHOLE ribbon (ci-18n)", function()
   local expr = field.rock_probability_expr()
-  assert_true(expr:find("(0 - x) < 100", 1, true) ~= nil, "capped at the hot edge of the building band")
-  assert_true(expr:find("(0 - x) > -100", 1, true) ~= nil, "capped at the cold edge of the building band")
+  assert_true(expr:find("(0 - x) <= 100", 1, true) ~= nil, "capped at the hot edge of the building band")
+  -- Cold edge pulled warm of the divider (building_lo -100 + margin 20 = -80).
+  assert_true(expr:find("(0 - x) >= -80", 1, true) ~= nil, "cold edge pulled warm of the ice divider")
+  assert_true(expr:find("(0 - x) >= -100", 1, true) == nil, "no longer reaches the building band's cold edge")
   -- BAND-WIDE, not a spawn disk (ci-9bb): NO `distance` cutoff.
   assert_true(expr:find("distance", 1, true) == nil, "no spawn-radius cutoff (rocks span the whole ribbon)")
+end)
+
+test("ice-rock autoplace masks to the safe cold band, never the lethal deep-ice cap (ci-18n)", function()
+  local expr = field.ice_rock_probability_expr()
+  local d = terrain.damage_bounds()
+  assert_true(expr:find("(0 - x) <= -100", 1, true) ~= nil, "starts at the cold edge of the building band (divider)")
+  assert_true(expr:find("(0 - x) > " .. d.cold_from, 1, true) ~= nil, "capped warm of the lethal deep-ice zone")
+  -- BAND-WIDE like the sandy rock: no spawn-radius cutoff.
+  assert_true(expr:find("distance", 1, true) == nil, "no spawn-radius cutoff (ice-rocks span the whole cold cap)")
 end)
 
 test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins", function()
@@ -194,37 +238,42 @@ test("edge-pushing richness multipliers ramp 1 -> peak/base toward the margins",
   assert_true(field.ice_richness_mult_expr():find("%(-100 %- ", 1) ~= nil, "ice ramps with cold-cap depth")
 end)
 
--- Burned volcanic rocks (ci-qy0): confined to the HOT region (sunward of the safe
--- band, in to the wall), NEVER in the temperate/building band or the cold/ice zone.
-test("burned volcanic rocks live in the hot region only (ci-da2 zone bounds)", function()
-  -- Re-banded to the zone geometry: perp in (building_half=100, hot_edge=350].
-  assert_true(field.burned_rock_zone(150), "burned rocks in the volcanic band")
+-- Burned volcanic rocks (ci-qy0): confined to the VOLCANIC-TILE region proper
+-- (terrain.cliff_band: lava_crust .. scorched). ci-18n tightens the inner edge to
+-- the volcanic band's cold edge, dropping the dry_dirt zone so the rocks stop
+-- spilling onto non-volcanic tiles. NEVER in the temperate/building band, the
+-- dry_dirt zone, or the cold/ice zone.
+test("burned volcanic rocks live in the volcanic-tile region only (ci-18n tighten)", function()
+  local v = terrain.cliff_band() -- default lo=150 (scorched cold edge), hi=350 (lava-crust edge)
+  assert_true(field.burned_rock_zone(200), "burned rocks in the volcanic band")
   assert_true(field.burned_rock_zone(340), "burned rocks out toward the lava (walkable) edge")
-  assert_true(field.burned_rock_zone(101), "just sunward of the building band")
-  assert_true(not field.burned_rock_zone(0), "NO burned rocks at the temperate building centre")
+  assert_true(field.burned_rock_zone(v.lo + 1), "just sunward of the volcanic band's cold edge")
+  assert_true(not field.burned_rock_zone(v.lo), "NO burned rocks at the volcanic band boundary")
+  assert_true(not field.burned_rock_zone(125), "NO burned rocks in the dry_dirt zone (non-volcanic, ci-18n)")
   assert_true(not field.burned_rock_zone(100), "NO burned rocks in the building band (boundary)")
+  assert_true(not field.burned_rock_zone(0), "NO burned rocks at the temperate building centre")
   assert_true(not field.burned_rock_zone(-200), "NO burned rocks in the cold/ice zone")
-  assert_true(not field.burned_rock_zone(400), "NO burned rocks in the impassable lava wall (past hot_edge)")
+  assert_true(not field.burned_rock_zone(400), "NO burned rocks in the impassable lava wall (past the volcanic edge)")
 end)
 
 test("burned-rock zone honours a per-zone-width config override", function()
-  -- Widen the building band: its hot edge (building_half) moves out, so the burned
-  -- rocks start further sunward and never inside the wider building band.
+  -- Widen the building band: the volcanic band shifts sunward with it, so the burned
+  -- rocks start further sunward and never inside the wider building band or dry_dirt.
   local cfg = { building = 400 }
-  local rb = terrain.resource_bounds(cfg)
-  assert_true(field.burned_rock_zone(rb.building_half + 10, cfg), "just sunward of the wider building band")
-  assert_true(not field.burned_rock_zone(rb.building_half - 10, cfg), "not inside the wider building band")
+  local v = terrain.cliff_band(cfg)
+  assert_true(field.burned_rock_zone(v.lo + 10, cfg), "just sunward of the (moved) volcanic band edge")
+  assert_true(not field.burned_rock_zone(v.lo - 10, cfg), "not inside the dry_dirt/building zones below the volcanic band")
   assert_true(not field.burned_rock_zone(-10, cfg), "never in the cold zone")
-  assert_true(not field.burned_rock_zone(rb.hot_edge + 10, cfg), "never past the walkable hot edge (into the lava wall)")
+  assert_true(not field.burned_rock_zone(v.hi + 10, cfg), "never past the walkable hot edge (into the lava wall)")
 end)
 
-test("burned-rock autoplace masks to the hot region and clusters toward the lava", function()
+test("burned-rock autoplace masks to the volcanic band and clusters toward the lava", function()
   local expr = field.burned_rock_probability_expr()
-  local rb = terrain.resource_bounds()
-  -- Confined to the hot margin on the perpendicular axis: sunward of the building
-  -- band, in to the walkable hot edge (default hot = negative x, perp = "(0 - x)").
-  assert_true(expr:find("(0 - x) > " .. rb.building_half, 1, true) ~= nil, "starts sunward of the building band")
-  assert_true(expr:find("(0 - x) <= " .. rb.hot_edge, 1, true) ~= nil, "capped at the walkable hot edge")
+  local v = terrain.cliff_band()
+  -- Confined to the volcanic band on the perpendicular axis: from its cold edge in to
+  -- the walkable hot edge (default hot = negative x, perp = "(0 - x)"). ci-18n.
+  assert_true(expr:find("(0 - x) > " .. v.lo, 1, true) ~= nil, "starts at the volcanic band's cold edge")
+  assert_true(expr:find("(0 - x) <= " .. v.hi, 1, true) ~= nil, "capped at the walkable hot (lava-crust) edge")
   -- Clusters toward the lava: a clamped ramp from MIN to MAX probability.
   assert_true(expr:find("lerp(0.003, 0.02,", 1, true) ~= nil, "ramps MIN -> MAX toward the lava")
   assert_true(expr:find("clamp(", 1, true) ~= nil, "ramp fraction is clamped to the band")
