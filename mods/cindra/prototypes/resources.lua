@@ -222,10 +222,11 @@ data:extend({
 -- §6 no-soft-lock rule). Cloned from the vanilla huge-rock so it reads as a rock
 -- pile, but re-mined for CINDRA. Cindra has NO ore/coal patches at all (§6:
 -- bootstrap from nothing), so these finite rocks are the ONLY landing-tier metal:
--- each yields stone plus a SMALL trickle of iron ore + copper ore + coal. That is
+-- each yields stone plus a SMALL trickle of iron ore + copper ore. That is
 -- exactly enough to hand-craft stone furnaces (from the stone) and smelt a first
--- trickle of iron/copper plates + fuel -- enough to stand up the first foundry /
+-- trickle of iron/copper plates -- enough to stand up the first foundry /
 -- power / ice-processing, after which the infinite lava->metal economy takes over.
+-- (Coal, the early fuel/lubricant feedstock, is the VOLCANIC rocks' drop, ci-18n.)
 -- No tungsten: the field foundry (prototypes/lubricant.lua) is Cindra's own
 -- metallurgy answer, so the Vulcanus-legacy tungsten metal is off the planet
 -- entirely (ci-2tz -- don't ship both a bespoke foundry AND its legacy metal).
