@@ -13,11 +13,18 @@
 -- The single organising idea (the planet's thesis, §1): ENERGY sunward, MATTER
 -- nightward, and the BEST of everything at the lethal margins (edge-pushing).
 --
---   stone      the building ribbon + the walkable HOT margin, richer toward the
---              hot lethal edge (the lava-crust); never into the cold zone.
---   ice        the cold cap east of the building band, richer DEEPER (colder)
---              toward the deep-ice edge; never into the hot/temperate zone.
+--   stone      the building ribbon + the SAFE hot margin, richer toward the hot
+--              edge, but stopping SHORT of the heat damage zone (ci-fb9); never
+--              into the cold zone.
+--   ice        the SAFE cold margin east of the building band, richer DEEPER
+--              (colder), but stopping SHORT of the cold-lethal deep-ice cap
+--              (ci-fb9); never into the hot/temperate zone.
 --   rocks      scattered across the building band (finite bootstrap scatter, §6).
+--
+-- HARVESTABLE FIELDS NEVER SPAWN IN A DAMAGE ZONE (ci-fb9): a resource on a lethal
+-- tile is visible-but-unreachable. stone + ice are clamped to the damage-free band
+-- via field_bounds (reads terrain.damage_bounds). Volcanic rocks are the one
+-- deliberate exception -- they live IN the hot region as the hazard-reward.
 --
 -- The zone boundaries come from scripts/terrain.lua (M.resource_bounds), the SAME
 -- geometry that lays the tile gradient, so resources and terrain share one source
@@ -75,38 +82,67 @@ local function bounds(cfg)
   return terrain.resource_bounds(cfg)
 end
 
+-- The damage-EXCLUDED band edges for HARVESTABLE FIELDS (ci-fb9). A field (stone /
+-- ice patch) must NEVER generate in a DAMAGE ZONE: a resource sitting on a lethal
+-- tile is visible-but-unreachable, forbidden UX. So clamp the stone band's hot edge
+-- to the heat-damage boundary and the ice band's cold edge to the cold-damage
+-- boundary (both from terrain.damage_bounds -- the SAME positional axis the tile
+-- damage uses, so fields and damage share one source of truth), EXCLUSIVE of the
+-- lethal band: stone caps STRICTLY below hot_from, ice STRICTLY above cold_from.
+--
+-- Only stone + ice need this. Volcanic rocks are the deliberate hazard-reward
+-- exception and keep the raw walkable hot_edge (they read as "in the lava"); the
+-- bootstrap rocks already sit inside the safe building band (|p| <= building_half).
+local function field_bounds(cfg)
+  local b = bounds(cfg)
+  local d = terrain.damage_bounds(cfg)
+  local hot_edge = b.hot_edge
+  if d.hot_from and d.hot_from < hot_edge then hot_edge = d.hot_from end
+  local cold_edge = b.cold_edge
+  if d.cold_from and d.cold_from > cold_edge then cold_edge = d.cold_from end
+  return {
+    building_half = b.building_half,
+    building_lo = b.building_lo,
+    hot_edge = hot_edge,    -- stone lives STRICTLY below this (heat band starts here)
+    cold_edge = cold_edge,  -- ice lives STRICTLY above this (cold band starts here)
+  }
+end
+
 -- The mutually-exclusive placement RULE (ci-7w0): stone on the building ribbon +
--- the walkable hot margin (p in [building_lo, hot_edge]); ice on the cold cap
--- (p in [cold_edge, building_lo)); both keyed off the SAME divider at building_lo.
--- Because the two zones share that one divider and never overlap it, STONE can
--- NEVER generate in the cold zone and ICE can NEVER generate in the hot/temperate
--- zone -- the purity guarantee, expressed as pure geometry. `y` is the signed
+-- the SAFE (non-lethal) hot margin (p in [building_lo, hot_edge)); ice on the SAFE
+-- cold margin (p in (cold_edge, building_lo)); both keyed off the SAME divider at
+-- building_lo. Because the two zones share that one divider and never overlap it,
+-- STONE can NEVER generate in the cold zone and ICE can NEVER generate in the
+-- hot/temperate zone -- the purity guarantee, expressed as pure geometry. The outer
+-- edges come from field_bounds, so both bands also stop STRICTLY short of the damage
+-- zones (ci-fb9): no field tile is ever visible-but-unreachable. `y` is the signed
 -- perpendicular coordinate (sunward-positive).
 function M.stone_zone(y, cfg)
-  local b = bounds(cfg)
-  return y >= b.building_lo and y <= b.hot_edge
+  local b = field_bounds(cfg)
+  return y >= b.building_lo and y < b.hot_edge
 end
 
 function M.ice_zone(y, cfg)
-  local b = bounds(cfg)
-  return y < b.building_lo and y >= b.cold_edge
+  local b = field_bounds(cfg)
+  return y < b.building_lo and y > b.cold_edge
 end
 
--- Stone: from the cold edge of the building band out to the hot walkable margin,
--- richest toward the HOT edge so pushing sunward is rewarded. Returns 0 where
--- stone should not appear (the cold zone and past the walkable hot margin).
+-- Stone: from the cold edge of the building band out to the SAFE hot margin (short
+-- of the heat band), richest toward the hot edge so pushing sunward is rewarded.
+-- Returns 0 where stone should not appear (the cold zone and the heat damage zone).
 function M.stone_richness(y, cfg)
-  local b = bounds(cfg)
+  local b = field_bounds(cfg)
   if not M.stone_zone(y, cfg) then return 0 end
   local span = math.max(1, b.hot_edge - b.building_lo)
   local f = clamp((y - b.building_lo) / span, 0, 1)
   return math.floor(lerp(M.STONE_BASE, M.STONE_PEAK, f))
 end
 
--- Ice: east of the building band, richer the DEEPER (colder) you go, to the cap
--- edge. Returns 0 in the hot/temperate zone and beyond the cap.
+-- Ice: east of the building band, richer the DEEPER (colder) you go, out to the SAFE
+-- cold margin (short of the cold-lethal cap). Returns 0 in the hot/temperate zone
+-- and in the cold damage zone.
 function M.ice_richness(y, cfg)
-  local b = bounds(cfg)
+  local b = field_bounds(cfg)
   if not M.ice_zone(y, cfg) then return 0 end
   local span = math.max(1, b.building_lo - b.cold_edge)
   local depth = b.building_lo - y                     -- tiles past the divider, coldward
@@ -164,20 +200,22 @@ end
 
 local Y = M.PERP_AXIS -- the sunward-positive perpendicular axis expression.
 
--- Stone: p in [building_lo, hot_edge]. Encodes M.stone_zone as a noise-expression
--- string, so the map-gen zeroes stone probability/richness in the cold zone.
+-- Stone: p in [building_lo, hot_edge). Encodes M.stone_zone as a noise-expression
+-- string, so the map-gen zeroes stone probability/richness in the cold zone AND in
+-- the heat damage zone (hot_edge is clamped to the heat boundary; ci-fb9).
 function M.stone_mask_expr(cfg)
-  local b = bounds(cfg)
+  local b = field_bounds(cfg)
   return "(" .. Y .. " >= " .. num(b.building_lo) .. ")" ..
-         " * (" .. Y .. " <= " .. num(b.hot_edge) .. ")"
+         " * (" .. Y .. " < " .. num(b.hot_edge) .. ")"
 end
 
--- Ice: p in [cold_edge, building_lo). Encodes M.ice_zone, so the map-gen zeroes ice
--- probability/richness across the whole hot + temperate zone.
+-- Ice: p in (cold_edge, building_lo). Encodes M.ice_zone, so the map-gen zeroes ice
+-- probability/richness across the whole hot + temperate zone AND the cold damage
+-- zone (cold_edge is clamped to the cold boundary; ci-fb9).
 function M.ice_mask_expr(cfg)
-  local b = bounds(cfg)
+  local b = field_bounds(cfg)
   return "(" .. Y .. " < " .. num(b.building_lo) .. ")" ..
-         " * (" .. Y .. " >= " .. num(b.cold_edge) .. ")"
+         " * (" .. Y .. " > " .. num(b.cold_edge) .. ")"
 end
 
 -- Bootstrap rocks: a native simple-entity autoplace confined to the building band
@@ -224,14 +262,14 @@ local function lerp_expr(from, to, frac_expr)
 end
 
 function M.stone_richness_mult_expr(cfg)
-  local b = bounds(cfg)
+  local b = field_bounds(cfg)
   local span = math.max(1, b.hot_edge - b.building_lo)
   local frac = "(" .. Y .. " - " .. num(b.building_lo) .. ") / " .. num(span)
   return lerp_expr(1, M.STONE_PEAK / M.STONE_BASE, frac)
 end
 
 function M.ice_richness_mult_expr(cfg)
-  local b = bounds(cfg)
+  local b = field_bounds(cfg)
   local span = math.max(1, b.building_lo - b.cold_edge)
   local frac = "(" .. num(b.building_lo) .. " - " .. Y .. ") / " .. num(span)
   return lerp_expr(1, M.ICE_PEAK / M.ICE_BASE, frac)
