@@ -56,10 +56,19 @@ scene = bpy.context.scene
 bpy.ops.mesh.primitive_uv_sphere_add(segments=192, ring_count=96, radius=1.0)
 sphere = bpy.context.active_object
 bpy.ops.object.shade_smooth()
-# Rotate -90 about Z so the terminator (lon=0) faces the camera; a small tilt
-# about X shows a touch of the northern pole for a 3D globe read. Fire ends up on
+# Rotate -90 about Z so the terminator (lon=0) faces the camera. Fire ends up on
 # the LEFT limb, ice on the RIGHT.
-sphere.rotation_euler = (radians(8), 0.0, radians(-90))
+#
+# NO tilt about X (ci-pde): the sun runs along +X (horizontal), so ANY tilt about
+# the X axis rotates the lon=0 lava/sand meridian off the vertical while the light
+# terminator (the great circle at world x=0) stays exactly vertical. The painted
+# belt and the lit/dark boundary then cross at the equator and diverge toward the
+# poles -- a thin WEDGE / pie-slice (the ci-2f7 defect the overseer flagged). With
+# zero X-tilt the lon=0 meridian lands squarely in the x=0 plane, so the sand belt
+# coincides with the vertical light terminator: the belt is exactly PERPENDICULAR
+# to the horizontal rays and the disc reads as a clean half-lit sphere, no wedge.
+# (The small 3D pole-peek this used to give is sacrificed for that alignment.)
+sphere.rotation_euler = (0.0, 0.0, radians(-90))
 
 
 def load(name, colorspace):

@@ -107,6 +107,44 @@ check("falloff is well underway by the terminator (mid < 0.55x left)",
       mid_lum < 0.55 * left_lum,
       f"mid={mid_lum:.1f} left={left_lum:.1f}")
 
+# --- SAND/LAVA BELT IS PERPENDICULAR TO THE LIGHT: NO WEDGE (ci-pde) ---------
+# The sun runs exactly horizontal (from the left), so the lava/sand belt -- the
+# lon=0 terminator meridian the magma sits on -- must run VERTICAL down the disc,
+# square to those rays. Any tilt of the sphere about the horizontal light axis
+# slides that meridian off vertical while the light terminator stays vertical, so
+# the belt and the lit/dark boundary cross at an angle: the pie-slice WEDGE the
+# overseer flagged on ci-2f7. We measure the belt's lean directly from the
+# saturated magma band: per row (away from the polar caps) take the mean x of the
+# hot orange lava pixels, fit x vs y, and require the band's horizontal drift
+# across the disc to be a tiny fraction of the diameter (a vertical band drifts
+# ~0; the ci-2f7 wedge drifted ~0.066 of the diameter).
+r_ch, g_ch, b_ch = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+lava = disc & (r_ch > 170) & ((r_ch - b_ch) > 90) & ((r_ch - g_ch) > 40)
+ys_all = np.nonzero(disc.any(axis=1))[0]
+cy = float(np.nonzero(disc)[0].mean())
+rad = float(np.sqrt(disc.sum() / np.pi))
+band_rows, band_cx = [], []
+for y in range(H):
+    if abs(y - cy) > 0.55 * rad:            # skip the narrow polar caps
+        continue
+    m = lava[y]
+    if int(m.sum()) < 8:
+        continue
+    band_rows.append(y)
+    band_cx.append(float(np.nonzero(m)[0].mean()))
+if len(band_rows) >= 20:
+    br = np.array(band_rows, float)
+    bx = np.array(band_cx, float)
+    slope = float(np.polyfit(br, bx, 1)[0])
+    ndrift = abs(slope * (br.max() - br.min()) / (2.0 * rad))
+    check("lava/sand belt runs vertical, square to the light -- NO wedge "
+          "(band drift < 0.025 of diameter)",
+          ndrift < 0.025,
+          f"belt drift/diameter={ndrift:.4f}")
+else:
+    check("lava/sand belt runs vertical, square to the light -- NO wedge",
+          False, f"too few lava-band rows to fit ({len(band_rows)})")
+
 # --- DARK ICE SIDE IS DARK BUT NOT A PURE-BLACK VOID ------------------------
 # The frozen hemisphere reads as the DARK side (strong falloff) yet still shows
 # the pale-ice shimmer under the cool ambient -- not crushed to black.

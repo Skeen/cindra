@@ -121,6 +121,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   albedo/emission maps). This entry is only the in-game "does the star-map really
   POP" confirmation. Re-bake via `scripts/render-planet.sh`.
 
+- [ ] **[LANDED] Star-map lava/sand belt is square to the light, NO wedge (ci-pde).**
+  Follow-up to ci-2f7: the light crank was right but the geometry was wrong. The
+  bake tilted the sphere 8 deg about the (horizontal) light axis for a pole-peek,
+  which slid the lon=0 lava/sand meridian off vertical while the light terminator
+  stayed vertical, so the belt and the lit/dark boundary crossed at an angle -- a
+  pie-slice WEDGE (Overseer flag). The X-tilt is now zero, so the belt runs
+  straight vertical and coincides with the vertical light terminator. *Repro:*
+  open the star-map and select/approach Cindra (`./play.sh`). *Look for:* the
+  disc reads as a clean **half-lit sphere** -- the sandy/lava belt runs **straight
+  vertical** down the centre, PERPENDICULAR to the horizontal (left) sun, with the
+  bright sun-side crescent on the left and the dark ice hemisphere on the right;
+  **no angled wedge / pie-slice** where the belt meets the terminator. *Fallback:*
+  `unit-tests/test_starmap_lighting.py` now guards the belt's verticality (its
+  horizontal drift across the disc must be < 0.025 of the diameter; the ci-2f7
+  wedge drifted ~0.066). Re-bake via `scripts/render-planet.sh`.
+
 - [ ] **[SUPERSEDED by ci-i9m] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
   earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
   *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
