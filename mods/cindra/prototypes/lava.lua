@@ -196,10 +196,15 @@ local FRAME_W, FRAME_H = 270, 310
 local FRAME_COUNT = 80
 local LINE_LENGTH = 8   -- frames per row
 local LINES_PER_FILE = 8 -- rows in part 1; the remainder spill into part 2
--- HR (double-resolution) art: scale ~0.5 is the HR convention. Exact scale/shift
--- against the foundry-sized footprint is a visual tune -- see PLAYTEST.md.
-local BODY_SCALE = 0.5
-local BODY_SHIFT = util.by_pixel(0, -24)
+-- Scale/shift tuned against the 5x5 foundry footprint with an in-engine render
+-- (ci-ijk): at scale 0.5 the 270x310 frame was too small for the 5x5 box and
+-- sat floating above the ground (empty tiles showing below it). The vanilla
+-- foundry art (356x384) fills 5x5 at scale 0.5, so match its on-screen size:
+-- 0.64 gives ~173x198 px (~5.4x6.2 tiles), filling the box and overhanging like
+-- the foundry. shift 0 centres the body on the footprint (the foundry uses no
+-- shift); the old -24 px lift is what made it hover.
+local BODY_SCALE = 0.64
+local BODY_SHIFT = util.by_pixel(0, 0)
 
 local body_animation_files = {
   ENTITY_GFX .. "glass-furnace-hr-animation-1.png",

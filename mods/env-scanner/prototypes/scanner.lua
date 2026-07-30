@@ -49,11 +49,15 @@ local SHADOW_IMG = ENTITY_GFX .. "radio-station-hr-shadow.png"      -- static sh
 local FRAME_W, FRAME_H = 160, 290
 local FRAME_COUNT = 20
 local LINE_LENGTH = 8
-local BODY_SCALE = 0.4
--- The frame is tall (a masted radio station); lift the sprite so the building
--- base sits on the 1x1 footprint instead of being buried. Exact scale/shift is
--- pending visual confirmation (PLAYTEST.md).
-local BODY_SHIFT = util.by_pixel(0, -44)
+-- Scale/shift tuned against the 2x2 footprint with an in-engine render (ci-ijk).
+-- The frame content fills the 160 px width and runs y[0..282] (a narrow mast
+-- over the main body); the building base is 137 px below the frame centre.
+-- scale 0.42 makes the body ~67 px wide -> fills the 2x2 (64 px) with a natural
+-- slight overhang. The shift seats that base at the box's lower edge: the frame
+-- centre must sit 137*scale px above the box bottom, i.e. shift_y = 32 -
+-- 137*0.42 ~= -26 px. (The old -44 px left the base floating ~0.6 tile high.)
+local BODY_SCALE = 0.42
+local BODY_SHIFT = util.by_pixel(0, -26)
 
 -- Static preview sprite: frame 0 body + ground shadow + emissive glow. Rendered
 -- by ghosts / blueprints / factoriopedia (where the runtime overlay is absent);
@@ -75,13 +79,20 @@ local scanner_sprites = {
       shift = util.by_pixel(30, 6),
       draw_as_shadow = true,
     },
-    { -- emissive glow: screens / status LEDs / vents (renders lit in the dark)
+    { -- emissive glow: screens / status LEDs / vents (renders lit in the dark).
+      -- The emission strip is FULLY OPAQUE (alpha 1 everywhere) with a black
+      -- background and only bright openings; draw_as_glow does NOT change the
+      -- blend op, so without blend_mode = "additive" the opaque black paints a
+      -- solid black box straight over the body -- the ci-036 lava-manufacturer
+      -- bug, verified in-engine here too. Additive makes the black background
+      -- contribute nothing and only the openings add glow.
       filename = GLOW_STRIP,
       width = FRAME_W,
       height = FRAME_H,
       scale = BODY_SCALE,
       shift = BODY_SHIFT,
       draw_as_glow = true,
+      blend_mode = "additive",
     },
   },
 }
@@ -113,6 +124,10 @@ local glow_animation = {
   shift = BODY_SHIFT,
   animation_speed = C.ANIM_SPEED,
   draw_as_glow = true,
+  -- MANDATORY (see the static glow layer above): the emission strip is opaque
+  -- with a black background, so this in-world overlay needs additive blending
+  -- or it paints a black box over the animated body.
+  blend_mode = "additive",
 }
 
 -- === The buildable scanner (a renamed constant combinator) ===================
@@ -125,11 +140,25 @@ scanner.next_upgrade = nil
 scanner.sprites = scanner_sprites
 scanner.icon = ICON
 scanner.icon_size = 64
+-- A 2x2 building (Overseer, ci-ijk): the radio-station body reads as a real
+-- structure, not a 1x1 combinator. Override the cloned constant-combinator's
+-- 1x1 footprint. collision_box is inset from the 2x2 tile grid so it places
+-- cleanly; selection_box is the full 2x2. tile_width/height keep the build grid
+-- and blueprint/ghost bounds in sync with the boxes.
+scanner.tile_width = 2
+scanner.tile_height = 2
+scanner.collision_box = { { -0.9, -0.9 }, { 0.9, 0.9 } }
+scanner.selection_box = { { -1.0, -1.0 }, { 1.0, 1.0 } }
 
 local scanner_item = util.table.deepcopy(data.raw["item"]["constant-combinator"])
 scanner_item.name = C.SCANNER
 scanner_item.place_result = C.SCANNER
-scanner_item.order = "c[combinators]-z[environmental-scanner]"
+-- Sort in the crafting menu right AFTER the programmable-speaker (Overseer,
+-- ci-ijk), in the SAME "circuit-network" subgroup as the speaker + display
+-- panel. Speaker is "d[other]-b[programmable-speaker]"; "d[other]-c[...]" lands
+-- immediately after it and before the display panel's "s[display-panel]".
+scanner_item.subgroup = "circuit-network"
+scanner_item.order = "d[other]-c[environmental-scanner]"
 scanner_item.icon = ICON
 scanner_item.icon_size = 64
 

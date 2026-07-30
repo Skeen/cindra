@@ -38,4 +38,41 @@ describe("env-scanner loads alongside cindra (ci-xor)", function()
     -- radio tower shows in the build menu from the start (the user report).
     assert.is_true(recipe.enabled, "scanner recipe must be enabled from the start")
   end)
+
+  -- ci-ijk (Overseer): the scanner is a 2x2 building, not the 1x1 combinator it
+  -- was cloned from. Guards the collision/selection/tile footprint override so a
+  -- future edit can't silently revert it to 1x1.
+  it("is a 2x2 building", function()
+    local proto = prototypes.entity[SCANNER]
+    assert.are.equal(2, proto.tile_width, "scanner must occupy 2 tiles wide")
+    assert.are.equal(2, proto.tile_height, "scanner must occupy 2 tiles tall")
+    local sb = proto.selection_box
+    local w = sb.right_bottom.x - sb.left_top.x
+    local h = sb.right_bottom.y - sb.left_top.y
+    assert.is_true(math.abs(w - 2) < 0.01 and math.abs(h - 2) < 0.01,
+      "selection box must be 2x2, got " .. w .. "x" .. h)
+    local cb = proto.collision_box
+    local cw = cb.right_bottom.x - cb.left_top.x
+    assert.is_true(cw > 1.0 and cw <= 2.0,
+      "collision box must span most of the 2x2 (got width " .. cw .. ")")
+  end)
+
+  -- ci-ijk (Overseer): the scanner must sort in the crafting menu right AFTER the
+  -- programmable-speaker, in the SAME subgroup as the speaker + display-panel.
+  -- Reads the REAL vanilla prototypes so this stays correct if base tweaks its
+  -- own order strings.
+  it("sorts after the programmable-speaker (same subgroup)", function()
+    local scanner = prototypes.item[SCANNER]
+    local speaker = prototypes.item["programmable-speaker"]
+    local display = prototypes.item["display-panel"]
+    assert.is_not_nil(speaker, "programmable-speaker item must exist")
+    assert.are.equal(speaker.subgroup.name, scanner.subgroup.name,
+      "scanner must share the programmable-speaker's subgroup")
+    assert.is_true(scanner.order > speaker.order,
+      "scanner order (" .. scanner.order .. ") must sort after speaker (" .. speaker.order .. ")")
+    if display then
+      assert.is_true(scanner.order < display.order,
+        "scanner order (" .. scanner.order .. ") should sort before the display panel (" .. display.order .. ")")
+    end
+  end)
 end)

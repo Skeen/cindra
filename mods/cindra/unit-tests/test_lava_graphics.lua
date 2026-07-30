@@ -193,6 +193,31 @@ test("lava-manufacturer wires a 3-layer animation (body + shadow + glow)", funct
   assert_eq(3, #layers(), "expected body + shadow + glow layers")
 end)
 
+-- === ci-ijk: the body must FILL the 5x5 footprint and SIT on the ground =====
+test("body/emission scale fills the 5x5 box and the shift does not float it", function()
+  -- Pre-fix (ci-ijk) the 270x310 frame drew at scale 0.5 (too small for the 5x5
+  -- foundry footprint) with a -24 px upward shift that left it hovering above the
+  -- ground. Verified in-engine: scale ~0.64 fills the box like the vanilla
+  -- foundry (356x384 @ 0.5) and shift 0 seats it. Guard both: a regression to the
+  -- small/lifted values fails here.
+  local ls = layers()
+  local body, glow
+  for _, l in ipairs(ls) do
+    if l.draw_as_glow then glow = l elseif not l.draw_as_shadow then body = l end
+  end
+  assert_true(body ~= nil and glow ~= nil, "body + glow layers must exist")
+  assert_true(body.scale ~= nil and body.scale >= 0.6,
+    "body scale must fill the 5x5 box (>= 0.6), got " .. tostring(body.scale))
+  -- shift is by_pixel -> {x/32, y/32}; the old lift was y = -24/32 = -0.75.
+  assert_true(body.shift[2] > -0.2,
+    "body must not be lifted off the ground (shift.y ~ 0), got " .. tostring(body.shift[2]))
+  -- Body + emission must stay locked together (same scale + shift) or the molten
+  -- glow drifts off the body.
+  assert_eq(body.scale, glow.scale, "emission scale must match the body")
+  assert_eq(body.shift[1], glow.shift[1], "emission shift.x must match the body")
+  assert_eq(body.shift[2], glow.shift[2], "emission shift.y must match the body")
+end)
+
 -- The body is a TWO-PART animation sheet: 80 frames of 270x310 laid out 8/row,
 -- part 1 (8 rows = 64 frames) + part 2 (2 rows = 16 frames), stitched via
 -- filenames + lines_per_file. This geometry is what makes the furnace animate.
