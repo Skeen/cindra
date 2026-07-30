@@ -81,15 +81,18 @@ describe("position-scaled solar - real engine output", function()
     H.power_reset()
     flare.set_schedule(WS)
 
-    -- Two isolated grids (60 tiles apart in x, beyond substation wire reach), so
-    -- each measurement sink only ever sees its own panel's output.
-    H.grid(s, 30, 42, -30)
-    H.panel(s, { -30, 40 })              -- sunward panel
-    local sun_sink = H.measure_sink(s, { -30, 30 })
+    -- Two isolated grids (80 tiles apart in x, beyond substation wire reach), so
+    -- each measurement sink only ever sees its own panel's output. Placed at
+    -- x = -/+40 (the survivable-ribbon edges): under the ci-da2 curve (ci-22v) the
+    -- sunward edge sits a clear band above the nightward edge, so real output still
+    -- proves placement matters even though the ramp now spans the whole ribbon.
+    H.grid(s, 30, 42, -40)
+    H.panel(s, { -40, 40 })              -- sunward panel (west edge of the work area)
+    local sun_sink = H.measure_sink(s, { -40, 30 })
 
-    H.grid(s, -42, -30, 30)
-    H.panel(s, { 30, -40 })              -- nightward panel
-    local night_sink = H.measure_sink(s, { 30, -30 })
+    H.grid(s, -42, -30, 40)
+    H.panel(s, { 40, -40 })              -- nightward panel (east edge)
+    local night_sink = H.measure_sink(s, { 40, -30 })
 
     panels.reconcile_variants(s) -- morph both to their position bands
 
