@@ -112,11 +112,49 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     end
   end)
 
-  it("ALWAYS generates the hot-lava layer at the sunward edge (ci-a35)", function()
-    -- The hottest zone must always exist at the far west edge, min width > 0.
-    local hot = s.count_tiles_filtered({
-      name = "cindra-lava-hot", area = { { -450, -RY }, { -395, RY } } })
-    assert.is_true(hot > 0, "the sunward hot-lava band always generates")
+  it("ALWAYS generates a SOLID hot-lava SEA at the sunward edge, zero gaps (ci-48z/ci-a35)", function()
+    -- Zone 1 (hot_lava) MUST be a solid, contiguous hot-lava sea: pure lava-hot, no
+    -- pools/gaps/rings. Its band is perp [400,450] -> x in [-450,-400] at default widths.
+    -- Scan the interior of that band (x in [-449,-401], clear of the wavy inner edge) and
+    -- assert EVERY non-lava-hot Cindra tile count is ZERO -- the sea has no holes.
+    local box = { { -449, -RY }, { -401, RY } }
+    local non_lava_hot = 0
+    for _, name in ipairs(terrain.tile_names()) do
+      if name ~= "cindra-lava-hot" then
+        non_lava_hot = non_lava_hot + s.count_tiles_filtered({ name = name, area = box })
+      end
+    end
+    assert.are.equal(0, non_lava_hot,
+      "zone 1 is a SOLID hot-lava sea: no non-lava-hot tiles inside it (found " .. non_lava_hot .. ")")
+    local hot = s.count_tiles_filtered({ name = "cindra-lava-hot", area = box })
+    assert.is_true(hot > 1000, "the solid sea is a large contiguous band of hot-lava (" .. hot .. ")")
+  end)
+
+  it("keeps the SOLID hot-lava SEA solid on OTHER seeds (seed-independent, ci-48z)", function()
+    -- The sea is anchored to the perpendicular axis, not the noise, so it must be solid on
+    -- every map seed. Build small west-edge surfaces at fresh seeds and re-assert zero gaps.
+    local base = game.surfaces["cindra"]
+      or (game.planets["cindra"] and game.planets["cindra"].create_surface())
+    local fd = terrain.finite_dimension()
+    for _, seed in ipairs({ 111, 99999 }) do
+      local mgs = base.map_gen_settings
+      mgs.seed = seed
+      mgs[fd.key] = fd.value
+      local sname = "cindra-sea-seed-" .. seed
+      local ss = game.surfaces[sname] or game.create_surface(sname, mgs)
+      ss.request_to_generate_chunks({ -425, 0 }, 5) -- ~160 tiles: covers the west sea band
+      ss.force_generate_chunk_requests()
+      local box = { { -449, -100 }, { -401, 100 } }
+      local gaps = 0
+      for _, name in ipairs(terrain.tile_names()) do
+        if name ~= "cindra-lava-hot" then
+          gaps = gaps + ss.count_tiles_filtered({ name = name, area = box })
+        end
+      end
+      assert.are.equal(0, gaps, "seed " .. seed .. ": the hot-lava sea is still solid (gaps=" .. gaps .. ")")
+      assert.is_true(ss.count_tiles_filtered({ name = "cindra-lava-hot", area = box }) > 0,
+        "seed " .. seed .. ": the sea generated")
+    end
   end)
 
   -- 2a. HEIGHTMAP RINGS around lava (ci-cwk) -------------------------------------
@@ -147,13 +185,14 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       "volcanic-cracks-hot rings appear intermixed in the SAME mid-hot column (pools, not a stripe)")
   end)
 
-  it("rings every lava pool with hot crust: lava never directly touches non-hot terrain (ci-cwk)", function()
+  it("rings every lava pool with hot crust: lava never directly touches non-hot terrain (ci-cwk/ci-48z)", function()
     -- Walk the hot region; for every lava tile, its 4-neighbours must all be lava or
     -- hot crust (cracks-hot/cracks-warm/smooth-stone-warm). The descending elevation
     -- field guarantees a lava tile is insulated by its rings -- it can never abut the
-    -- temperate/volcanic ground directly. AND the immediate ring is predominantly
-    -- volcanic-cracks-hot (the shoreline the user asked for).
-    local ring_hot, ring_other, leaks = 0, 0, 0
+    -- temperate/volcanic ground directly. AND, per the ci-48z contour fix, the immediate
+    -- ring is predominantly volcanic-SMOOTH-STONE-warm (warmer than cracks-hot, so it sits
+    -- adjacent to the lava; cracks-hot rings IT one step further out).
+    local ring_smooth, ring_other, leaks = 0, 0, 0
     local lava_seen = 0
     for x = -445, -310, 1 do
       for y = -150, 150, 3 do
@@ -162,8 +201,8 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
           for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
             local n = tile(x + d[1], y + d[2])
             if not LAVA[n] then
-              if n == "cindra-volcanic-cracks-hot" then
-                ring_hot = ring_hot + 1
+              if n == "cindra-volcanic-smooth-stone-warm" then
+                ring_smooth = ring_smooth + 1
               elseif HOT_CRUST[n] then
                 ring_other = ring_other + 1
               else
@@ -177,9 +216,9 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     assert.is_true(lava_seen > 50, "sampled a meaningful amount of lava (" .. lava_seen .. ")")
     assert.are.equal(0, leaks,
       "lava is always insulated by its hot-crust rings, never touching non-hot terrain (leaks=" .. leaks .. ")")
-    assert.is_true(ring_hot > 0, "lava pools are bounded by volcanic-cracks-hot")
-    assert.is_true(ring_hot >= ring_other,
-      "the immediate ring around lava is predominantly cracks-hot (hot=" .. ring_hot .. ", other=" .. ring_other .. ")")
+    assert.is_true(ring_smooth > 0, "lava pools are bounded by volcanic-smooth-stone-warm")
+    assert.is_true(ring_smooth >= ring_other,
+      "the immediate ring around lava is predominantly smooth-stone-warm (smooth=" .. ring_smooth .. ", other=" .. ring_other .. ")")
   end)
 
   it("keeps lava gated by the X gradient: dense to the west, thinning to none by the temperate zone (ci-cwk)", function()

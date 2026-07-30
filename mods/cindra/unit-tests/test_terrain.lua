@@ -259,14 +259,18 @@ test("a temperate tile's probability_expr is a noise-wiggled plateau + weight + 
   assert_true(not ok, "an unknown tile errors")
 end)
 
-test("the HOT RING order is core -> outer, contiguous elevation bands (ci-cwk)", function()
-  -- lava is the peak; descend the elevation field out through the rings.
-  local order = {}
-  for _, r in ipairs(terrain.HOT_RING_ORDER) do order[#order + 1] = r.vanilla end
-  assert_eq("lava-hot", order[1], "the molten core is the highest ring")
-  assert_eq("lava", order[2], "lava is the pool body")
-  assert_eq("volcanic-cracks-hot", order[3], "cracks-hot is the boundary RING around lava")
-  assert_eq("volcanic-smooth-stone-warm", order[#order], "warm smooth stone is the outermost ring")
+test("the HOT RING order honours the ci-cwk contour levels, core -> outer (ci-48z fix A)", function()
+  -- The SEA/lava is the peak; descend the elevation field outward through the rings. The
+  -- contour order is hottest-lava -> hot-lava -> smooth-stone-warm(-2) -> cracks-hot(-1)
+  -- -> cracks-warm(0): smooth-stone-warm is WARMER (closer to lava) than cracks-hot, so it
+  -- rings the lava and cracks-hot rings IT (not the reverse -- the ci-48z fix).
+  local EXPECTED = {
+    "lava-hot", "lava", "volcanic-smooth-stone-warm", "volcanic-cracks-hot", "volcanic-cracks-warm",
+  }
+  assert_eq(#EXPECTED, #terrain.HOT_RING_ORDER, "five ring tiles")
+  for i, v in ipairs(EXPECTED) do
+    assert_eq(v, terrain.HOT_RING_ORDER[i].vanilla, "ring " .. i .. " is " .. v)
+  end
   -- Thresholds strictly descend, so equal-elevation contours nest as concentric rings.
   for i = 2, #terrain.HOT_RING_ORDER do
     assert_true(terrain.HOT_RING_ORDER[i].lo < terrain.HOT_RING_ORDER[i - 1].lo,
@@ -279,29 +283,58 @@ test("ring_tile_at maps an elevation to its ring tile (lava core down to warm cr
   assert_eq("cindra-lava-hot", terrain.ring_tile_at(200), "the peak is the molten core")
   assert_eq("cindra-lava-hot", terrain.ring_tile_at(140), "at the core threshold => lava-hot")
   assert_eq("cindra-lava", terrain.ring_tile_at(110), "just below the core => lava body")
-  assert_eq("cindra-volcanic-cracks-hot", terrain.ring_tile_at(60), "the boundary RING is cracks-hot")
-  assert_eq("cindra-volcanic-cracks-warm", terrain.ring_tile_at(30), "outside the ring => warm cracks")
-  assert_eq("cindra-volcanic-smooth-stone-warm", terrain.ring_tile_at(-50), "far out => smooth warm crust")
+  assert_eq("cindra-volcanic-smooth-stone-warm", terrain.ring_tile_at(60),
+    "the ring immediately outside the lava is smooth-stone-warm (warmer than cracks-hot)")
+  assert_eq("cindra-volcanic-cracks-hot", terrain.ring_tile_at(30), "cracks-hot rings the smooth-stone-warm")
+  assert_eq("cindra-volcanic-cracks-warm", terrain.ring_tile_at(-50), "far out => warm cracks, blends to temperate")
 end)
 
-test("a hot tile's probability_expr is a heightmap ring term (not a flat sub-band)", function()
-  -- The hot region [300, 450] is driven by the lava heightmap: a steep hot_gate that
-  -- confines the tile to the hot region + a ring selector on the elevation field.
+test("a hot tile's probability_expr is a sea-anchored heightmap ring term (not a flat sub-band)", function()
+  -- The hot region [300, 450] is driven by the sea-anchored lava heightmap: a steep
+  -- hot_gate that confines the tile to the hot region + a ring selector on the elevation
+  -- field E, whose SOLID-SEA floor forces lava-hot across zone 1 (perp >= sea_lo = 400).
   local hot = terrain.probability_expr("cindra-lava-hot")
   contains(hot, "max(0,", "the gate + ring selector fall off via max(0, ...)")
-  contains(hot, axis.perp_expr(), "the gate is keyed to the perpendicular axis")
+  contains(hot, axis.perp_expr(), "the gate + sea floor are keyed to the perpendicular axis")
   contains(hot, "300", "the hot region's temperate (inner) edge")
   contains(hot, "450", "the hot region's sunward (outer) edge")
   contains(hot, "140", "the lava-core elevation threshold")
   contains(hot, "seed1 = 42", "the elevation field is the lava heightmap noise (seed 42)")
-  -- lava-hot lives ONLY in the hot region, so it has no perpendicular sub-band edge
-  -- at 400 anymore (the old flat-band inner edge); the layout is purely ring-based.
-  assert_true(hot:find("400", 1, true) == nil, "no leftover flat sub-band inner edge (400)")
+  -- The SOLID SEA is anchored at zone 1's cold edge (sea_lo = 400 at default widths): a
+  -- forced elevation floor (SEA_FILL) confined to perp >= sea_lo, NOT a flat sub-band.
+  contains(hot, "400", "the solid-sea anchor (zone 1's cold edge, sea_lo)")
+  contains(hot, tostring(terrain.SEA_FILL), "the sea floor forces lava-hot across zone 1")
   -- cracks-warm is BOTH a hot-region ring AND a temperate (zone 4) member, so it has a
   -- ring term (heightmap) AND a flat perp-band weight term.
   local warm = terrain.probability_expr("cindra-volcanic-cracks-warm")
   contains(warm, "seed1 = 42", "cracks-warm carries the hot ring term")
   contains(warm, "min(1, max(0,", "cracks-warm also carries its temperate flat-band weight")
+end)
+
+test("the SOLID SEA floor guarantees lava-hot in zone 1 regardless of the heightmap (ci-48z)", function()
+  -- Zone 1 (hot_lava) MUST be a solid contiguous hot-lava sea. Inside the sea the
+  -- elevation is forced to SEA_FILL; even the deepest heightmap dip cannot pull it below
+  -- the lava-core threshold, so ring_tile_at always returns lava-hot there.
+  local lava_hot_lo = terrain.HOT_RING_ORDER[1].lo
+  assert_eq("lava-hot", terrain.HOT_RING_ORDER[1].vanilla, "the core ring is lava-hot")
+  assert_true(terrain.SEA_FILL - terrain.HEIGHT_AMPLITUDE >= lava_hot_lo,
+    "the forced sea elevation stays above the lava-core threshold even at the worst noise dip")
+  assert_eq("cindra-lava-hot", terrain.ring_tile_at(terrain.SEA_FILL),
+    "the forced sea elevation resolves to the hot-lava core")
+  -- The sea floor drops away outside the sea (SEA_WALL > 0), so the heightmap pools take
+  -- over there rather than extending the solid sea forever.
+  assert_true(terrain.SEA_WALL > 0, "the sea floor falls away outside zone 1 so pools can form")
+
+  -- Width-independence: the sea band is EXACTLY zone 1, tracking the hot_lava width
+  -- setting, and the forced-elevation guarantee is a constant, so it holds at the MIN
+  -- (1) and MAX (2000) zone-width settings alike -- the sea is never zero/dissolved.
+  for _, w in ipairs({ 1, 50, 2000 }) do
+    local bands = terrain.bands({ hot_lava = w })
+    assert_eq(w, bands[1].hi - bands[1].lo, "the sea band width tracks the hot_lava setting (" .. w .. ")")
+    -- The sea anchor (zone 1's cold edge) is emitted into the hot-lava expression at this width.
+    local expr = terrain.probability_expr("cindra-lava-hot", { hot_lava = w })
+    contains(expr, tostring(terrain.SEA_FILL), "the sea floor forces lava-hot at hot_lava width " .. w)
+  end
 end)
 
 test("the world is finite perpendicular via the map-gen = the total width", function()
