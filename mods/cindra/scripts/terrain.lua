@@ -321,28 +321,42 @@ M.WEIGHT_SCALE = 6
 -- upper threshold is the previous ring's `lo` (the core ring is open at the top, the
 -- outermost open at the bottom). This is the SINGLE source of truth for the ring
 -- layout: M.ring_tile_at, the per-tile ring bands and the probability terms all read it.
+--
+-- The order honours the ci-cwk CONTOUR levels (hottest -> coolest, ci-48z fix A):
+-- hottest-lava (-4) -> hot-lava (-3) -> smooth-stone-warm (-2) -> cracks-hot (-1) ->
+-- cracks-warm (0). smooth-stone-warm is WARMER (closer to the lava) than cracks-hot, so
+-- it is the ring immediately outside the lava, with cracks-hot ringing it further out.
 local HOT_BIG = 1e9
 M.HOT_RING_ORDER = {
-  { vanilla = "lava-hot",                   lo = 140 },      -- the molten CORE / peak
-  { vanilla = "lava",                       lo = 90 },       -- the pool body
-  { vanilla = "volcanic-cracks-hot",        lo = 45 },       -- the boundary RING (shoreline)
-  { vanilla = "volcanic-cracks-warm",       lo = 15 },       -- warm crust, ring outward
-  { vanilla = "volcanic-smooth-stone-warm", lo = -HOT_BIG }, -- outermost, blends to temperate
+  { vanilla = "lava-hot",                   lo = 140 },      -- -4 the molten CORE / peak
+  { vanilla = "lava",                       lo = 90 },       -- -3 the pool body
+  { vanilla = "volcanic-smooth-stone-warm", lo = 45 },       -- -2 warm crust ring, adjacent to lava
+  { vanilla = "volcanic-cracks-hot",        lo = 15 },       -- -1 cracks-hot ring, outside smooth-stone
+  { vanilla = "volcanic-cracks-warm",       lo = -HOT_BIG }, --  0 outermost, blends to temperate
 }
 
 -- Heightmap field tuning (elevation units; the ring bands above are in these units).
 -- HEIGHT_AMPLITUDE/WAVELENGTH shape the lava POOLS (a low-frequency blob field);
--- HEIGHT_BIAS is the extra elevation at the sunward hot edge (0 at the temperate
--- edge) that makes lava dense west and absent by the temperate zone. RING_PLATEAU is
--- the ring selector's plateau height and HOT_GATE_STEEP the steepness of the walls
+-- HEIGHT_BIAS is the peak elevation anchored at the SEA edge (0 at the temperate edge)
+-- that makes lava dense next to the sea and absent by the temperate zone. RING_PLATEAU
+-- is the ring selector's plateau height and HOT_GATE_STEEP the steepness of the walls
 -- that confine the hot tiles to the hot region (a steep east wall keeps lava/cracks
 -- from leaking into the temperate zone; ~RING_PLATEAU/HOT_GATE_STEEP tiles of organic
--- blend at the temperate edge). (tune)
-M.HEIGHT_AMPLITUDE = 80
+-- blend at the temperate edge).
+--
+-- SOLID SEA (ci-48z): zone 1 (hot_lava, the far-west band) MUST be a solid, contiguous
+-- hot-lava sea, always, regardless of noise / zone width / heightmap. Within zone 1 the
+-- elevation is FORCED to SEA_FILL (well above the lava-core threshold) so lava-hot always
+-- wins -> no pools/gaps/rings in the sea. SEA_WALL is how steeply that forced floor falls
+-- away just OUTSIDE the sea, handing off to the heightmap so the pools/rings radiate
+-- outward FROM the sea edge. (tune)
+M.HEIGHT_AMPLITUDE = 55
 M.HEIGHT_WAVELENGTH = 56
-M.HEIGHT_BIAS = 120
+M.HEIGHT_BIAS = 115
 M.RING_PLATEAU = 60
 M.HOT_GATE_STEEP = 20
+M.SEA_FILL = 200
+M.SEA_WALL = 60
 
 -- cindra tile name -> its elevation band { lo, hi }, built from HOT_RING_ORDER.
 local RING_BAND = {}
