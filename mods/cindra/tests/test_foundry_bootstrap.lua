@@ -54,20 +54,33 @@ local function pressure_condition(recipe_proto)
   return nil
 end
 
+local field = require("scripts.resource-field")
+
 describe("cindra start-on-Cindra foundry bootstrap", function()
-  -- --- The finite bootstrap coal ------------------------------------------
-  it("puts a small, FINITE coal trickle in the hand-mined bootstrap rocks", function()
-    local rock = prototypes.entity["cindra-rock"]
-    assert.is_not_nil(rock, "the bootstrap rock must exist")
-    local coal
-    for _, r in pairs(rock.mineable_properties.products) do
-      if r.name == "coal" then coal = r end
+  -- --- The finite bootstrap coal (ci-18n: now the VOLCANIC rocks, not the sandy) --
+  it("puts a small, FINITE coal trickle in the hand-mined VOLCANIC rocks (ci-18n)", function()
+    -- ci-18n moved coal OFF the temperate/sandy rock onto the volcanic rocks in the
+    -- lava region. The sandy rock must NO LONGER drop coal...
+    local sandy = prototypes.entity["cindra-rock"]
+    assert.is_not_nil(sandy, "the sandy bootstrap rock must exist")
+    for _, r in pairs(sandy.mineable_properties.products) do
+      assert.are_not.equal("coal", r.name,
+        "the sandy rock must NOT drop coal any more -- coal is the volcanic rocks' (ci-18n)")
     end
-    assert.is_not_nil(coal, "mining a bootstrap rock must drop some coal (the lubricant feedstock)")
-    -- Small: a landing trickle, not a windfall. Guards against a fat coal drop
-    -- turning the finite rocks into an effectively-infinite coal supply.
-    assert.is_true((coal.amount_max or coal.amount) <= 5,
-      "the coal drop must stay small (<=5); it is a one-time bootstrap, not a supply")
+    -- ...and each VOLCANIC rock must drop a small, finite coal trickle (the lubricant
+    -- feedstock). Small: a landing trickle, not a windfall -- guards against a fat
+    -- coal drop turning the finite rocks into an effectively-infinite coal supply.
+    for _, name in ipairs(field.burned_rock_names()) do
+      local rock = prototypes.entity[name]
+      assert.is_not_nil(rock, name .. " must exist")
+      local coal
+      for _, r in pairs(rock.mineable_properties.products) do
+        if r.name == "coal" then coal = r end
+      end
+      assert.is_not_nil(coal, "mining a volcanic rock must drop some coal (" .. name .. ")")
+      assert.is_true((coal.amount_max or coal.amount) <= 10,
+        "the coal drop must stay small (<=10); it is a one-time bootstrap, not a supply (" .. name .. ")")
+    end
   end)
 
   it("has NO mineable/permanent coal source: coal can never scale", function()

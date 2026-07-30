@@ -222,15 +222,18 @@ data:extend({
 -- §6 no-soft-lock rule). Cloned from the vanilla huge-rock so it reads as a rock
 -- pile, but re-mined for CINDRA. Cindra has NO ore/coal patches at all (§6:
 -- bootstrap from nothing), so these finite rocks are the ONLY landing-tier metal:
--- each yields stone plus a SMALL trickle of iron ore + copper ore + coal. That is
+-- each yields stone plus a SMALL trickle of iron ore + copper ore. That is
 -- exactly enough to hand-craft stone furnaces (from the stone) and smelt a first
--- trickle of iron/copper plates + fuel -- enough to stand up the first foundry /
+-- trickle of iron/copper plates -- enough to stand up the first foundry /
 -- power / ice-processing, after which the infinite lava->metal economy takes over.
+-- (Coal, the early fuel/lubricant feedstock, is the VOLCANIC rocks' drop, ci-18n.)
 -- No tungsten: the field foundry (prototypes/lubricant.lua) is Cindra's own
 -- metallurgy answer, so the Vulcanus-legacy tungsten metal is off the planet
 -- entirely (ci-2tz -- don't ship both a bespoke foundry AND its legacy metal).
--- The amounts are a bootstrap-balance decision (§15-13, coordinate with ci-arw /
--- ci-uex); kept small and finite so they can never replace the main loop.
+-- No COAL either (ci-18n): coal is now the VOLCANIC rocks' drop (the burned rocks
+-- in the lava region below), so the sandy rocks keep only stone + the iron/copper
+-- trickle. The amounts are a bootstrap-balance decision (§15-13, coordinate with
+-- ci-arw / ci-uex); kept small and finite so they can never replace the main loop.
 local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
 -- Player-facing name is just "Rock" (locale entity-name.cindra-rock); the
 -- prototype id carries no "bootstrap" either (ci-d2h). The bootstrap ROLE
@@ -258,10 +261,39 @@ rock.minable = {
     { type = "item", name = "stone", amount_min = 12, amount_max = 24 },
     { type = "item", name = "iron-ore", amount_min = 3, amount_max = 6 },
     { type = "item", name = "copper-ore", amount_min = 3, amount_max = 6 },
-    { type = "item", name = "coal", amount_min = 2, amount_max = 4 },
   },
 }
 data:extend({ rock })
+
+-- Ice-rocks (ci-18n): the cold-side counterpart of the sandy bootstrap rock. A
+-- FINITE hand-minable simple-entity that generates in the SAFE cold/ice band (native
+-- autoplace, field.ice_rock_probability_expr -- cold of the stone/ice divider but
+-- warm of the lethal deep-ice zone 11, so it is gatherable with no cold damage).
+-- Mining one yields an early ICE + STONE combo: a cold-side head-start on water (ice
+-- -> water in the chemical plant) and stone, without a crusher. Like the sandy /
+-- volcanic rocks it is finite (a mined simple-entity is DESTROYED), so the ice/stone
+-- is a one-shot trickle, never a per-craft input of the main loop -- the sustaining
+-- water supply is still the renewable ICE FIELD (crush -> ice -> melt), per §6.
+--
+-- Cloned from the vanilla huge-rock (like the sandy rock) purely for the rock art;
+-- we never mutate the shared vanilla prototype (that would leak onto Nauvis), only
+-- deep-copy it. A pale frost-blue multiply-tint (rock_tint.ICE_TINT) shifts the warm
+-- rubble art toward an ICY boulder so it reads correctly on the cold cap.
+local ice_rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
+ice_rock.name = field.ICE_ROCK
+ice_rock.order = "a[cindra]-d[ice-rock]"
+ice_rock.map_color = { 0.62, 0.82, 1.0 } -- pale frost-blue, matches the icy tint
+ice_rock.autoplace = { probability_expression = field.ice_rock_probability_expr(CFG) }
+rock_tint.apply(ice_rock.pictures, rock_tint.ICE_TINT)
+ice_rock.minable = {
+  mining_particle = "stone-particle",
+  mining_time = 2,
+  results = {
+    { type = "item", name = "ice", amount_min = 4, amount_max = 8 },
+    { type = "item", name = "stone", amount_min = 8, amount_max = 16 },
+  },
+}
+data:extend({ ice_rock })
 
 -- Burned volcanic rocks (ci-qy0): charred Vulcanus-style boulders that generate in
 -- the HOT / lava region of the ribbon (never the temperate/building or ice zones),

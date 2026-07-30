@@ -88,13 +88,14 @@ local function cindra_map_gen()
 
   -- The entity autoplace allow-list: ONLY these Cindra entities generate (with
   -- treat_missing_as_default = false, an entity absent here never autoplaces). The
-  -- resources + the finite bootstrap rocks, plus the hot-region burned volcanic
-  -- rocks (ci-qy0). Names come from scripts/resource-field.lua so this list can
-  -- never drift from the prototypes it gates.
+  -- resources + the finite bootstrap rocks (sandy warm-side + icy cold-side, ci-18n),
+  -- plus the hot-region burned volcanic rocks (ci-qy0). Names come from
+  -- scripts/resource-field.lua so this list can never drift from the prototypes it gates.
   local entity_autoplace_settings = {
     [field.STONE] = {},
     [field.ICE] = {},
     [field.ROCK] = {},
+    [field.ICE_ROCK] = {},
   }
   for _, name in ipairs(field.burned_rock_names()) do
     entity_autoplace_settings[name] = {}
