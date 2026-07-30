@@ -42,6 +42,14 @@ remote.add_interface("cindra-flare", {
 local diode = require("scripts.diode")
 diode.register()
 
+-- No paving over the ribbon (ci-cbn): revert + refund any landfill/foundation
+-- (is_foundation) tile built on a Cindra surface, so the hot/cold danger zones and
+-- the finite ribbon width can never be paved away. Registers its OWN tile-build
+-- events, disjoint from every other track; gated on surface.name == "cindra" so no
+-- other planet or space platform is affected.
+local no_paving = require("scripts.no-paving")
+no_paving.register()
+
 local function on_init()
   driver.init()
 end
@@ -61,6 +69,9 @@ if script.active_mods["factorio-test"] then
     "tests/test_lava",
     "tests/test_aluminium",
     "tests/test_tile_damage",
+    -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +
+    -- the runtime revert/refund safety net).
+    "tests/test_paving",
     "tests/test_worldgen",
     "tests/test_decoratives",
     "tests/test_building_heat",
