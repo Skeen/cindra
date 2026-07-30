@@ -34,29 +34,35 @@ local function assert_true(x, msg)
   if not x then error(msg or "expected true", 2) end
 end
 
--- Default bounds (from terrain.resource_bounds): building_half 100, building_lo
--- -100 (the stone/ice divider), hot_edge 350 (outer walkable hot = lava-crust),
--- cold_edge -450 (the cold cap edge).
+-- Default bounds. terrain.resource_bounds: building_half 100, building_lo -100 (the
+-- stone/ice divider), hot_edge 350 (walkable hot = lava-crust), cold_edge -450 (cap
+-- edge). But HARVESTABLE FIELDS are clamped to the DAMAGE-FREE band (ci-fb9): heat
+-- damage starts at perp 300 (zones 1-3), cold at -200 (zone 11), so stone lives on
+-- [-100, 300) and ice on (-200, -100) -- both strictly OUT of the damage zones.
 
-test("stone lives on the building ribbon + hot margin, not on the cold cap", function()
+test("stone lives on the building ribbon + SAFE hot margin, not on the cold cap", function()
   assert_true(field.stone_richness(0) > 0, "stone at the terminator centre")
-  assert_true(field.stone_richness(340) > 0, "stone out to the hot (lava-crust) margin")
+  assert_true(field.stone_richness(290) > 0, "stone out to the SAFE hot margin (below the heat band)")
   assert_eq(0, field.stone_richness(-200), "no stone on the cold cap")
+  assert_eq(0, field.stone_richness(300), "no stone AT the heat damage boundary (ci-fb9)")
+  assert_eq(0, field.stone_richness(340), "no stone in the heat damage zone / lava-crust (ci-fb9)")
   assert_eq(0, field.stone_richness(400), "no stone past the hot walkable margin (into the lava)")
 end)
 
-test("stone is richest toward the HOT edge (edge-pushing)", function()
-  assert_true(field.stone_richness(340) > field.stone_richness(0),
+test("stone is richest toward the HOT (safe) edge (edge-pushing)", function()
+  assert_true(field.stone_richness(290) > field.stone_richness(0),
     "sunward stone richer than central stone")
   assert_true(field.stone_richness(0) > field.stone_richness(-90),
     "richness falls off toward the cold edge of the stone band")
 end)
 
-test("ice lives on the cold cap only, richer deeper (colder)", function()
+test("ice lives on the SAFE cold margin only, richer deeper (colder)", function()
   assert_eq(0, field.ice_richness(0), "no ice in the temperate ribbon")
   assert_eq(0, field.ice_richness(200), "no ice on the hot side")
-  assert_true(field.ice_richness(-200) > 0, "ice on the cold cap")
-  assert_true(field.ice_richness(-400) > field.ice_richness(-150),
+  assert_true(field.ice_richness(-150) > 0, "ice on the SAFE cold margin")
+  assert_eq(0, field.ice_richness(-200), "no ice AT the cold damage boundary (ci-fb9)")
+  assert_eq(0, field.ice_richness(-400), "no ice in the cold damage zone / deep-ice cap (ci-fb9)")
+  assert_true(field.ice_richness(-190) > field.ice_richness(-110),
     "ice richer the deeper (colder) it gets")
 end)
 
@@ -91,6 +97,52 @@ test("stone is NEVER placeable on the cold cap; ice NEVER in the hot/temperate z
   end
 end)
 
+-- Damage-zone exclusion (ci-fb9): NO harvestable field (stone / ice) may generate
+-- in a DAMAGE ZONE -- a resource on a lethal tile is visible-but-unreachable. Scan
+-- the WHOLE perpendicular axis and assert stone/ice richness + zone are ZERO for
+-- every lethal position, keyed off the SAME terrain.damage_bounds the tile damage
+-- uses. Volcanic rocks (the hazard-reward exception) are intentionally NOT checked
+-- here -- they are meant to live in the hot region.
+test("stone + ice NEVER generate in a damage zone (heat 1-3 or cold 11)", function()
+  local db = terrain.damage_bounds()
+  local rb = terrain.resource_bounds()
+  local saw_heat, saw_cold = false, false
+  for p = rb.cold_edge - 20, rb.hot_edge + 20 do
+    local lethal = terrain.lethal_at(p)
+    if lethal == "heat" then
+      saw_heat = true
+      assert_eq(0, field.stone_richness(p), "stone in the HEAT damage zone at p=" .. p)
+      assert_eq(0, field.ice_richness(p), "ice in the HEAT damage zone at p=" .. p)
+      assert_true(not field.stone_zone(p), "stone_zone true in the HEAT damage zone at p=" .. p)
+      assert_true(not field.ice_zone(p), "ice_zone true in the HEAT damage zone at p=" .. p)
+    elseif lethal == "cold" then
+      saw_cold = true
+      assert_eq(0, field.stone_richness(p), "stone in the COLD damage zone at p=" .. p)
+      assert_eq(0, field.ice_richness(p), "ice in the COLD damage zone at p=" .. p)
+      assert_true(not field.stone_zone(p), "stone_zone true in the COLD damage zone at p=" .. p)
+      assert_true(not field.ice_zone(p), "ice_zone true in the COLD damage zone at p=" .. p)
+    end
+  end
+  assert_true(saw_heat, "scan covered the heat damage zone")
+  assert_true(saw_cold, "scan covered the cold damage zone")
+  -- The field bands stop STRICTLY short of the damage boundaries.
+  assert_true(field.stone_richness(db.hot_from - 1) > 0, "stone reaches right up to (but not into) the heat band")
+  assert_true(field.ice_richness(db.cold_from + 1) > 0, "ice reaches right up to (but not into) the cold band")
+end)
+
+test("damage-zone exclusion holds under a per-zone-width config override too", function()
+  -- Shrink the heat crust + widen the ice cap: the damage boundaries move, and the
+  -- field bands must track them (still zero resource on any lethal tile).
+  local cfg = { lava_crust = 120, deep_ice = 400 }
+  local rb = terrain.resource_bounds(cfg)
+  for p = rb.cold_edge - 20, rb.hot_edge + 20 do
+    if terrain.lethal_at(p, cfg) then
+      assert_eq(0, field.stone_richness(p, cfg), "stone on a lethal tile under override at p=" .. p)
+      assert_eq(0, field.ice_richness(p, cfg), "ice on a lethal tile under override at p=" .. p)
+    end
+  end
+end)
+
 test("zone purity holds under a per-zone-width config override too", function()
   -- Widen the building area: the divider moves, but the guarantee holds.
   local cfg = { building = 400 }
@@ -116,12 +168,14 @@ end)
 -- orientation is vertical (hot on the LEFT), so the sunward-positive perpendicular
 -- axis is "(0 - x)"; scripts/axis.lua proves both orientations of that mapping.
 
-test("stone mask spans the building ribbon + hot margin on the perpendicular axis", function()
-  assert_eq("((0 - x) >= -100) * ((0 - x) <= 350)", field.stone_mask_expr(), "default stone band")
+test("stone mask spans the building ribbon + SAFE hot margin, short of the heat band", function()
+  -- Hot edge clamped to the heat-damage boundary (perp 300), EXCLUSIVE (ci-fb9).
+  assert_eq("((0 - x) >= -100) * ((0 - x) < 300)", field.stone_mask_expr(), "default stone band")
 end)
 
-test("ice mask covers the cold cap east of the divider", function()
-  assert_eq("((0 - x) < -100) * ((0 - x) >= -450)", field.ice_mask_expr(), "default ice band")
+test("ice mask covers the SAFE cold margin, short of the cold-lethal cap", function()
+  -- Cold edge clamped to the cold-damage boundary (perp -200), EXCLUSIVE (ci-fb9).
+  assert_eq("((0 - x) < -100) * ((0 - x) > -200)", field.ice_mask_expr(), "default ice band")
 end)
 
 test("bootstrap-rock autoplace masks to the building band across the WHOLE ribbon", function()

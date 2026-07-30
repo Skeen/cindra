@@ -317,16 +317,35 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     return s.count_entities_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
   end
 
-  it("places stone on the building ribbon + hot margin, never on the cold cap", function()
-    -- stone zone perp [-100, 350] -> x in [-350, 100].
-    assert.is_true(count(field.STONE, -350, 100) > 0, "stone patches on the hot ribbon")
+  it("places stone on the building ribbon + SAFE hot margin, never on the cold cap", function()
+    -- stone zone perp [-100, 300) -> x in (-300, 100] (clamped short of the heat band).
+    assert.is_true(count(field.STONE, -300, 100) > 0, "stone patches on the hot ribbon")
     assert.are.equal(0, count(field.STONE, 110, 450), "no stone on the cold cap (east)")
   end)
 
-  it("places ice on the cold cap, never on the hot/temperate ribbon", function()
-    -- ice zone perp [-450, -100) -> x in (100, 450].
-    assert.is_true(count(field.ICE, 110, 450) > 0, "ice patches on the cold cap (east)")
+  it("places ice on the SAFE cold margin, never on the hot/temperate ribbon", function()
+    -- ice zone perp (-200, -100) -> x in (100, 200) (clamped short of the cold cap).
+    assert.is_true(count(field.ICE, 110, 190) > 0, "ice patches on the SAFE cold margin (east)")
     assert.are.equal(0, count(field.ICE, -350, 100), "no ice on the hot/temperate ribbon")
+  end)
+
+  -- ci-fb9: NO harvestable field may generate in a DAMAGE ZONE (visible-but-
+  -- unreachable UX). Heat zones 1-3 = perp [300,450] -> x in [-450,-300]; cold zone
+  -- 11 = perp [-450,-200] -> x in [200,450]. Assert ZERO stone AND ice fields in both
+  -- damage bands on the LIVE map, and prove the scanned bands are the real lethal
+  -- terrain (so the check is meaningful).
+  it("keeps ALL harvestable fields OUT of the heat damage zone (zones 1-3)", function()
+    assert.are.equal(0, count(field.STONE, -450, -305), "no stone in the heat damage zone")
+    assert.are.equal(0, count(field.ICE, -450, -305), "no ice in the heat damage zone")
+    -- perp = -x, so x=-305 -> perp 305 (in the heat band); x=-330 -> perp 330.
+    assert.are.equal("heat", terrain.lethal_at(-(-330)), "the scanned band really is heat-lethal")
+  end)
+
+  it("keeps ALL harvestable fields OUT of the cold damage zone (deep-ice cap, zone 11)", function()
+    assert.are.equal(0, count(field.STONE, 205, 450), "no stone in the cold damage zone")
+    assert.are.equal(0, count(field.ICE, 205, 450), "no ice in the cold damage zone")
+    -- x=205 -> perp -205 (in the cold band); x=300 -> perp -300.
+    assert.are.equal("cold", terrain.lethal_at(-(300)), "the scanned band really is cold-lethal")
   end)
 
   -- 6a. ZONE PURITY (ci-7w0), proven on the LIVE map: STONE never in the cold zone,
