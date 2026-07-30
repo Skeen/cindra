@@ -1,14 +1,20 @@
--- Proof: manufactured aluminium is Cindra's ruinous-power material (ci-txh;
--- DESIGN.md §1, §5, §7). Four claims, matching the bead:
---   1. THE CHAIN is petrochemical-free, native inputs only:
---        stone + calcite -> alumina -> [power] -> aluminium.
---   2. POWER IS THE COST: the electrolysis cell has a huge electric draw (a
---      bigger single-building sink than the lava foundry) and the recipe a long
---      craft time -- so power, not material, is the dominant cost. Productivity
---      is allowed (intermediate reward, per lava); power still dominates.
---   3. GATED: recipes off by default; the tech unlocks all three and sits behind
---      BOTH the lava spine and ice processing (rock AND ice).
---   4. DEMAND EXISTS: the flare capacitor consumes aluminium (a downstream use),
+-- Proof: manufactured aluminium is Cindra's ruinous-power material (ci-txh; the
+-- line reshaped to acid leaching + O2-emitting electrolysis by ci-6vj S2, DESIGN
+-- §8 recipes #5/#6). The claims, matching the bead:
+--   1. THE CHAIN is petrochemical-free EXCEPT the honest acid input:
+--        20 stone + sulfuric-acid + water -> alumina + 14 stone + sulfur;
+--        4 alumina -> [power] -> 2 aluminium + 30 O2.
+--   2. MATTER HONESTY: the leach is net stone-NEGATIVE (20 in, 14 back) at 0% AND
+--      at the +300% productivity cap -- the 14-stone + 2-sulfur returns are
+--      ignored_by_productivity and productivity is OFF, so mining is a real top-up.
+--   3. O2: electrolysis emits 30 cindra-oxygen (ignored_by_productivity) through
+--      the cell's output fluid box -- the O2 economy's dominant source (§8.4).
+--   4. POWER IS THE COST: the electrolysis cell has a huge electric draw (a bigger
+--      single-building sink than the lava foundry) and the recipe a long craft
+--      time. Productivity is ON for aluminium (intermediate reward, per lava).
+--   5. GATED: recipes off by default; the tech unlocks all three and sits behind
+--      the lava spine (which unlocks the acid the leach needs).
+--   6. DEMAND EXISTS: the flare capacitor consumes aluminium (a downstream use),
 --      so aluminium is not a dead-end.
 -- Plus the never-mutate-other-planets guard (the shared electric furnace is
 -- deep-copied, not mutated) and a runtime proof (a powered cell smelts aluminium).
@@ -20,10 +26,18 @@ local ALUMINIUM = "cindra-aluminium"
 local CELL = "cindra-electrolysis-cell"
 local CATEGORY = "cindra-electrolysis"
 local TECH = "cindra-aluminium"
+local OXYGEN = "cindra-oxygen"
 
--- Petrochemistry / off-world chemistry that Cindra forbids (DESIGN.md §1).
+-- The engine's hard productivity cap (+300%): the ceiling of ANY module config.
+local MAX_CONCEIVABLE_PROD = 3.0
+
+-- Petrochemistry / off-world chemistry that Cindra forbids (DESIGN.md §1). NOTE:
+-- sulfuric-acid is NOT here -- ci-6vj S2 makes acid the leach's intended input (a
+-- real, native chemical made from Cindra's own sulfur), and sulfur is a leach
+-- BYPRODUCT. Oil/coal/plastic stay forbidden: those are the petrochemistry Cindra
+-- has none of.
 local FORBIDDEN = {
-  ["plastic-bar"] = true, ["sulfur"] = true, ["sulfuric-acid"] = true,
+  ["plastic-bar"] = true,
   ["petroleum-gas"] = true, ["light-oil"] = true, ["heavy-oil"] = true,
   ["crude-oil"] = true, ["coal"] = true, ["lubricant"] = true,
 }
@@ -31,6 +45,14 @@ local FORBIDDEN = {
 local function amount_of(list, name)
   for _, e in pairs(list) do
     if e.name == name then return e.amount end
+  end
+  return nil
+end
+
+-- Pull the full product table (so callers can read ignored_by_productivity etc.).
+local function product_of(list, name)
+  for _, e in pairs(list) do
+    if e.name == name then return e end
   end
   return nil
 end

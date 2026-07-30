@@ -8,21 +8,28 @@
 -- mass driver (ci-epp), and water boil-off. Where the flare overflows, aluminium
 -- is where that overflow goes.
 --
--- MODELED ON REAL HALL-HEROULT ELECTROLYSIS, kept petrochemical-free (no plastic,
--- no sulfur, no oil, no acid):
+-- MODELED ON REAL ACID LEACHING + HALL-HEROULT ELECTROLYSIS (ci-6vj S2, DESIGN
+-- §8, recipes #5/#6). No oil, no coal, no plastic -- sulfuric acid is the one
+-- honest chemical input, itself made from Cindra's own sulfur (a stone-melt
+-- byproduct) via the vanilla acid recipe the lava tech unlocks:
 --
---   1. REFINE  `stone + calcite -> alumina`  (a plain assembler craft). Alumina
---      is the white feedstock. Stone is the ribbon's central raw; calcite is mined
---      from the nightside ice field (which drops a fixed ice+calcite mix, ci-9l6),
---      so aluminium pulls demand back onto BOTH sides of the economy -- rock and ice.
+--   1. LEACH  `20 stone + 30 sulfuric-acid + 20 water -> 10 alumina + 14 stone
+--      + 2 sulfur`  in a vanilla CHEMICAL PLANT (category "chemistry"). Alumina is
+--      the white feedstock. Stone is the ribbon's central raw; the leach is net
+--      stone-NEGATIVE (20 in, only 14 back) and the acid ties alumina into the
+--      sulfur/acid loop. The 14 stone + 2 sulfur returns are
+--      `ignored_by_productivity` and productivity is OFF, so no module tier can
+--      flip the leach stone-positive (matter honesty, ci-669 / DESIGN §8.6).
 --
---   2. ELECTROLYSE  `alumina + [RUINOUS electricity] -> aluminium`  in a dedicated
---      Cindra ELECTROLYSIS CELL. The cell has a large uncapped electric draw and
---      the recipe a long crafting time, so per-unit energy dwarfs a lava craft
---      (see the tune block). That energy IS the cost -- there is no fuel, no
---      carrier, no chemistry. Productivity is OFF so a prod bonus can never mint
---      cheap aluminium and undo the "power is the honest cost" identity (the same
---      rule manufactured lava follows).
+--   2. ELECTROLYSE  `4 alumina + [RUINOUS electricity] -> 2 aluminium + 30 O2`  in
+--      the dedicated Cindra ELECTROLYSIS CELL (the §2 signature building). The cell
+--      has a large uncapped electric draw and the recipe a long crafting time, so
+--      per-unit energy dwarfs a lava craft (see the tune block). That energy IS the
+--      cost. The step vents `cindra-oxygen` gas through an output fluid box -- the
+--      O2 economy's dominant source (DESIGN §8.4); O2's early sink is the existing
+--      vent-oxygen recipe. Productivity is ON: aluminium is an intermediate (a
+--      plate-analog) so a prod bonus is a fair reward (per lava), and the O2
+--      byproduct is `ignored_by_productivity` so prod can never mint free gas.
 --
 -- PURPOSE (so it is not a dead-end; DESIGN.md §5, §12):
 --   * DEMAND: aluminium is consumed by the flare CAPACITOR (storage.lua) as its
@@ -41,9 +48,11 @@
 --
 -- 🚨 NEVER MUTATE OTHER PLANETS: every prototype here is brand new or a fresh
 -- deep-copy (util.table.deepcopy) before any nested edit. The shared vanilla
--- `stone` / `calcite` items are read as INGREDIENTS only (never mutated), exactly
--- as the lava and ice chains already read them. A private recipe category keeps
--- the electrolysis recipe on the Cindra cell only, and vanilla smelting out of it.
+-- `stone` / `sulfuric-acid` / `water` / `sulfur` prototypes are read as recipe
+-- ingredients/results only (never mutated), exactly as the lava and ice chains
+-- already read them; the shared `cindra-oxygen` fluid lives in plastics.lua and is
+-- referenced here by name only. A private recipe category keeps the electrolysis
+-- recipe on the Cindra cell only, and vanilla smelting out of it.
 --
 -- v1 ART: placeholder art (bespoke icons filed as a follow-up, ci-txh art bead).
 -- Alumina reuses the calcite icon tinted white; aluminium reuses the steel-plate
@@ -56,14 +65,20 @@ local ALUMINIUM = "cindra-aluminium"
 local CELL = "cindra-electrolysis-cell"
 local CATEGORY = "cindra-electrolysis"      -- private: cell-only, keeps vanilla smelting out
 local TECH = "cindra-aluminium"
+local OXYGEN = "cindra-oxygen"              -- shared fluid, defined in plastics.lua (§8)
 
--- === Tune block (all `(tune)`, DESIGN.md §7 / §15-14 ci-63d) =================
--- The refine step is cheap: it only assembles the feedstock. Power is NOT spent
--- here -- it is spent in electrolysis below, which is the whole point.
-local STONE_PER_ALUMINA = 3
-local CALCITE_PER_ALUMINA = 1
-local ALUMINA_PER_REFINE = 2
-local REFINE_SECONDS = 2
+-- === Tune block (all `(tune)`, DESIGN.md §7 / §15-14 ci-63d; §8 recipe #5/#6) =
+-- The leach step is a matter-conversion in a chemical plant: power is NOT the
+-- lever here (it is spent in electrolysis below, which is the whole point), so it
+-- runs at a modest craft time. It is deliberately net stone-NEGATIVE and
+-- productivity-immune (see the recipe) so no module tier can mint free stone.
+local STONE_PER_LEACH = 20
+local ACID_PER_LEACH = 30          -- sulfuric-acid (fluid), from the vanilla recipe cindra-lava unlocks
+local WATER_PER_LEACH = 20         -- water (fluid), from ice-melting
+local ALUMINA_PER_LEACH = 10
+local STONE_BACK_PER_LEACH = 14    -- ignored_by_productivity: fixed return, keeps the leach net -6 stone
+local SULFUR_BACK_PER_LEACH = 2    -- ignored_by_productivity: a second sulfur source feeding the acid loop
+local LEACH_SECONDS = 4
 
 -- THE POWER LEVER. Aluminium's cost is a LARGE building draw times a LONG craft:
 --   CELL_DRAW (50 MW) * (ELECTROLYSIS_SECONDS / cell crafting_speed 2) = ~400 MJ
@@ -71,11 +86,13 @@ local REFINE_SECONDS = 2
 --   aluminium genuinely competes for flare energy with the other big sinks. 50 MW
 --   is the largest CONTINUOUS single-building draw on Cindra (above the electric
 --   heater's 40 MW); only the mass driver's bursty per-launch charge (ci-o39) costs
---   more, and briefly. Productivity is OFF (see recipe): power stays the honest cost.
+--   more, and briefly. Productivity is ON for aluminium (an intermediate), but the
+--   O2 byproduct is ignored_by_productivity, so power stays the honest cost.
 local CELL_DRAW = "50MW"
 local ELECTROLYSIS_SECONDS = 16
 local ALUMINA_PER_ELECTROLYSIS = 4
 local ALUMINIUM_PER_ELECTROLYSIS = 2
+local OXYGEN_PER_ELECTROLYSIS = 30      -- ignored_by_productivity: the O2 economy's dominant source (§8.4)
 
 local function set_icon(proto, icon, tint)
   proto.icon = nil
@@ -120,6 +137,20 @@ cell.fast_replaceable_group = nil       -- not interchangeable with the electric
 cell.next_upgrade = nil
 cell.localised_name = { "entity-name.cindra-electrolysis-cell" }
 cell.localised_description = { "entity-description.cindra-electrolysis-cell" }
+-- The electric furnace has no fluid box; electrolysis vents O2 gas, so give the
+-- cell a single OUTPUT fluid box on its north edge. The furnace still auto-selects
+-- the private-category recipe from its input item (alumina); the O2 leaves here.
+-- pipe_covers/pipe_picture are omitted (v1 art reuse) -- the connection still works.
+cell.fluid_boxes = {
+  {
+    production_type = "output",
+    volume = 1000,
+    pipe_connections = {
+      { flow_direction = "output", direction = defines.direction.north, position = { 0, -1.5 } },
+    },
+  },
+}
+cell.fluid_boxes_off_when_no_fluid_recipe = true
 -- v1 art reuse: keep the cloned electric-furnace sprite + icon (bespoke art TODO).
 
 local cell_item = util.table.deepcopy(data.raw.item["electric-furnace"])
@@ -130,32 +161,46 @@ cell_item.localised_name = { "item-name.cindra-electrolysis-cell" }
 cell_item.localised_description = { "item-description.cindra-electrolysis-cell" }
 
 -- === Recipes =================================================================
--- REFINE: stone + calcite -> alumina. Plain "crafting" (assembler) category, so
--- no new building is needed and it belt-feeds cleanly. Native inputs only.
+-- LEACH: 20 stone + 30 sulfuric-acid + 20 water -> 10 alumina + 14 stone + 2
+-- sulfur, in a vanilla CHEMICAL PLANT ("chemistry" category -- it needs fluid
+-- boxes for the acid + water in and no new building). The 14-stone + 2-sulfur
+-- returns are `ignored_by_productivity` (fixed at every module tier) and
+-- productivity is OFF, so the leach is provably net stone-NEGATIVE (20 in, 14
+-- back = -6/craft) forever -- no prod tier can mint free stone (ci-669 / §8.6).
 local alumina_recipe = {
   type = "recipe",
   name = ALUMINA,
-  -- Default "crafting" category (omitted, like the coolant/build recipes): any
-  -- assembler makes it, so no new building is needed and it belt-feeds cleanly.
+  categories = { "chemistry" }, -- vanilla chemical plant: has the fluid boxes the acid + water need
   subgroup = "raw-material",
   order = "z[cindra]-a[alumina]",
   enabled = false, -- gated behind the aluminium tech, never free
-  energy_required = REFINE_SECONDS,
+  energy_required = LEACH_SECONDS,
   ingredients = {
-    { type = "item", name = "stone", amount = STONE_PER_ALUMINA },
-    { type = "item", name = "calcite", amount = CALCITE_PER_ALUMINA },
+    { type = "item", name = "stone", amount = STONE_PER_LEACH },
+    { type = "fluid", name = "sulfuric-acid", amount = ACID_PER_LEACH },
+    { type = "fluid", name = "water", amount = WATER_PER_LEACH },
   },
   results = {
-    { type = "item", name = ALUMINA, amount = ALUMINA_PER_REFINE },
+    { type = "item", name = ALUMINA, amount = ALUMINA_PER_LEACH },
+    -- Fixed matter returns: pinned out of any prod bonus so the leach stays net
+    -- stone-negative and only ever tops the acid loop with a trickle of sulfur.
+    { type = "item", name = "stone", amount = STONE_BACK_PER_LEACH, ignored_by_productivity = STONE_BACK_PER_LEACH },
+    { type = "item", name = "sulfur", amount = SULFUR_BACK_PER_LEACH, ignored_by_productivity = SULFUR_BACK_PER_LEACH },
   },
-  allow_productivity = true,
+  -- Productivity OFF: a matter-conversion step. A prod bonus would cut stone-in
+  -- per alumina and could let the fixed 14-stone return overtake it -- the exact
+  -- self-sustain the stone-negativity invariant closes (per the lava recipe).
+  allow_productivity = false,
   main_product = ALUMINA,
 }
 
--- ELECTROLYSE: alumina + [RUINOUS power] -> aluminium. The single ingredient +
--- the cell's huge draw over a long craft is the dominant cost. Productivity ON:
+-- ELECTROLYSE: 4 alumina + [RUINOUS power] -> 2 aluminium + 30 O2. The single item
+-- ingredient + the cell's huge draw over a long craft is the dominant cost. The
+-- O2 gas leaves via the cell's output fluid box (the O2 economy's dominant source,
+-- §8.4; early sink = the vent-oxygen recipe in plastics.lua). Productivity ON:
 -- aluminium is an intermediate (a plate-analog), so a prod bonus is a fair reward
--- and matches vanilla intermediate conventions (per lava). Power stays the cost.
+-- and matches vanilla intermediate conventions (per lava); the O2 byproduct is
+-- `ignored_by_productivity` so a prod bonus can never mint free oxygen.
 local aluminium_recipe = {
   type = "recipe",
   name = ALUMINIUM,
@@ -169,6 +214,7 @@ local aluminium_recipe = {
   },
   results = {
     { type = "item", name = ALUMINIUM, amount = ALUMINIUM_PER_ELECTROLYSIS },
+    { type = "fluid", name = OXYGEN, amount = OXYGEN_PER_ELECTROLYSIS, ignored_by_productivity = OXYGEN_PER_ELECTROLYSIS },
   },
   allow_productivity = true, -- intermediate: prod is a fair reward (per lava); power stays the dominant cost
   main_product = ALUMINIUM,
@@ -190,13 +236,14 @@ local cell_recipe = {
 
 -- === Technology ==============================================================
 -- Gated behind `cindra-lava` (the metal economy + the power to run electrolysis).
--- The calcite the refine step needs is a MINED resource now (ci-9l6): the nightside
--- ice field drops a fixed ice+calcite mix, so calcite is available from the world
--- the moment you can reach and drill the cold cap -- no crush tech in the way. The
--- gate that keeps aluminium late is `cindra-lava` (rock + power), so aluminium is
--- still unreachable until the player commands both rock and ice. As the signature
--- apex (ci-84s) it gates the headline science tech, and the full Cindra tree
--- (ci-3or) folds it in.
+-- The leach's sulfuric-acid input is exactly what `cindra-lava` unlocks (the
+-- vanilla `sulfur + iron-plate + water -> sulfuric-acid` recipe, fed by the
+-- stone-melt sulfur byproduct, ci-eat), and its water comes from ice-melting -- so
+-- everything the leach needs is already in hand behind this one prereq. The gate
+-- that keeps aluminium late is `cindra-lava` (rock + power + the acid loop), so
+-- aluminium is still unreachable until the player commands both rock and ice. As
+-- the signature apex (ci-84s) it gates the headline science tech, and the full
+-- Cindra tree (ci-3or) folds it in.
 local technology = {
   type = "technology",
   name = TECH,
