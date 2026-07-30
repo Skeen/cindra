@@ -267,5 +267,69 @@ test("no player-facing name (entity/item) contains 'bootstrap' (ci-d2h)", functi
     "player-facing names must not say 'bootstrap':\n  " .. table.concat(offenders, "\n  "))
 end)
 
+-- ci-8yu: every mod setting MUST carry a readable [mod-setting-name] locale
+-- entry, or the settings screen shows the raw key (e.g. 'cindra-zone-width-hot-
+-- lava'). This regressed once (ci-dvr fixed the ribbon settings; the ci-da2
+-- per-zone width sliders then shipped untranslated), so the guard enumerates the
+-- settings by actually LOADING settings.lua rather than hard-coding a list: it
+-- stubs Factorio's `data:extend` to collect every setting prototype the file
+-- registers (including the ones generated in a loop from terrain.ZONES). Any
+-- future setting is caught automatically.
+local function load_settings()
+  local collected = {}
+  local prev_data = _G.data
+  _G.data = { raw = {}, extend = function(_, list)
+    for _, s in ipairs(list) do collected[#collected + 1] = s end
+  end }
+  local ok, err = pcall(dofile, "settings.lua")
+  _G.data = prev_data
+  assert_true(ok, "settings.lua failed to load under the test stub: " .. tostring(err))
+  assert_true(#collected > 0, "settings.lua registered no settings (stub broken?)")
+  return collected
+end
+
+test("every mod setting has a [mod-setting-name] locale entry (ci-8yu)", function()
+  local names = cfg["mod-setting-name"] or {}
+  local missing = {}
+  for _, s in ipairs(load_settings()) do
+    if names[s.name] == nil then
+      missing[#missing + 1] = s.name
+    end
+  end
+  assert_true(#missing == 0,
+    "mod settings with no [mod-setting-name] (they show the raw key in-game):\n  "
+      .. table.concat(missing, "\n  "))
+end)
+
+test("every mod setting has a [mod-setting-description] locale entry (ci-8yu)", function()
+  local descs = cfg["mod-setting-description"] or {}
+  local missing = {}
+  for _, s in ipairs(load_settings()) do
+    if descs[s.name] == nil then
+      missing[#missing + 1] = s.name
+    end
+  end
+  assert_true(#missing == 0,
+    "mod settings with no [mod-setting-description]:\n  " .. table.concat(missing, "\n  "))
+end)
+
+test("every string-setting value has a [string-mod-setting-*] label (ci-8yu)", function()
+  -- Dropdown values (allowed_values) also render as raw keys unless the
+  -- per-setting [string-mod-setting-<name>] section labels each one.
+  local missing = {}
+  for _, s in ipairs(load_settings()) do
+    if s.type == "string-setting" and s.allowed_values then
+      local section = cfg["string-mod-setting-" .. s.name] or {}
+      for _, value in ipairs(s.allowed_values) do
+        if section[value] == nil then
+          missing[#missing + 1] = s.name .. " -> " .. value
+        end
+      end
+    end
+  end
+  assert_true(#missing == 0,
+    "string-setting values with no dropdown label:\n  " .. table.concat(missing, "\n  "))
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)
