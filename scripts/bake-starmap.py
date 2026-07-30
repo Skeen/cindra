@@ -15,15 +15,28 @@
 # static PNG it can never spin; the orbital backdrop is frozen separately (see
 # prototypes/space-appearance.lua, rotation_seconds very large).
 #
-# LIGHTING (ci-i9m): a single strong PARALLEL (directional) sun from the LEFT.
+# LIGHTING (ci-i9m, cranked in ci-2f7): a single VERY STRONG PARALLEL
+# (directional) sun coming from the LEFT, aimed exactly HORIZONTAL so it hits
+# PERPENDICULAR to the vertical lava line (the lon=0 terminator meridian runs
+# pole-to-pole down the centre of the disc; a horizontal ray is at 90 deg to it).
 # On a sphere this yields a natural bright->dark day/night gradient -- the fiery
 # left limb is fully lit and the frozen right hemisphere falls into shadow across
 # the central meridian -- which IS the tidally-locked terminator, for free, with
-# no painted seam. The emission map carries the self-lit magma glow (so the lava
-# still glows even where the light grazes). A dim COOL world ambient keeps the
-# shadowed ice hemisphere from going pitch black so it reads as shimmery blue ICE
-# rather than a void; there is deliberately NO head-on front fill (it used to
-# flatten the gradient into the flat, hard-seam look the mayor flagged).
+# no painted seam.
+#
+# The energy is cranked WAY up (ci-2f7): the sun-side (left) limb is driven past
+# the display white point so the brightest point blows out to near-WHITE with a
+# hot highlight, then falls off HARD through orange to the terminator and into the
+# dark ice side -- a dramatic, readable light->dark gradient, not the earlier
+# subtle wash. The sun colour is warm-WHITE (blue channel lifted) so the blown-out
+# highlight clips to WHITE rather than staying a saturated orange.
+#
+# The emission map still carries the self-lit magma glow (so the lava keeps
+# glowing even where the light grazes near the terminator). The COOL world ambient
+# is kept low so the shadowed ice hemisphere stays clearly the DARK side (strong
+# falloff) while still reading as shimmery blue ICE rather than a void; there is
+# deliberately NO head-on front fill (it used to flatten the gradient into the
+# flat, hard-seam look the mayor flagged).
 #
 #   blender -b -P scripts/bake-starmap.py -- <space_maps_dir> <out_png>
 
@@ -131,17 +144,29 @@ if wbg is not None:
     # albedo reads as a dim SHIMMERY BLUE frozen hemisphere rather than a black void
     # (the glossy frost also reflects this ambient for a soft cold sheen).
     wbg.inputs["Color"].default_value = (0.11, 0.17, 0.30, 1.0)   # cool blue ambient
-    wbg.inputs["Strength"].default_value = 0.55
+    # Kept low (ci-2f7): with the key light cranked way up, the ambient must stay
+    # dim so the shadowed ice hemisphere reads clearly as the DARK side and the
+    # light->dark falloff stays strong; just bright enough that the pale ice albedo
+    # still shimmers instead of crushing to a black void.
+    wbg.inputs["Strength"].default_value = 0.40
 
-# --- Light: a single PARALLEL sun from the LEFT (the fire limb) -------------
+# --- Light: a single VERY STRONG PARALLEL sun from the LEFT (the fire limb) --
 # Point the sun toward +X (rays travel +X), so it comes FROM -X: the left/fire
 # hemisphere is lit and the right/ice hemisphere falls into shadow across the
 # central meridian -- the tidally-locked terminator, produced by the light itself.
-# Strong and warm-white; the raw sun angle is tiny so the shadow terminator is
-# crisp (a directional star). No fill/front lights: the falloff must be natural.
+# The ray is exactly HORIZONTAL (rotation below keeps it in the XY plane), so it
+# strikes PERPENDICULAR to the vertical lava line (ci-2f7 overseer note).
+#
+# Energy is cranked WAY up (ci-2f7): the sunward limb is driven well past the
+# display white point so its brightest point blows out to near-WHITE, then falls
+# off hard toward the terminator -- the dramatic pop the overseer asked for. The
+# colour is warm-WHITE with the blue channel lifted so the clipped highlight reads
+# WHITE, not saturated orange. The raw sun angle stays tiny so the shadow
+# terminator is crisp (a directional star). No fill/front lights: the falloff must
+# be natural.
 key = bpy.data.lights.new("key", "SUN")
-key.energy = 4.0
-key.color = (1.0, 0.91, 0.76)
+key.energy = 13.0
+key.color = (1.0, 0.95, 0.88)
 key.angle = radians(2)
 key_obj = bpy.data.objects.new("key", key)
 scene.collection.objects.link(key_obj)

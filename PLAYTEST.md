@@ -106,6 +106,21 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   entry is only the "the live globe visibly holds still over time" confirmation a
   static prototype assert cannot judge.
 
+- [ ] **[LANDED] Star-map sun-side blows out to near-WHITE (ci-2f7).** Follow-up
+  to ci-i9m: the left-lit gradient was correct but too subtle. The bake now drives
+  the single parallel sun WAY up (energy 4 -> 13, warm-white), aimed exactly
+  horizontal so it hits PERPENDICULAR to the vertical lava line. *Repro:* open the
+  star-map and select/approach Cindra (`./play.sh`). *Look for:* the sun-side
+  (LEFT) limb now **blows out to a near-WHITE hot highlight** with a bloom halo,
+  falling off HARD through yellow/orange/red to a **dark** ice hemisphere on the
+  right (dramatic light->dark pop, not the earlier flat wash); light direction,
+  albedo, and geometry are otherwise unchanged from ci-i9m. *Fallback:* the baked
+  sprite is verified off-game (`unit-tests/test_starmap_lighting.py` guards the
+  near-white left-limb blow-out, the strong left->dark falloff, and the dark-but-
+  not-void ice side; `unit-tests/test_planet_maps.py` still guards the unchanged
+  albedo/emission maps). This entry is only the in-game "does the star-map really
+  POP" confirmation. Re-bake via `scripts/render-planet.sh`.
+
 - [ ] **[SUPERSEDED by ci-i9m] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
   earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
   *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
