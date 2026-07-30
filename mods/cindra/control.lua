@@ -69,6 +69,10 @@ if script.active_mods["factorio-test"] then
     "tests/test_lava",
     "tests/test_sulfur", -- ci-eat: stone -> roast -> sulfur -> sulfuric acid
     "tests/test_aluminium",
+    -- ci-400 Calcite-To-Olefins: the petrochemical-free plastic chain (water
+    -- electrolysis + calcite calcination + methanol-to-olefins over a Cu/Al
+    -- catalyst), ending in the vanilla plastic-bar; byproduct vents; gating.
+    "tests/test_plastics",
     "tests/test_tile_damage",
     -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +
     -- the runtime revert/refund safety net).

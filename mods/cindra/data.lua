@@ -109,6 +109,13 @@ require("prototypes.storage")
 -- Consumes the signature aluminium (prototypes/aluminium.lua), so it loads after.
 require("prototypes.science")
 
+-- Calcite-To-Olefins plastic chain (ci-400): the planet's petrochemical-free
+-- PLASTIC. Water electrolysis + calcite calcination + methanol-to-olefins over a
+-- copper-on-aluminium catalyst, all in stock machines, ending in the vanilla
+-- `plastic-bar`. Its catalyst consumes the signature `cindra-aluminium`, so it
+-- loads AFTER aluminium; its tech gates behind the aluminium tech (rock+ice+power).
+require("prototypes.plastics")
+
 -- One-way power transfer PoC (ci-gcd): the "power diode" -- two electric-energy-
 -- interface poles the runtime bridges to move power A->B between two networks,
 -- never B->A. An ISOLATED feasibility spike: wired into NO recipe / tech /
