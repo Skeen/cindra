@@ -182,6 +182,49 @@ describe("cindra ice processing: the nightside deposit + tech unlock", function(
     assert.is_not_nil(item, "the crusher item must exist")
     assert.are.equal(CRUSHER, item.place_result.name, "the item places the crusher")
   end)
+
+  it("the crusher item sorts JUST AFTER the cryogenic-plant, not among the assemblers (ci-ryv)", function()
+    local item = prototypes.item[CRUSHER]
+    local cryo = prototypes.item["cryogenic-plant"]
+    assert.is_not_nil(item, "the crusher item must exist")
+    assert.is_not_nil(cryo, "the cryogenic-plant item must exist (vanilla Space Age)")
+    -- Same subgroup as the cryo plant so it lands next to it in the production tab.
+    assert.are.equal(cryo.subgroup.name, item.subgroup.name,
+      "the crusher item must share the cryogenic-plant's subgroup (production-machine)")
+
+    -- Collect every item in that subgroup and sort the way the build menu does:
+    -- by order string, breaking ties by name. The crusher must fall IMMEDIATELY
+    -- after the cryogenic-plant with nothing (e.g. an assembler) in between.
+    local peers = {}
+    for name, proto in pairs(prototypes.item) do
+      if proto.subgroup and proto.subgroup.name == item.subgroup.name then
+        peers[#peers + 1] = { name = name, order = proto.order or "" }
+      end
+    end
+    table.sort(peers, function(a, b)
+      if a.order ~= b.order then return a.order < b.order end
+      return a.name < b.name
+    end)
+    local cryo_idx, crusher_idx
+    for i, p in ipairs(peers) do
+      if p.name == "cryogenic-plant" then cryo_idx = i end
+      if p.name == CRUSHER then crusher_idx = i end
+    end
+    assert.is_not_nil(cryo_idx, "cryogenic-plant must be in the production-machine subgroup")
+    assert.is_not_nil(crusher_idx, "the crusher must be in the production-machine subgroup")
+    assert.are.equal(cryo_idx + 1, crusher_idx,
+      "the ice crusher must sort immediately after the cryogenic-plant (got position "
+        .. crusher_idx .. ", cryo at " .. cryo_idx .. ")")
+
+    -- Guard against the reported regression: the deepcopy's old `b[...]` order put
+    -- it between assembling-machine-2 and -3. Its order must now sort after both.
+    local a2 = prototypes.item["assembling-machine-2"]
+    local a3 = prototypes.item["assembling-machine-3"]
+    if a2 then assert.is_true(item.order > a2.order,
+      "the crusher must sort after assembling-machine-2, not before it") end
+    if a3 then assert.is_true(item.order > a3.order,
+      "the crusher must sort after assembling-machine-3, not between 2 and 3") end
+  end)
 end)
 
 describe("cindra volatiles: a PROCESSING recipe on the crusher, not a mining yield (ci-4xx)", function()

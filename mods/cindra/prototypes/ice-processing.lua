@@ -94,11 +94,16 @@ crusher.localised_description = { "entity-description.cindra-ice-crusher" }
 
 -- Item: clone the crusher item for a valid def + vanilla icon (v1 art), pointed at
 -- our entity. Placed in the PRODUCTION tab (not the vanilla "space-platform" one).
+-- Sort it JUST AFTER the vanilla cryogenic-plant (subgroup `production-machine`,
+-- order `h[cryogenic-plant]`): reuse that subgroup+order and append a suffix so it
+-- lands immediately after the cryo plant, not among the assemblers (ci-ryv). The
+-- vanilla crusher item's order (`b[crusher]`) is what dropped the deepcopy between
+-- assembling-machine-2 (`b[...]`) and -3 (`c[...]`), so we overwrite it explicitly.
 local crusher_item = util.table.deepcopy(data.raw["item"]["crusher"])
 crusher_item.name = "cindra-ice-crusher"
 crusher_item.place_result = "cindra-ice-crusher"
 crusher_item.subgroup = "production-machine"
-crusher_item.order = "b[cindra]-b[ice-crusher]"
+crusher_item.order = "h[cryogenic-plant]-cindra-ice-crusher"
 crusher_item.localised_name = { "item-name.cindra-ice-crusher" }
 crusher_item.localised_description = { "item-description.cindra-ice-crusher" }
 
