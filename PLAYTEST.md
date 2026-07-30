@@ -193,7 +193,24 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   warm zones) is safe. Damage is now **positional** (keyed to the perpendicular axis,
   since the zones mix tiles), so it should feel like a smooth danger band, not a
   per-tile flicker. (Damage is tested; the *feel* — is the lethal edge readable and
-  fair? — is the playtest. No screen-tint feedback yet.)
+  fair? — is the playtest. The screen-tint feedback is the next item.)
+
+- [ ] **[LANDED] Full-screen heat/cold damage feedback tint (ci-7tl) — VISUAL.**
+  *Repro:* walk **west** into the hot zones until HP starts dropping, then walk
+  **east** across the ribbon onto the smooth deep-ice cap. *Look for:* (1) the
+  instant you enter the lethal HEAT band the whole screen gains a **warm red tint**,
+  and the lethal COLD cap gives a **frost-blue tint** — so it is unmistakable WHY
+  you are losing health; (2) the tint appears/clears **exactly** as the ticking
+  damage starts/stops (both read the same `terrain.lethal_at` bands), never a tint
+  without damage; (3) the tint **deepens** the further you push toward the lava /
+  ice edge (alpha scales with intensity); (4) it **never fully blacks out** the
+  view (max alpha ~0.55), the GUI stays usable, and it clears the moment you step
+  back to the safe ribbon. Show/hide/switch and the Cindra-only gate are
+  integration-tested (`tests/test_feedback.lua`) and the band+intensity maths is
+  unit-tested (`unit-tests/test_feedback.lua`); only the *look/feel* (is the tint
+  strength readable and not nauseating? does a flat fill suffice or is a soft
+  **radial vignette** wanted?) is the playtest. *Note:* v1 is a flat white fill
+  tinted at runtime; a bespoke soft-edged vignette sprite is an art follow-up.
 
 - [ ] **[LANDED] Cliffs generate in the volcanic zones only (ci-da2) — VISUAL.**
   *Repro:* land on Cindra, walk/scan the volcanic band (zones 3–6, west of the
