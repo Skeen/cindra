@@ -183,8 +183,10 @@ catalyst.localised_name = { "item-name." .. CATALYST }
 catalyst.localised_description = { "item-description." .. CATALYST }
 
 -- ---------------------------------------------------------------------------
--- Recipes. All run in the vanilla chemical plant (category "chemistry") except
--- the catalyst (a plain assembler craft). All gated off until the tech.
+-- Recipes. Most run in the vanilla chemical plant (category "chemistry"); the
+-- catalyst is a plain assembler craft, and calcination is a ROAST that runs in the
+-- lava manufacturer (its private "cindra-lava-manufacturing" category, see below).
+-- All gated off until the tech.
 -- ---------------------------------------------------------------------------
 local electrolysis = {
   type = "recipe",
@@ -206,10 +208,17 @@ local electrolysis = {
   crafting_machine_tint = { primary = { r = 0.6, g = 0.8, b = 1.0 } },
 }
 
+-- Calcination is a ROAST, so it lives in the high-heat lava manufacturer, not the
+-- chemical plant (ci-6vj S3 / DESIGN §8.3). The LM's private
+-- `cindra-lava-manufacturing` category confines it there (the shared foundry never
+-- runs it). Electric heat (no lava input) and NO stone output, so calcination opens
+-- no new stone vector -- the stone balance proof (§8.4) stays simple. The LM emits
+-- the CO2 through its (unfiltered) output fluid box, the same box the lava recipe
+-- uses for lava; verified at runtime in test_plastics.lua.
 local calcination = {
   type = "recipe",
   name = "cindra-calcination",
-  categories = { "chemistry" },
+  categories = { LAVA_CATEGORY },
   subgroup = "fluid-recipes",
   order = "z[cindra]-b[calcination]",
   enabled = false,

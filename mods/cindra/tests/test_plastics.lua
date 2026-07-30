@@ -78,6 +78,51 @@ describe("cindra plastic chain: the three chemistries connect end to end", funct
     assert.is_not_nil(product(r.products, CO2), "calcination yields CO2 (the carbon that becomes plastic)")
   end)
 
+  -- ci-6vj S3: calcination is a ROAST, moved out of the chemical plant into the
+  -- high-heat lava manufacturer (DESIGN §8.3). It runs in the LM's private
+  -- category, keeps electric heat (no lava input) and NO stone output, and prod
+  -- stays off (fixed carbon budget: no free CO2).
+  it("1b'. calcination roasts in the lava manufacturer, not the chemical plant (ci-6vj S3)", function()
+    local r = prototypes.recipe["cindra-calcination"]
+    assert.is_not_nil(r, "the calcination recipe must exist")
+
+    -- Confined to the private lava-manufacturing category (never chemistry).
+    local in_lava_cat, in_chem_cat = false, false
+    for _, c in pairs(r.categories or {}) do
+      if c == "cindra-lava-manufacturing" then in_lava_cat = true end
+      if c == "chemistry" then in_chem_cat = true end
+    end
+    assert.is_true(in_lava_cat,
+      "calcination runs in the private lava-manufacturing category (the LM roaster)")
+    assert.is_false(in_chem_cat,
+      "calcination must NOT run in chemistry -- it is a roast, moved to the LM")
+
+    -- The Cindra lava-manufacturer must actually run the category; the shared
+    -- Vulcanus foundry must never gain it (no leak onto other planets).
+    local lm = prototypes.entity["cindra-lava-manufacturer"]
+    assert.is_not_nil(lm, "the lava manufacturer entity must exist")
+    assert.is_true(lm.crafting_categories["cindra-lava-manufacturing"],
+      "the lava manufacturer must run the lava-manufacturing category (so it can calcine)")
+    local foundry = prototypes.entity["foundry"]
+    assert.is_falsy(foundry.crafting_categories["cindra-lava-manufacturing"],
+      "the vanilla foundry must never run the Cindra lava-manufacturing category")
+
+    -- Electric heat, no lava input; NO stone output (§8.3: opens no stone vector).
+    assert.is_false(has_ingredient("cindra-calcination", "lava"),
+      "calcination uses electric heat, not a lava input")
+    assert.is_nil(product(r.products, "stone"),
+      "calcination emits no stone (keeps the stone balance proof simple)")
+
+    -- Exactly the §8.2 batch: 2 calcite -> 2 quicklime + 40 CO2.
+    assert.are.equal(2, amount_of(r.ingredients, "calcite"), "2 calcite in")
+    assert.are.equal(2, amount_of(r.products, QUICKLIME), "2 quicklime out")
+    assert.are.equal(40, amount_of(r.products, CO2), "40 CO2 out (the carbon feed)")
+
+    -- Prod off: fixed carbon budget, no minting free CO2.
+    assert.is_false(r.allowed_effects and r.allowed_effects.productivity,
+      "calcination must disable productivity (no free CO2)")
+  end)
+
   it("1c. the bridge: CO2 + hydrogen -> methanol (calcite carbon made usable)", function()
     local r = prototypes.recipe["cindra-methanol-synthesis"]
     assert.is_not_nil(r, "the methanol-synthesis recipe must exist")
@@ -340,6 +385,43 @@ describe("cindra quicklime disposal runtime (ci-6vj #16)", function()
       assert.is_true(machine.valid)
       assert.is_true(machine.get_item_count("stone") > 0,
         "disposal must flux quicklime + lava into stone (got " .. machine.get_item_count("stone") .. ")")
+      machine.destroy()
+      done()
+    end)
+  end)
+end)
+
+-- ci-6vj S3: prove the roast actually runs in the lava manufacturer and, crucially,
+-- that the LM can EMIT the CO2 gas (through its unfiltered output fluid box). A
+-- powered manufacturer fed calcite must produce both quicklime (item) and CO2 (fluid).
+describe("cindra calcination runtime (ci-6vj S3)", function()
+  it("a powered lava-manufacturer calcines calcite -> quicklime + CO2", function()
+    local s = H.cindra_surface()
+    local pole = s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
+    assert.is_not_nil(pole, "substation must place")
+    local power = s.create_entity({
+      name = "electric-energy-interface", position = { 4, 0 }, force = "player",
+    })
+    power.power_production = 200000000
+    power.electric_buffer_size = 200000000
+    power.energy = 200000000
+
+    game.forces["player"].recipes["cindra-calcination"].enabled = true
+
+    local machine = s.create_entity({ name = "cindra-lava-manufacturer", position = { 0, 0 }, force = "player" })
+    assert.is_not_nil(machine, "the lava-manufacturer must place on Cindra")
+    machine.set_recipe("cindra-calcination")
+    machine.insert({ name = "calcite", count = 50 })
+
+    async(1200)
+    after_ticks(600, function()
+      assert.is_true(machine.valid)
+      -- Quicklime is the solid co-product.
+      assert.is_true(machine.get_item_count(QUICKLIME) > 0,
+        "calcination must produce quicklime (got " .. machine.get_item_count(QUICKLIME) .. ")")
+      -- CO2 is the gas: it must come out the LM's output fluid box.
+      assert.is_true((machine.get_fluid_count(CO2) or 0) > 0,
+        "the lava-manufacturer must emit CO2 gas (got " .. (machine.get_fluid_count(CO2) or 0) .. ")")
       machine.destroy()
       done()
     end)
