@@ -79,7 +79,7 @@ local NO_DAY_NIGHT_CYCLE = 300000 * minute
 -- Resources (stone + ice) and the finite bootstrap rocks are NATIVE autoplace
 -- (prototypes/resources.lua), banded to the ribbon and surfacing real Frequency/
 -- Size/Richness sliders -- grouped below Aquilo on the map-gen screen, Stone + Ice
--- only (the standalone volatiles resource is gone; volatiles come from the ice chain).
+-- only (there is no standalone ice-derived ore; the ice chain works the chunk).
 local function cindra_map_gen()
   local finite = terrain.finite_dimension()
 

@@ -15,7 +15,12 @@ local H = require("tests.helpers")
 local PACK = "cindra-science-pack"
 local TECH = "cindra-science"
 local ALUMINIUM = "cindra-aluminium"
-local VOLATILES = "cindra-volatiles"
+-- The nightside input is now `ice` (ci-ml1): crushed from the deep-nightside oxide
+-- chunk on the Cindra crusher. Frozen volatiles are gone; ice is the worked,
+-- petrochemical-free cold-edge feedstock that replaces them.
+local ICE = "ice"
+-- The Cindra crushing recipe that produces the science pack's ice input.
+local ICE_RECIPE = "cindra-oxide-asteroid-crushing"
 
 -- Anything whose lineage passes through oil, coal, or biology. The pack must
 -- contain NONE of these, directly. (The whole planet ships zero oil/coal chemistry.)
@@ -70,35 +75,38 @@ describe("cindra science pack: petrochemical-free, native inputs only", function
     for _, ing in pairs(prototypes.recipe[PACK].ingredients) do names[ing.name] = ing.amount end
     assert.is_true((names[ALUMINIUM] or 0) > 0,
       "the headline science must consume the signature aluminium (the power-manufactured metal)")
-    assert.is_true((names[VOLATILES] or 0) > 0,
-      "and the deep-nightside volatiles -- both lethal edges in one pack")
+    assert.is_true((names[ICE] or 0) > 0,
+      "and the deep-nightside ice -- both lethal edges in one pack")
   end)
 
-  it("sources its volatiles from a PROCESSING recipe, not a mining yield (ci-4xx)", function()
-    -- ci-4xx relocated volatiles off the ice field's mining drop and onto a
-    -- processing recipe. Prove the science-pack input is obtainable that way:
-    -- (1) a recipe produces cindra-volatiles, (2) it consumes only native inputs
-    -- (petrochemical-free like the pack itself), (3) the ice field does NOT drop
-    -- volatiles, and (4) the recipe is reachable (unlocked before/with the pack).
-    local vr = prototypes.recipe[VOLATILES]
-    assert.is_not_nil(vr, "a recipe named cindra-volatiles must exist (the processing source)")
+  it("sources its ice from a PROCESSING recipe, not a raw mining yield (ci-ml1)", function()
+    -- ci-ml1 removed frozen volatiles and repointed the science pack's cold-edge
+    -- input to `ice`. Ice is not a raw drop of the field either: it is a worked
+    -- output of crushing the deep-nightside oxide chunk on the Cindra crusher.
+    -- Prove the science-pack input is obtainable that way, end-to-end:
+    -- (1) a recipe produces ice, (2) it consumes only native inputs
+    -- (petrochemical-free like the pack itself), (3) the ice field drops the raw
+    -- oxide chunk (not ice), and (4) the recipe is reachable (unlocked before/with
+    -- the pack).
+    local ir = prototypes.recipe[ICE_RECIPE]
+    assert.is_not_nil(ir, "the cindra-oxide-asteroid-crushing recipe must exist (the processing source of ice)")
 
     local makes = false
-    for _, p in pairs(vr.products) do if p.name == VOLATILES then makes = true end end
-    assert.is_true(makes, "the recipe must actually produce the volatiles item")
+    for _, p in pairs(ir.products) do if p.name == ICE then makes = true end end
+    assert.is_true(makes, "the crushing recipe must actually produce the ice item")
 
-    assert.is_true(#vr.ingredients > 0, "volatiles must cost a real input (a worked output, not free)")
-    for _, ing in pairs(vr.ingredients) do
+    assert.is_true(#ir.ingredients > 0, "ice must cost a real input (a worked output, not free)")
+    for _, ing in pairs(ir.ingredients) do
       assert.is_nil(PETROCHEMICAL[ing.name],
-        "volatiles-processing input '" .. ing.name .. "' must be petrochemical-free")
+        "ice-processing input '" .. ing.name .. "' must be petrochemical-free")
     end
 
-    -- The field itself must NOT drop volatiles any more (the whole point of ci-4xx).
+    -- The field itself drops the raw oxide chunk, not ice: ice is worked from it.
     local field = prototypes.entity["cindra-ice"]
     if field then
       for _, p in ipairs(field.mineable_properties.products) do
-        assert.are_not.equal(VOLATILES, p.name,
-          "mining the ice field must not yield volatiles -- they are a processing output now")
+        assert.are_not.equal(ICE, p.name,
+          "mining the ice field must not yield the ice item directly -- ice is a processing output")
       end
     end
 
@@ -106,15 +114,15 @@ describe("cindra science pack: petrochemical-free, native inputs only", function
     -- Cindra discovery tech -- which is transitively required before the pack tech
     -- (cindra-science -> cindra-aluminium -> the discovery-gated ice chain), so the
     -- science pack stays craftable end-to-end with no chicken-and-egg.
-    assert.is_false(vr.enabled, "the volatiles recipe is unlocked by research, not free")
+    assert.is_false(ir.enabled, "the ice crushing recipe is unlocked by research, not free")
     local discovery = prototypes.technology["planet-discovery-cindra"]
     assert.is_not_nil(discovery, "the Cindra discovery tech must exist")
-    local unlocks_volatiles = false
+    local unlocks_ice = false
     for _, e in pairs(discovery.effects) do
-      if e.type == "unlock-recipe" and e.recipe == VOLATILES then unlocks_volatiles = true end
+      if e.type == "unlock-recipe" and e.recipe == ICE_RECIPE then unlocks_ice = true end
     end
-    assert.is_true(unlocks_volatiles,
-      "planet-discovery-cindra must unlock the volatiles recipe (reachable with the rest of the ice chain)")
+    assert.is_true(unlocks_ice,
+      "planet-discovery-cindra must unlock the ice crushing recipe (reachable with the rest of the ice chain)")
   end)
 
   it("produces a real science-pack item (in the science-pack subgroup)", function()
@@ -255,7 +263,7 @@ describe("cindra science pack runtime: a stock assembler crafts it, and it needs
     assert.is_not_nil(m, "a stock assembling machine must be placeable on Cindra")
     m.set_recipe(PACK)
     m.insert({ name = ALUMINIUM, count = 1 })
-    m.insert({ name = VOLATILES, count = 3 })
+    m.insert({ name = ICE, count = 5 })
     m.insert({ name = "calcite", count = 4 })
     return m
   end

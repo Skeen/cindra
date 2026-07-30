@@ -10,11 +10,11 @@
 --
 -- 1. PETROCHEMICAL-FREE, NATIVE INPUTS ONLY. No oil/coal/plastic/sulfur anywhere
 --    in the recipe. It is built from Cindra's own materials: the signature
---    aluminium (the ruinous-power metal), deep-nightside frozen volatiles, and
---    calcite from the ice chain. This is the planet's whole identity distilled
---    into one item -- you cannot make Cindra science without commanding both
---    lethal edges (power-manufactured aluminium reaches toward the fire/power
---    side; the deep-nightside volatiles toward the cold).
+--    aluminium (the ruinous-power metal), deep-nightside ice, and calcite from the
+--    ice chain. This is the planet's whole identity distilled into one item -- you
+--    cannot make Cindra science without commanding both lethal edges
+--    (power-manufactured aluminium reaches toward the fire/power side; the
+--    deep-nightside ice, crushed from the cold-lethal field, toward the cold).
 --
 -- 2. A REAL ENERGY COST. Power is Cindra's real resource (§1), so the headline
 --    science must still cost power to make -- but it is crafted in an ORDINARY
@@ -53,13 +53,14 @@ local PACK_SECONDS = 60
 
 -- (tune) §15-14. Per-craft native inputs. Every one is a Cindra material with no
 -- petrochemical anywhere in its own lineage:
---   * aluminium         -- the signature product (power-manufactured metal).
---   * frozen volatiles  -- harvested from the deep, cold-lethal nightside.
---   * calcite           -- the ice chain's mineral output.
+--   * aluminium  -- the signature product (power-manufactured metal).
+--   * ice        -- crushed from the deep, cold-lethal nightside ice field (the
+--                   ice chain's worked cold-edge output; prototypes/ice-processing.lua).
+--   * calcite    -- the ice chain's mineral output.
 local ALUMINIUM = "cindra-aluminium"
-local VOLATILES = "cindra-volatiles"
+local ICE = "ice"
 local ALUMINIUM_PER_PACK = 1
-local VOLATILES_PER_PACK = 3
+local ICE_PER_PACK = 5
 local CALCITE_PER_PACK = 4
 local PACK_PER_CRAFT = 1
 
@@ -105,7 +106,7 @@ local pack_recipe = {
   energy_required = PACK_SECONDS,
   ingredients = {
     { type = "item", name = ALUMINIUM, amount = ALUMINIUM_PER_PACK },
-    { type = "item", name = VOLATILES, amount = VOLATILES_PER_PACK },
+    { type = "item", name = ICE, amount = ICE_PER_PACK },
     { type = "item", name = "calcite", amount = CALCITE_PER_PACK },
   },
   results = {

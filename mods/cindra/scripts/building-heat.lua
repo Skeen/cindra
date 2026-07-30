@@ -4,8 +4,8 @@
 -- as Aquilo: a machine past the cold threshold takes CONTINUOUS COLD DAMAGE
 -- (the spec's "freeze / stop / take cold damage" option) unless it sits near an
 -- active heat source. This makes nightward expansion drag a heat-and-power
--- umbilical with it: deeper = colder, and the coldest, best resources (ice,
--- volatiles) live out there, so the heating cost scales with the reward.
+-- umbilical with it: deeper = colder, and the coldest, best resources (the ice
+-- field) live out there, so the heating cost scales with the reward.
 --
 -- The cold threshold is read off the ribbon axis (scripts/ribbon.lua is the
 -- single source of truth): a tile is "cold" when its axis temperature is below

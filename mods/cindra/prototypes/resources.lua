@@ -4,10 +4,10 @@
 --   stone      -> the ribbon surface (feedstock for manufactured lava)
 --   ice field  -> the nightside; yields ONLY the vanilla `oxide-asteroid-chunk`
 --                 that the vanilla crush -> melt chain turns into water / calcite
---                 (ci-3mx). There is NO standalone volatiles resource or map-gen
---                 slider (ci-3yl) and volatiles are NOT a mining yield (ci-4xx):
---                 the frozen volatiles the science pack needs come from PROCESSING
---                 the chunk (prototypes/ice-processing.lua), not from the field.
+--                 (ci-3mx). There is NO standalone ice-derived ore or map-gen
+--                 slider beyond stone + ice (ci-3yl): everything the ice chain
+--                 needs comes from PROCESSING the chunk
+--                 (prototypes/ice-processing.lua), not from extra field drops.
 --   bootstrap rocks -> scattered near the terminator, hand-gathered, FINITE
 --                 (the landing-tier trickle of metal, §6)
 --
@@ -46,28 +46,6 @@ local function ribbon_cfg()
   }
 end
 local CFG = ribbon_cfg()
-
--- The deep-nightside frozen volatiles, a science-pack input. It is NOT a mined
--- resource: no map-gen slider (ci-3yl) and NO LONGER a mining yield of the ice
--- field (ci-4xx). The ITEM survives and comes from a PROCESSING recipe -- crushing
--- the deep-nightside oxide chunks in the ice crusher sublimes out the frozen
--- volatile fraction (prototypes/ice-processing.lua, per DESIGN §11). It has its OWN
--- distinct icon (a violet-frost gas vial, ci-9bb): the old placeholder reused the
--- vanilla ice item art, so the volatiles read as plain "ice cubes". The bespoke
--- icon reads as frozen volatile gases, not ice.
-data:extend({
-  {
-    type = "item",
-    name = "cindra-volatiles",
-    icon = "__cindra__/graphics/icons/cindra-volatiles.png",
-    icon_size = 64,
-    icon_mipmaps = 4,
-    subgroup = "raw-resource",
-    order = "z[cindra-volatiles]",
-    stack_size = 50,
-    weight = 100000, -- matches other raw solids for platform hauling
-  },
-})
 
 -- Register the patch sets up front, in a deterministic order (mirrors vanilla
 -- base/prototypes/entity/resources.lua), so patch indices are stable. Only Stone
@@ -125,10 +103,8 @@ end
 local ICE_ITEM = "oxide-asteroid-chunk"
 
 -- The Cindra ice resource: ice-chunk patches that yield ONLY the vanilla oxide
--- chunk (ci-4xx). Frozen volatiles are NOT a mining yield any more -- they come
--- from a PROCESSING recipe (crushing the chunk, prototypes/ice-processing.lua), so
--- mining the field is a single-product drop of the vanilla chunk that the crush ->
--- melt chain (ci-3mx) turns into ice / calcite / water.
+-- chunk (ci-4xx). Mining the field is a single-product drop of the vanilla chunk
+-- that the crush -> melt chain (ci-3mx) turns into ice / calcite / water.
 --
 -- Icy world sprite (ci-9bb): the deep-copied vanilla `stone` resource carries the
 -- warm-tan stone rubble stage sheet, so the ice deposit READ as a stone patch. v1
@@ -207,9 +183,9 @@ data:extend({
     "__cindra__/graphics/icons/cindra-stone.png"),
   -- Ice: the nightside's single signature raw. It yields ONLY the VANILLA
   -- `oxide-asteroid-chunk` (ci-4xx) so the whole ice chain reuses vanilla recipes
-  -- (crush -> ice + calcite, melt -> water; ci-3mx). The frozen volatiles the
-  -- science pack needs are NOT a mining yield: they come from PROCESSING the chunk
-  -- (prototypes/ice-processing.lua), not from the field. Cold blue; patches
+  -- (crush -> ice + calcite, melt -> water; ci-3mx). Everything the ice chain and
+  -- the science pack need comes from PROCESSING the chunk
+  -- (prototypes/ice-processing.lua), not from extra field drops. Cold blue; patches
   -- nightward of the safe band, richer the deeper (colder) they sit, with a
   -- starting patch near the terminator. The DEPOSIT reads as "Ice field"
   -- (entity-name.cindra-ice); the mined item is the vanilla chunk (we never rename

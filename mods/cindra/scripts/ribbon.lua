@@ -43,7 +43,7 @@ M.DEFAULTS = {
 
   temp_center  = 25, -- terminator centre: room temperature
   temp_hot_max = 1500, -- sunward saturation: manufactured-lava hot
-  temp_cold_min = -270, -- nightward saturation: near absolute zero (volatiles freeze out)
+  temp_cold_min = -270, -- nightward saturation: near absolute zero (gases freeze out)
 
   -- Damage-per-second at the lethal saturation point, applied to the player
   -- (and, later, unshielded buildings). Survivable BRIEFLY with gear so the

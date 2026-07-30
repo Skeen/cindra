@@ -232,7 +232,8 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   ribbon-tuning settings read as functional names with **no raw keys and no the
   word "Ribbon"**, and the orientation dropdown shows worded options (not raw
   `vertical`/`horizontal`). Patches: stone/ice appear as IRREGULAR natural patches
-  (not a grid); no water at any setting; deep-nightside ice yields volatiles when mined.
+  (not a grid); no water at any setting; the deep-nightside ice field yields the
+  vanilla oxide chunk when mined (ci-ml1: there is no volatiles item at all).
 
 - [ ] **[LANDED] Ice field, stone patch + rocks read right (ci-9bb).**
   *Repro:* explore the ribbon on Cindra; mine an ice field and a stone patch; open
@@ -240,9 +241,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   ground (a pale frost-blue ore patch), clearly NOT the warm stone rubble and NOT
   the vanilla iron-ore look; its map colour is a pale cyan/frost, distinct from
   iron ore's steel-blue. The **stone** deposit is labelled just **Stone** (never
-  "Cindra stone"). Mining an ice field drops the oxide chunk plus **Frozen
-  volatiles** wearing their OWN vial-of-gas icon (violet/cyan), NOT a second batch
-  of "ice cubes" (the old placeholder). **Rocks** appear scattered along
+  "Cindra stone"). Mining an ice field drops ONLY the vanilla oxide chunk (ci-ml1:
+  the Frozen volatiles item was removed entirely; the science pack's cold-edge
+  input is crushed `ice` now). **Rocks** appear scattered along
   the WHOLE ribbon terminator band as you explore (naturally scattered, no lattice,
   finite per rock), not only around spawn. *Fallback:* `test_worldgen.lua` proves
   the icy map_color (distinct from stone AND iron) and band-wide rock generation;
@@ -511,8 +512,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (currently the vanilla automation-science-pack icon tinted hot amber). Functionality
   is fully test-covered (`tests/test_science.lua`), including a powered stock assembler
   that only progresses with power. *Note:* the pack recipe consumes the signature
-  **aluminium** + deep-nightside volatiles + calcite (petrochemical-free); it was
-  re-based off the retired cryo-hardened alloy by ci-84s.
+  **aluminium** + deep-nightside ice + calcite (petrochemical-free; ci-ml1 removed
+  the former volatiles input); it was re-based off the retired cryo-hardened alloy
+  by ci-84s.
 
 - [ ] **[LANDED] Environmental scanner reads well as a circuit hub (ci-3o3).** The
   standalone `env-scanner` mod adds a buildable **Environmental scanner** (a renamed
@@ -551,12 +553,11 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Placeholder art (expected in v1, do NOT file as bugs)
 
-- [ ] **[LANDED] Resource art is placeholder.** Stone/ice/volatiles resources are
+- [ ] **[LANDED] Resource art is placeholder.** Stone/ice resources are
   cloned from vanilla `stone` (recoloured via `map_color`) and rocks from
   vanilla `huge-rock` (warm stone-tinted, ci-jvc). The stone + ice resources now carry the Cindra stone/ice
-  icons so the map "contains" list reads correctly (ci-2sr); the volatiles resource
-  + item still reuse the vanilla ice icon. Bespoke Cindra resource art is a later
-  pass.
+  icons so the map "contains" list reads correctly (ci-2sr). Bespoke Cindra
+  resource art is a later pass.
 
 - [ ] **[LANDED] Signature-building art is placeholder.** The aluminium
   electrolysis cell, lava manufacturer, electric heater, and mass driver
@@ -631,7 +632,7 @@ of the current build; they are listed so "not built yet" is distinguishable from
   impassable `ammoniacal-ocean` / `lava-hot` tiles. This is intended (the absolute edge
   is a molten/frozen wall), but the reachable edge-pushing reward is the band just
   inside it (walkable `ice-rough` / `volcanic-cracks-hot`). *Look for:* the richest
-  reachable ice/volatiles sit at the walkable/impassable boundary and mining feels like
+  reachable ice sits at the walkable/impassable boundary and mining feels like
   a graded risk, not a dead cliff; confirm no resource is stranded such that the
   economy is starved.
 
