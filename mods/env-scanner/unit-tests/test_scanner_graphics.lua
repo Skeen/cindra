@@ -129,6 +129,22 @@ test("emission layer is a draw_as_glow layer from the emission strip", function(
   assert_true(ships(glow.filename), "emission PNG must ship: " .. glow.filename)
 end)
 
+-- === ci-ijk: the emission layers MUST blend additive (the black-box cause) ===
+test("static emission layer blends additive so it never paints a black box", function()
+  -- SAME root cause as the ci-036 lava-manufacturer bug (verified in-engine for
+  -- the scanner too): the emission strip is FULLY OPAQUE (alpha 1 everywhere)
+  -- with a black background and only bright openings. draw_as_glow does NOT
+  -- change the blend op, so without blend_mode = "additive" the opaque black is
+  -- drawn straight over the body -> a solid black box (the user's symptom).
+  -- Fails on the pre-fix spec (blend_mode == nil), passes on the fix.
+  local layers = proto("constant-combinator", C.SCANNER).sprites.layers
+  local glow
+  for _, l in ipairs(layers) do if l.draw_as_glow then glow = l end end
+  assert_true(glow ~= nil, "a draw_as_glow (emission) layer must exist")
+  assert_eq("additive", glow.blend_mode,
+    "static emission layer must set blend_mode = 'additive' (opaque black bg else boxes the body)")
+end)
+
 -- === Animated overlay prototypes (drawn on placed scanners) ==================
 -- These are what make the building actually animate in-world. Both must be full
 -- 20-frame / 8-wide strips at the same geometry as the static body so they land
@@ -156,6 +172,42 @@ end)
 test("glow overlay is a non-empty 20-frame draw_as_glow animation of the emission strip", function()
   local a = check_anim(C.GLOW_ANIM, "emission")
   assert_true(a.draw_as_glow == true, "the emission overlay must draw as a glow")
+  -- ci-ijk: the in-world glow overlay carries the same opaque emission strip, so
+  -- it needs additive blending too or it boxes the animated body at runtime.
+  assert_eq("additive", a.blend_mode,
+    "glow overlay must set blend_mode = 'additive' (opaque black bg else boxes the body)")
+end)
+
+-- === ci-ijk: the scanner is a 2x2 building (Overseer) =======================
+test("scanner entity has a 2x2 footprint", function()
+  local e = proto("constant-combinator", C.SCANNER)
+  assert_eq(2, e.tile_width, "scanner must be 2 tiles wide")
+  assert_eq(2, e.tile_height, "scanner must be 2 tiles tall")
+  local sb = e.selection_box
+  assert_true(sb ~= nil, "selection_box must be set")
+  local w = sb[2][1] - sb[1][1]
+  local h = sb[2][2] - sb[1][2]
+  assert_true(math.abs(w - 2) < 0.01 and math.abs(h - 2) < 0.01,
+    "selection box must be 2x2, got " .. w .. "x" .. h)
+  local cb = e.collision_box
+  assert_true(cb ~= nil, "collision_box must be set")
+  local cw = cb[2][1] - cb[1][1]
+  assert_true(cw > 1.0 and cw <= 2.0, "collision box must span most of the 2x2 (width " .. cw .. ")")
+end)
+
+-- ci-ijk (Overseer): the item sorts right after the programmable-speaker, in the
+-- circuit-network subgroup. The real cross-prototype ordering (against vanilla
+-- speaker/display-panel) is asserted in the integration test
+-- (mods/cindra/tests/test_env_scanner.lua); here we guard the wiring locally.
+test("scanner item sits in the circuit-network subgroup, ordered after the speaker", function()
+  local item = proto("item", C.SCANNER)
+  assert_eq("circuit-network", item.subgroup, "item must be in the circuit-network subgroup")
+  -- programmable-speaker is order "d[other]-b[programmable-speaker]"; the scanner
+  -- must sort after it (and the display panel's "s[..]" sorts after the scanner).
+  assert_true(item.order > "d[other]-b[programmable-speaker]",
+    "scanner order (" .. tostring(item.order) .. ") must sort after the programmable-speaker")
+  assert_true(item.order < "s[display-panel]",
+    "scanner order (" .. tostring(item.order) .. ") must sort before the display panel")
 end)
 
 -- === Item + entity icon =====================================================

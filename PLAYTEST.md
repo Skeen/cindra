@@ -474,6 +474,17 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   are test-covered (`unit-tests/test_lava_graphics.lua`, and the mod-loads +
   runtime-craft checks in `tests/test_lava.lua` / `tests/test_bootstrap.lua`); only
   the on-screen look/scale/shift and animation feel need eyes.
+  **ci-ijk RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the manufacturer was
+  FLOATING above the ground and its sprite did NOT fill its 5x5 box (too small).
+  Root cause: `BODY_SCALE` 0.5 was too small for the 5x5 foundry footprint and
+  `BODY_SHIFT` lifted it -24 px. Retuned to scale 0.64 / shift 0 (the vanilla
+  foundry, 356x384 @ 0.5, is the size reference); an actual Factorio render
+  (headless Xvfb + llvmpipe, `game.take_screenshot`, day + night, with the 5x5
+  selection box drawn and a vanilla foundry beside it) confirms the furnace now
+  fills the 5x5 box and its base sits on the ground, all layers (body / shadow /
+  emission) aligned, with the ci-036 additive molten glow intact at night. Guard:
+  `unit-tests/test_lava_graphics.lua` now asserts scale >= 0.6, shift not lifted,
+  and body/emission share scale+shift.
   **ci-036 RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the black-square bug is
   fixed and confirmed with an actual Factorio render (headless client under Xvfb +
   llvmpipe, `game.take_screenshot`), NOT just "the code looks right". The REAL root
@@ -662,6 +673,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   draw/teardown, and icon are test-covered (`tests/test_scanner.lua`,
   `unit-tests/test_scanner_graphics.lua`); only the on-screen look/scale/shift
   and animation feel need eyes.
+  **ci-ijk RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the scanner rendered as
+  a solid BLACK BOX - the SAME root cause as the ci-036 lava-manufacturer bug:
+  the emission strip is FULLY OPAQUE (alpha 1 everywhere) with a black background
+  and only bright openings, and its glow layers were missing `blend_mode =
+  "additive"`, so the opaque black drew straight over the body. Added additive to
+  BOTH the static `sprites` glow layer and the in-world `glow_animation` overlay;
+  an actual Factorio render (headless client under Xvfb + llvmpipe,
+  `game.take_screenshot`, day + night) confirms the radio-station body now shows
+  with its openings glowing at night. Also (Overseer): the scanner is now a **2x2
+  building** (was a 1x1 combinator), and `BODY_SCALE`/`BODY_SHIFT` were retuned
+  (0.42 / -26 px) so the body FILLS the 2x2 box and its base SITS on the ground
+  (was floating ~0.6 tile high), verified against a vanilla accumulator (2x2) in
+  the same render. The additive blend, the 2x2 footprint, and the crafting-menu
+  order (right after the programmable-speaker, same `circuit-network` subgroup)
+  are now test-covered (`unit-tests/test_scanner_graphics.lua` +
+  `../cindra/tests/test_env_scanner.lua`).
 
 - [ ] **[LANDED] Environmental scanner is actually reachable in the Cindra
   playtest (ci-xor).** The `env-scanner` mod was never loaded in any launch
