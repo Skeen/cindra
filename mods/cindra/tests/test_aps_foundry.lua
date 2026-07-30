@@ -41,13 +41,13 @@ describe("cindra APS start chain: foundry path pre-researched (no soft-lock)", f
 
   it("also arrives with the rest of the lava->metal spine (so the economy is reachable)", function()
     local force = game.forces["player"]
-    -- The cindra-lava tech is the spine: it unlocks the caster, the lava recipe,
-    -- AND (ci-669) the Cindra-exclusive casting recipes that turn cindra-lava into
-    -- molten metal. Ice processing supplies water (for renewable lubricant) and
-    -- calcite (for the casts). Pre-researching the chain is what lets a from-scratch
-    -- start reach the metal economy with no chicken-and-egg.
+    -- The cindra-lava tech is the spine: it unlocks the caster and the lava
+    -- recipe. The casts themselves are the VANILLA molten recipes, handed by the
+    -- `foundry` tech (ci-9yg). Ice processing supplies water (for renewable
+    -- lubricant) and calcite (for the casts). Pre-researching the chain is what
+    -- lets a from-scratch start reach the metal economy with no chicken-and-egg.
     assert.is_true(force.technologies["foundry"].researched,
-      "the foundry tech (the machine that runs the casts) must be pre-researched")
+      "the foundry tech (the machine that runs the casts + the vanilla casts) must be pre-researched")
     assert.is_true(force.recipes["cindra-lava"].enabled,
       "manufactured lava must be craftable from the start")
     -- Since ci-e8a lava is crafted on a dedicated caster, not the foundry. The
@@ -55,11 +55,12 @@ describe("cindra APS start chain: foundry path pre-researched (no soft-lock)", f
     -- (else a Cindra start could research lava but have nothing to craft it in).
     assert.is_true(force.recipes["cindra-lava-manufacturer"].enabled,
       "the lava manufacturer (the machine that crafts lava) must be craftable from the start")
-    -- ci-669: the Cindra casting recipes ride on the same cindra-lava tech, so a
-    -- Cindra start can actually cast the manufactured lava into metal from tick zero.
-    assert.is_true(force.recipes["cindra-molten-iron-from-lava"].enabled,
-      "the Cindra iron cast must be available from the start")
-    assert.is_true(force.recipes["cindra-molten-copper-from-lava"].enabled,
-      "the Cindra copper cast must be available from the start")
+    -- ci-9yg: the casts are the vanilla molten recipes (unlocked by the foundry
+    -- tech above), so a Cindra start can cast the manufactured lava into metal
+    -- from tick zero -- no Cindra-exclusive cast recipe exists.
+    assert.is_true(force.recipes["molten-iron-from-lava"].enabled,
+      "the vanilla iron cast must be available from the start (via the foundry tech)")
+    assert.is_true(force.recipes["molten-copper-from-lava"].enabled,
+      "the vanilla copper cast must be available from the start (via the foundry tech)")
   end)
 end)

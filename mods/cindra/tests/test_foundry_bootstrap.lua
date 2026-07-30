@@ -269,9 +269,10 @@ describe("cindra start-on-Cindra foundry bootstrap", function()
     -- contribution: an on-Cindra metal economy that feeds itself.
     local s = H.cindra_surface()
     game.forces["player"].recipes["cindra-lava"].enabled = true
-    -- ci-669: on Cindra the cast is the Cindra-exclusive recipe (cindra-lava in,
-    -- small productivity-immune stone byproduct back).
-    game.forces["player"].recipes["cindra-molten-iron-from-lava"].enabled = true
+    -- ci-9yg: on Cindra the cast is the UNMODIFIED vanilla recipe (vanilla lava in,
+    -- vanilla stone byproduct back; the loop is kept net stone-negative by the
+    -- nerfed stone->lava ratio, not a Cindra-exclusive cast).
+    game.forces["player"].recipes["molten-iron-from-lava"].enabled = true
 
     local caster = s.create_entity({ name = "cindra-lava-manufacturer", position = { 0, 0 }, force = "player" })
     assert.is_not_nil(caster, "a lava caster must be placeable/obtainable on Cindra")
@@ -281,9 +282,9 @@ describe("cindra start-on-Cindra foundry bootstrap", function()
 
     local foundry = s.create_entity({ name = "foundry", position = { 8, 0 }, force = "player" })
     assert.is_not_nil(foundry, "a foundry must be placeable/obtainable on Cindra")
-    foundry.set_recipe("cindra-molten-iron-from-lava")
-    assert.are.equal("cindra-molten-iron-from-lava", foundry.get_recipe().name,
-      "the on-Cindra foundry melts cindra-lava into molten metal -- the metal economy is reachable")
+    foundry.set_recipe("molten-iron-from-lava")
+    assert.are.equal("molten-iron-from-lava", foundry.get_recipe().name,
+      "the on-Cindra foundry melts vanilla lava into molten metal -- the metal economy is reachable")
 
     caster.destroy()
     foundry.destroy()

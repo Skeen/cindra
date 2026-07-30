@@ -362,35 +362,34 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   water tap. (Both crush recipes, the no-fluid crusher, and the end-to-end ice ->
   shards -> water chain are integration-tested.)
 
-- [ ] **[LANDED] Manufactured lava: dedicated lava-manufacturer, ruinous power (§15-5, ci-e8a).**
-  Lava is now cast in a dedicated **`cindra-lava-manufacturer`** (a fast, 40 MW foundry
-  clone in a private category), NOT the shared foundry; the foundry only MELTS lava into
-  metal. This fixes the old ~100-foundries-per-melt unusability without cheapening lava:
-  the machine's speed sets the count (single-digit, ~6 per melting foundry) while its draw
-  is pinned proportional so **energy-per-lava is unchanged and ruinous**. Machine count,
-  fixed energy-per-lava, and the ruinous aggregate draw are all headless-tested
-  (`tests/test_lava.lua`). *Repro:* research
-  `cindra-lava` (gated behind the foundry + Cindra discovery), build a handful (~6) of
-  `cindra-lava-manufacturer`, feed them stone + power, and route the lava into foundries
-  for molten metal. *Look for:* (1) the *feel*: ~6 manufacturers visibly feed one melting
-  foundry without an absurd machine wall, at a visibly heavy grid draw ("power is the
-  lever"), and productivity modules are allowed on the lava recipe (ci-095); (2) the
-  manufacturer wears the bespoke glass-furnace art (Hurricane046 / CC-BY, ci-oi8) instead
-  of the foundry sprite - see the dedicated art entry below. Balance the ruinous 40 MW
-  draw against the flare/solar numbers (ci-9k6, ci-63d).
+- [ ] **[LANDED] Manufactured lava: dedicated lava-manufacturer, ruinous power (§15-5, ci-e8a / ci-9yg).**
+  Lava is cast in a dedicated **`cindra-lava-manufacturer`** (a 40 MW foundry clone in a
+  private category), NOT the shared foundry; the foundry only MELTS lava into metal. This
+  fixes the old ~100-foundries-per-melt unusability without cheapening lava: a single-digit
+  count (~6) feeds one melting foundry at a ruinous, **unchanged energy-per-lava**. Machine
+  count, fixed energy-per-lava, and the ruinous aggregate draw are all headless-tested
+  (`tests/test_lava.lua`). *Repro:* research `cindra-lava` (gated behind the foundry +
+  Cindra discovery), build a handful (~6) of `cindra-lava-manufacturer`, feed them stone +
+  power, route the lava into foundries for molten metal. *Look for:* (1) the *feel*: ~6
+  manufacturers visibly feed one melting foundry without an absurd machine wall, at a heavy
+  grid draw ("power is the lever"); note that productivity is now **DISABLED** on the lava
+  recipe (ci-9yg, the stone-negativity invariant), so a productivity module gives no bonus
+  there; (2) the manufacturer wears the bespoke glass-furnace art (Hurricane046 / CC-BY,
+  ci-oi8) instead of the foundry sprite - see the dedicated art entry below. Balance the
+  ruinous 40 MW draw against the flare/solar numbers (ci-9k6, ci-63d).
 
-- [ ] **[LANDED] One visible "Lava" - no "Manufactured lava" split (ci-a0y).**
-  The Cindra lava is now a distinct fluid id ONLY as the ci-669 exploit gate (recipes are
-  per-force, so a separate input fluid is the only invariant-safe way to keep the generous
-  vanilla molten casts off Cindra); to the player it is plain **"Lava"** with the vanilla
-  lava icon + colours (no tint). The colour match is headless-tested (`tests/test_lava.lua`),
-  but the icon sprite and every UI-resolved NAME are visual. *Repro:* on Cindra, open the
-  fluid in a pipe/tank/factoriopedia, the `cindra-lava` recipe, and the two casting recipes.
-  *Look for:* the fluid reads as ordinary "Lava" everywhere (tooltip, pipe/tank fill colour,
-  factoriopedia) with the vanilla lava icon; the recipe that makes it is "Lava" and the two
-  casts are "Molten iron"/"Molten copper" - **no "Manufactured lava" text anywhere**. Since
-  Cindra has no lava lakes, the player only ever produces this fluid, so exactly one "Lava"
-  appears in play. (The tech that unlocks the chain is now "Lava casting".)
+- [ ] **[ci-9yg] ONE true "Lava" + the machine no longer spazzes (REDO of ci-a0y + ci-4ee).**
+  There is now exactly one lava fluid: the **vanilla `lava`**, used end-to-end (the separate
+  `cindra-lava` fluid is deleted; Cindra casts through the unmodified vanilla molten
+  recipes). And the manufacturer's `crafting_speed` dropped from 64 to **2** (batch scaled
+  up to keep throughput), fixing the animation/sound spazz. Both are visual/interactive and
+  cannot be headless-checked. *Repro:* on Cindra, research + build the lava chain; run a
+  manufacturer; open the fluid in a pipe/tank/factoriopedia and the `cindra-lava` recipe.
+  *Look for:* (1) exactly **one "Lava"** everywhere - the recipe makes "Lava", the casts are
+  the vanilla "Molten iron"/"Molten copper", and there is **no second lava / no "Manufactured
+  lava"** in factoriopedia, tooltips, or filters; (2) the running manufacturer's animation
+  and working sound play at a **calm, normal rate** - no fast flicker/blur, no stuttering
+  sound. (The tech that unlocks the chain is still "Lava casting".)
 
 - [ ] **[LANDED] Lava-manufacturer glass-furnace art looks right (ci-oi8).** The
   `cindra-lava-manufacturer` wears the user-supplied Hurricane046 **glass-furnace**
