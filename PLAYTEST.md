@@ -148,26 +148,25 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   centre → cyan cold); (5) spawn sits in the **wide safe building** band you can
   build across freely.
 
-- [ ] **Hot region reads as RINGS around lava pools (ci-cwk) — VISUAL.** The hot
-  region is no longer a flat perpendicular stripe: a distance-to-lava **heightmap**
-  drives the tile choice, so **lava sits in pools/blobs** with **volcanic-cracks-hot
-  wrapping each pool like a shoreline** and the heat falling off with distance from
-  lava as **concentric contour rings** (lava-hot core → lava → cracks-hot ring → warm
-  cracks/smooth-stone → temperate). The X gradient still governs where lava appears:
-  **dense/large pools toward the west/sunward edge, thinning to none by the temperate
-  zone**. The pool/ring structure (pools intermix along a fixed column, lava is always
-  insulated by a cracks-hot ring, lava thins west→temperate) is asserted in
-  `tests/test_worldgen.lua`; the ring elevation model in `unit-tests/test_terrain.lua`;
-  only the *visual read* is the playtest. *Repro:* land on Cindra, open the map (M) and
-  chart the sunward/west edge, and walk west from spawn. *Look for:* (1) lava reads as
-  **pools/blobs**, not a solid wall stripe — largest and most merged near the west edge,
-  breaking into isolated pools as you move east; (2) **every lava pool is ringed by
-  volcanic-cracks-hot** (the hot "shoreline"), never abutting plain ground directly;
-  (3) the heat visibly **radiates outward in rings** from each pool (cracks-hot →
-  warm crust → temperate), so hotness reads as distance-from-lava, not a flat band;
-  (4) it plays nicely with the tile-based damage (ci-4jl) — the closer to a lava pool
-  you stand, the more it burns. *Fallback:* none — the ring/pool read is inherently
-  visual.
+- [ ] **Hot region reads as a SOLID SEA + RINGS radiating out (ci-cwk, reworked ci-48z) — VISUAL.**
+  The far-west edge is **ALWAYS a solid, contiguous hot-lava SEA** (~50 tiles, zone 1):
+  pure lava-hot, no pools/gaps/rings. OUTWARD of the sea a distance-to-lava **heightmap**
+  drives the tiles, so **lava breaks into fingers/pools** with **volcanic-smooth-stone-warm
+  wrapping each pool** (the warm shoreline adjacent to the lava) and **volcanic-cracks-hot
+  ringing IT one step further out**, the heat falling off as **concentric contour rings**
+  (lava-hot → lava → smooth-stone-warm → cracks-hot → cracks-warm → temperate). Per the
+  ci-48z contour fix, **smooth-stone-warm sits inside cracks-hot, not the reverse.** The X
+  gradient governs density: **dense/large pools next to the sea, thinning to none by the
+  temperate zone**. The solid sea (zero gaps, seed-independent), the pool/ring structure and
+  the contour order are asserted in `tests/test_worldgen.lua`; the ring elevation model and
+  the sea guarantee in `unit-tests/test_terrain.lua`; only the *visual read* is the playtest.
+  *Repro:* land on Cindra, open the map (M) and chart the sunward/west edge, and walk west
+  from spawn. *Look for:* (1) the far-west edge is a **solid molten sea**, no holes; (2)
+  moving east the lava **breaks into fingers/pools**, thinning to none by the temperate zone;
+  (3) each pool is **ringed by smooth-stone-warm first, then cracks-hot** (never abutting
+  plain ground directly); (4) the heat visibly **radiates outward in rings** from the sea and
+  the pools; (5) it plays nicely with the tile-based damage (ci-4jl) — the closer to lava you
+  stand, the more it burns. *Fallback:* none — the sea/ring read is inherently visual.
 
 - [ ] **[LANDED] Danger zone reads on the MAP VIEW like a demolisher tint (ci-4h7)
   — MAYOR MUST SCREENSHOT.** The lethal edges now carry a distinct alarming

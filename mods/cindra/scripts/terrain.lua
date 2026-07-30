@@ -24,17 +24,19 @@
 --   10 rough_ice  [50]  dust -> rough ice.
 --   11 deep_ice   [250] the smooth-ice cap beyond the cliff (cold-lethal).
 --
--- HOT REGION = RINGS AROUND LAVA (ci-cwk). The three HEAT zones (hot_lava, lava_mix,
--- lava_crust) are NOT laid as flat perpendicular sub-bands; instead the whole hot
--- region is driven by a distance-to-lava HEIGHTMAP / elevation field E, so lava sits
--- in POOLS/blobs with volcanic-cracks-hot forming a boundary RING around them and the
--- heat falling off with distance from lava as concentric CONTOUR rings (the user's
--- "like a heightmap" mental model: lava is the peak, descend the field and you pass
--- out through hot tiles into cooler ones). The X (perpendicular) gradient still
--- controls WHERE and HOW MUCH lava appears -- it BIASES the elevation so lava is
--- dense/large toward the sunward (west) edge and thins to none by the temperate zone.
--- See M.HOT_RING_ORDER / M.hot_region / M.ring_tile_at and the ring terms in
--- M.probability_expr. Zones 4-11 (temperate -> cold) keep the flat-band MIXING model:
+-- HOT REGION = A SOLID SEA + RINGS RADIATING OUT (ci-cwk, reworked ci-48z). The far-west
+-- band (zone 1, hot_lava) is ALWAYS a SOLID, CONTIGUOUS hot-lava SEA -- pure lava-hot, no
+-- pools/gaps/rings, every seed, at any zone width (the ci-da2 / ci-a35 guarantee). The
+-- OTHER two HEAT zones (lava_mix, lava_crust) are NOT flat perpendicular sub-bands;
+-- instead the region OUTWARD of the sea is driven by a distance-to-lava HEIGHTMAP /
+-- elevation field E anchored to the sea, so lava breaks up into POOLS/fingers with
+-- volcanic-cracks-hot forming a boundary RING and the heat falling off with distance as
+-- concentric CONTOUR rings (the user's "like a heightmap" mental model: the SEA is the
+-- peak, descend the field outward and you pass through lava -> smooth-stone-warm ->
+-- cracks-hot -> cracks-warm into the temperate zone). The X (perpendicular) gradient
+-- biases the elevation so lava is dense next to the sea and thins to none by the
+-- temperate zone. See M.HOT_RING_ORDER / M.hot_region / M.ring_tile_at and the ring terms
+-- in M.probability_expr. Zones 4-11 (temperate -> cold) keep the flat-band MIXING model:
 --
 -- MIXING MODEL (zones 4-11). Each zone lists its member tiles with a weight at the HOT
 -- (hi) and COLD (lo) edge of its band; the weight is linearly interpolated across the
@@ -506,7 +508,8 @@ end
 
 -- The perpendicular band [lo, hi] spanned by the HOT REGION = the union of the HEAT-
 -- damage zones (hot_lava .. lava_crust). The lava heightmap/ring model (ci-cwk) is
--- confined to this span, and the elevation bias ramps across it (0 at lo, max at hi).
+-- confined to this span; the elevation bias ramps from 0 at the temperate edge (lo) up
+-- to its peak at the sea edge (the cold edge of zone 1), where the solid sea is anchored.
 function M.hot_region(cfg)
   local bands = M.bands(cfg)
   local lo, hi
@@ -573,23 +576,37 @@ local function perp_band_term(mm, P, bands)
   return "(" .. env .. " + " .. weight .. ")"
 end
 
--- One HOT-region ring term (ci-cwk). Two parts summed:
+-- One HOT-region ring term (ci-cwk, reworked ci-48z). Two parts summed:
 --   * a STEEP plateau (hot_gate) that confines the tile to the hot region's
 --     perpendicular span [lo, hi], so lava/cracks never leak into the temperate zone;
 --   * a ring SELECTOR = RING_PLATEAU minus the distance of the elevation E from the
 --     tile's own elevation band, so the ring whose band contains E wins the MAX.
--- E = the shared lava heightmap + a perpendicular BIAS (high at the hot edge hi, 0 at
--- the temperate edge lo), so lava concentrates west and thins out east. Equal-E
--- contours -> concentric rings around each lava pool.
+--
+-- E is anchored to the SOLID SEA (zone 1, the far-west band): within the sea E is FORCED
+-- to SEA_FILL so lava-hot always wins -> a solid contiguous hot-lava sea, every seed, at
+-- any zone width (the ci-48z / ci-da2 / ci-a35 guarantee). Keyed to the RAW perpendicular
+-- axis so the forced band is EXACTLY zone 1. Outside the sea E = the shared lava heightmap
+-- + a BIAS that peaks at the sea edge and ramps to 0 by the temperate edge, so the
+-- pools/rings RADIATE outward from the sea (dense lava at the shore, thinning to none by
+-- the temperate zone). Equal-E contours -> concentric rings around the lava fingers/pools.
 local function hot_ring_term(name, P, cfg)
   local hr = M.hot_region(cfg)
-  local span = math.max(1, hr.hi - hr.lo)
+  local bands = M.bands(cfg)
+  local sea_lo = bands[1].lo                     -- inner (temperate-side) edge of zone 1, the solid sea
+  local out_span = math.max(1, sea_lo - hr.lo)   -- the OUTWARD region the rings radiate across
   local gate = num(M.PLATEAU) .. " - " .. num(M.HOT_GATE_STEEP) .. " * (" ..
                relu(num(hr.lo) .. " - " .. P) .. " + " .. relu(P .. " - " .. num(hr.hi)) .. ")"
-  -- bias: 0 at the temperate edge (lo), HEIGHT_BIAS at the sunward edge (hi).
+  -- bias: 0 at the temperate edge (hr.lo), HEIGHT_BIAS at the sea edge (sea_lo) and held
+  -- across the sea by the clamp -> the sea is the elevation peak the rings radiate from.
   local bias = num(M.HEIGHT_BIAS) .. " * " ..
-               clamp01("(" .. P .. " - " .. num(hr.lo) .. ") / " .. num(span))
-  local E = "(" .. height_noise() .. " + " .. bias .. ")"
+               clamp01("(" .. P .. " - " .. num(hr.lo) .. ") / " .. num(out_span))
+  local E_base = "(" .. height_noise() .. " + " .. bias .. ")"
+  -- SOLID SEA floor: SEA_FILL within zone 1 (raw perp >= sea_lo), falling away at SEA_WALL
+  -- per tile just outside so the heightmap pools take over. max() with E_base forces
+  -- lava-hot across the whole sea regardless of the noise.
+  local sea_floor = num(M.SEA_FILL) .. " - " .. num(M.SEA_WALL) .. " * " ..
+                    relu(num(sea_lo) .. " - (" .. perp_expr() .. ")")
+  local E = "max(" .. E_base .. ", " .. sea_floor .. ")"
   local band = RING_BAND[name]
   local elev = num(M.RING_PLATEAU) .. " - (" .. relu(num(band.lo) .. " - " .. E) ..
                " + " .. relu(E .. " - " .. num(band.hi)) .. ")"
