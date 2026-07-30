@@ -343,6 +343,15 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   are test-covered (`unit-tests/test_lava_graphics.lua`, and the mod-loads +
   runtime-craft checks in `tests/test_lava.lua` / `tests/test_bootstrap.lua`); only
   the on-screen look/scale/shift and animation feel need eyes.
+  **ci-8r6 fix (2026-07-30):** the ci-oi8 sheets shipped as INDEXED/palette PNGs,
+  which Factorio renders as an opaque BLACK square - in-game the body vanished behind
+  a black box and only the emission glow showed (user screenshot `lavaman.png`).
+  Every other Cindra entity ships RGBA; the glass-furnace set was the anomaly. Fixed
+  by converting all five glass-furnace PNGs (body -1/-2, emission -1/-2, shadow) to
+  32-bit RGBA. `unit-tests/test_lava_graphics.lua` now asserts every layer sheet is
+  truecolour RGBA (fails on the old palette art, passes on the fix). *Eyes still
+  need to confirm:* the base furnace body now renders in full colour (NOT a black
+  square) and the scale/shift sit right on the footprint.
 
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh).** The signature material:
   native stone + calcite -> alumina -> aluminium (electrolysis cell, ruinous power,

@@ -144,6 +144,38 @@ local function all_ship(layer)
   end
 end
 
+-- The PNG IHDR colour-type byte (offset 25, 0-indexed): 6 = truecolour+alpha
+-- (RGBA), 2 = truecolour, 4 = grey+alpha, 0 = grey, 3 = indexed/palette. The PNG
+-- layout is: 8-byte signature, then the IHDR chunk (4-byte length + "IHDR" tag +
+-- width[4] + height[4] + bit-depth[1] + colour-type[1] ...), so the colour type
+-- is the 26th byte (1-indexed) of the file.
+local function png_color_type(modpath)
+  local rel = modpath:gsub("^__cindra__/", "./")
+  local f = io.open(rel, "rb")
+  if not f then return nil end
+  local head = f:read(26)
+  f:close()
+  if not head or #head < 26 then return nil end
+  return head:byte(26)
+end
+
+-- Every PNG a layer references must be a truecolour RGBA sheet (colour type 6).
+-- ci-8r6 REGRESSION GUARD: the glass-furnace set shipped as INDEXED/palette PNGs
+-- (colour type 3), which Factorio renders as an opaque BLACK square -- the base
+-- body vanished behind a black box and only the draw_as_glow emission showed. Every
+-- other Cindra entity ships RGBA; an indexed sheet is the bug. Fails on the palette
+-- art (type 3), passes once converted to RGBA (type 6).
+local RGBA = 6
+local function all_rgba(layer)
+  local files = {}
+  if layer.filename then files[#files + 1] = layer.filename end
+  for _, fn in ipairs(layer.filenames or {}) do files[#files + 1] = fn end
+  for _, fn in ipairs(files) do
+    assert_eq(RGBA, png_color_type(fn),
+      "PNG must be truecolour RGBA (not indexed/palette, which Factorio draws black): " .. fn)
+  end
+end
+
 local function layers()
   local m = proto("assembling-machine", MACHINE)
   assert_true(m ~= nil, "lava-manufacturer entity must be registered")
@@ -180,6 +212,7 @@ test("body layer is a two-part 80-frame glass-furnace animation (270x310)", func
   assert_true(body.shift ~= nil, "body must set a shift")
   assert_true(not body.draw_as_shadow and not body.draw_as_glow, "body is the lit, opaque layer")
   all_ship(body)
+  all_rgba(body)
 end)
 
 test("shadow layer is a draw_as_shadow layer from the shadow image", function()
@@ -188,6 +221,7 @@ test("shadow layer is a draw_as_shadow layer from the shadow image", function()
   assert_true(shadow ~= nil, "a draw_as_shadow layer must exist")
   assert_true(shadow.filename:find("shadow") ~= nil, "shadow must use the shadow image")
   all_ship(shadow)
+  all_rgba(shadow)
 end)
 
 test("emission layer is a draw_as_glow two-part animation of the emission sheet", function()
@@ -201,6 +235,15 @@ test("emission layer is a draw_as_glow two-part animation of the emission sheet"
   assert_eq(310, glow.height, "glow frame height matches body")
   assert_eq(80, glow.frame_count, "glow frame count matches body")
   all_ship(glow)
+  all_rgba(glow)
+end)
+
+-- === ci-8r6: sheets must be RGBA, never indexed/palette (renders black) ======
+test("every glass-furnace layer ships as truecolour RGBA, not indexed/palette", function()
+  -- Guards the ci-8r6 root cause directly across all layers: the body vanished as
+  -- a black square because its sheet was an indexed PNG (colour type 3). Assert
+  -- every referenced PNG is RGBA (type 6) so a re-exported palette sheet fails here.
+  for _, l in ipairs(layers()) do all_rgba(l) end
 end)
 
 -- === Inherited foundry art must be dropped (no reskinned-foundry leak) =======
