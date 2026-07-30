@@ -1,21 +1,27 @@
--- PROOF: the Calcite-To-Olefins plastic chain (ci-400). Cindra makes plastic in
--- its own idiom -- rock, ice, metal, and the star's surplus -- via the real CTO
--- route with CALCITE as the carbon source. Claims, matching the bead:
---   1. THE THREE CHEMISTRIES exist and connect: water electrolysis -> H2 + O2;
---      calcite calcination -> quicklime + CO2; the CTO bridge CO2 + H2 -> methanol;
---      MTO methanol -> olefins over a Cu/Al catalyst; olefins -> plastic.
+-- PROOF: Cindra's petrochemical-free PLASTIC chain, reconciled to the
+-- authoritative recipe graph (DESIGN §8, ci-6vj S4). Cindra makes plastic in its
+-- own idiom -- rock, ice, metal, and the star's surplus -- via the real MTO route
+-- with CALCITE as the carbon source, over TWO distinct catalyst systems. Claims:
+--   1. THE CHEMISTRIES connect: water electrolysis -> H2 + O2; calcite
+--      calcination -> quicklime + CO2 (in the lava manufacturer); methanol
+--      synthesis CO2 + H2 -(methanol catalyst)-> methanol; MTO+polymerisation
+--      methanol -(zeolite catalyst)-> the vanilla plastic-bar (ONE step).
 --   2. PETROCHEMICAL-FREE: no oil/coal/petroleum feeds the chain (calcite is the
 --      carbon; the final product is the vanilla plastic-bar).
---   3. THE CATALYST is a proper catalyst (Cu + Al in; returned as a product with
---      high probability, so it is slow-consumed, not a 1:1 reagent).
---   4. GATED: every recipe off by default; one tech unlocks them all, gated behind
---      the signature aluminium (which itself needs both lava and ice).
---   5. BYPRODUCT SINKS exist (oxygen, CO2, quicklime are ventable; quicklime also
---      has a net-negative disposal sink, ci-6vj #16) so the chain can't deadlock;
---      the fluids are all defined.
---   6. NEVER-MUTATE-OTHER-PLANETS: the shared vanilla plastic-bar / water /
+--   3. TWO TRUE CATALYSTS: methanol synthesis and MTO each take exactly one
+--      catalyst and return it 70% intact + 20% spent (independent rolls), so it is
+--      slow-consumed, never a 1:1 reagent. Each catalyst is made from the
+--      signature alumina, and each spent form reprocesses/regenerates back.
+--   4. THE ci-400 SINGLE-CATALYST GRAPH IS GONE: no cindra-olefins fluid, no
+--      cindra-cu-al-catalyst item, no separate cindra-mto / cindra-polymerisation.
+--   5. GATED: every recipe off by default; one tech unlocks them all, behind the
+--      signature aluminium (which itself needs both lava and ice).
+--   6. BYPRODUCT SINKS exist (oxygen, CO2, quicklime ventable; quicklime also has
+--      a net-negative disposal sink, ci-6vj #16) so the chain can't deadlock.
+--   7. NEVER-MUTATE-OTHER-PLANETS: the shared vanilla plastic-bar / water /
 --      calcite / copper-plate are untouched; every new fluid/item is Cindra's own.
---   7. RUNTIME: a powered chemical plant fed olefins produces plastic-bar.
+--   8. RUNTIME: a powered chemical plant fed methanol + the zeolite catalyst
+--      produces plastic-bar.
 
 local H = require("tests.helpers")
 
@@ -23,20 +29,22 @@ local H2       = "cindra-hydrogen"
 local O2       = "cindra-oxygen"
 local CO2      = "cindra-carbon-dioxide"
 local METHANOL = "cindra-methanol"
-local OLEFINS  = "cindra-olefins"
 local QUICKLIME = "cindra-quicklime"
-local CATALYST = "cindra-cu-al-catalyst"
-local ALUMINIUM = "cindra-aluminium"
+local ALUMINA  = "cindra-alumina"
+local MCAT       = "cindra-methanol-catalyst"
+local MCAT_SPENT = "cindra-spent-methanol-catalyst"
+local ZCAT       = "cindra-zeolite-catalyst"
+local ZCAT_SPENT = "cindra-spent-zeolite-catalyst"
 local PLASTIC  = "plastic-bar"
 local TECH     = "cindra-calcite-olefins"
 
--- Petrochemistry Cindra forbids as an INPUT to this chain (DESIGN.md §1). Note
--- plastic-bar is the chain's PRODUCT, not an input -- what stays banned is the
--- oil/coal route to it, which this chain never uses.
+-- The petrochemistry Cindra forbids anywhere in the plastic chain (DESIGN §1):
+-- the oil/coal route. (sulfur / sulfuric-acid are NOT petrochemicals -- they come
+-- from stone melting per DESIGN §8.3 Option B and legitimately feed catalyst
+-- reprocessing -- so they are not on this list.)
 local FORBIDDEN = {
   ["petroleum-gas"] = true, ["light-oil"] = true, ["heavy-oil"] = true,
-  ["crude-oil"] = true, ["coal"] = true, ["sulfur"] = true,
-  ["sulfuric-acid"] = true, ["lubricant"] = true,
+  ["crude-oil"] = true, ["coal"] = true,
 }
 
 local function amount_of(list, name)
@@ -57,14 +65,24 @@ local function product(list, name)
   return nil
 end
 
-describe("cindra plastic chain: the three chemistries connect end to end", function()
-  it("1a. water electrolysis: water -> hydrogen + oxygen", function()
+-- The per-product independent roll (2.1 exposes it as `probability` or the
+-- renamed `independent_probability`); accept whichever the runtime surfaces.
+local function roll(p) return (p.probability or p.independent_probability or 1) end
+
+-- Every matter-conversion / catalyst recipe on the chain -- all prod OFF.
+local CONVERSION_RECIPES = {
+  "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
+  MCAT, "cindra-methanol-catalyst-reprocessing",
+  "cindra-mto-polymerisation", ZCAT, "cindra-zeolite-catalyst-regeneration",
+}
+
+describe("cindra plastic chain: the chemistries connect end to end", function()
+  it("1a. water electrolysis: water -> hydrogen + oxygen (2:1)", function()
     local r = prototypes.recipe["cindra-electrolysis"]
     assert.is_not_nil(r, "the electrolysis recipe must exist")
     assert.is_true(has_ingredient("cindra-electrolysis", "water"), "electrolysis consumes water")
     assert.is_not_nil(product(r.products, H2), "electrolysis yields hydrogen")
     assert.is_not_nil(product(r.products, O2), "electrolysis yields oxygen (the byproduct)")
-    -- Real 2 H2O -> 2 H2 + O2: hydrogen comes out at twice the oxygen.
     assert.are.equal(2 * amount_of(r.products, O2), amount_of(r.products, H2),
       "hydrogen:oxygen must be 2:1 (2 H2O -> 2 H2 + O2)")
   end)
@@ -78,15 +96,11 @@ describe("cindra plastic chain: the three chemistries connect end to end", funct
     assert.is_not_nil(product(r.products, CO2), "calcination yields CO2 (the carbon that becomes plastic)")
   end)
 
-  -- ci-6vj S3: calcination is a ROAST, moved out of the chemical plant into the
-  -- high-heat lava manufacturer (DESIGN §8.3). It runs in the LM's private
-  -- category, keeps electric heat (no lava input) and NO stone output, and prod
-  -- stays off (fixed carbon budget: no free CO2).
+  -- ci-6vj S3: calcination is a ROAST in the high-heat lava manufacturer.
   it("1b'. calcination roasts in the lava manufacturer, not the chemical plant (ci-6vj S3)", function()
     local r = prototypes.recipe["cindra-calcination"]
     assert.is_not_nil(r, "the calcination recipe must exist")
 
-    -- Confined to the private lava-manufacturing category (never chemistry).
     local in_lava_cat, in_chem_cat = false, false
     for _, c in pairs(r.categories or {}) do
       if c == "cindra-lava-manufacturing" then in_lava_cat = true end
@@ -97,8 +111,6 @@ describe("cindra plastic chain: the three chemistries connect end to end", funct
     assert.is_false(in_chem_cat,
       "calcination must NOT run in chemistry -- it is a roast, moved to the LM")
 
-    -- The Cindra lava-manufacturer must actually run the category; the shared
-    -- Vulcanus foundry must never gain it (no leak onto other planets).
     local lm = prototypes.entity["cindra-lava-manufacturer"]
     assert.is_not_nil(lm, "the lava manufacturer entity must exist")
     assert.is_true(lm.crafting_categories["cindra-lava-manufacturing"],
@@ -107,54 +119,46 @@ describe("cindra plastic chain: the three chemistries connect end to end", funct
     assert.is_falsy(foundry.crafting_categories["cindra-lava-manufacturing"],
       "the vanilla foundry must never run the Cindra lava-manufacturing category")
 
-    -- Electric heat, no lava input; NO stone output (§8.3: opens no stone vector).
     assert.is_false(has_ingredient("cindra-calcination", "lava"),
       "calcination uses electric heat, not a lava input")
     assert.is_nil(product(r.products, "stone"),
       "calcination emits no stone (keeps the stone balance proof simple)")
 
-    -- Exactly the §8.2 batch: 2 calcite -> 2 quicklime + 40 CO2.
     assert.are.equal(2, amount_of(r.ingredients, "calcite"), "2 calcite in")
     assert.are.equal(2, amount_of(r.products, QUICKLIME), "2 quicklime out")
     assert.are.equal(40, amount_of(r.products, CO2), "40 CO2 out (the carbon feed)")
 
-    -- Prod off: fixed carbon budget, no minting free CO2.
     assert.is_false(r.allowed_effects and r.allowed_effects.productivity,
       "calcination must disable productivity (no free CO2)")
   end)
 
-  it("1c. the bridge: CO2 + hydrogen -> methanol (calcite carbon made usable)", function()
+  -- DESIGN §8.2 #10: 20 CO2 + 60 H2 + 1 methanol-catalyst -> 20 methanol + 20 water.
+  it("1c. methanol synthesis: CO2 + hydrogen + methanol-catalyst -> methanol (+ water)", function()
     local r = prototypes.recipe["cindra-methanol-synthesis"]
     assert.is_not_nil(r, "the methanol-synthesis recipe must exist")
-    assert.is_true(has_ingredient("cindra-methanol-synthesis", CO2), "methanol uses the calcite CO2")
-    assert.is_true(has_ingredient("cindra-methanol-synthesis", H2), "methanol uses electrolysis hydrogen")
-    assert.is_not_nil(product(r.products, METHANOL), "the recipe produces methanol")
+    assert.are.equal(20, amount_of(r.ingredients, CO2), "20 CO2 in (the calcite carbon)")
+    assert.are.equal(60, amount_of(r.ingredients, H2), "60 H2 in (electrolysis hydrogen)")
+    assert.are.equal(1, amount_of(r.ingredients, MCAT), "1 methanol catalyst in")
+    assert.are.equal(20, amount_of(r.products, METHANOL), "20 methanol out")
+    assert.are.equal(20, amount_of(r.products, "water"), "20 water recovered (loops back)")
   end)
 
-  it("1d. MTO: methanol -> olefins over the Cu/Al catalyst", function()
-    local r = prototypes.recipe["cindra-mto"]
-    assert.is_not_nil(r, "the MTO recipe must exist")
-    assert.is_true(has_ingredient("cindra-mto", METHANOL), "MTO cracks methanol")
-    assert.is_true(has_ingredient("cindra-mto", CATALYST), "MTO uses the Cu/Al catalyst")
-    assert.is_not_nil(product(r.products, OLEFINS), "MTO produces olefins")
-  end)
-
-  it("1e. polymerisation: olefins -> plastic (the vanilla plastic-bar)", function()
-    local r = prototypes.recipe["cindra-polymerisation"]
-    assert.is_not_nil(r, "the polymerisation recipe must exist")
-    assert.is_true(has_ingredient("cindra-polymerisation", OLEFINS), "polymerisation consumes olefins")
-    assert.is_not_nil(product(r.products, PLASTIC),
-      "the chain ends in the vanilla plastic-bar (plugs into vanilla recipes)")
+  -- DESIGN §8.2 #13: 40 methanol + 1 zeolite-catalyst -> 2 plastic-bar + 40 water.
+  -- MTO and polymerisation are ONE recipe now (no separate olefins intermediate).
+  it("1d. MTO+polymerisation: methanol + zeolite-catalyst -> plastic-bar (+ water), one step", function()
+    local r = prototypes.recipe["cindra-mto-polymerisation"]
+    assert.is_not_nil(r, "the MTO+polymerisation recipe must exist")
+    assert.are.equal(40, amount_of(r.ingredients, METHANOL), "40 methanol in")
+    assert.are.equal(1, amount_of(r.ingredients, ZCAT), "1 zeolite catalyst in")
+    assert.are.equal(2, amount_of(r.products, PLASTIC),
+      "2 vanilla plastic-bar out (plugs straight into vanilla recipes)")
+    assert.are.equal(40, amount_of(r.products, "water"), "40 water recovered (loops back)")
   end)
 end)
 
 describe("cindra plastic chain: petrochemical-free (no oil/coal route)", function()
-  it("no step consumes a forbidden petrochemical", function()
-    local recipes = {
-      "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
-      "cindra-mto", "cindra-polymerisation", CATALYST,
-    }
-    for _, name in ipairs(recipes) do
+  it("no chain recipe consumes a forbidden petrochemical", function()
+    for _, name in ipairs(CONVERSION_RECIPES) do
       for _, ing in pairs(prototypes.recipe[name].ingredients) do
         assert.is_nil(FORBIDDEN[ing.name],
           name .. " must not consume the forbidden petrochemical " .. ing.name)
@@ -163,79 +167,152 @@ describe("cindra plastic chain: petrochemical-free (no oil/coal route)", functio
   end)
 
   it("the carbon comes from calcite, not from oil or coal", function()
-    -- The only carbon-bearing input across the whole chain is calcite. This is
-    -- the Calcite-To-Olefins thesis: rock carbon, never petrochemistry.
     assert.is_true(has_ingredient("cindra-calcination", "calcite"),
       "calcination is the carbon source and it is calcite")
   end)
 end)
 
-describe("cindra plastic chain: the Cu/Al catalyst is a proper catalyst", function()
-  it("is crafted from copper + the signature aluminium", function()
-    local r = prototypes.recipe[CATALYST]
-    assert.is_not_nil(r, "the catalyst recipe must exist")
-    assert.is_true(has_ingredient(CATALYST, "copper-plate"), "the catalyst uses copper")
-    assert.is_true(has_ingredient(CATALYST, ALUMINIUM),
-      "the catalyst uses aluminium -- so the plastic chain rides the power economy")
+describe("cindra plastic chain: two TRUE catalyst systems (ci-6vj S4)", function()
+  -- A true catalyst: exactly one in; returned ~70% intact + ~20% spent, each on
+  -- its own independent roll -- so ~10% net loss per craft, topped up by the make.
+  local function assert_true_catalyst(recipe_name, live, spent)
+    local r = prototypes.recipe[recipe_name]
+    assert.is_not_nil(r, recipe_name .. " must exist")
+    assert.are.equal(1, amount_of(r.ingredients, live), "exactly one catalyst in: " .. live)
+
+    local ret = product(r.products, live)
+    assert.is_not_nil(ret, recipe_name .. " must return the live catalyst as a product")
+    local pr = roll(ret)
+    assert.is_true(pr > 0.5 and pr < 1.0,
+      "the catalyst is returned most of the time (slow deactivation), got " .. tostring(pr))
+
+    local sp = product(r.products, spent)
+    assert.is_not_nil(sp, recipe_name .. " must produce the SPENT catalyst as a product")
+    local ps = roll(sp)
+    assert.is_true(ps > 0.0 and ps < 0.5,
+      "the spent catalyst is the minority roll, got " .. tostring(ps))
+
+    -- Real deactivation: returned + spent must together be < 1 (a net loss/craft).
+    assert.is_true(pr + ps < 1.0,
+      "return + spent probabilities must sum below 1 (a real make-up feed): got "
+        .. tostring(pr + ps))
+  end
+
+  it("methanol synthesis uses the methanol catalyst as a real catalyst", function()
+    assert_true_catalyst("cindra-methanol-synthesis", MCAT, MCAT_SPENT)
   end)
 
-  it("is slow-consumed, not spent 1:1: MTO returns it with high probability", function()
-    local r = prototypes.recipe["cindra-mto"]
-    local returned = product(r.products, CATALYST)
-    assert.is_not_nil(returned, "MTO must return the catalyst as a product (catalyst, not reagent)")
-    -- 2.1 exposes the per-product roll as either `probability` or the renamed
-    -- `independent_probability`; accept whichever the runtime surfaces.
-    local p = returned.probability or returned.independent_probability or 1
-    assert.is_true(p > 0.5 and p < 1.0,
-      "the catalyst is returned most of the time (slow deactivation), not always and not never; got "
-        .. tostring(p))
-    assert.are.equal(1, amount_of(r.ingredients, CATALYST), "one catalyst in")
+  it("MTO+polymerisation uses the zeolite catalyst as a real catalyst", function()
+    assert_true_catalyst("cindra-mto-polymerisation", ZCAT, ZCAT_SPENT)
+  end)
+
+  -- DESIGN §8.2 #11: methanol catalyst = 10 copper + 2 alumina.
+  it("the methanol catalyst is made from copper + the signature alumina", function()
+    local r = prototypes.recipe[MCAT]
+    assert.is_not_nil(r, "the methanol-catalyst make recipe must exist")
+    assert.are.equal(10, amount_of(r.ingredients, "copper-plate"), "10 copper in")
+    assert.are.equal(2, amount_of(r.ingredients, ALUMINA), "2 alumina in (rides the power economy)")
+    assert.are.equal(1, amount_of(r.products, MCAT), "makes one methanol catalyst")
+  end)
+
+  -- DESIGN §8.2 #14: zeolite catalyst = 8 stone + 3 alumina + 2 quicklime + 100 steam.
+  it("the zeolite catalyst consumes stone + alumina + quicklime + steam", function()
+    local r = prototypes.recipe[ZCAT]
+    assert.is_not_nil(r, "the zeolite-catalyst make recipe must exist")
+    assert.are.equal(8, amount_of(r.ingredients, "stone"), "8 stone in")
+    assert.are.equal(3, amount_of(r.ingredients, ALUMINA), "3 alumina in")
+    assert.are.equal(2, amount_of(r.ingredients, QUICKLIME),
+      "2 quicklime in (the zeolite is the real quicklime consumer)")
+    assert.are.equal(100, amount_of(r.ingredients, "steam"), "100 steam in")
+    assert.are.equal(1, amount_of(r.products, ZCAT), "makes one zeolite catalyst")
+  end)
+
+  -- DESIGN §8.2 #12: reprocess spent methanol catalyst = + 20 sulfuric-acid -> 6 copper + 1 alumina.
+  it("the spent methanol catalyst reprocesses back (never a dead item)", function()
+    local r = prototypes.recipe["cindra-methanol-catalyst-reprocessing"]
+    assert.is_not_nil(r, "the methanol-catalyst reprocessing recipe must exist")
+    assert.are.equal(1, amount_of(r.ingredients, MCAT_SPENT), "1 spent methanol catalyst in")
+    assert.are.equal(20, amount_of(r.ingredients, "sulfuric-acid"), "20 sulfuric-acid in")
+    assert.are.equal(6, amount_of(r.products, "copper-plate"), "6 copper recovered")
+    assert.are.equal(1, amount_of(r.products, ALUMINA), "1 alumina recovered")
+  end)
+
+  -- DESIGN §8.2 #15: regenerate spent zeolite catalyst = + 20 O2 -> 1 zeolite catalyst.
+  it("the spent zeolite catalyst regenerates back (a real O2 sink)", function()
+    local r = prototypes.recipe["cindra-zeolite-catalyst-regeneration"]
+    assert.is_not_nil(r, "the zeolite-catalyst regeneration recipe must exist")
+    assert.are.equal(1, amount_of(r.ingredients, ZCAT_SPENT), "1 spent zeolite catalyst in")
+    assert.are.equal(20, amount_of(r.ingredients, O2), "20 oxygen in (burns off the coke)")
+    assert.are.equal(1, amount_of(r.products, ZCAT), "regenerates one live zeolite catalyst")
+  end)
+end)
+
+describe("cindra plastic chain: the ci-400 single-catalyst graph is gone", function()
+  it("the cindra-olefins fluid no longer exists", function()
+    assert.is_nil(prototypes.fluid["cindra-olefins"],
+      "the olefins intermediate is removed -- MTO+polymerisation is one step")
+  end)
+
+  it("the cindra-cu-al-catalyst item no longer exists", function()
+    assert.is_nil(prototypes.item["cindra-cu-al-catalyst"],
+      "the single Cu/Al catalyst is replaced by the methanol + zeolite pair")
+  end)
+
+  it("the separate MTO and polymerisation recipes no longer exist", function()
+    assert.is_nil(prototypes.recipe["cindra-mto"], "cindra-mto is folded into mto-polymerisation")
+    assert.is_nil(prototypes.recipe["cindra-polymerisation"],
+      "cindra-polymerisation is folded into mto-polymerisation")
+  end)
+end)
+
+describe("cindra plastic chain: productivity is OFF on every conversion (matter honesty)", function()
+  it("no conversion or catalyst recipe allows productivity", function()
+    for _, name in ipairs(CONVERSION_RECIPES) do
+      local r = prototypes.recipe[name]
+      assert.is_false(r.allowed_effects and r.allowed_effects.productivity,
+        name .. " must disable productivity (no minting free carbon/metal/plastic)")
+    end
   end)
 end)
 
 describe("cindra plastic chain: gated behind the signature aluminium", function()
+  local GATED_RECIPES = {
+    "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
+    MCAT, "cindra-methanol-catalyst-reprocessing",
+    "cindra-mto-polymerisation", ZCAT, "cindra-zeolite-catalyst-regeneration",
+    "cindra-vent-oxygen", "cindra-vent-quicklime", "cindra-vent-co2",
+    "cindra-quicklime-disposal",
+  }
+
   it("all recipes are off by default", function()
-    local recipes = {
-      "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
-      "cindra-mto", "cindra-polymerisation", CATALYST,
-      "cindra-vent-oxygen", "cindra-vent-quicklime", "cindra-vent-co2",
-      "cindra-quicklime-disposal",
-    }
-    for _, name in ipairs(recipes) do
+    for _, name in ipairs(GATED_RECIPES) do
       assert.is_false(prototypes.recipe[name].enabled, name .. " must be research-gated, not free")
     end
   end)
 
   it("one tech unlocks the whole chain, gated behind aluminium (rock+ice+power)", function()
     local tech = prototypes.technology[TECH]
-    assert.is_not_nil(tech, "the cindra-calcite-olefins technology must exist")
+    assert.is_not_nil(tech, "the materials-chemistry technology must exist")
     assert.is_true(tech.valid, "the tech must load (its icon is present)")
 
     local unlocked = {}
     for _, effect in pairs(tech.effects) do
       if effect.type == "unlock-recipe" then unlocked[effect.recipe] = true end
     end
-    for _, name in ipairs({
-      "cindra-electrolysis", "cindra-calcination", "cindra-methanol-synthesis",
-      "cindra-mto", "cindra-polymerisation", CATALYST,
-      "cindra-vent-oxygen", "cindra-vent-quicklime", "cindra-vent-co2",
-      "cindra-quicklime-disposal",
-    }) do
+    for _, name in ipairs(GATED_RECIPES) do
       assert.is_true(unlocked[name], "the tech must unlock " .. name)
     end
 
     assert.is_not_nil(tech.prerequisites["cindra-aluminium"],
       "gated behind the signature aluminium -- which itself needs both lava and ice")
-    -- And aluminium sits behind the lava spine, which needs Cindra discovery: so
-    -- the plastic chain is unreachable until the whole base economy is in hand.
     assert.is_not_nil(prototypes.technology["cindra-aluminium"].prerequisites["cindra-lava"],
       "aluminium is behind the lava spine (transitively rock + ice + power)")
   end)
 end)
 
 describe("cindra plastic chain: byproduct sinks + fluids exist (no deadlock)", function()
-  it("all five new fluids are defined", function()
-    for _, name in ipairs({ H2, O2, CO2, METHANOL, OLEFINS }) do
+  it("all four new fluids are defined (olefins is gone)", function()
+    for _, name in ipairs({ H2, O2, CO2, METHANOL }) do
       assert.is_not_nil(prototypes.fluid[name], "fluid must exist: " .. name)
     end
   end)
@@ -257,9 +334,7 @@ describe("cindra plastic chain: byproduct sinks + fluids exist (no deadlock)", f
     assert.are.equal(0, #vc.products, "venting CO2 is a pure sink (no product)")
   end)
 
-  -- ci-6vj #16: the designated (non-vent) quicklime sink. It hands back some
-  -- stone but only by consuming lava that cost MORE stone to make, so it can never
-  -- become a free-stone/free-lava source -- proven at the +300% productivity cap.
+  -- ci-6vj #16: the designated (non-vent) quicklime sink -- net stone-NEGATIVE.
   it("quicklime disposal is a real, net stone-NEGATIVE sink (ci-6vj #16)", function()
     local MAX_CONCEIVABLE_PROD = 3.0 -- the engine's +300% cap
     local LAVA_PER_STONE = 5         -- prototypes/lava.lua: 1 stone -> 5 lava (prod off)
@@ -271,8 +346,6 @@ describe("cindra plastic chain: byproduct sinks + fluids exist (no deadlock)", f
     local lava_in = amount_of(d.ingredients, "lava")
     assert.is_true((lava_in or 0) > 0, "disposal consumes lava (fluxes quicklime into the melt)")
 
-    -- Productivity is off AND the stone output is fully ignored_by_productivity, so
-    -- the stone returned is FIXED at every module tier.
     assert.is_false(d.allowed_effects and d.allowed_effects.productivity,
       "disposal must disable productivity (never mint stone)")
     local sp = product(d.products, "stone")
@@ -283,8 +356,6 @@ describe("cindra plastic chain: byproduct sinks + fluids exist (no deadlock)", f
     assert.are.equal(sp.amount, stone_out_at_cap,
       "the stone output must be fully ignored_by_productivity: fixed even at the +300% cap")
 
-    -- The lava consumed embodies lava_in / 5 stone (the fixed stone->lava ratio).
-    -- Disposal must return strictly LESS stone than that, so the loop net-consumes.
     local stone_embodied = lava_in / LAVA_PER_STONE
     assert.is_true(sp.amount < stone_embodied, string.format(
       "disposal must be net stone-NEGATIVE: returns %d stone for %d lava (= %.1f stone) in",
@@ -292,7 +363,6 @@ describe("cindra plastic chain: byproduct sinks + fluids exist (no deadlock)", f
   end)
 
   it("quicklime disposal runs only in the lava-manufacturer (never the shared foundry)", function()
-    -- recipe.categories is a plain-value array of category-name strings.
     local d = prototypes.recipe["cindra-quicklime-disposal"]
     local in_lava_cat = false
     for _, c in pairs(d.categories or {}) do
@@ -300,8 +370,6 @@ describe("cindra plastic chain: byproduct sinks + fluids exist (no deadlock)", f
     end
     assert.is_true(in_lava_cat,
       "disposal is confined to the private lava-manufacturing category")
-    -- The shared Vulcanus foundry must NOT have gained this private category
-    -- (entity.crafting_categories is a dict keyed by category name).
     local foundry = prototypes.entity["foundry"]
     assert.is_falsy(foundry.crafting_categories["cindra-lava-manufacturing"],
       "the vanilla foundry must never run the Cindra lava-manufacturing category")
@@ -310,19 +378,15 @@ end)
 
 describe("cindra plastic chain: never mutate other planets", function()
   it("the shared vanilla plastic-bar recipe is untouched (still the oil route)", function()
-    -- We ADD a Cindra plastic route; we do not change vanilla's. Nauvis still
-    -- makes plastic from coal + petroleum, exactly as before.
     local vanilla = prototypes.recipe["plastic-bar"]
     assert.is_not_nil(vanilla, "the vanilla plastic-bar recipe must still exist")
     assert.is_true((amount_of(vanilla.ingredients, "petroleum-gas") or 0) > 0,
       "vanilla plastic-bar must still use petroleum (we never mutated it)")
-    assert.is_false(has_ingredient("plastic-bar", OLEFINS),
-      "vanilla plastic must NOT gain a Cindra olefins input (no leak onto Nauvis)")
+    assert.is_false(has_ingredient("plastic-bar", METHANOL),
+      "vanilla plastic must NOT gain a Cindra methanol input (no leak onto Nauvis)")
   end)
 
   it("the new recipes run in the shared chemical plant WITHOUT mutating it", function()
-    -- Reusing the vanilla chemistry category is fine; the chemical plant must not
-    -- have been altered (still its vanilla energy draw, still no surface gate).
     local plant = prototypes.entity["chemical-plant"]
     assert.is_not_nil(plant, "the vanilla chemical plant must exist")
     assert.is_true(plant.crafting_categories["chemistry"],
@@ -331,7 +395,7 @@ describe("cindra plastic chain: never mutate other planets", function()
 end)
 
 describe("cindra plastic chain runtime (a powered plant makes plastic)", function()
-  it("a powered chemical plant fed olefins produces plastic-bar", function()
+  it("a powered chemical plant fed methanol + the zeolite catalyst produces plastic-bar", function()
     local s = H.cindra_surface()
     local pole = s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
     assert.is_not_nil(pole, "substation must place")
@@ -342,18 +406,21 @@ describe("cindra plastic chain runtime (a powered plant makes plastic)", functio
     power.electric_buffer_size = 200000000
     power.energy = 200000000
 
-    game.forces["player"].recipes["cindra-polymerisation"].enabled = true
+    game.forces["player"].recipes["cindra-mto-polymerisation"].enabled = true
 
     local plant = s.create_entity({ name = "chemical-plant", position = { 0, 0 }, force = "player" })
     assert.is_not_nil(plant, "the chemical plant must place on Cindra")
-    plant.set_recipe("cindra-polymerisation")
-    plant.insert_fluid({ name = OLEFINS, amount = 200 })
+    plant.set_recipe("cindra-mto-polymerisation")
+    plant.insert_fluid({ name = METHANOL, amount = 400 })
+    -- A stock of catalysts so a run continues even across the ~30% non-return roll.
+    plant.insert({ name = ZCAT, count = 10 })
 
     async(1200)
     after_ticks(600, function()
       assert.is_true(plant.valid)
       assert.is_true(plant.get_item_count(PLASTIC) > 0,
-        "a powered plant fed olefins must produce plastic (got " .. plant.get_item_count(PLASTIC) .. ")")
+        "a powered plant fed methanol + zeolite catalyst must produce plastic (got "
+          .. plant.get_item_count(PLASTIC) .. ")")
       plant.destroy()
       done()
     end)
@@ -416,10 +483,8 @@ describe("cindra calcination runtime (ci-6vj S3)", function()
     async(1200)
     after_ticks(600, function()
       assert.is_true(machine.valid)
-      -- Quicklime is the solid co-product.
       assert.is_true(machine.get_item_count(QUICKLIME) > 0,
         "calcination must produce quicklime (got " .. machine.get_item_count(QUICKLIME) .. ")")
-      -- CO2 is the gas: it must come out the LM's output fluid box.
       assert.is_true((machine.get_fluid_count(CO2) or 0) > 0,
         "the lava-manufacturer must emit CO2 gas (got " .. (machine.get_fluid_count(CO2) or 0) .. ")")
       machine.destroy()

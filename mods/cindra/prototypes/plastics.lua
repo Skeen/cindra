@@ -379,7 +379,9 @@ local mto_polymerisation = {
 local zeolite_catalyst_recipe = {
   type = "recipe",
   name = ZCAT,
-  -- default "crafting" category (an assembler with a fluid box, for the steam).
+  -- `crafting-with-fluid`: the vanilla assembler category for a solid craft that
+  -- also takes a fluid (the steam). Assembling-machine-2/3 have the fluid box.
+  categories = { "crafting-with-fluid" },
   subgroup = "raw-material",
   order = "z[cindra]-catalyst-c[zeolite]",
   enabled = false,
