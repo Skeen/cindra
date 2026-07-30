@@ -24,9 +24,21 @@
 --   10 rough_ice  [50]  dust -> rough ice.
 --   11 deep_ice   [250] the smooth-ice cap beyond the cliff (cold-lethal).
 --
--- MIXING MODEL. Each zone lists its member tiles with a weight at the HOT (hi) and
--- COLD (lo) edge of its band; the weight is linearly interpolated across the band,
--- so e.g. hot-lava fades out and lava fades in across zone 2 (the "X -> Y via
+-- HOT REGION = RINGS AROUND LAVA (ci-cwk). The three HEAT zones (hot_lava, lava_mix,
+-- lava_crust) are NOT laid as flat perpendicular sub-bands; instead the whole hot
+-- region is driven by a distance-to-lava HEIGHTMAP / elevation field E, so lava sits
+-- in POOLS/blobs with volcanic-cracks-hot forming a boundary RING around them and the
+-- heat falling off with distance from lava as concentric CONTOUR rings (the user's
+-- "like a heightmap" mental model: lava is the peak, descend the field and you pass
+-- out through hot tiles into cooler ones). The X (perpendicular) gradient still
+-- controls WHERE and HOW MUCH lava appears -- it BIASES the elevation so lava is
+-- dense/large toward the sunward (west) edge and thins to none by the temperate zone.
+-- See M.HOT_RING_ORDER / M.hot_region / M.ring_tile_at and the ring terms in
+-- M.probability_expr. Zones 4-11 (temperate -> cold) keep the flat-band MIXING model:
+--
+-- MIXING MODEL (zones 4-11). Each zone lists its member tiles with a weight at the HOT
+-- (hi) and COLD (lo) edge of its band; the weight is linearly interpolated across the
+-- band, so e.g. cracks-warm fades out and cracks fade in across zone 4 (the "X -> Y via
 -- noise" the spec asks for). Every concrete tile is cloned ONCE (prototypes/
 -- tiles.lua) as `cindra-<vanilla>`; its autoplace probability is, per point, the
 -- MAX over the zones it belongs to of (a plateau inside that band that falls off
@@ -292,6 +304,80 @@ M.SPECKLE_WAVELENGTH = 11
 M.PLATEAU = 1000
 M.WEIGHT_SCALE = 6
 
+-- ---------------------------------------------------------------------------
+-- HOT REGION heightmap / ring model (ci-cwk).
+--
+-- The hot region (the HEAT-damage zones) is painted by a distance-to-lava ELEVATION
+-- field E rather than by flat perpendicular sub-bands. E = a smooth low-frequency
+-- HEIGHTMAP noise (blob-sized lava pools) PLUS a perpendicular BIAS that is high at
+-- the sunward (west) hot edge and 0 at the temperate edge, so lava is dense/large to
+-- the west and thins to none toward the temperate zone (the X gradient still governs
+-- WHERE/HOW MUCH lava). Each ring owns a contiguous elevation band; the highest-
+-- elevation ring is the lava core, and equal-elevation contours form rings around
+-- each lava peak (lava-hot core -> lava -> cracks-hot boundary ring -> warm crust,
+-- blending out into the temperate zone).
+--
+-- HOT_RING_ORDER is core -> outer. `lo` is the ring's lower elevation threshold; its
+-- upper threshold is the previous ring's `lo` (the core ring is open at the top, the
+-- outermost open at the bottom). This is the SINGLE source of truth for the ring
+-- layout: M.ring_tile_at, the per-tile ring bands and the probability terms all read it.
+local HOT_BIG = 1e9
+M.HOT_RING_ORDER = {
+  { vanilla = "lava-hot",                   lo = 140 },      -- the molten CORE / peak
+  { vanilla = "lava",                       lo = 90 },       -- the pool body
+  { vanilla = "volcanic-cracks-hot",        lo = 45 },       -- the boundary RING (shoreline)
+  { vanilla = "volcanic-cracks-warm",       lo = 15 },       -- warm crust, ring outward
+  { vanilla = "volcanic-smooth-stone-warm", lo = -HOT_BIG }, -- outermost, blends to temperate
+}
+
+-- Heightmap field tuning (elevation units; the ring bands above are in these units).
+-- HEIGHT_AMPLITUDE/WAVELENGTH shape the lava POOLS (a low-frequency blob field);
+-- HEIGHT_BIAS is the extra elevation at the sunward hot edge (0 at the temperate
+-- edge) that makes lava dense west and absent by the temperate zone. RING_PLATEAU is
+-- the ring selector's plateau height and HOT_GATE_STEEP the steepness of the walls
+-- that confine the hot tiles to the hot region (a steep east wall keeps lava/cracks
+-- from leaking into the temperate zone; ~RING_PLATEAU/HOT_GATE_STEEP tiles of organic
+-- blend at the temperate edge). (tune)
+M.HEIGHT_AMPLITUDE = 80
+M.HEIGHT_WAVELENGTH = 56
+M.HEIGHT_BIAS = 120
+M.RING_PLATEAU = 60
+M.HOT_GATE_STEEP = 20
+
+-- cindra tile name -> its elevation band { lo, hi }, built from HOT_RING_ORDER.
+local RING_BAND = {}
+do
+  local prev_hi = HOT_BIG
+  for _, r in ipairs(M.HOT_RING_ORDER) do
+    RING_BAND["cindra-" .. r.vanilla] = { lo = r.lo, hi = prev_hi }
+    prev_hi = r.lo
+  end
+  -- Single source of truth: every member of a HEAT zone must own a ring band and vice
+  -- versa, so the ring layout can never silently drift from the zone membership.
+  local heat_members = {}
+  for _, z in ipairs(M.ZONES) do
+    if z.damage == "heat" then
+      for _, mem in ipairs(z.members) do heat_members["cindra-" .. mem.vanilla] = true end
+    end
+  end
+  for name in pairs(heat_members) do
+    if not RING_BAND[name] then error("terrain: heat-zone tile " .. name .. " has no ring band") end
+  end
+  for name in pairs(RING_BAND) do
+    if not heat_members[name] then error("terrain: ring tile " .. name .. " is not a heat-zone member") end
+  end
+end
+
+-- The cindra tile a given elevation E falls in (the ring model's pure decision), or
+-- nil if E is below the outermost ring (never, since it is open at the bottom). Pure;
+-- unit-testable off the game.
+function M.ring_tile_at(E)
+  for _, r in ipairs(M.HOT_RING_ORDER) do
+    if E >= r.lo then return "cindra-" .. r.vanilla end
+  end
+  return nil
+end
+
 -- Format a number for the noise DSL (integers stay clean, no float noise).
 local function num(v)
   if v == math.floor(v) then return string.format("%d", v) end
@@ -404,6 +490,21 @@ function M.damage_bounds(cfg)
   return { hot_from = hot_from, cold_from = cold_from }
 end
 
+-- The perpendicular band [lo, hi] spanned by the HOT REGION = the union of the HEAT-
+-- damage zones (hot_lava .. lava_crust). The lava heightmap/ring model (ci-cwk) is
+-- confined to this span, and the elevation bias ramps across it (0 at lo, max at hi).
+function M.hot_region(cfg)
+  local bands = M.bands(cfg)
+  local lo, hi
+  for i, z in ipairs(M.ZONES) do
+    if z.damage == "heat" then
+      if lo == nil or bands[i].lo < lo then lo = bands[i].lo end
+      if hi == nil or bands[i].hi > hi then hi = bands[i].hi end
+    end
+  end
+  return { lo = lo, hi = hi }
+end
+
 -- "heat" / "cold" / nil for a signed perpendicular coordinate `p` (sunward-positive).
 function M.lethal_at(p, cfg)
   local b = M.damage_bounds(cfg)
@@ -431,19 +532,63 @@ local function boundary_noise() return basis(7, M.NOISE_AMPLITUDE, M.NOISE_WAVEL
 local function speckle_noise(tile_index)
   return basis(100 + tile_index, M.SPECKLE_AMPLITUDE, M.SPECKLE_WAVELENGTH)
 end
+-- The low-frequency lava HEIGHTMAP (blob-sized pools). A distinct seed so it is
+-- independent of the boundary/speckle fields; the SAME field for every hot tile so
+-- they threshold one consistent elevation and their rings nest (ci-cwk).
+local function height_noise() return basis(42, M.HEIGHT_AMPLITUDE, M.HEIGHT_WAVELENGTH) end
 
 -- max(0, expr): the linear falloff outside a band.
 local function relu(expr) return "max(0, " .. expr .. ")" end
 -- clamp to [0, 1].
 local function clamp01(expr) return "min(1, max(0, " .. expr .. "))" end
 
--- The `probability_expression` string for a Cindra tile. For each zone the tile is
--- a member of it emits a term = (plateau that falls off outside the band, keyed to
--- the noise-wiggled perpendicular axis) + WEIGHT_SCALE * (interpolated membership
--- weight across the band); the tile's probability is the MAX of those terms plus a
--- per-tile speckle so co-present members interpenetrate. The engine places the
--- highest-probability tile per point, so the zone the point sits in wins, and
--- within it the speckle picks among the members -> a noisy mixed gradient.
+-- One flat-band (zones 4-11) term for a tile's membership in a NON-hot zone: a
+-- plateau that falls off outside the band (keyed to the noise-wiggled perpendicular
+-- axis P) + WEIGHT_SCALE * (interpolated membership weight across the band). Adjacent
+-- members interpenetrate via the shared speckle -> a noisy mixed gradient.
+local function perp_band_term(mm, P, bands)
+  local b = bands[mm.zone]
+  local span = math.max(1, b.hi - b.lo)
+  local env = num(M.PLATEAU) .. " - (" .. relu(num(b.lo) .. " - " .. P) ..
+              " + " .. relu(P .. " - " .. num(b.hi)) .. ")"
+  -- frac: 0 at the cold edge (lo), 1 at the hot edge (hi).
+  local frac = clamp01("(" .. P .. " - " .. num(b.lo) .. ") / " .. num(span))
+  -- weight = cold + (hot - cold) * frac, scaled.
+  local weight = num(M.WEIGHT_SCALE) .. " * (" .. num(mm.cold) ..
+                 " + " .. num(mm.hot - mm.cold) .. " * " .. frac .. ")"
+  return "(" .. env .. " + " .. weight .. ")"
+end
+
+-- One HOT-region ring term (ci-cwk). Two parts summed:
+--   * a STEEP plateau (hot_gate) that confines the tile to the hot region's
+--     perpendicular span [lo, hi], so lava/cracks never leak into the temperate zone;
+--   * a ring SELECTOR = RING_PLATEAU minus the distance of the elevation E from the
+--     tile's own elevation band, so the ring whose band contains E wins the MAX.
+-- E = the shared lava heightmap + a perpendicular BIAS (high at the hot edge hi, 0 at
+-- the temperate edge lo), so lava concentrates west and thins out east. Equal-E
+-- contours -> concentric rings around each lava pool.
+local function hot_ring_term(name, P, cfg)
+  local hr = M.hot_region(cfg)
+  local span = math.max(1, hr.hi - hr.lo)
+  local gate = num(M.PLATEAU) .. " - " .. num(M.HOT_GATE_STEEP) .. " * (" ..
+               relu(num(hr.lo) .. " - " .. P) .. " + " .. relu(P .. " - " .. num(hr.hi)) .. ")"
+  -- bias: 0 at the temperate edge (lo), HEIGHT_BIAS at the sunward edge (hi).
+  local bias = num(M.HEIGHT_BIAS) .. " * " ..
+               clamp01("(" .. P .. " - " .. num(hr.lo) .. ") / " .. num(span))
+  local E = "(" .. height_noise() .. " + " .. bias .. ")"
+  local band = RING_BAND[name]
+  local elev = num(M.RING_PLATEAU) .. " - (" .. relu(num(band.lo) .. " - " .. E) ..
+               " + " .. relu(E .. " - " .. num(band.hi)) .. ")"
+  return "(" .. gate .. " + " .. elev .. ")"
+end
+
+-- The `probability_expression` string for a Cindra tile: the MAX over its membership
+-- terms plus a per-tile speckle (so co-present tiles interpenetrate at their organic
+-- boundaries). A tile that is a member of a HEAT (hot-region) zone contributes ONE
+-- ring term (the lava heightmap layout); its NON-hot zone memberships each contribute
+-- a flat perpendicular-band term. The engine places the highest-probability tile per
+-- point -> hot region: the ring whose elevation band the point sits in; elsewhere:
+-- the zone the point sits in, with the speckle mixing that zone's members.
 function M.probability_expr(name, cfg)
   local tile
   local index = 0
@@ -455,17 +600,17 @@ function M.probability_expr(name, cfg)
   local bands = M.bands(cfg)
   local P = "(" .. perp_expr() .. " + " .. boundary_noise() .. ")"
   local terms = {}
+  local emitted_ring = false
   for _, mm in ipairs(MEMBERSHIP[name]) do
-    local b = bands[mm.zone]
-    local span = math.max(1, b.hi - b.lo)
-    local env = num(M.PLATEAU) .. " - (" .. relu(num(b.lo) .. " - " .. P) ..
-                " + " .. relu(P .. " - " .. num(b.hi)) .. ")"
-    -- frac: 0 at the cold edge (lo), 1 at the hot edge (hi).
-    local frac = clamp01("(" .. P .. " - " .. num(b.lo) .. ") / " .. num(span))
-    -- weight = cold + (hot - cold) * frac, scaled.
-    local weight = num(M.WEIGHT_SCALE) .. " * (" .. num(mm.cold) ..
-                   " + " .. num(mm.hot - mm.cold) .. " * " .. frac .. ")"
-    terms[#terms + 1] = "(" .. env .. " + " .. weight .. ")"
+    if M.ZONES[mm.zone].damage == "heat" then
+      -- Hot-region member: one ring term, regardless of how many heat zones it spans.
+      if not emitted_ring then
+        terms[#terms + 1] = hot_ring_term(name, P, cfg)
+        emitted_ring = true
+      end
+    else
+      terms[#terms + 1] = perp_band_term(mm, P, bands)
+    end
   end
 
   local expr = terms[1]

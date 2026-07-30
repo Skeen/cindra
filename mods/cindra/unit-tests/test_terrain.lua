@@ -247,21 +247,61 @@ test("the volcanic cliff band spans the rocky zones (lava-crust .. scorched)", f
   assert_eq(350, cb.hi, "cliff band hot edge = lava-crust zone hi")
 end)
 
-test("each tile's probability_expr is a noise-wiggled plateau + weight + speckle", function()
+test("a temperate tile's probability_expr is a noise-wiggled plateau + weight + speckle", function()
   local expr = terrain.probability_expr("cindra-sand-1")
   contains(expr, "max(0,", "the plateau falls off via max(0, ...)")
   contains(expr, "basis_noise", "the boundary + speckle are basis_noise")
   contains(expr, axis.perp_expr(), "keyed to the perpendicular axis")
   contains(expr, "min(1, max(0,", "the membership weight uses a clamped fraction")
-  -- The hot-lava tile lives in the outermost band [400, 450].
-  local hot = terrain.probability_expr("cindra-lava-hot")
-  contains(hot, "400", "hot-lava band inner edge")
-  contains(hot, "450", "hot-lava band outer edge")
   -- A tile that mixes into several zones has several max() terms.
-  local multi = terrain.probability_expr("cindra-sand-1")
-  assert_true(multi:find("max(", 1, true) ~= nil, "a multi-zone tile takes the max over its bands")
+  assert_true(expr:find("max(", 1, true) ~= nil, "a multi-zone tile takes the max over its bands")
   local ok = pcall(function() terrain.probability_expr("not-a-tile") end)
   assert_true(not ok, "an unknown tile errors")
+end)
+
+test("the HOT RING order is core -> outer, contiguous elevation bands (ci-cwk)", function()
+  -- lava is the peak; descend the elevation field out through the rings.
+  local order = {}
+  for _, r in ipairs(terrain.HOT_RING_ORDER) do order[#order + 1] = r.vanilla end
+  assert_eq("lava-hot", order[1], "the molten core is the highest ring")
+  assert_eq("lava", order[2], "lava is the pool body")
+  assert_eq("volcanic-cracks-hot", order[3], "cracks-hot is the boundary RING around lava")
+  assert_eq("volcanic-smooth-stone-warm", order[#order], "warm smooth stone is the outermost ring")
+  -- Thresholds strictly descend, so equal-elevation contours nest as concentric rings.
+  for i = 2, #terrain.HOT_RING_ORDER do
+    assert_true(terrain.HOT_RING_ORDER[i].lo < terrain.HOT_RING_ORDER[i - 1].lo,
+      "ring " .. i .. " sits at a lower elevation than the one inside it")
+  end
+end)
+
+test("ring_tile_at maps an elevation to its ring tile (lava core down to warm crust)", function()
+  -- High elevation = the lava core; descending elevation walks outward through the rings.
+  assert_eq("cindra-lava-hot", terrain.ring_tile_at(200), "the peak is the molten core")
+  assert_eq("cindra-lava-hot", terrain.ring_tile_at(140), "at the core threshold => lava-hot")
+  assert_eq("cindra-lava", terrain.ring_tile_at(110), "just below the core => lava body")
+  assert_eq("cindra-volcanic-cracks-hot", terrain.ring_tile_at(60), "the boundary RING is cracks-hot")
+  assert_eq("cindra-volcanic-cracks-warm", terrain.ring_tile_at(30), "outside the ring => warm cracks")
+  assert_eq("cindra-volcanic-smooth-stone-warm", terrain.ring_tile_at(-50), "far out => smooth warm crust")
+end)
+
+test("a hot tile's probability_expr is a heightmap ring term (not a flat sub-band)", function()
+  -- The hot region [300, 450] is driven by the lava heightmap: a steep hot_gate that
+  -- confines the tile to the hot region + a ring selector on the elevation field.
+  local hot = terrain.probability_expr("cindra-lava-hot")
+  contains(hot, "max(0,", "the gate + ring selector fall off via max(0, ...)")
+  contains(hot, axis.perp_expr(), "the gate is keyed to the perpendicular axis")
+  contains(hot, "300", "the hot region's temperate (inner) edge")
+  contains(hot, "450", "the hot region's sunward (outer) edge")
+  contains(hot, "140", "the lava-core elevation threshold")
+  contains(hot, "seed1 = 42", "the elevation field is the lava heightmap noise (seed 42)")
+  -- lava-hot lives ONLY in the hot region, so it has no perpendicular sub-band edge
+  -- at 400 anymore (the old flat-band inner edge); the layout is purely ring-based.
+  assert_true(hot:find("400", 1, true) == nil, "no leftover flat sub-band inner edge (400)")
+  -- cracks-warm is BOTH a hot-region ring AND a temperate (zone 4) member, so it has a
+  -- ring term (heightmap) AND a flat perp-band weight term.
+  local warm = terrain.probability_expr("cindra-volcanic-cracks-warm")
+  contains(warm, "seed1 = 42", "cracks-warm carries the hot ring term")
+  contains(warm, "min(1, max(0,", "cracks-warm also carries its temperate flat-band weight")
 end)
 
 test("the world is finite perpendicular via the map-gen = the total width", function()
