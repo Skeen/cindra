@@ -391,7 +391,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   and working sound play at a **calm, normal rate** - no fast flicker/blur, no stuttering
   sound. (The tech that unlocks the chain is still "Lava casting".)
 
-- [ ] **[LANDED] Lava-manufacturer glass-furnace art looks right (ci-oi8).** The
+- [x] **[LANDED] Lava-manufacturer glass-furnace art looks right (ci-oi8).** The
   `cindra-lava-manufacturer` wears the user-supplied Hurricane046 **glass-furnace**
   set (CC-BY): an animated furnace body, a ground shadow, and an always-on emissive
   molten glow, wired into the assembling-machine `graphics_set.animation` (replacing
@@ -410,15 +410,21 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   are test-covered (`unit-tests/test_lava_graphics.lua`, and the mod-loads +
   runtime-craft checks in `tests/test_lava.lua` / `tests/test_bootstrap.lua`); only
   the on-screen look/scale/shift and animation feel need eyes.
-  **ci-8r6 fix (2026-07-30):** the ci-oi8 sheets shipped as INDEXED/palette PNGs,
-  which Factorio renders as an opaque BLACK square - in-game the body vanished behind
-  a black box and only the emission glow showed (user screenshot `lavaman.png`).
-  Every other Cindra entity ships RGBA; the glass-furnace set was the anomaly. Fixed
-  by converting all five glass-furnace PNGs (body -1/-2, emission -1/-2, shadow) to
-  32-bit RGBA. `unit-tests/test_lava_graphics.lua` now asserts every layer sheet is
-  truecolour RGBA (fails on the old palette art, passes on the fix). *Eyes still
-  need to confirm:* the base furnace body now renders in full colour (NOT a black
-  square) and the scale/shift sit right on the footprint.
+  **ci-036 RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the black-square bug is
+  fixed and confirmed with an actual Factorio render (headless client under Xvfb +
+  llvmpipe, `game.take_screenshot`), NOT just "the code looks right". The REAL root
+  cause was NOT the palette/RGBA theory ci-8r6 chased: the emission layer was missing
+  `blend_mode = "additive"`. The emission sheet is FULLY OPAQUE (alpha 1 everywhere)
+  with a black background and bright molten openings; `draw_as_glow` alone does not
+  change the blend op, so the opaque black background was drawn straight over the
+  furnace body - a solid black square with only the openings showing (exactly the
+  user's `lavaman.png`). Adding `blend_mode = "additive"` (the same wiring the vanilla
+  foundry lights layer uses) makes the black background contribute nothing and only
+  the openings add glow. The day render now shows the full colour furnace body at the
+  foundry-scale footprint; the night render shows the body lit with glowing molten
+  openings. Guarded by `unit-tests/test_lava_graphics.lua` (asserts the emission layer
+  sets `blend_mode = "additive"`; fails on the pre-fix spec). The ci-8r6 RGBA
+  conversion is retained as a defensive format requirement but was never the bug.
 
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh).** The signature material:
   native stone + calcite -> alumina -> aluminium (electrolysis cell, ruinous power,

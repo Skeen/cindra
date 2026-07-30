@@ -160,11 +160,12 @@ local function png_color_type(modpath)
 end
 
 -- Every PNG a layer references must be a truecolour RGBA sheet (colour type 6).
--- ci-8r6 REGRESSION GUARD: the glass-furnace set shipped as INDEXED/palette PNGs
--- (colour type 3), which Factorio renders as an opaque BLACK square -- the base
--- body vanished behind a black box and only the draw_as_glow emission showed. Every
--- other Cindra entity ships RGBA; an indexed sheet is the bug. Fails on the palette
--- art (type 3), passes once converted to RGBA (type 6).
+-- ci-8r6 kept the set as RGBA (the palette form is malformed for Factorio anyway),
+-- so this stays a defensive requirement. NOTE (ci-036): the RGBA/palette theory was
+-- NOT the black-square root cause -- an in-engine render proved the body vanished
+-- because the OPAQUE emission layer was drawn over it without additive blend (see
+-- the ci-036 blend_mode guard below). RGBA is still the correct format; it just
+-- never was the bug. Fails on palette art (type 3), passes on RGBA (type 6).
 local RGBA = 6
 local function all_rgba(layer)
   local files = {}
@@ -236,6 +237,25 @@ test("emission layer is a draw_as_glow two-part animation of the emission sheet"
   assert_eq(80, glow.frame_count, "glow frame count matches body")
   all_ship(glow)
   all_rgba(glow)
+end)
+
+-- === ci-036: the emission layer MUST blend additive (the REAL black-square cause) =
+test("emission layer blends additive so it never paints a black box over the body", function()
+  -- ci-036 ROOT CAUSE (verified by an in-engine render, not the ci-8r6 palette
+  -- theory): the emission sheet is FULLY OPAQUE (alpha 1 everywhere) with a black
+  -- background and bright molten openings. draw_as_glow alone does NOT change the
+  -- blend op, so the opaque black background was drawn straight over the furnace
+  -- body -> a solid black square with only the bright openings showing (the exact
+  -- user symptom). blend_mode = "additive" makes the black background contribute
+  -- nothing and only the bright openings add glow -- the same wiring the vanilla
+  -- foundry lights layer uses (foundry-pictures: draw_as_glow + additive). Without
+  -- this the machine renders as a black box; with it the body shows. Fails on the
+  -- pre-fix spec (blend_mode == nil), passes on the fix.
+  local glow
+  for _, l in ipairs(layers()) do if l.draw_as_glow then glow = l end end
+  assert_true(glow ~= nil, "a draw_as_glow (emission) layer must exist")
+  assert_eq("additive", glow.blend_mode,
+    "emission layer must set blend_mode = 'additive' (opaque black bg would else box the body)")
 end)
 
 -- === ci-8r6: sheets must be RGBA, never indexed/palette (renders black) ======

@@ -208,7 +208,15 @@ manufacturer.graphics_set = {
         shift = util.by_pixel(24, 8),
         draw_as_shadow = true,
       },
-      { -- emissive molten glow: stays lit in the dark (fits a lava melter)
+      { -- emissive molten glow: stays lit in the dark (fits a lava melter).
+        -- The emission sheet is FULLY OPAQUE (alpha 1 everywhere) with a black
+        -- background and bright molten openings. blend_mode = "additive" is
+        -- MANDATORY: without it the opaque black background is drawn normally
+        -- and paints a solid black square straight over the furnace body (the
+        -- ci-036 "black square + orange blobs" bug). Additive makes the black
+        -- background contribute nothing and only the bright openings add glow --
+        -- exactly how the vanilla foundry lights layer is wired (foundry-pictures
+        -- foundry_lights_pictures: draw_as_glow + blend_mode = "additive").
         filenames = emission_animation_files,
         width = FRAME_W,
         height = FRAME_H,
@@ -219,6 +227,7 @@ manufacturer.graphics_set = {
         shift = BODY_SHIFT,
         animation_speed = 0.5,
         draw_as_glow = true,
+        blend_mode = "additive",
       },
     },
   },
