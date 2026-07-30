@@ -148,6 +148,27 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   centre → cyan cold); (5) spawn sits in the **wide safe building** band you can
   build across freely.
 
+- [ ] **Hot region reads as RINGS around lava pools (ci-cwk) — VISUAL.** The hot
+  region is no longer a flat perpendicular stripe: a distance-to-lava **heightmap**
+  drives the tile choice, so **lava sits in pools/blobs** with **volcanic-cracks-hot
+  wrapping each pool like a shoreline** and the heat falling off with distance from
+  lava as **concentric contour rings** (lava-hot core → lava → cracks-hot ring → warm
+  cracks/smooth-stone → temperate). The X gradient still governs where lava appears:
+  **dense/large pools toward the west/sunward edge, thinning to none by the temperate
+  zone**. The pool/ring structure (pools intermix along a fixed column, lava is always
+  insulated by a cracks-hot ring, lava thins west→temperate) is asserted in
+  `tests/test_worldgen.lua`; the ring elevation model in `unit-tests/test_terrain.lua`;
+  only the *visual read* is the playtest. *Repro:* land on Cindra, open the map (M) and
+  chart the sunward/west edge, and walk west from spawn. *Look for:* (1) lava reads as
+  **pools/blobs**, not a solid wall stripe — largest and most merged near the west edge,
+  breaking into isolated pools as you move east; (2) **every lava pool is ringed by
+  volcanic-cracks-hot** (the hot "shoreline"), never abutting plain ground directly;
+  (3) the heat visibly **radiates outward in rings** from each pool (cracks-hot →
+  warm crust → temperate), so hotness reads as distance-from-lava, not a flat band;
+  (4) it plays nicely with the tile-based damage (ci-4jl) — the closer to a lava pool
+  you stand, the more it burns. *Fallback:* none — the ring/pool read is inherently
+  visual.
+
 - [ ] **[LANDED] Danger zone reads on the MAP VIEW like a demolisher tint (ci-4h7)
   — MAYOR MUST SCREENSHOT.** The lethal edges now carry a distinct alarming
   `map_color` (set on the Cindra tile clones, never the vanilla tiles), so the

@@ -7,9 +7,13 @@
 -- LEFT / west, perp = -x):
 --   1. FINITE PERPENDICULAR: the map-gen's own `width` = the SUM of the zone widths
 --      voids everything beyond the band (out-of-map); the interior is playable.
---   2. ZONED MIXED GRADIENT: each zone's centre is painted by one of THAT zone's
---      member tiles (a noisy mix), hot-lava -> ... -> building -> ... -> deep-ice
---      across the X axis at the per-zone widths, with ORGANIC (wavy) boundaries.
+--   2. ZONED MIXED GRADIENT: each temperate->cold zone's centre is painted by one of
+--      THAT zone's member tiles (a noisy mix) across the X axis at the per-zone
+--      widths, with ORGANIC (wavy) boundaries.
+--   2a. HEIGHTMAP RINGS (ci-cwk): the hot region is a distance-to-lava heightmap, so
+--      lava sits in POOLS ringed by volcanic-cracks-hot and the heat falls off with
+--      distance from lava (contour rings), still gated by the X gradient (dense west,
+--      thinning to none by the temperate zone).
 --   3. WALKABILITY: the two lava tiles are impassable (so the pure-lava zones 1+2
 --      are the wall); every other tile is buildable ground.
 --   4. DAMAGE: positional -- the hot zones (1+2+3) burn, the smooth-ice cap (11)
@@ -59,13 +63,12 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
 
   local function tile(x, y) return s.get_tile(x, y).name end
 
-  -- The centre of each zone's X band (default widths). The gradient is centred on
-  -- the origin: hot (lava) west (negative x), cold (ice) east. At a 50-wide zone's
-  -- centre the plateau margin guarantees a member of THAT zone (a noisy mix).
+  -- The centre of each TEMPERATE->COLD zone's X band (default widths). The gradient is
+  -- centred on the origin: cold (ice) east. At a 50-wide zone's centre the plateau
+  -- margin guarantees a member of THAT zone (a noisy mix). The three HOT zones
+  -- (hot_lava/lava_mix/lava_crust) are NOT flat sub-bands anymore -- they are the
+  -- heightmap RING region (ci-cwk), proven separately below, so they are excluded here.
   local ZONE_AT = {
-    { -425, "hot_lava" },
-    { -375, "lava_mix" },
-    { -325, "lava_crust" },
     { -275, "volcanic_warm" },
     { -225, "basalt" },
     { -175, "scorched" },
@@ -74,6 +77,14 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     { 125,  "cold_dust" },
     { 175,  "rough_ice" },
     { 325,  "deep_ice" },
+  }
+
+  -- Hot-region tile classes for the ring assertions (ci-cwk).
+  local LAVA = { ["cindra-lava-hot"] = true, ["cindra-lava"] = true }
+  local HOT_CRUST = {
+    ["cindra-volcanic-cracks-hot"] = true,
+    ["cindra-volcanic-cracks-warm"] = true,
+    ["cindra-volcanic-smooth-stone-warm"] = true,
   }
 
   -- 1. FINITE PERPENDICULAR via the map-gen (width = sum of zone widths) ----------
@@ -106,6 +117,79 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     local hot = s.count_tiles_filtered({
       name = "cindra-lava-hot", area = { { -450, -RY }, { -395, RY } } })
     assert.is_true(hot > 0, "the sunward hot-lava band always generates")
+  end)
+
+  -- 2a. HEIGHTMAP RINGS around lava (ci-cwk) -------------------------------------
+  -- The hot region is driven by a distance-to-lava heightmap, so lava sits in POOLS
+  -- with volcanic-cracks-hot as a boundary RING around them and the heat falls off
+  -- with distance from lava (contour rings), NOT a flat perpendicular stripe.
+
+  local function count_in(names_set, x1, x2, y1, y2)
+    local n = 0
+    for _, name in ipairs(terrain.tile_names()) do
+      if names_set[name] then
+        n = n + s.count_tiles_filtered({ name = name, area = { { x1, y1 }, { x2, y2 } } })
+      end
+    end
+    return n
+  end
+
+  it("arranges the hot region as POOLS: lava and hot-cracks intermix at a fixed x (not a flat band)", function()
+    -- At x ~= -360 (perp 360) the OLD flat-band model painted only lava-hot/lava (the
+    -- old zone-2 'lava_mix' stripe); with the heightmap, lava POOLS and their
+    -- volcanic-cracks-hot rings both appear along that column -> proof it is a 2-D
+    -- pool field, not a Y-invariant vertical stripe.
+    local lava = count_in(LAVA, -370, -350, -200, 200)
+    local cracks_hot = s.count_tiles_filtered({
+      name = "cindra-volcanic-cracks-hot", area = { { -370, -200 }, { -350, 200 } } })
+    assert.is_true(lava > 0, "lava pools appear in the mid-hot column")
+    assert.is_true(cracks_hot > 0,
+      "volcanic-cracks-hot rings appear intermixed in the SAME mid-hot column (pools, not a stripe)")
+  end)
+
+  it("rings every lava pool with hot crust: lava never directly touches non-hot terrain (ci-cwk)", function()
+    -- Walk the hot region; for every lava tile, its 4-neighbours must all be lava or
+    -- hot crust (cracks-hot/cracks-warm/smooth-stone-warm). The descending elevation
+    -- field guarantees a lava tile is insulated by its rings -- it can never abut the
+    -- temperate/volcanic ground directly. AND the immediate ring is predominantly
+    -- volcanic-cracks-hot (the shoreline the user asked for).
+    local ring_hot, ring_other, leaks = 0, 0, 0
+    local lava_seen = 0
+    for x = -445, -310, 1 do
+      for y = -150, 150, 3 do
+        if LAVA[tile(x, y)] then
+          lava_seen = lava_seen + 1
+          for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+            local n = tile(x + d[1], y + d[2])
+            if not LAVA[n] then
+              if n == "cindra-volcanic-cracks-hot" then
+                ring_hot = ring_hot + 1
+              elseif HOT_CRUST[n] then
+                ring_other = ring_other + 1
+              else
+                leaks = leaks + 1 -- a non-hot tile touching lava: forbidden
+              end
+            end
+          end
+        end
+      end
+    end
+    assert.is_true(lava_seen > 50, "sampled a meaningful amount of lava (" .. lava_seen .. ")")
+    assert.are.equal(0, leaks,
+      "lava is always insulated by its hot-crust rings, never touching non-hot terrain (leaks=" .. leaks .. ")")
+    assert.is_true(ring_hot > 0, "lava pools are bounded by volcanic-cracks-hot")
+    assert.is_true(ring_hot >= ring_other,
+      "the immediate ring around lava is predominantly cracks-hot (hot=" .. ring_hot .. ", other=" .. ring_other .. ")")
+  end)
+
+  it("keeps lava gated by the X gradient: dense to the west, thinning to none by the temperate zone (ci-cwk)", function()
+    -- Lava is dense/large toward the sunward (west) edge and thins out toward the
+    -- temperate zone (the elevation bias falls with distance from the hot edge).
+    local west = count_in(LAVA, -445, -395, -RY, RY) -- perp [395,445]
+    local temperate_edge = count_in(LAVA, -315, -305, -RY, RY) -- perp [305,315]
+    assert.is_true(west > 0, "lava is dense at the sunward edge")
+    assert.is_true(west > temperate_edge * 3,
+      "lava thins out toward the temperate zone (west=" .. west .. ", temperate_edge=" .. temperate_edge .. ")")
   end)
 
   it("MIXES tiles within a zone (adjacent members interpenetrate, not a single tile)", function()
