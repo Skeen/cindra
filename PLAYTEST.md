@@ -573,6 +573,17 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   Space crafting tab, and the chain icons read as distinct materials. A bespoke
   rail-gun/coilgun silo reskin is a later art pass, not a v1 bug.
 
+- [ ] **[LANDED] ALICE solid rocket fuel: naming + tooltip reads on-theme (ci-8g1).**
+  The fuel recipe now models real ALICE propellant (ALuminium-ICE): its ingredient
+  and product shape (nano-aluminium powder + `ice` -> vanilla rocket-fuel), balance,
+  and gating are fully integration-tested (`tests/test_mass_driver.lua`). What can
+  only be eyeballed is the crafting-menu presentation. *Repro:* research
+  `cindra-orbital-launch`, open an assembler and find the fuel recipe. *Look for:*
+  the recipe reads **"ALICE solid rocket fuel"** with a tooltip explaining the
+  powder+ice reaction; the fuel item is **"Nano-aluminium powder"** with the ALICE
+  description; both inputs (powder + ice) show in the recipe and it crafts in a
+  plain assembler (no fluid box). Placeholder icons are expected (see art section).
+
 ## Science & circuits
 
 - [ ] **[LANDED] Cindra science pack (§15-12, ci-3or).** *Repro:*

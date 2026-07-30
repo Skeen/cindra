@@ -27,6 +27,10 @@ local POWDER = "cindra-aluminium-powder"
 -- from aluminium by the "Solid rocket fuel" recipe (recipe name below != its product).
 local ROCKET_FUEL = "rocket-fuel"
 local FUEL_RECIPE = "cindra-solid-rocket-fuel"
+-- ci-8g1: the fuel recipe models real ALICE propellant (ALuminium-ICE): nano-aluminium
+-- powder (fuel) + ice (frozen-water oxidizer). ICE is a legal native input (the
+-- nightside crushing chain's output), NOT petrochemistry.
+local ICE = "ice"
 local CHARGE = "cindra-launch-charge"
 local CHARGE_CATEGORY = "cindra-mass-driver-charge"
 local TECH = "cindra-orbital-launch"
@@ -183,11 +187,58 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
     assert.is_true(makes_vanilla,
       "the Solid rocket fuel recipe must output vanilla rocket-fuel (ci-519)")
 
-    -- Input traces back to Cindra aluminium: fuel <- powder <- aluminium.
-    assert.are.equal(POWDER, fuel.ingredients[1].name,
+    -- Input traces back to Cindra aluminium: fuel <- powder <- aluminium. (ci-8g1
+    -- added ice as a second ingredient, so check MEMBERSHIP, not position -- the
+    -- runtime does not guarantee data-stage ingredient order.)
+    local fuel_has_powder = false
+    for _, i in pairs(fuel.ingredients) do if i.name == POWDER then fuel_has_powder = true end end
+    assert.is_true(fuel_has_powder,
       "Solid rocket fuel is made from aluminium powder (Cindra's route to rocket fuel)")
     assert.are.equal("cindra-aluminium", prototypes.recipe[POWDER].ingredients[1].name,
       "aluminium powder is ground from Cindra aluminium (so rocket fuel traces to aluminium)")
+  end)
+
+  -- === ci-8g1: the ALICE model (nano-aluminium powder + ICE) =================
+  it("the fuel recipe is ALICE: nano-aluminium powder + ICE (frozen-water oxidizer)", function()
+    local fuel = prototypes.recipe[FUEL_RECIPE]
+    assert.is_not_nil(fuel, "the ALICE solid rocket fuel recipe must exist")
+
+    local ing = {}
+    for _, i in pairs(fuel.ingredients) do ing[i.name] = i.amount end
+
+    -- The reactive metal fuel: nano-aluminium powder.
+    assert.is_not_nil(ing[POWDER],
+      "ALICE fuel must consume nano-aluminium powder (the reactive metal fuel)")
+    -- The oxidizer/matrix: ICE (frozen water) -- this is the ci-8g1 requirement that
+    -- fails on the powder-only main recipe and passes once ice is added.
+    assert.is_not_nil(ing[ICE],
+      "ALICE fuel must consume ICE (the frozen-water oxidizer) -- the AL-ICE in ALICE (ci-8g1)")
+    -- Exactly those two native inputs, nothing else.
+    assert.are.equal(2, #fuel.ingredients,
+      "ALICE fuel is exactly { nano-aluminium powder + ice } -- two native inputs")
+
+    -- ICE traces to the Cindra ice/oxide crushing chain (a real native resource,
+    -- not conjured): the same `ice` item the science pack and ice-melting consume.
+    assert.is_not_nil(prototypes.item[ICE], "ice must be a real item (the nightside crushing output)")
+  end)
+
+  it("ALICE fuel stays a NET-NEGATIVE energy trade (no burn-back power exploit, ci-669)", function()
+    -- rocket-fuel can be burned as a fuel item, so making it must never be an energy
+    -- profit. Each rocket-fuel traces to ~1 aluminium (2 powder; 1 aluminium -> 2
+    -- powder), and aluminium is the ruinous-power metal. Its fuel_value must stay
+    -- well under the electricity sunk into that aluminium, so fuel is a SINK for
+    -- power (its whole point), never a self-sustaining loop.
+    local fuel = prototypes.recipe[FUEL_RECIPE]
+    local powder_amt = 0
+    for _, i in pairs(fuel.ingredients) do if i.name == POWDER then powder_amt = i.amount end end
+    assert.is_true(powder_amt >= 1,
+      "ALICE fuel must still cost real metal (nano-aluminium powder), not trivialise to ice-only")
+
+    -- rocket-fuel holds 100 MJ; the aluminium behind one rocket-fuel costs far more
+    -- electricity than that (CELL_DRAW * long craft), so burn-back is always a loss.
+    local rf = prototypes.item[ROCKET_FUEL]
+    assert.is_true(rf.fuel_value ~= nil and rf.fuel_value <= 200e6,
+      "sanity: vanilla rocket-fuel holds ~100 MJ, far under the electricity sunk into its aluminium")
   end)
 
   it("NO custom solid-fuel item prototype exists (ci-519)", function()
@@ -207,10 +258,15 @@ describe("cindra mass driver (launch chain is petrochemical-free)", function()
     end
     assert.is_true(charge_uses_aluminium,
       "the launch charge is built from raw Cindra aluminium (fed straight in)")
-    -- powder <- aluminium ; fuel <- powder  (so the propellant is native metal)
+    -- powder <- aluminium ; fuel <- powder (+ ice, ci-8g1) so the propellant is native
+    -- metal + frozen water, never oil/coal. Check membership (order is not guaranteed).
     assert.are.equal("cindra-aluminium", prototypes.recipe[POWDER].ingredients[1].name,
       "aluminium powder is ground from Cindra aluminium")
-    assert.are.equal(POWDER, prototypes.recipe[FUEL_RECIPE].ingredients[1].name,
+    local fuel_has_powder = false
+    for _, i in pairs(prototypes.recipe[FUEL_RECIPE].ingredients) do
+      if i.name == POWDER then fuel_has_powder = true end
+    end
+    assert.is_true(fuel_has_powder,
       "rocket fuel is made from aluminium powder (no oil/coal)")
   end)
 

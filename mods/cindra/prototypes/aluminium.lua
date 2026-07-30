@@ -34,8 +34,8 @@
 --   * EXPORT: aluminium is a clean, high-value bulk good, AND the very stuff the
 --     mass driver (ci-o39, ci-loa) burns to launch -- raw aluminium is fed straight
 --     into the silo's internal launch-vehicle build (no pre-pressed can), and it
---     also grinds into the aluminium powder the "Solid rocket fuel" recipe turns
---     into VANILLA rocket-fuel (ci-519). So the petrochemical-free launch chain
+--     also grinds into the nano-aluminium powder the "ALICE solid rocket fuel" recipe
+--     reacts with ICE into VANILLA rocket-fuel (ci-519, ci-8g1). So the launch chain
 --     lands its whole recurring cost back on this ruinous-power metal + power:
 --     local metallurgy and the star, never chemistry.
 --
