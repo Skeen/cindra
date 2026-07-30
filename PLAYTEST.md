@@ -560,6 +560,19 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `unit-tests/test_scanner_graphics.lua`); only the on-screen look/scale/shift
   and animation feel need eyes.
 
+- [ ] **[LANDED] Environmental scanner is actually reachable in the Cindra
+  playtest (ci-xor).** The `env-scanner` mod was never loaded in any launch
+  config (missing from play.sh's mod-list, the test harness, and cindra's
+  dependencies), so the two scanner items above could not be confirmed in a real
+  Cindra game. cindra now declares a required `~ env-scanner` dependency and
+  every launch config (play.sh + the flake test harness) wires the mod in; that
+  it loads and the `environmental-scanner` entity/item/recipe exist is
+  integration-tested (`mods/cindra/tests/test_env_scanner.lua`) and the play.sh
+  wiring is covered (`tests/play-sh.test.sh`). *Look for:* on a fresh Cindra
+  playtest (`./play.sh` → New Game), the **Environmental scanner** is craftable
+  from the start and appears in the build menu with its radio-station icon.
+  This unblocks the visual confirmation of the two items above.
+
 ## Placeholder art (expected in v1, do NOT file as bugs)
 
 - [ ] **[LANDED] Resource art is placeholder.** Stone/ice resources are
