@@ -146,7 +146,7 @@ cell.fluid_boxes = {
     production_type = "output",
     volume = 1000,
     pipe_connections = {
-      { flow_direction = "output", direction = defines.direction.north, position = { 0, -1.5 } },
+      { flow_direction = "output", direction = defines.direction.north, position = { 0, -1 } },
     },
   },
 }

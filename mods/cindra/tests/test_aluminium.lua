@@ -66,33 +66,76 @@ local function in_category(recipe_name, category)
   return false
 end
 
-describe("cindra aluminium chain (native, petrochemical-free)", function()
-  it("refines alumina from native raws only (stone + ice-field calcite)", function()
+describe("cindra aluminium chain (acid leaching + electrolysis, DESIGN §8)", function()
+  it("leaches alumina from stone with acid + water (§8 recipe #5)", function()
     local r = prototypes.recipe[ALUMINA]
     assert.is_not_nil(r, "the alumina recipe must exist")
-    assert.is_true((amount_of(r.ingredients, "stone") or 0) > 0, "alumina uses stone (the ribbon raw)")
-    assert.is_true((amount_of(r.ingredients, "calcite") or 0) > 0,
-      "alumina uses calcite (mined from the ice field, ci-9l6) -- pulling demand onto both economies")
-    -- Exactly two inputs, both native: no carrier, no chemistry.
-    assert.are.equal(2, #r.ingredients, "alumina has exactly two native inputs")
-    assert.are.equal(ALUMINA, r.products[1].name, "the recipe produces alumina")
+    -- Inputs: stone (the ribbon raw) + sulfuric-acid + water, all reachable.
+    assert.is_true((amount_of(r.ingredients, "stone") or 0) > 0, "the leach consumes stone (the ribbon raw)")
+    assert.is_true((amount_of(r.ingredients, "sulfuric-acid") or 0) > 0,
+      "the leach consumes sulfuric-acid -- the honest chemical input (from the acid the lava tech unlocks)")
+    assert.is_true((amount_of(r.ingredients, "water") or 0) > 0, "the leach consumes water (from ice-melting)")
+    -- Runs in a chemical plant: the "chemistry" category, so it has the fluid
+    -- boxes the acid + water need and no new building is introduced.
+    assert.is_true(in_category(ALUMINA, "chemistry"),
+      "alumina leaching runs in the vanilla chemical plant (chemistry category)")
+    -- Products: alumina (the feedstock) + a fixed stone + sulfur return.
+    assert.is_true((amount_of(r.products, ALUMINA) or 0) > 0, "the leach produces alumina")
+    assert.is_true((amount_of(r.products, "stone") or 0) > 0, "the leach returns some stone (net-negative, see below)")
+    assert.is_true((amount_of(r.products, "sulfur") or 0) > 0, "the leach emits sulfur (a second acid-loop source)")
   end)
 
-  it("electrolyses aluminium from alumina alone (single native feedstock)", function()
+  it("the leach is net stone-NEGATIVE at 0% AND at the +300% prod cap (§8.6)", function()
+    local r = prototypes.recipe[ALUMINA]
+    local stone_in = amount_of(r.ingredients, "stone")
+    local sp = product_of(r.products, "stone")
+    assert.is_not_nil(stone_in, "the leach must consume stone")
+    assert.is_not_nil(sp, "the leach must return stone")
+
+    -- Productivity is OFF on the leach, so stone-in is fixed. The returned stone
+    -- is ignored_by_productivity (fixed regardless of prod), so even at the hard
+    -- +300% cap the return can never scale to overtake the input.
+    assert.is_false(r.allowed_effects.productivity,
+      "productivity must be OFF on the leach so stone-in per craft is fixed")
+    local ignored = sp.ignored_by_productivity or 0
+    assert.are.equal(sp.amount, ignored,
+      "the whole returned-stone amount must be ignored_by_productivity (fixed at every module tier)")
+
+    -- Worst case (most stone ever handed back): the non-ignored part scales with
+    -- prod; the ignored part is fixed. Here the ignored part IS the whole return.
+    local worst_return = ignored + (sp.amount - ignored) * (1 + MAX_CONCEIVABLE_PROD)
+    assert.is_true(stone_in > worst_return,
+      "the leach must NET-CONSUME stone even at +300% prod: in=" .. stone_in
+        .. " worst-return=" .. worst_return)
+  end)
+
+  it("electrolyses aluminium from alumina alone, emitting O2 (§8 recipe #6)", function()
     local r = prototypes.recipe[ALUMINIUM]
     assert.is_not_nil(r, "the aluminium recipe must exist")
-    assert.are.equal(1, #r.ingredients, "aluminium is smelted from a single feedstock")
+    assert.are.equal(1, #r.ingredients, "aluminium is smelted from a single item feedstock")
     assert.are.equal(ALUMINA, r.ingredients[1].name, "that feedstock is alumina")
-    assert.are.equal(ALUMINIUM, r.products[1].name, "the recipe produces aluminium")
+    assert.is_true((amount_of(r.products, ALUMINIUM) or 0) > 0, "the recipe produces aluminium")
+
+    -- The O2 byproduct: 30 cindra-oxygen, ignored_by_productivity (the dominant O2
+    -- source, §8.4). Fixed at every module tier so a prod bonus never mints gas.
+    local o2 = product_of(r.products, OXYGEN)
+    assert.is_not_nil(o2, "electrolysis must emit cindra-oxygen (the O2 economy's dominant source)")
+    assert.are.equal(30, o2.amount, "electrolysis emits 30 O2 per craft")
+    assert.are.equal(o2.amount, o2.ignored_by_productivity or 0,
+      "the O2 byproduct must be ignored_by_productivity (fixed -- prod can never mint free gas)")
   end)
 
-  it("the whole chain is petrochemical-free (no plastic/sulfur/oil/coal)", function()
+  it("the chain is petrochemical-free except the honest acid input (no oil/coal/plastic)", function()
     for _, name in ipairs({ ALUMINA, ALUMINIUM, CELL }) do
       for _, ing in pairs(prototypes.recipe[name].ingredients) do
         assert.is_nil(FORBIDDEN[ing.name],
           name .. " must not consume the forbidden petrochemical " .. ing.name)
       end
     end
+    -- Positive guard: sulfuric-acid IS allowed now, but ONLY as the leach input --
+    -- assert the chain reads acid and never oil/coal/plastic (which stay forbidden).
+    assert.is_true((amount_of(prototypes.recipe[ALUMINA].ingredients, "sulfuric-acid") or 0) > 0,
+      "acid is the intended leach input (the one relaxation), not oil/coal/plastic")
   end)
 end)
 

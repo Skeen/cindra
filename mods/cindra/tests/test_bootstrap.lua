@@ -238,9 +238,10 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
     { r = "molten-copper-from-lava",         m = "foundry" },              -- lava + calcite -> molten copper (vanilla cast, ci-9yg)
     { r = "casting-copper",                  m = "foundry" },              -- molten copper -> copper plate
     { r = "copper-cable",                    m = "hand" },                 -- copper plate -> copper cable
-    { r = "cindra-alumina",                  m = "hand" },                 -- stone + calcite -> alumina
+    { r = "sulfuric-acid",                   m = "chemical-plant" },       -- sulfur + iron-plate + water -> acid (vanilla; lava's sulfur feeds it)
+    { r = "cindra-alumina",                  m = "chemical-plant" },       -- stone + acid + water -> alumina + stone + sulfur (leach, ci-6vj §8)
     { r = "cindra-electrolysis-cell",        m = "hand" },                 -- build the electrolysis cell
-    { r = "cindra-aluminium",                m = "cindra-electrolysis-cell" }, -- alumina + [power] -> aluminium
+    { r = "cindra-aluminium",                m = "cindra-electrolysis-cell" }, -- alumina + [power] -> aluminium + O2
     { r = "cindra-science-pack",             m = "hand" },                 -- aluminium + ice + calcite -> pack (stock assembler)
   }
 
@@ -276,8 +277,9 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
   -- What a from-nothing player mines on Cindra (the true roots): the `stone` the
   -- ribbon yields, and the fixed `ice` + `calcite` mix the nightside ice field
   -- yields in one mining action (ci-9l6). `ice` melts to water and is the science
-  -- pack's cold-edge input; `calcite` feeds the alumina refine + the pack. All are
-  -- raw MINING drops -- no crush step, no processing to reach them.
+  -- pack's cold-edge input; `calcite` feeds the science pack (the alumina line is
+  -- acid leaching now, ci-6vj §8, no longer calcite). All are raw MINING drops --
+  -- no crush step, no processing to reach them.
   local HAND_ROOTS = { stone = true, ice = true, calcite = true }
 
   -- The FINITE brought bootstrap seed a post-Vulcanus arrival carries. A foundry

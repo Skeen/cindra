@@ -549,23 +549,31 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   sets `blend_mode = "additive"`; fails on the pre-fix spec). The ci-8r6 RGBA
   conversion is retained as a defensive format requirement but was never the bug.
 
-- [ ] **[LANDED] Aluminium chain, the power sink (ci-txh).** The signature material:
-  native stone + calcite -> alumina -> aluminium (electrolysis cell, ruinous power,
-  petrochemical-free), gated behind ONE tech (prereqs `cindra-lava` +
-  `cindra-ice-processing`). *Repro:* research the aluminium tech, build the
-  electrolysis cell, feed alumina + ruinous power. *Look for:* the cell reads as its
-  own building (currently a reused electric-furnace sprite), out-draws the foundry
-  on power, and leans hard on the grid/flare/capacitors; alumina and aluminium icons
-  read as distinct materials (calcite tinted white / steel-plate tinted cool silver,
-  v1 placeholders). The full chain, gating, cell power draw, and a powered cell
-  smelting are integration-tested (`tests/test_aluminium.lua`). Aluminium is
-  consumed by the flare **capacitor** (as its plates), by the **mass driver**
-  (pressed into the launch CAN and ground into the aluminium-powder SOLID ROCKET
-  FUEL), and by the **Cindra science pack** (its signature input). *Note:*
-  aluminium is now Cindra's SOLE signature product + primary export (ci-84s):
-  the cryo-quench / cryo-hardened-alloy chain is retired and Cindra science is
-  re-based onto aluminium. Productivity is OFF on the electrolysis recipe (power
-  stays the honest cost).
+- [ ] **[LANDED] Aluminium chain, the power sink (ci-txh; leaching + O2 reshape
+  ci-6vj S2).** The signature material: `20 stone + 30 sulfuric-acid + 20 water ->
+  10 alumina + 14 stone + 2 sulfur` (acid LEACHING in a vanilla chemical plant),
+  then `4 alumina -> 2 aluminium + 30 O2` (the electrolysis cell, ruinous power).
+  Petrochemical-free except the honest acid input; gated behind ONE tech (prereq
+  `cindra-lava`, which unlocks the acid the leach needs). *Repro:* research the
+  aluminium tech, run the leach in a chemical plant (pipe in acid + water), then
+  feed alumina + ruinous power to the electrolysis cell. *Look for:* the cell reads
+  as its own building (currently a reused electric-furnace sprite), out-draws the
+  foundry on power, and leans hard on the grid/flare/capacitors; alumina and
+  aluminium icons read as distinct materials (calcite tinted white / steel-plate
+  tinted cool silver, v1 placeholders). **The cell now has an O2 OUTPUT pipe on its
+  north edge** (v1 has no bespoke pipe sprite): confirm the O2 gas can be piped out
+  and that the pipe connection point reads sensibly on the north face (functional
+  connection + O2 emission is integration-tested, only the pipe-sprite look needs
+  an eye). The full chain, gating, net stone-negativity, the 30-O2 byproduct, cell
+  power draw, and a powered cell electrolysing (fluid box included) are
+  integration-tested (`tests/test_aluminium.lua`). Aluminium is consumed by the
+  flare **capacitor** (as its plates), by the **mass driver** (pressed into the
+  launch CAN and ground into the aluminium-powder SOLID ROCKET FUEL), and by the
+  **Cindra science pack** (its signature input). *Note:* aluminium is Cindra's SOLE
+  signature product + primary export (ci-84s). Productivity is OFF on the leach
+  (matter honesty, net stone-negative at every module tier) but ON for the
+  electrolysis step (aluminium is an intermediate); the O2 byproduct is
+  `ignored_by_productivity` so a prod bonus can never mint free gas.
 
 ## Power (signature)
 
