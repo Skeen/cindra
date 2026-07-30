@@ -55,27 +55,38 @@ end)
 
 test("nominal_w scales with the band; unknown names fall back to full", function()
   assert_eq(C.PANEL_NOMINAL_W, panel_solar.nominal_w(C.PANEL), "full band = full nominal")
-  assert_eq(C.PANEL_NOMINAL_W * 0.5, panel_solar.nominal_w(C.PANEL_BAND_PREFIX .. "-b50"))
+  assert_eq(C.PANEL_NOMINAL_W * 0.4, panel_solar.nominal_w(C.PANEL_BAND_PREFIX .. "-b40"))
   assert_eq(C.PANEL_NOMINAL_W, panel_solar.nominal_w("some-other-entity"),
     "unknown name over-estimates to full (safe default)")
 end)
 
 test("a sunward panel snaps to a materially higher band than a nightward one", function()
-  local sunward = panel_solar.band_factor(96)   -- deep sunward
-  local nightward = panel_solar.band_factor(-24) -- nightward floor
-  assert_eq(1.0, sunward, "deep sunward saturates at the full band")
+  -- Recalibrated to the ci-da2 zones (ci-22v): the FULL band lands on the lava side
+  -- (deep sunward), the floor on the ice side (deep nightward).
+  local sunward = panel_solar.band_factor(360)   -- the lava side
+  local nightward = panel_solar.band_factor(-150) -- the ice side
+  assert_eq(1.0, sunward, "the lava side saturates at the full band")
   assert_true(sunward > 4 * nightward, "sunward output dwarfs nightward: "
     .. sunward .. " vs " .. nightward)
 end)
 
-test("variant_for_y picks the base sunward and a reduced variant nightward", function()
-  assert_eq(C.PANEL, panel_solar.variant_for_y(96), "deep sunward stays the base panel")
-  assert_true(panel_solar.variant_for_y(-24) ~= C.PANEL, "nightward morphs to a reduced variant")
+test("the temperate centre is a REDUCED band, not full (the ci-22v bug)", function()
+  -- The reported bug was the panel hitting the full band at/near spawn. The centre
+  -- must snap to a reduced variant well below full, above the ice floor.
+  local centre = panel_solar.band_factor(0)
+  assert_true(centre < 1.0, "the centre is NOT the full band (got " .. centre .. ")")
+  assert_true(centre > 0.05, "the centre still beats the deep-ice floor")
+  assert_true(panel_solar.variant_for_y(0) ~= C.PANEL, "a centre panel morphs to a reduced variant")
+end)
+
+test("variant_for_y picks the base on the lava side and a reduced variant nightward", function()
+  assert_eq(C.PANEL, panel_solar.variant_for_y(360), "the lava side stays the base panel")
+  assert_true(panel_solar.variant_for_y(-150) ~= C.PANEL, "the ice side morphs to a reduced variant")
 end)
 
 test("band snapping is monotonic: sunward never snaps below nightward", function()
   local prev = -1
-  for _, y in ipairs({ -40, -24, -10, 0, 24, 48, 72, 96 }) do
+  for _, y in ipairs({ -200, -100, -50, 0, 50, 100, 200, 300, 360 }) do
     local b = panel_solar.band_factor(y)
     assert_true(b >= prev, "y=" .. y .. " band must not drop going sunward")
     prev = b

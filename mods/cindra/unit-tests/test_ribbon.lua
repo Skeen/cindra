@@ -8,6 +8,7 @@
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local ribbon = require("scripts.ribbon")
+local terrain = require("scripts.terrain")
 
 local passed, failed = 0, 0
 
@@ -92,30 +93,69 @@ test("partial config override falls back to defaults for unset keys", function()
   assert_eq("hot_lethal", ribbon.zone(96, cfg))
 end)
 
--- === Solar output falloff (§ ci-9ht) ======================================
+-- === Solar output falloff (§ ci-9ht; recalibrated to ci-da2 zones, ci-22v) =====
 
-test("solar output is full deep sunward, ~nothing nightward", function()
-  assert_eq(1.0, ribbon.sunward_factor(96), "at the sunward saturation: full sun")
-  assert_eq(1.0, ribbon.sunward_factor(200), "beyond it: held at full")
-  assert_eq(0.0, ribbon.sunward_factor(-24), "at the nightward floor: ~nothing")
-  assert_eq(0.0, ribbon.sunward_factor(-200), "far nightward: held at the floor")
+-- The zone-derived anchors for the default worldgen: full output at the inner edge
+-- of the molten lava zones, ~zero by the temperate->ice boundary.
+local FULL_AT = terrain.role_band("lava_mix").lo   -- 350 by default
+local ZERO_AT = terrain.role_band("building").lo   -- -100 by default
+
+test("solar anchors are DERIVED from the zone layout, not fixed tiles", function()
+  local full, zero, floor = ribbon.solar_anchors()
+  assert_eq(FULL_AT, full, "full-output anchor is the molten (lava) inner edge")
+  assert_eq(ZERO_AT, zero, "zero-output anchor is the temperate->ice boundary")
+  assert_eq(0.0, floor, "the far-nightward floor is ~nothing")
+  -- The anchors must be well clear of the temperate centre: the ci-22v bug was full
+  -- output landing at/near spawn. Full only on the lava side, zero on the ice side.
+  assert_true(full > 200, "full output is deep sunward (the lava side), not at centre")
+  assert_true(zero <= 0, "zero output is at/beyond the nightward edge of the ribbon")
 end)
 
-test("solar output rises monotonically sunward", function()
+test("recalibrating a zone width moves the solar anchors with it", function()
+  -- A wider building band pushes the temperate->ice boundary further nightward, so
+  -- solar tracks the actual worldgen instead of a stale fixed tile.
+  local full, zero = ribbon.solar_anchors({ zone_widths = { building = 400 } })
+  assert_eq(terrain.role_band("building", { building = 400 }).lo, zero,
+    "the zero anchor follows the widened building band")
+  assert_eq(terrain.role_band("lava_mix", { building = 400 }).lo, full,
+    "the full anchor follows the shifted lava zone")
+  assert_true(zero < ZERO_AT, "widening the temperate band moved zero further nightward")
+end)
+
+test("solar output is full only on the LAVA side, ~nothing on the ICE side", function()
+  assert_eq(1.0, ribbon.sunward_factor(FULL_AT), "at the lava inner edge: full sun")
+  assert_eq(1.0, ribbon.sunward_factor(FULL_AT + 100), "deeper into the lava: held at full")
+  assert_eq(0.0, ribbon.sunward_factor(ZERO_AT), "at the temperate->ice boundary: ~nothing")
+  assert_eq(0.0, ribbon.sunward_factor(ZERO_AT - 100), "far onto the ice: held at the floor")
+end)
+
+test("solar output is NOT full at the temperate centre (the ci-22v bug)", function()
+  -- The reported bug: output hit 400kW at the centre and stayed flat into the lava.
+  -- The centre must now be a modest fraction, well below full.
+  local centre = ribbon.sunward_factor(0)
+  assert_true(centre > 0.0, "the terminator centre still makes SOME power")
+  assert_true(centre < 0.4, "the centre is nowhere near full output (got " .. centre .. ")")
+  -- And it must NOT be flat into the lava: a point just sunward of centre is well
+  -- below a point deep in the hot margin.
+  assert_true(ribbon.sunward_factor(100) < ribbon.sunward_factor(300),
+    "output still rises across the hot margin, not flat")
+end)
+
+test("solar output rises monotonically sunward across the whole ribbon", function()
   local prev = -1
-  for _, y in ipairs({ -24, -10, 0, 24, 48, 72, 96 }) do
+  for _, y in ipairs({ -200, -100, -50, 0, 50, 100, 200, 300, 350, 450 }) do
     local f = ribbon.sunward_factor(y)
     assert_true(f >= prev, "y=" .. y .. " must not drop below a nightward point")
     prev = f
   end
 end)
 
-test("solar falloff makes sunward materially beat nightward", function()
+test("solar falloff makes the lava side dwarf the ice side", function()
   -- The whole point: a sunward panel must out-produce a nightward one, so
   -- placement (build toward the heat) is a real decision.
-  assert_true(ribbon.sunward_factor(48) > 4 * ribbon.sunward_factor(-24) + 0.1,
-    "mid-sunward output dwarfs the nightward floor")
-  assert_true(ribbon.sunward_factor(0) > ribbon.sunward_factor(-12),
+  assert_true(ribbon.sunward_factor(FULL_AT) > 4 * ribbon.sunward_factor(-50) + 0.1,
+    "the lava side dwarfs a nightward point")
+  assert_true(ribbon.sunward_factor(0) > ribbon.sunward_factor(-50),
     "the terminator centre still beats a nightward point")
 end)
 

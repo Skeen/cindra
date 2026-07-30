@@ -23,8 +23,16 @@
 -- resource placement, edge-pushing rewards) read the SAME single source of truth
 -- for "where am I on the hot-cold axis."
 --
+-- The one place it reaches sideways is the SOLAR falloff (M.sunward_factor): its
+-- anchors are DERIVED from the live ci-da2 zone layout (scripts/terrain.lua, an
+-- equally pure sibling that reads the same axis), so the solar curve tracks the
+-- actual worldgen zone widths instead of stale fixed tiles (ci-22v). terrain reads
+-- no game.*/prototypes.* either, so the module stays plain-Lua testable.
+--
 -- Runtime application (ticking the player for damage, freezing nightside
 -- machines) lives in scripts that consume this module; see TODO.md §15 item 2.
+
+local terrain = require("scripts.terrain")
 
 local M = {}
 
@@ -50,15 +58,16 @@ M.DEFAULTS = {
   -- best edge resources are reachable at a cost (§4 edge-pushing).
   max_dps = 200,
 
-  -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht). Solar
-  -- panels only REALLY work on the sunny (sunward, +Y) part of the ribbon: a
-  -- panel's output fraction ramps from `solar_floor` (nightward) up to 1.0
-  -- (deep sunward), so placement is a real decision (build sunward, toward the
-  -- heat/danger, for power). Anchored to the SAME axis as everything else so
-  -- when the axis orientation becomes configurable (worldgen-v2, ci-i8a) this
-  -- follows automatically. (tune) -- balance pass is §15-14.
-  solar_full_at = 96,  -- y >= this (the sunward lethal margin): full output.
-  solar_zero_at = -24, -- y <= this (the nightward safe edge): floor output.
+  -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht; recalibrated
+  -- to the ci-da2 zoned worldgen, ci-22v). Solar panels only REALLY work on the
+  -- sunny (sunward) part of the ribbon: a panel's output fraction ramps from
+  -- `solar_floor` (nightward) up to 1.0 (deep sunward), so placement is a real
+  -- decision (build sunward, toward the heat/danger, for power). The full/zero
+  -- ANCHORS are NOT fixed tiles: they are derived from the live zone layout (see
+  -- M.solar_anchors) so full output lands only on the LAVA side and output reaches
+  -- ~nothing by the temperate->ice boundary, tracking the actual worldgen widths.
+  -- A cfg may still override `solar_full_at` / `solar_zero_at` (tuning / tests);
+  -- when it does NOT, the zone-derived defaults apply. (tune) -- balance is §15-14.
   solar_floor   = 0.0, -- output fraction on the far nightward side (~nothing).
 }
 
@@ -154,20 +163,48 @@ function M.damage_per_second(y, cfg)
   return dps, damage_type
 end
 
+-- The solar falloff ANCHORS for the live zone layout (ci-22v). Returns
+-- (full_at, zero_at, floor):
+--   full_at : y >= this earns full output (1.0). Derived from the inner edge of
+--             the molten LAVA zones (terrain lava_mix.lo), so full sun lands ONLY
+--             on the lava/hot side -- the reward for building toward the danger --
+--             and NOT at the temperate centre (the ci-22v bug: it used to hit full
+--             near spawn and stay flat into the lava).
+--   zero_at : y <= this earns the floor. Derived from the TEMPERATE->ICE boundary
+--             (terrain building.lo, the building band's cold edge), so output falls
+--             to ~nothing across the ribbon and a panel on the ice side makes
+--             essentially nothing.
+--   floor   : the far-nightward output fraction (solar_floor).
+-- Anchors are read from terrain with the LIVE widths (settings / defaults), so
+-- recalibrating a zone width keeps the solar curve sensible. A cfg may override
+-- either anchor (tuning / tests); cfg.zone_widths (a terrain widths table keyed by
+-- role) lets a caller derive the anchors for a DIFFERENT layout (worldgen tests).
+function M.solar_anchors(cfg)
+  cfg = cfg or {}
+  local widths = cfg.zone_widths
+  local full = cfg.solar_full_at
+  local zero = cfg.solar_zero_at
+  if full == nil then full = terrain.role_band("lava_mix", widths).lo end
+  if zero == nil then zero = terrain.role_band("building", widths).lo end
+  local floor = cfg.solar_floor
+  if floor == nil then floor = M.DEFAULTS.solar_floor end
+  return full, zero, floor
+end
+
 -- Solar output FRACTION (0..1) a panel earns at ribbon coordinate `y` (§ ci-9ht).
 -- This is the "how sunny is it here" curve, the spatial companion to the flare's
 -- temporal curve: the two MULTIPLY (a panel's real output = nominal * intensity
 -- * sunward_factor(y)), they don't replace each other.
---   y >= solar_full_at   -> 1.0        (deep sunward: full sun, the reward for
---                                        building toward the heat/danger)
---   y <= solar_zero_at    -> solar_floor (nightward: ~nothing; a panel here is
---                                        near-useless, so placement matters)
---   between               -> linear ramp solar_floor -> 1.0
--- Same +Y-sunward convention as temperature()/zone(): this reads the ONE axis,
--- so it never re-derives the hot-cold orientation.
+--   y >= full_at   -> 1.0        (the lava/hot side: full sun, the reward for
+--                                  building toward the heat/danger)
+--   y <= zero_at    -> floor      (the temperate->ice boundary and beyond: ~nothing;
+--                                  a panel here is near-useless, so placement matters)
+--   between         -> linear ramp floor -> 1.0
+-- The anchors come from M.solar_anchors (derived from the zone layout), so this
+-- tracks the real worldgen. Same sunward-positive convention as temperature()/
+-- zone(): it reads the ONE axis, never re-deriving the hot-cold orientation.
 function M.sunward_factor(y, cfg)
-  cfg = M.resolve(cfg)
-  local full, zero, floor = cfg.solar_full_at, cfg.solar_zero_at, cfg.solar_floor
+  local full, zero, floor = M.solar_anchors(cfg)
   if y >= full then return 1.0 end
   if y <= zero then return floor end
   local t = (y - zero) / (full - zero)

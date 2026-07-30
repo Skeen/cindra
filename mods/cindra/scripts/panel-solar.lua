@@ -29,9 +29,13 @@ local M = {}
 -- Output bands as a fraction of the panel's nominal output, sunward (1.0) ->
 -- nightward (~0). The TOP band (1.0) IS the vanilla panel prototype (C.PANEL, the
 -- panel the player actually crafts); the rest are reduced-output Cindra variants
--- generated in prototypes/flare.lua. More bands = smoother gradient at the cost of more
--- prototypes; five reads as clear "zones". (tune) -- balance pass is §15-14.
-M.BANDS = { 1.0, 0.75, 0.5, 0.25, 0.05 }
+-- generated in prototypes/flare.lua. More bands = smoother gradient at the cost of
+-- more prototypes. Recalibrated to the ci-da2 zoned curve (ci-22v): full output now
+-- lands only on the LAVA side and the ramp spans the WHOLE ribbon, so the upper
+-- bands are packed finely to render the long sunward dropoff smoothly, with a wide
+-- gap down to the ~0 ice floor (b05) where a nightward panel makes essentially
+-- nothing. (tune) -- balance pass is §15-14.
+M.BANDS = { 1.0, 0.8, 0.6, 0.4, 0.25, 0.05 }
 
 -- Prototype name for a band factor. The full band is the vanilla panel (C.PANEL,
 -- so a sunward placement needs no morph); every reduced band is a Cindra clone
