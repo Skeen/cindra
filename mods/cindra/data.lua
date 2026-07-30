@@ -86,6 +86,11 @@ require("prototypes.mass-driver")
 require("prototypes.damage-types")
 require("prototypes.resources")
 
+-- §15 v2 item 4 (ci-7tl): the tinted fill sprite for the full-screen heat/cold
+-- damage feedback (drawn at runtime by scripts/damage-feedback.lua on the
+-- tile-damage cadence). A plain sprite prototype; adds nothing to any entity.
+require("prototypes.feedback")
+
 -- Power system (§15 items 7-9), integrated from the proven flare-poc (ci-zg3):
 --   * flare   §15-7  the sunward-band solar variants (ci-8al: Cindra uses the
 --                    plain vanilla panel; only the reduced position bands are new

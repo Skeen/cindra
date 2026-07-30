@@ -72,6 +72,9 @@ if script.active_mods["factorio-test"] then
     -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +
     -- the runtime revert/refund safety net).
     "tests/test_paving",
+    -- §15 v2 item 4 (ci-7tl): the full-screen heat/cold damage feedback tint
+    -- shows/clears in step with the tile-based lethal-zone damage above.
+    "tests/test_feedback",
     "tests/test_worldgen",
     "tests/test_decoratives",
     "tests/test_building_heat",
