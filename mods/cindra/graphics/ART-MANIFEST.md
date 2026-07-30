@@ -66,6 +66,39 @@ art tracked in ci-wfv, v1 reuses the electric-furnace sprite). Priority building
 sprite. Cindra reuses the plain vanilla solar panel (ci-8al), so there is no
 custom panel art.
 
+## Materials/petrochemical item + fluid icons (ci-6vj S6)
+
+**Source:** [`malcolmriley/unused-renders`](https://github.com/malcolmriley/unused-renders)
+(Blender renders released by the author for reuse).
+**License:** [Creative Commons Attribution 4.0 International (CC-BY-4.0)](https://creativecommons.org/licenses/by/4.0/).
+**Author / attribution:** Malcolm Riley.
+
+Per the CC-BY-4.0 terms, this attribution is the durable credit for every icon
+listed below. Each render was downloaded from the repo above and resized from its
+1024x1024 original to a 64x64 RGBA icon in `icons/`; no other edit was made to the
+pixels (in-engine tints on the two *spent* catalysts are applied in the prototype,
+not baked into the file). Wire with `icon = "__cindra__/graphics/icons/<name>.png",
+icon_size = 64`.
+
+| Cindra item / fluid            | Icon file                          | Source render (in the repo)                     | Wired by |
+|--------------------------------|------------------------------------|-------------------------------------------------|----------|
+| `cindra-hydrogen` (fluid)      | `icons/cindra-hydrogen.png`        | `fluid/original/molecule-hydrogen.png`          | `prototypes/plastics.lua` |
+| `cindra-oxygen` (fluid)        | `icons/cindra-oxygen.png`          | `fluid/original/molecule-oxygen.png`            | `prototypes/plastics.lua` |
+| `cindra-carbon-dioxide` (fluid)| `icons/cindra-carbon-dioxide.png`  | `fluid/original/molecule-carbon-dioxide.png`    | `prototypes/plastics.lua` |
+| `cindra-methanol` (fluid)      | `icons/cindra-methanol.png`        | `fluid/original/molecule-methanol.png`          | `prototypes/plastics.lua` |
+| `cindra-quicklime`             | `icons/cindra-quicklime.png`       | `item/original/material-quicklime-1.png`        | `prototypes/plastics.lua` |
+| `cindra-methanol-catalyst`     | `icons/cindra-methanol-catalyst.png` | `item/original/pile-metal-dust-copper-1.png`  | `prototypes/plastics.lua` |
+| `cindra-spent-methanol-catalyst` | `icons/cindra-spent-methanol-catalyst.png` | `item/original/scrap-metal-copper-1.png` | `prototypes/plastics.lua` (greyed tint) |
+| `cindra-zeolite-catalyst`      | `icons/cindra-zeolite-catalyst.png` | `item/original/pile-crystal-zeolite-catalyst-1.png` | `prototypes/plastics.lua` |
+| `cindra-spent-zeolite-catalyst`| `icons/cindra-spent-zeolite-catalyst.png` | `item/original/pile-crystal-zeolite-catalyst-3.png` | `prototypes/plastics.lua` (greyed tint) |
+| `cindra-alumina`               | `icons/cindra-alumina.png`         | `item/original/pile-chunk-silica-gel-1.png`     | `prototypes/aluminium.lua` |
+| `cindra-aluminium`             | `icons/cindra-aluminium.png`       | `item/original/metal-plate-aluminium.png`       | `prototypes/aluminium.lua` |
+| `cindra-aluminium-powder`      | `icons/cindra-aluminium-powder.png`| `item/original/pile-dust-aluminium-1.png`       | `prototypes/mass-driver.lua` |
+
+These replaced the earlier tinted-vanilla placeholders (petroleum-gas / water /
+calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entity
+still reuses the electric-furnace art (bespoke building art tracked in ci-wfv).
+
 ## Scope / known limits (honest first pass)
 
 - **Entity sprites are single static frames**, not directional or animated.

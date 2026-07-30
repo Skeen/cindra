@@ -73,6 +73,10 @@ if script.active_mods["factorio-test"] then
     -- electrolysis + calcite calcination + methanol-to-olefins over a Cu/Al
     -- catalyst), ending in the vanilla plastic-bar; byproduct vents; gating.
     "tests/test_plastics",
+    -- ci-6vj S6: the WHOLE materials/petrochemical graph as one object -- no
+    -- byproduct deadlock, the O2 economy's real sinks, net-negative stone at the
+    -- +300% cap, and no free-metal/carbon/plastic loop (DESIGN §8.4/§8.6).
+    "tests/test_materials_graph",
     "tests/test_tile_damage",
     -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +
     -- the runtime revert/refund safety net).

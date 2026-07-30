@@ -579,8 +579,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   feed alumina + ruinous power to the electrolysis cell. *Look for:* the cell reads
   as its own building (currently a reused electric-furnace sprite), out-draws the
   foundry on power, and leans hard on the grid/flare/capacitors; alumina and
-  aluminium icons read as distinct materials (calcite tinted white / steel-plate
-  tinted cool silver, v1 placeholders). **The cell now has an O2 OUTPUT pipe on its
+  aluminium icons read as distinct materials (ci-6vj S6 bespoke renders: a white
+  refined-mineral pile for alumina, an aluminium plate for the metal -- no longer
+  the tinted calcite/steel placeholders). **The cell now has an O2 OUTPUT pipe on its
   north edge** (v1 has no bespoke pipe sprite): confirm the O2 gas can be piped out
   and that the pipe connection point reads sensibly on the north face (functional
   connection + O2 emission is integration-tested, only the pipe-sprite look needs
@@ -594,6 +595,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (matter honesty, net stone-negative at every module tier) but ON for the
   electrolysis step (aluminium is an intermediate); the O2 byproduct is
   `ignored_by_productivity` so a prod bonus can never mint free gas.
+
+- [ ] **[LANDED] Materials/petrochemical bespoke icons read cleanly (ci-6vj S6).**
+  Twelve new item/fluid icons replaced the tinted-vanilla placeholders: the four
+  gases/liquid (**hydrogen, oxygen, carbon dioxide, methanol**) use molecule
+  renders; **quicklime**, **alumina** (white mineral), **aluminium** (plate),
+  **nano-aluminium powder** (metal dust), and the two catalyst pairs
+  (**methanol/zeolite catalyst** + their greyed **spent** forms) use dedicated
+  item renders (Malcolm Riley `unused-renders`, CC-BY-4.0; see
+  `graphics/ART-MANIFEST.md`). Wiring, PNG existence, RGBA format, and no-placeholder
+  are all unit-tested (`unit-tests/test_materials_graphics.lua`); only the *look* is
+  here. *Repro:* research the materials-chemistry + aluminium techs and open the
+  recipe/crafting menus, or inspect the fluids in pipes. *Look for:* each new
+  item/fluid shows its own distinct icon (no reused petroleum-gas cloud / tinted
+  calcite / tinted copper-plate); the fluids are still colour-distinct in pipes;
+  the two spent catalysts read visibly duller than their live forms; the
+  materials-chemistry tech icon reads as methanol, not the old petroleum cloud.
 
 ## Power (signature)
 
@@ -686,8 +703,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 - [ ] **[LANDED] Mass driver + launch-chain art are placeholders (ci-o39).** The
   driver is a full deep-copy of the vanilla rocket-silo, so in world it wears the
   vanilla silo animation; only its inventory/tech ICON is the delivered mass-driver
-  art (`graphics/icons/mass-driver.png`). The aluminium powder (calcite tinted) and
-  solid rocket fuel (rocket-fuel tinted) are v1 placeholder icons. *Look for:* the
+  art (`graphics/icons/mass-driver.png`). The aluminium powder now has a bespoke
+  aluminium-dust render (ci-6vj S6); the solid rocket fuel is the vanilla
+  rocket-fuel item (no bespoke icon needed). *Look for:* the
   building reads acceptably as a launcher, its icon reads as the mass driver in the
   Space crafting tab, and the chain icons read as distinct materials. A bespoke
   rail-gun/coilgun silo reskin is a later art pass, not a v1 bug.

@@ -625,7 +625,12 @@ in hand, matching the ci-9l6 pacing intent. No unlock costs the product it gates
 - **Rocket fuel is a terminal sink, never an energy loop (ci-669 energy analog).**
   Both fuel recipes consume metal/methanol worth far more electricity than the
   vanilla `rocket-fuel`'s ~100 MJ; fuel is exported/launched, never burned back
-  into the grid to power its own production.
+  into the grid to power its own production. **TUNE FLAG (ci-6vj S6 -> ci-63d):**
+  the S6 energy pass found the methanol-fuel yield (#9, `50 methanol -> 10
+  rocket-fuel`) is currently energy-*positive* (~103 MJ in vs 1000 MJ fuel_value),
+  so it breaks this invariant as written; ALICE is correctly energy-negative. The
+  balance pass (ci-63d) is to cut that yield to ~1 (or raise methanol's cost); the
+  number is pinned by a mandatory S5 guard so it needs a design decision first.
 
 All of the above are guarded by tests (`test_lava`, `test_aluminium`,
 `test_plastics`, `test_sulfur`, `test_mass_driver`, and a new ci-6vj graph-balance

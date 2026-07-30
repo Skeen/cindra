@@ -176,7 +176,8 @@ local powder_item = util.table.deepcopy(data.raw.item["calcite"])
 powder_item.name = M.POWDER
 powder_item.stack_size = 100
 powder_item.order = "z[cindra-mass-driver]-b[powder]"
-set_icon(powder_item, "__space-age__/graphics/icons/calcite.png", { r = 0.72, g = 0.78, b = 0.88, a = 1.0 })
+-- Bespoke render (ci-6vj S6): a fine aluminium-dust pile; see graphics/ART-MANIFEST.md.
+set_icon(powder_item, "__cindra__/graphics/icons/cindra-aluminium-powder.png")
 powder_item.localised_name = { "item-name.cindra-aluminium-powder" }
 powder_item.localised_description = { "item-description.cindra-aluminium-powder" }
 
@@ -210,6 +211,10 @@ local powder_recipe = {
     { type = "item", name = "cindra-aluminium", amount = 1 },
   },
   results = { { type = "item", name = M.POWDER, amount = 2 } },
+  -- Matter honesty (DESIGN §8.6): grinding is a 1:2 mass split, not a mint. Prod
+  -- OFF so a module tier can never yield more powder (hence cheaper rocket-fuel)
+  -- per aluminium -- the fuel must stay worth far more electricity than it holds.
+  allow_productivity = false,
 }
 
 -- "ALICE solid rocket fuel": nano-aluminium powder + ICE + O2 -> VANILLA rocket-fuel

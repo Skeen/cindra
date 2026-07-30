@@ -54,9 +54,10 @@
 -- referenced here by name only. A private recipe category keeps the electrolysis
 -- recipe on the Cindra cell only, and vanilla smelting out of it.
 --
--- v1 ART: placeholder art (bespoke icons filed as a follow-up, ci-txh art bead).
--- Alumina reuses the calcite icon tinted white; aluminium reuses the steel-plate
--- icon tinted a cool silver; the cell reuses the electric-furnace art.
+-- ART: bespoke item icons (ci-6vj S6) for alumina (white refined-mineral render)
+-- and aluminium (aluminium-plate render), from Malcolm Riley's `unused-renders`
+-- (CC-BY-4.0); see graphics/ART-MANIFEST.md. The electrolysis CELL entity still
+-- reuses the electric-furnace art (bespoke building art tracked in ci-wfv).
 
 local util = require("util")
 
@@ -109,8 +110,9 @@ local alumina = util.table.deepcopy(data.raw.item["calcite"])
 alumina.name = ALUMINA
 alumina.order = "z[cindra]-a[alumina]"
 alumina.stack_size = 100
--- Tint the calcite icon bright white so it reads as refined alumina powder.
-set_icon(alumina, "__space-age__/graphics/icons/calcite.png", { r = 1.0, g = 1.0, b = 1.0, a = 1.0 })
+-- Bespoke render (ci-6vj S6): a white refined-mineral pile (silica-gel render) that
+-- reads as alumina powder. Source + attribution in graphics/ART-MANIFEST.md.
+set_icon(alumina, "__cindra__/graphics/icons/cindra-alumina.png")
 alumina.localised_name = { "item-name.cindra-alumina" }
 alumina.localised_description = { "item-description.cindra-alumina" }
 
@@ -119,8 +121,9 @@ local aluminium = util.table.deepcopy(data.raw.item["steel-plate"])
 aluminium.name = ALUMINIUM
 aluminium.order = "z[cindra]-b[aluminium]"
 aluminium.stack_size = 100
--- Cool silver tint so it reads as light metal, distinct from steel.
-set_icon(aluminium, "__base__/graphics/icons/steel-plate.png", { r = 0.80, g = 0.86, b = 0.95, a = 1.0 })
+-- Bespoke render (ci-6vj S6): a genuine aluminium plate render, distinct from steel.
+-- Source + attribution in graphics/ART-MANIFEST.md.
+set_icon(aluminium, "__cindra__/graphics/icons/cindra-aluminium.png")
 aluminium.localised_name = { "item-name.cindra-aluminium" }
 aluminium.localised_description = { "item-description.cindra-aluminium" }
 

@@ -66,10 +66,12 @@
 -- calcite, not from rock, and the stone the zeolite catalyst consumes is a real
 -- (net) draw.
 --
--- v1 ART: placeholder art. The gases reuse the vanilla petroleum-gas cloud icon
--- (distinct tints per gas); methanol reuses the water icon tinted; quicklime
--- reuses the calcite icon tinted; the catalysts reuse the copper-plate / calcite
--- icon tinted (spent forms darker).
+-- ART (ci-6vj S6): bespoke Blender renders from Malcolm Riley's `unused-renders`
+-- (CC-BY-4.0), resized to 64x64 in graphics/icons/. The gases/methanol use the
+-- matching molecule renders; quicklime, the two catalysts, and their spent forms
+-- use dedicated item renders (spent forms greyed). See graphics/ART-MANIFEST.md
+-- for the per-item source + attribution. Pipe colours (base_color/flow_color)
+-- still distinguish the fluids in transit.
 
 local util = require("util")
 
@@ -137,15 +139,24 @@ local function set_icon(proto, icon, tint)
   proto.pictures = nil -- fall back to the (tinted) icon for belt/inventory art
 end
 
-local GAS_ICON  = "__base__/graphics/icons/fluid/petroleum-gas.png"
-local LIQ_ICON  = "__base__/graphics/icons/fluid/water.png"
-local CALCITE_ICON = "__space-age__/graphics/icons/calcite.png"
-local COPPER_ICON  = "__base__/graphics/icons/copper-plate.png"
+-- Bespoke icons (ci-6vj S6): Blender renders from Malcolm Riley's
+-- `unused-renders` (CC-BY-4.0), resized to 64x64 and dropped in graphics/icons/.
+-- Each icon file is named for the item/fluid it draws, so the path derives from
+-- the prototype name. See graphics/ART-MANIFEST.md for the per-item source +
+-- attribution. The old vanilla-placeholder tints are gone.
+local ICON_DIR = "__cindra__/graphics/icons/"
+local function bespoke(name) return ICON_DIR .. name .. ".png" end
+
+-- Recipe/tech icons that have no single product to inherit from still point at a
+-- relevant bespoke item/fluid icon (below), so nothing shows a vanilla placeholder
+-- anymore.
 
 -- ---------------------------------------------------------------------------
 -- Fluids. base_color/flow_color are what actually distinguish them in pipes.
 -- ---------------------------------------------------------------------------
-local function gas(name, base, flow, icon_tint)
+-- base_color/flow_color are what distinguish the fluids in PIPES; the bespoke
+-- molecule render is the inventory/GUI icon (one per fluid, named for it).
+local function gas(name, base, flow)
   return {
     type = "fluid",
     name = name,
@@ -153,7 +164,7 @@ local function gas(name, base, flow, icon_tint)
     default_temperature = 25,
     base_color = base,
     flow_color = flow,
-    icons = { { icon = GAS_ICON, icon_size = 64, tint = icon_tint } },
+    icons = { { icon = bespoke(name), icon_size = 64 } },
     icon_size = 64,
     localised_name = { "fluid-name." .. name },
     localised_description = { "fluid-description." .. name },
@@ -162,16 +173,14 @@ local function gas(name, base, flow, icon_tint)
 end
 
 local hydrogen = gas(H2,
-  { r = 0.55, g = 0.75, b = 1.00 }, { r = 0.70, g = 0.85, b = 1.00 },
-  { r = 0.60, g = 0.80, b = 1.00, a = 1.0 })
+  { r = 0.55, g = 0.75, b = 1.00 }, { r = 0.70, g = 0.85, b = 1.00 })
 local oxygen = gas(O2,
-  { r = 0.70, g = 0.95, b = 1.00 }, { r = 0.80, g = 0.98, b = 1.00 },
-  { r = 0.75, g = 0.95, b = 1.00, a = 1.0 })
+  { r = 0.70, g = 0.95, b = 1.00 }, { r = 0.80, g = 0.98, b = 1.00 })
 local carbon_dioxide = gas(CO2,
-  { r = 0.55, g = 0.55, b = 0.60 }, { r = 0.65, g = 0.65, b = 0.70 },
-  { r = 0.60, g = 0.60, b = 0.65, a = 1.0 })
+  { r = 0.55, g = 0.55, b = 0.60 }, { r = 0.65, g = 0.65, b = 0.70 })
 
--- Methanol is a liquid; reuse the water icon tinted pale yellow.
+-- Methanol is a liquid; the pipe colour is its pale-yellow, the icon its bespoke
+-- molecule render.
 local methanol = {
   type = "fluid",
   name = METHANOL,
@@ -179,7 +188,7 @@ local methanol = {
   default_temperature = 25,
   base_color = { r = 0.90, g = 0.85, b = 0.55 },
   flow_color = { r = 0.95, g = 0.90, b = 0.60 },
-  icons = { { icon = LIQ_ICON, icon_size = 64, tint = { r = 0.95, g = 0.90, b = 0.55, a = 1.0 } } },
+  icons = { { icon = bespoke(METHANOL), icon_size = 64 } },
   icon_size = 64,
   localised_name = { "fluid-name." .. METHANOL },
   localised_description = { "fluid-description." .. METHANOL },
@@ -194,31 +203,33 @@ local quicklime = util.table.deepcopy(data.raw.item["calcite"])
 quicklime.name = QUICKLIME
 quicklime.order = "z[cindra]-quicklime"
 quicklime.stack_size = 100
-set_icon(quicklime, CALCITE_ICON, { r = 0.95, g = 0.93, b = 0.85, a = 1.0 }) -- pale cream
+set_icon(quicklime, bespoke(QUICKLIME)) -- bespoke quicklime render (no tint)
 quicklime.localised_name = { "item-name." .. QUICKLIME }
 quicklime.localised_description = { "item-description." .. QUICKLIME }
 
--- Catalyst item factory: clone a vanilla item, retint, relabel. `spent` variants
--- get a darker/greyer tint to read as "used up".
-local function catalyst_item(name, base_icon, tint, order)
+-- Catalyst item factory: clone a vanilla item for a valid item def, then draw it
+-- with a bespoke render. `tint` is nil for the live forms (the render's own colour
+-- shows); the SPENT forms take a modest grey darkening so they read as "used up".
+local function catalyst_item(name, tint, order)
   local it = util.table.deepcopy(data.raw.item["copper-plate"])
   it.name = name
   it.order = order
   it.stack_size = 50
-  set_icon(it, base_icon, tint)
+  set_icon(it, bespoke(name), tint)
   it.localised_name = { "item-name." .. name }
   it.localised_description = { "item-description." .. name }
   return it
 end
 
-local methanol_catalyst = catalyst_item(MCAT, COPPER_ICON,
-  { r = 0.85, g = 0.70, b = 0.55, a = 1.0 }, "z[cindra]-catalyst-a[methanol]") -- copper-on-alumina
-local spent_methanol_catalyst = catalyst_item(MCAT_SPENT, COPPER_ICON,
-  { r = 0.45, g = 0.40, b = 0.38, a = 1.0 }, "z[cindra]-catalyst-b[methanol-spent]") -- dulled
-local zeolite_catalyst = catalyst_item(ZCAT, CALCITE_ICON,
-  { r = 0.80, g = 0.88, b = 0.95, a = 1.0 }, "z[cindra]-catalyst-c[zeolite]") -- pale blue mineral
-local spent_zeolite_catalyst = catalyst_item(ZCAT_SPENT, CALCITE_ICON,
-  { r = 0.45, g = 0.48, b = 0.52, a = 1.0 }, "z[cindra]-catalyst-d[zeolite-spent]") -- greyed
+-- Live catalysts: bespoke copper-dust (methanol) and zeolite-crystal (MTO) renders,
+-- untinted. Spent forms: a distinct used render (scrap copper) / a darkened tint so
+-- the pair reads as live vs deactivated at a glance.
+local methanol_catalyst = catalyst_item(MCAT, nil, "z[cindra]-catalyst-a[methanol]")
+local spent_methanol_catalyst = catalyst_item(MCAT_SPENT,
+  { r = 0.65, g = 0.62, b = 0.60, a = 1.0 }, "z[cindra]-catalyst-b[methanol-spent]") -- dulled
+local zeolite_catalyst = catalyst_item(ZCAT, nil, "z[cindra]-catalyst-c[zeolite]")
+local spent_zeolite_catalyst = catalyst_item(ZCAT_SPENT,
+  { r = 0.55, g = 0.58, b = 0.62, a = 1.0 }, "z[cindra]-catalyst-d[zeolite-spent]") -- greyed
 
 -- ---------------------------------------------------------------------------
 -- Recipes. Wet chemistry runs in the vanilla chemical plant (category
@@ -270,7 +281,7 @@ local calcination = {
   },
   allow_productivity = false, -- fixed carbon budget: no free CO2
   main_product = CO2,
-  icons = { { icon = GAS_ICON, icon_size = 64, tint = { r = 0.60, g = 0.60, b = 0.65, a = 1.0 } } },
+  icons = { { icon = bespoke(CO2), icon_size = 64 } },
 }
 
 -- #10 Methanol synthesis (CP): CO2 + hydrogen, over the methanol catalyst, become
@@ -472,7 +483,7 @@ local vent_oxygen = {
   },
   results = {}, -- vented to atmosphere: a pure sink
   allow_productivity = false,
-  icons = { { icon = GAS_ICON, icon_size = 64, tint = { r = 0.75, g = 0.95, b = 1.0, a = 1.0 } } },
+  icons = { { icon = bespoke(O2), icon_size = 64 } },
   localised_name = { "recipe-name.cindra-vent-oxygen" },
   localised_description = { "recipe-description.cindra-vent-oxygen" },
 }
@@ -490,7 +501,7 @@ local vent_quicklime = {
   },
   results = {}, -- discarded: a pure sink
   allow_productivity = false,
-  icons = { { icon = CALCITE_ICON, icon_size = 64, tint = { r = 0.95, g = 0.93, b = 0.85, a = 1.0 } } },
+  icons = { { icon = bespoke(QUICKLIME), icon_size = 64 } },
   localised_name = { "recipe-name.cindra-vent-quicklime" },
   localised_description = { "recipe-description.cindra-vent-quicklime" },
 }
@@ -511,7 +522,7 @@ local vent_co2 = {
   },
   results = {}, -- vented to atmosphere: a pure sink
   allow_productivity = false,
-  icons = { { icon = GAS_ICON, icon_size = 64, tint = { r = 0.60, g = 0.60, b = 0.65, a = 1.0 } } },
+  icons = { { icon = bespoke(CO2), icon_size = 64 } },
   localised_name = { "recipe-name.cindra-vent-co2" },
   localised_description = { "recipe-description.cindra-vent-co2" },
 }
@@ -543,7 +554,7 @@ local quicklime_disposal = {
   },
   allow_productivity = false,
   main_product = STONE,
-  icons = { { icon = CALCITE_ICON, icon_size = 64, tint = { r = 0.85, g = 0.80, b = 0.72, a = 1.0 } } },
+  icons = { { icon = bespoke(QUICKLIME), icon_size = 64 } },
   localised_name = { "recipe-name.cindra-quicklime-disposal" },
   localised_description = { "recipe-description.cindra-quicklime-disposal" },
 }
@@ -558,7 +569,8 @@ local quicklime_disposal = {
 local technology = {
   type = "technology",
   name = TECH,
-  icon = GAS_ICON,
+  -- The materials-chemistry tech reads by its headline product, methanol.
+  icon = bespoke(METHANOL),
   icon_size = 64,
   icon_mipmaps = 4,
   effects = {
