@@ -356,35 +356,68 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
     return s.count_entities_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
   end
 
-  it("places stone on the building ribbon + SAFE hot margin, never on the cold cap", function()
-    -- stone zone perp [-100, 300) -> x in (-300, 100] (clamped short of the heat band).
-    assert.is_true(count(field.STONE, -300, 100) > 0, "stone patches on the hot ribbon")
+  it("places stone on the building ribbon + survivable hot margin, never on the cold cap", function()
+    -- stone zone perp [-100, 280) -> x in (-280, 100]: reaches INTO the survivable hot
+    -- margin (the edge-push) but stops a margin short of the lethal heat cap (ci-4iw).
+    assert.is_true(count(field.STONE, -275, 100) > 0, "stone patches on the hot ribbon")
     assert.are.equal(0, count(field.STONE, 110, 450), "no stone on the cold cap (east)")
   end)
 
-  it("places ice on the SAFE cold margin, never on the hot/temperate ribbon", function()
-    -- ice zone perp (-200, -100) -> x in (100, 200) (clamped short of the cold cap).
-    assert.is_true(count(field.ICE, 110, 190) > 0, "ice patches on the SAFE cold margin (east)")
+  it("places ice on the survivable cold margin, never on the hot/temperate ribbon", function()
+    -- ice zone perp (-180, -100) -> x in (100, 180): reaches INTO the survivable cold
+    -- margin (rough-ice edge-push) but stops a margin short of the deep-ice cap (ci-4iw).
+    assert.is_true(count(field.ICE, 101, 179) > 0, "ice patches on the survivable cold margin")
     assert.are.equal(0, count(field.ICE, -350, 100), "no ice on the hot/temperate ribbon")
   end)
 
-  -- ci-fb9: NO harvestable field may generate in a DAMAGE ZONE (visible-but-
-  -- unreachable UX). Heat zones 1-3 = perp [300,450] -> x in [-450,-300]; cold zone
-  -- 11 = perp [-450,-200] -> x in [200,450]. Assert ZERO stone AND ice fields in both
-  -- damage bands on the LIVE map, and prove the scanned bands are the real lethal
-  -- terrain (so the check is meaningful).
+  -- ci-fb9 (margin ci-4iw): NO harvestable field may sit in the LETHAL damage zone
+  -- (visible-but-unreachable UX). Heat zones 1-3 = perp [300,450] -> x in [-450,-300];
+  -- cold zone 11 (deep-ice cap) = perp [-450,-200] -> x in [200,450]. ci-fb9 clamped
+  -- fields EXACTLY to these boundaries, but the lethal TILES bleed ~14 tiles warmward
+  -- across them, so patches at the very edge landed on the bled cap (ice "in the frost
+  -- death zone"). ci-4iw adds a keep-back margin. Assert ZERO fields in each lethal
+  -- band (still true), and prove the boundary really is lethal.
   it("keeps ALL harvestable fields OUT of the heat damage zone (zones 1-3)", function()
     assert.are.equal(0, count(field.STONE, -450, -305), "no stone in the heat damage zone")
     assert.are.equal(0, count(field.ICE, -450, -305), "no ice in the heat damage zone")
-    -- perp = -x, so x=-305 -> perp 305 (in the heat band); x=-330 -> perp 330.
     assert.are.equal("heat", terrain.lethal_at(-(-330)), "the scanned band really is heat-lethal")
   end)
 
   it("keeps ALL harvestable fields OUT of the cold damage zone (deep-ice cap, zone 11)", function()
     assert.are.equal(0, count(field.STONE, 205, 450), "no stone in the cold damage zone")
     assert.are.equal(0, count(field.ICE, 205, 450), "no ice in the cold damage zone")
-    -- x=205 -> perp -205 (in the cold band); x=300 -> perp -300.
     assert.are.equal("cold", terrain.lethal_at(-(300)), "the scanned band really is cold-lethal")
+  end)
+
+  -- The load-bearing invariant, proven tile-by-tile (ci-4iw): walk EVERY stone/ice
+  -- field entity on the live map and assert the tile UNDER it is never one of the
+  -- UNREACHABLE lethal tiles -- the smooth-ice deep-ice cap (cold death) or the molten
+  -- lava wall (heat death). Fields may sit on the survivable-margin tiles (warm-cracks
+  -- / rough-ice: the intended edge-push), but never on the death cap/wall. Seed-robust
+  -- and independent of the band arithmetic, so it catches any noise-bleed regression.
+  it("no stone/ice field ever sits on a lethal death tile (smooth-ice cap / lava wall, ci-4iw)", function()
+    -- The unreachable death tiles: full-damage cold cap + the molten heat wall.
+    local DEATH = {
+      ["cindra-ice-smooth"] = true,   -- the deep-ice cold cap (peak freeze)
+      ["cindra-lava-hot"] = true,     -- molten lava (peak burn, impassable)
+      ["cindra-lava"] = true,
+      ["cindra-volcanic-cracks-hot"] = true, -- glowing lava crust (the hot damage zone 3)
+    }
+    local function scan(name)
+      local ents = s.find_entities_filtered({ name = name, area = { { -450, -RY }, { 450, RY } } })
+      local on_death = 0
+      for _, e in ipairs(ents) do
+        local p = e.position
+        if DEATH[s.get_tile(p.x, p.y).name] then on_death = on_death + 1 end
+      end
+      return #ents, on_death
+    end
+    local n_stone, bad_stone = scan(field.STONE)
+    local n_ice, bad_ice = scan(field.ICE)
+    assert.is_true(n_stone > 0, "sampled real stone fields")
+    assert.is_true(n_ice > 0, "sampled real ice fields")
+    assert.are.equal(0, bad_stone, "no stone field on a death tile (" .. bad_stone .. " found)")
+    assert.are.equal(0, bad_ice, "no ice field on a death tile (" .. bad_ice .. " found)")
   end)
 
   -- 6a. ZONE PURITY (ci-7w0), proven on the LIVE map: STONE never in the cold zone,

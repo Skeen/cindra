@@ -26,10 +26,16 @@
 --   volcanic rocks  finite scatter across the volcanic-tile region, clustered toward
 --              the lava; yields stone + coal (ci-qy0, tightened to volcanic tiles ci-18n).
 --
--- HARVESTABLE FIELDS NEVER SPAWN IN A DAMAGE ZONE (ci-fb9): a resource on a lethal
--- tile is visible-but-unreachable. stone + ice are clamped to the damage-free band
--- via field_bounds (reads terrain.damage_bounds). Volcanic rocks are the one
--- deliberate exception -- they live IN the hot region as the hazard-reward.
+-- HARVESTABLE FIELDS NEVER SPAWN IN THE LETHAL DAMAGE ZONE (ci-fb9, margin added
+-- ci-4iw): a resource on the unreachable lethal cap/wall is visible-but-unreachable.
+-- stone + ice are clamped to the damage-free band via field_bounds (reads
+-- terrain.damage_bounds -- the SAME positional lethal-zone boundary the design and the
+-- worldgen use), and pulled a further FIELD_DAMAGE_MARGIN back so a noise-BLED lethal
+-- tile (the smooth-ice cap / lava crust wandering warmward across the boundary) never
+-- carries a field either -- the ci-4iw leak. Fields still reach INTO the survivable
+-- edge margin (zone 4 warm-cracks, zone 10 rough-ice: "best resources reachable at a
+-- cost"), which is the intended edge-push, NOT the death zone. Volcanic rocks are the
+-- one deliberate exception -- they live IN the hot region as the hazard-reward.
 --
 -- The zone boundaries come from scripts/terrain.lua (M.resource_bounds), the SAME
 -- geometry that lays the tile gradient, so resources and terrain share one source
@@ -94,13 +100,26 @@ local function bounds(cfg)
   return terrain.resource_bounds(cfg)
 end
 
--- The damage-EXCLUDED band edges for HARVESTABLE FIELDS (ci-fb9). A field (stone /
--- ice patch) must NEVER generate in a DAMAGE ZONE: a resource sitting on a lethal
--- tile is visible-but-unreachable, forbidden UX. So clamp the stone band's hot edge
--- to the heat-damage boundary and the ice band's cold edge to the cold-damage
--- boundary (both from terrain.damage_bounds -- the SAME positional axis the tile
--- damage uses, so fields and damage share one source of truth), EXCLUSIVE of the
--- lethal band: stone caps STRICTLY below hot_from, ice STRICTLY above cold_from.
+-- Keep-back MARGIN (tiles) from the lethal-zone boundary (ci-4iw). The tile bands are
+-- drawn with a boundary-noise wiggle + per-tile speckle (scripts/terrain.lua), so a
+-- lethal tile (smooth-ice cap / lava crust) can wander up to NOISE_AMPLITUDE +
+-- SPECKLE_AMPLITUDE (= 14) tiles past its nominal zone edge. Fields stop a WIDER
+-- margin short of the damage boundary so no bled lethal tile ever carries a field --
+-- the leak ci-fb9 missed by clamping EXACTLY to the boundary (same reasoning as
+-- ROCK_COLD_MARGIN). Derived from the terrain amplitudes, never hardcoded.
+M.FIELD_DAMAGE_MARGIN = terrain.NOISE_AMPLITUDE + terrain.SPECKLE_AMPLITUDE + 6
+
+-- The damage-EXCLUDED band edges for HARVESTABLE FIELDS (ci-fb9, margin ci-4iw). A
+-- field (stone / ice patch) must NEVER generate in the LETHAL damage zone: a resource
+-- on the unreachable cap/wall is visible-but-unreachable, forbidden UX. So clamp the
+-- stone band's hot edge below the heat-damage boundary and the ice band's cold edge
+-- above the cold-damage boundary (both from terrain.damage_bounds -- the SAME
+-- positional lethal-zone boundary the tile gradient and worldgen use), then pull each
+-- a further FIELD_DAMAGE_MARGIN into the safe side so noise-BLED lethal tiles near the
+-- boundary stay field-free too (ci-4iw: ci-fb9 clamped with no margin, so ice patches
+-- landed on smooth-ice bleeding warmward across the boundary -- ice "in the frost
+-- death zone"). The fields still reach INTO the survivable edge margin (zone 4 / zone
+-- 10), the intended edge-push reward.
 --
 -- Only stone + ice need this. Volcanic rocks are the deliberate hazard-reward
 -- exception and keep the raw walkable hot_edge (they read as "in the lava"); the
@@ -108,15 +127,16 @@ end
 local function field_bounds(cfg)
   local b = bounds(cfg)
   local d = terrain.damage_bounds(cfg)
+  local margin = M.FIELD_DAMAGE_MARGIN
   local hot_edge = b.hot_edge
-  if d.hot_from and d.hot_from < hot_edge then hot_edge = d.hot_from end
+  if d.hot_from and (d.hot_from - margin) < hot_edge then hot_edge = d.hot_from - margin end
   local cold_edge = b.cold_edge
-  if d.cold_from and d.cold_from > cold_edge then cold_edge = d.cold_from end
+  if d.cold_from and (d.cold_from + margin) > cold_edge then cold_edge = d.cold_from + margin end
   return {
     building_half = b.building_half,
     building_lo = b.building_lo,
-    hot_edge = hot_edge,    -- stone lives STRICTLY below this (heat band starts here)
-    cold_edge = cold_edge,  -- ice lives STRICTLY above this (cold band starts here)
+    hot_edge = hot_edge,    -- stone lives STRICTLY below this (margin short of the heat cap)
+    cold_edge = cold_edge,  -- ice lives STRICTLY above this (margin short of the cold cap)
   }
 end
 
