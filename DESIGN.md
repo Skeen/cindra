@@ -238,7 +238,13 @@ loop-back** that is clearly net-consuming at every module tier. Lava is a
 Cindra-exclusive `cindra-lava` fluid, and Cindra-exclusive casting recipes
 (`cindra-molten-iron/copper-from-lava`) return only a small, productivity-immune
 stone byproduct — so even at legendary productivity the loop cannot self-sustain
-(ci-669); the shared Vulcanus lava fluid + molten recipes are left untouched. The manufacturer exists to fix
+(ci-669); the shared Vulcanus lava fluid + molten recipes are left untouched. The
+`cindra-lava` fluid is a distinct id **only** as this exploit gate — it is
+displayed as plain **"Lava"** (vanilla icon + colours, no tint) so the player sees
+one lava, not a confusing "Manufactured lava" split (ci-a0y). True single-fluid
+unification is impossible without reopening the exploit or mutating Vulcanus
+recipes, since recipes are per-force (the generous vanilla casts stay unlocked and
+only a distinct input fluid keeps them off Cindra). The manufacturer exists to fix
 usability without cheapening lava: the machine's crafting speed sets how many
 machines feed a foundry (a **single-digit** count, vs ~100 on the plain
 foundry), while its draw is pinned proportional to that speed so **energy per
