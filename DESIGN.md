@@ -168,6 +168,16 @@ recommendation — both **IMPLEMENTED (item 2)**:
 - **Art:** v1 reuses vanilla Vulcanus icons (a hot sunward world reads
   correctly). Bespoke ribbon/terminator art is a later pass — see
   [`PLAYTEST.md`](PLAYTEST.md). Gameplay does not depend on it.
+- **From-space / map-view colour ramp (ci-6i1):** the star-map sprite + live
+  orbital backdrop (`scripts/gen-planet-maps.py` `TERRAIN_STOPS`) and the in-game
+  map-view danger gradient (`scripts/terrain.lua` `COLOR_STOPS`) share ONE hot→cold
+  ramp: lava orange → molten crust → a BROAD band of DARK VOLCANIC MOUNTAINS
+  (reddish-brown / near-black basalt, no gray, no tan) across the middle third →
+  pale frost → icy white-blue. This deliberately REPLACES the earlier warm
+  sandy/grey terminator neutral (which read as an ugly gray/tan stripe from space).
+  Note the distinction: this is the map-view / from-space COLOUR overlay, not the
+  ground TILE textures — the building band at spawn is still sandy soil tiles (§3),
+  it just paints dark on the map dot so the terminator reads as mountains, not sand.
 
 ## 4a. Resources & worldgen — IMPLEMENTED (item 3; rewritten ci-3yl)
 

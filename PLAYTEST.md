@@ -130,6 +130,27 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   "the live globe visibly reads like the icon in motion" confirmation a still image
   cannot fully judge (the terminator steam still drifts, ci-ane).
 
+- [ ] **[LANDED] Terminator reads as DARK VOLCANIC MOUNTAINS, no gray/tan band (ci-6i1).**
+  The human flagged an ugly wide GRAY/TAN vertical stripe wedged between the volcanic
+  side and the ice side of the star-map globe. It was painted into the ALBEDO by the
+  two middle `TERRAIN_STOPS` (a sandy building-neutral + a cool grey dust) in
+  `scripts/gen-planet-maps.py`, mirrored in `scripts/terrain.lua` `COLOR_STOPS`. Both
+  ramps now replace those neutrals with a BROAD band of DARK VOLCANIC MOUNTAINS
+  (reddish-brown / near-black basalt: `#5A3524`, `#3E2A20`, `#4A3A30`) filling the
+  middle third, so the disc reads molten -> dark mountains -> ice with NO gray/tan
+  blur. Maps regenerated + star-map re-baked via `scripts/render-planet.sh`. *Repro:*
+  in-game open the star-map / navigate to Cindra (`./play.sh`), or render the live
+  orbital backdrop with `scripts/render-orbit.sh`. *Look for:* a dark basalt mountain
+  belt between the fire limb and the ice side, and NO gray/tan stripe anywhere.
+  *Fallback:* the baked star-map sprite + maps are verified off-game
+  (`unit-tests/test_planet_maps.py`: the terminator asserts DARK, WARM basalt --
+  low luminance, R>G>B, not neutral gray), AND a real in-engine orbital screenshot
+  was captured headless (Xvfb + EGL/llvmpipe) confirming the dark belt with no
+  gray/tan stripe: `docs/verification/ci-6i1-terminator-orbital.png`. This entry is
+  ONLY the remaining "does it read right in the live client, in motion" judgement a
+  still + headless render cannot fully make (needs a display-capable operator /
+  Overseer); do NOT block the map/art merge on it.
+
 - [ ] **[LANDED] Planet is STATIC in the space view: no rotate, no wobble (ci-ane).**
   The Overseer flagged the Cindra globe as ROTATING / WOBBLING in the space/starmap
   view when it should sit still (tidal lock). The spin was already frozen

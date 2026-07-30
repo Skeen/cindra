@@ -120,20 +120,28 @@ def smoothstep(a, b, x):
 
 
 # Hot -> cold surface colour ramp, MIRRORING the in-game map-view ramp in
-# scripts/terrain.lua (COLOR_STOPS, ci-4h7): reds sunward, a sandy neutral centre,
-# pale cyan/frost nightward. Sampling the SAME ramp for the from-space art is what
-# makes the orbital/star-map planet "read as our terrain" (ci-i9m): the fiery
-# hemisphere is lava/volcanic, the frozen hemisphere is PALE ICE (not a near-black
-# Fulgora-electric vault), and the terminator is a smooth sandy blend -- NOT a
-# painted stripe. The day/night falloff is supplied by the parallel key light
-# (bake) / light_direction (orbit), not by a self-lit seam.
+# scripts/terrain.lua (COLOR_STOPS, ci-4h7): reds sunward, a BROAD DARK VOLCANIC
+# MOUNTAIN belt at the centre, pale cyan/frost nightward. Sampling the SAME ramp
+# for the from-space art is what makes the orbital/star-map planet "read as our
+# terrain" (ci-i9m): the fiery hemisphere is lava/volcanic, the frozen hemisphere
+# is PALE ICE (not a near-black Fulgora-electric vault), and the terminator is a
+# band of dark basalt mountains between fire and ice -- NOT a gray/tan sandy blur.
+# The day/night falloff is supplied by the parallel key light (bake) /
+# light_direction (orbit), not by a self-lit seam.
+#
+# ci-6i1: the old (0.50) sandy-neutral + (0.66) cool-grey-dust stops painted a
+# wide gray/tan stripe into the albedo on the tidally-locked disc. Replaced with a
+# broad band of dark reddish-brown / near-black basalt (no gray, no tan) filling
+# roughly the middle third. terrain.lua COLOR_STOPS is updated to match (space art
+# and in-game map ramp stay consistent).
 TERRAIN_STOPS = [
     (0.00, (0.98, 0.42, 0.06)),   # lava, orange-red
     (0.18, (0.80, 0.30, 0.10)),   # molten crust
-    (0.35, (0.55, 0.40, 0.28)),   # warm volcanic brown
-    (0.50, (0.62, 0.56, 0.42)),   # sandy building neutral (terminator)
-    (0.66, (0.60, 0.64, 0.64)),   # cool grey dust
-    (0.82, (0.66, 0.82, 0.88)),   # pale frost
+    (0.32, (0.55, 0.40, 0.28)),   # warm volcanic brown (fire -> mountains)
+    (0.42, (0.353, 0.208, 0.141)),  # dark volcanic mountains #5A3524
+    (0.54, (0.243, 0.165, 0.125)),  # darkest basalt #3E2A20
+    (0.64, (0.290, 0.227, 0.188)),  # cooling basalt #4A3A30 (mountains -> ice)
+    (0.74, (0.66, 0.82, 0.88)),   # pale frost
     (1.00, (0.82, 0.95, 1.00)),   # icy white-blue
 ]
 

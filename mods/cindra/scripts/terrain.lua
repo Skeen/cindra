@@ -237,16 +237,21 @@ end
 -- mixes into, with weights) drives the autoplace probability expression.
 -- ---------------------------------------------------------------------------
 
--- A hot -> cold map-view colour ramp (ci-4h7): reds sunward, a sandy neutral centre,
--- pale cyan/frost nightward, so the danger gradient reads at a glance. `t` is the
--- tile's normalised gradient position (0 = hottest zone, 1 = coldest).
+-- A hot -> cold map-view colour ramp (ci-4h7): reds sunward, a BROAD DARK VOLCANIC
+-- MOUNTAIN belt at the centre, pale cyan/frost nightward, so the danger gradient
+-- reads at a glance. `t` is the tile's normalised gradient position (0 = hottest
+-- zone, 1 = coldest). Kept in lockstep with TERRAIN_STOPS in
+-- scripts/gen-planet-maps.py so the in-game map ramp and the from-space art agree
+-- (ci-6i1: replaced the old sandy-neutral + cool-grey-dust stops, which read as a
+-- gray/tan stripe between fire and ice, with dark reddish-brown / near-black basalt).
 local COLOR_STOPS = {
   { 0.00, { 0.98, 0.42, 0.06 } }, -- lava, orange-red
   { 0.18, { 0.80, 0.30, 0.10 } }, -- molten crust
-  { 0.35, { 0.55, 0.40, 0.28 } }, -- warm volcanic brown
-  { 0.50, { 0.62, 0.56, 0.42 } }, -- sandy building neutral
-  { 0.66, { 0.60, 0.64, 0.64 } }, -- cool grey dust
-  { 0.82, { 0.66, 0.82, 0.88 } }, -- pale frost
+  { 0.32, { 0.55, 0.40, 0.28 } }, -- warm volcanic brown (fire -> mountains)
+  { 0.42, { 0.353, 0.208, 0.141 } }, -- dark volcanic mountains #5A3524
+  { 0.54, { 0.243, 0.165, 0.125 } }, -- darkest basalt #3E2A20
+  { 0.64, { 0.290, 0.227, 0.188 } }, -- cooling basalt #4A3A30 (mountains -> ice)
+  { 0.74, { 0.66, 0.82, 0.88 } }, -- pale frost
   { 1.00, { 0.82, 0.95, 1.00 } }, -- icy white-blue
 }
 local function ramp_color(t)

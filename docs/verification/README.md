@@ -87,6 +87,41 @@ scripts/render-orbit.sh   # writes orbit-close.png / orbit-wide.png to .orbit-re
 
 ---
 
+# Dark volcanic mountains at the terminator (ci-6i1)
+
+![Live orbital backdrop: dark mountain belt, no gray/tan stripe](ci-6i1-terminator-orbital.png)
+
+`ci-6i1-terminator-orbital.png` is a real, unedited in-engine orbital screenshot
+(headless Factorio under Xvfb + EGL/llvmpipe, `scripts/render-orbit.sh`) of a
+space platform in orbit of Cindra, captured after the recolour. The human had
+flagged an ugly wide GRAY/TAN vertical stripe wedged between the volcanic side and
+the ice side of the star-map globe.
+
+## What it verifies
+
+- **The gray/tan band is GONE.** The two middle `TERRAIN_STOPS` in
+  `scripts/gen-planet-maps.py` (a sandy building-neutral `(0.62,0.56,0.42)` + a
+  cool grey dust `(0.60,0.64,0.64)`) painted that stripe into the albedo. They are
+  replaced by a BROAD band of DARK VOLCANIC MOUNTAINS (reddish-brown / near-black
+  basalt: `#5A3524`, `#3E2A20`, `#4A3A30`) filling the middle third.
+- **Reads molten -> dark mountains -> ice.** The disc now shows the glowing lava
+  hemisphere, a dark basalt mountain belt at the terminator, then the frozen
+  nightside, with no gray/tan blur anywhere between.
+- **Ramps stay consistent.** `scripts/terrain.lua` `COLOR_STOPS` (the in-game
+  map-view danger gradient) is updated in lockstep so the from-space art and the
+  map view agree. The albedo maps are verified off-game by
+  `unit-tests/test_planet_maps.py` (the terminator now asserts DARK, WARM basalt:
+  low luminance, R>G>B, R clearly above B, not a neutral gray).
+
+To regenerate the maps + bake and the orbital screenshot:
+
+```bash
+scripts/render-planet.sh   # maps, bake, star-map sprite, icon, thumbnail
+scripts/render-orbit.sh    # live orbital screenshots -> .orbit-render/script-output/
+```
+
+---
+
 # Bootstrap rock: stone tint (ci-jvc)
 
 ![Rock stone-tint before/after](ci-jvc-rock-stone-tint.png)

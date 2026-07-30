@@ -3,12 +3,19 @@
 #
 # The map generator is pure and deterministic, so its output is testable off-game
 # without Blender or Factorio. This guards the ci-i9m REDESIGN of the from-space
-# look, which SUPERSEDES the ci-fg6 painted-sandy-seam contract per the mayor:
+# look, which SUPERSEDES the ci-fg6 painted-sandy-seam contract per the mayor,
+# and the ci-6i1 recolour of the terminator belt (dark volcanic mountains, NOT a
+# gray/tan sandy blur):
 #
 #   • NO PAINTED SEAM. The terminator is a SMOOTH hot->cold albedo ramp (mirroring
-#     the in-game terrain ramp), not a bright self-lit sandy stripe down the middle.
-#     The old bug was a hard vertical line; here the sandy midpoint carries almost
+#     the in-game terrain ramp), not a bright self-lit stripe down the middle.
+#     The old bug was a hard vertical line; here the terminator carries almost
 #     no self-glow, so the day/night falloff comes from the parallel KEY LIGHT.
+#   • DARK VOLCANIC MOUNTAINS AT THE TERMINATOR (ci-6i1). The middle third between
+#     fire and ice is a BROAD band of dark reddish-brown / near-black basalt: LOW
+#     luminance and WARM (R>G>B, R clearly above B), NOT the old gray/tan sandy
+#     ribbon (which read as an ugly gray stripe from space) and NOT a neutral gray
+#     (R != B). The gray/tan neutrals are gone from the ramp entirely.
 #   • ICE READS AS ICE. The frozen hemisphere is PALE cyan-white frost (our terrain),
 #     NOT a near-black vault laced with saturated electric-blue cracks (which read
 #     as Fulgora lightning). It goes dark via the LIGHT falloff, not a black albedo.
@@ -76,7 +83,7 @@ fire_bright = float(np.median(bright(albedo, fire)))
 seam_bright = float(np.median(bright(albedo, seam)))
 ice_bright = float(np.median(bright(albedo, ice)))
 
-# --- NO PAINTED SANDY SEAM (ci-i9m supersedes ci-fg6) -----------------------
+# --- NO PAINTED SEAM (ci-i9m supersedes ci-fg6) -----------------------------
 # The terminator must NOT be a bright self-lit stripe: its emission is near-zero,
 # so it falls dark where the key light does not reach it (the natural terminator).
 seam_emax = float(np.median(emax[seam]))
@@ -85,15 +92,29 @@ ice_emax = float(np.median(emax[ice]))
 check("terminator carries NO bright self-glow band (median emax < 20)",
       seam_emax < 20.0,
       f"seam median emax={seam_emax:.1f}")
-# The terminator is also not a bright albedo SPIKE: the sandy midpoint is a
-# neutral crossover, dimmer than the pale ice and no brighter than the fiery limb.
-check("terminator is a smooth crossover, not a bright albedo spike",
+# The terminator is a DARK belt, not a bright albedo spike: the mountain band is
+# dimmer than the pale ice and no brighter than the fiery limb.
+check("terminator is a dark belt, not a bright albedo spike",
       seam_bright < ice_bright and seam_bright <= fire_bright + 20.0,
       f"seam={seam_bright:.1f} fire={fire_bright:.1f} ice={ice_bright:.1f}")
+
+# --- DARK VOLCANIC MOUNTAINS AT THE TERMINATOR (ci-6i1) ---------------------
+# The middle third is a broad band of dark reddish-brown / near-black basalt.
 seam_alb = rgb_mean(albedo, seam)
-check("terminator albedo is sandy-neutral warm (R>=G>=B)",
-      seam_alb[0] >= seam_alb[1] >= seam_alb[2],
-      f"albedo={seam_alb.round(1)}")
+# LOW luminance: the belt is dark rock, well below the pale ice and not a bright
+# neutral. (The old sandy/grey stops sat around ~150; dark mountains are far below.)
+check("terminator is DARK volcanic rock (mean brightness < 90, << ice)",
+      seam_bright < 90.0 and seam_bright < 0.5 * ice_bright,
+      f"seam={seam_bright:.1f} ice={ice_bright:.1f}")
+# WARM, not gray/tan: red clearly dominates blue (basalt reddish-brown), the
+# opposite of the old cool-grey-dust neutral (R ~= G ~= B).
+check("terminator albedo is WARM basalt (R>G>B, R clearly above B: R-B > 12)",
+      seam_alb[0] > seam_alb[1] > seam_alb[2] and (seam_alb[0] - seam_alb[2]) > 12.0,
+      f"albedo={seam_alb.round(1)}  R-B={(seam_alb[0] - seam_alb[2]):.1f}")
+# NOT a neutral gray: reject the cool-grey-dust look (R within ~15% of B).
+check("terminator is NOT neutral gray (R > 1.3*B)",
+      seam_alb[0] > 1.3 * seam_alb[2],
+      f"albedo={seam_alb.round(1)}  R/B={seam_alb[0] / max(seam_alb[2], 1e-6):.2f}")
 
 # --- FIRE HEMISPHERE: lava / volcanic, strongly glowing ---------------------
 fire_alb = rgb_mean(albedo, fire)
