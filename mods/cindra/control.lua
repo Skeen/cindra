@@ -67,6 +67,7 @@ if script.active_mods["factorio-test"] then
     "tests/test_heater",
     "tests/test_ice_processing",
     "tests/test_lava",
+    "tests/test_sulfur", -- ci-eat: stone -> roast -> sulfur -> sulfuric acid
     "tests/test_aluminium",
     "tests/test_tile_damage",
     -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +

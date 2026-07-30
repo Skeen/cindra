@@ -55,13 +55,36 @@
 -- still ruinous (more power per running machine is expected and fine). See the
 -- THROUGHPUT note by the constants below.
 --
+-- === SULFUR FROM ROASTING (ci-eat) ==========================================
+-- Real-world flavor: crushing and ROASTING sulfide/pyrite-bearing stone liberates
+-- its sulfur (FeS2 --roast--> oxide + SO2 -> sulfur). Cindra has no oil to run the
+-- vanilla petroleum->sulfur recipe, so the melt IS the roast: the stone->lava
+-- recipe also yields a SMALL sulfur byproduct, and that sulfur feeds the vanilla
+-- `sulfur + water -> sulfuric-acid` recipe (unlocked by this tech, run in the same
+-- chemical plant Cindra already uses for ice-melting).
+--
+-- BALANCE / no free-sulfur exploit (respects ci-669 + the ci-9yg/ci-a0y economy):
+--   * Productivity is already DISABLED on this recipe (the load-bearing ci-9yg
+--     invariant), so sulfur can NEVER scale with prod modules. We ALSO mark the
+--     sulfur result `ignored_by_productivity` (belt-and-suspenders + intent).
+--   * The byproduct is small (8 sulfur : 320 lava per 64-stone batch), so lava
+--     stays unambiguously the main product; `main_product = lava` keeps the recipe
+--     reading as "Lava" in the UI.
+--   * You cannot farm lava purely for sulfur: the manufacturer's 40 MW draw makes
+--     each sulfur cost ~75 MJ of grid power plus 8 stone AND 40 lava you must sink
+--     -- ruinous, exactly the "power is the real cost" thesis. Sulfur is a bonus
+--     off the metal economy you already run, never a cheap standalone source.
+--   * No shared-recipe mutation: the vanilla `sulfuric-acid` recipe is only
+--     UNLOCKED (a tech effect), never edited. Vulcanus/other planets untouched.
+--
 -- FOUR PARTS:
 --
 -- 1. THE LAVA RECIPE. `1 stone -> 5 lava` (nerfed from 1:10), cast as a 64:320
---    batch, outputting VANILLA `lava`. Its own private category
---    `cindra-lava-manufacturing`, so ONLY the Cindra lava-manufacturer crafts it.
---    Productivity is DISABLED (the ci-9yg stone-negativity invariant depends on
---    a fixed stone-in). "Power is the lever": the cost knob is `energy_required`
+--    batch, outputting VANILLA `lava` PLUS a small sulfur byproduct (ci-eat). Its
+--    own private category `cindra-lava-manufacturing`, so ONLY the Cindra
+--    lava-manufacturer crafts it. Productivity is DISABLED (the ci-9yg
+--    stone-negativity invariant depends on a fixed stone-in; it also pins the
+--    sulfur byproduct). "Power is the lever": the cost knob is `energy_required`
 --    against the manufacturer's ruinous electric draw.
 --
 -- 2. THE LAVA-MANUFACTURER MACHINE. A dedicated Cindra building (a foundry clone
@@ -74,7 +97,8 @@
 --    the `foundry` tech (a prerequisite here). The stone-negativity above makes
 --    the returned-stone byproduct harmless; no Cindra-exclusive cast is needed.
 --
--- 4. THE TECH. Unlocks the lava recipe AND the manufacturer, gated behind the
+-- 4. THE TECH. Unlocks the lava recipe AND the manufacturer AND (ci-eat) the
+--    vanilla sulfuric-acid recipe the sulfur byproduct feeds, gated behind the
 --    foundry (so the vanilla casts + metal path already exist) and Cindra
 --    discovery.
 --
@@ -93,6 +117,13 @@ local util = require("util")
 local STONE_IN = 64
 local LAVA_OUT = 320
 local ENERGY_REQUIRED = 30
+
+-- Sulfur liberated per batch by roasting the crushed stone (ci-eat). Small next
+-- to LAVA_OUT so lava stays the main product; fully ignored_by_productivity so it
+-- can never be inflated (atop allow_productivity=false). This is Cindra's sole
+-- sulfur source and feeds the vanilla sulfur->sulfuric-acid recipe.
+local SULFUR = "sulfur"
+local SULFUR_OUT = 8
 
 -- Vanilla `lava` end-to-end (ci-9yg): there is exactly ONE lava fluid. The lava
 -- recipe outputs it and the vanilla casts consume it. No `cindra-lava` fluid.
@@ -302,6 +333,10 @@ local recipe = {
   },
   results = {
     { type = "fluid", name = LAVA_FLUID, amount = LAVA_OUT },
+    -- Sulfur from roasting the crushed stone (ci-eat). `ignored_by_productivity`
+    -- pins the full amount out of any prod bonus -- belt-and-suspenders atop the
+    -- allow_productivity=false below, so sulfur is FIXED at every module tier.
+    { type = "item", name = SULFUR, amount = SULFUR_OUT, ignored_by_productivity = SULFUR_OUT },
   },
   -- Productivity is DISABLED (ci-9yg): the stone spent per unit lava must be
   -- FIXED so the stone->lava->cast loop is provably net stone-negative at every
@@ -317,7 +352,8 @@ local recipe = {
 -- the manufactured lava feeds -- the foundry tech also unlocks the vanilla casts
 -- Cindra reuses) and Cindra discovery (so the recipe is Cindra-progression
 -- content, never an option a Vulcanus-only player stumbles into). Unlocks the
--- manufacturer and the lava recipe; the casts come free with the foundry tech.
+-- manufacturer, the lava recipe, and the vanilla sulfuric-acid recipe (ci-eat);
+-- the casts come free with the foundry tech.
 local technology = {
   type = "technology",
   name = "cindra-lava",
@@ -327,6 +363,12 @@ local technology = {
   effects = {
     { type = "unlock-recipe", recipe = "cindra-lava-manufacturer" },
     { type = "unlock-recipe", recipe = "cindra-lava" },
+    -- Close the sulfur chain (ci-eat): the lava recipe hands back sulfur, so the
+    -- same tech unlocks the VANILLA `sulfur + water -> sulfuric-acid` recipe (run
+    -- in the chemical plant Cindra already uses for ice-melting). This only
+    -- UNLOCKS the shared recipe -- it never edits it, so Vulcanus/other planets
+    -- are untouched. Water is the vanilla water from the ice chain.
+    { type = "unlock-recipe", recipe = "sulfuric-acid" },
   },
   prerequisites = { "foundry", "planet-discovery-cindra" },
   unit = {
