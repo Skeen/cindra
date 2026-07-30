@@ -97,8 +97,8 @@ end)
 
 -- The zone-derived anchors for the default worldgen: full output at the inner edge
 -- of the molten lava zones, ~zero by the temperate->ice boundary.
-local FULL_AT = terrain.role_band("lava_mix").lo   -- 350 by default
-local ZERO_AT = terrain.role_band("building").lo   -- -100 by default
+local FULL_AT = terrain.role_band("lava_mix").lo   -- 127 by default (ci-qqt thin ribbon)
+local ZERO_AT = terrain.role_band("building").lo   -- -25 by default
 
 test("solar anchors are DERIVED from the zone layout, not fixed tiles", function()
   local full, zero, floor = ribbon.solar_anchors()
@@ -106,8 +106,10 @@ test("solar anchors are DERIVED from the zone layout, not fixed tiles", function
   assert_eq(ZERO_AT, zero, "zero-output anchor is the temperate->ice boundary")
   assert_eq(0.0, floor, "the far-nightward floor is ~nothing")
   -- The anchors must be well clear of the temperate centre: the ci-22v bug was full
-  -- output landing at/near spawn. Full only on the lava side, zero on the ice side.
-  assert_true(full > 200, "full output is deep sunward (the lava side), not at centre")
+  -- output landing at/near spawn. Full only sunward of the building band (the lava
+  -- side), zero on the ice side -- derived, so it tracks the compressed widths (ci-qqt).
+  assert_true(full > terrain.role_band("building").hi,
+    "full output is sunward of the building band (the lava side), not at spawn")
   assert_true(zero <= 0, "zero output is at/beyond the nightward edge of the ribbon")
 end)
 
