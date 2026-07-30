@@ -9,7 +9,9 @@
 --      foundry (the old ~100 was the user complaint).
 --   4. POWER STAYS RUINOUS: energy-per-lava is UNCHANGED from the pre-rescale
 --      foundry value, and feeding one melt is still a serious electric sink.
---   5. DISTINCT TINT on both the recipe icon and the Cindra-exclusive fluid.
+--   5. ONE VISIBLE LAVA (ci-a0y): the Cindra-exclusive fluid is INDISTINGUISHABLE
+--      from vanilla lava (same colours, no tint), so the player sees a single
+--      "Lava" -- the separate fluid survives only as the invisible ci-669 gate.
 --   6. CINDRA CASTING TIER (ci-669): Cindra-exclusive `cindra-molten-iron/copper-
 --      from-lava` consume `cindra-lava` and return a SMALL, productivity-immune
 --      stone byproduct. The shared vanilla lava fluid + molten recipes are left
@@ -19,7 +21,6 @@
 --      of consumed at legendary), and NO module tier makes it stone-neutral.
 
 local H = require("tests.helpers")
-local lava_icon = require("prototypes.lava-icon")
 
 local RECIPE = "cindra-lava"
 local MACHINE = "cindra-lava-manufacturer"
@@ -244,43 +245,25 @@ describe("cindra manufactured lava", function()
         .. string.format("%.0f panels", total_w / panel_w))
   end)
 
-  it("has a DISTINCT tint on the recipe icon AND the Cindra-exclusive fluid", function()
-    -- The recipe icon is color-layered so manufactured lava reads distinct from
-    -- the natural Vulcanus pour. The runtime API does not expose recipe icons, so
-    -- (space-appearance convention) we assert the PURE module the data stage uses.
-    local layers = lava_icon.build()
-    assert.is_true(#layers >= 2, "icon must be layered (base + a tinted copy)")
-
-    -- Base layer: the vanilla lava sprite, UNtinted -- so it still reads as lava.
-    local base = layers[1]
-    assert.are.equal(lava_icon.BASE_ICON, base.icon, "base layer is the vanilla lava icon")
-    assert.is_nil(base.tint, "base layer stays untinted (readable silhouette)")
-
-    -- A tinted layer exists, and the tint is a REAL colour shift (not neutral
-    -- grey/white) and semi-transparent (subtle, not a full recolour).
-    local tint
-    for i = 2, #layers do
-      if layers[i].tint then tint = layers[i].tint end
-    end
-    assert.is_not_nil(tint, "a tinted layer must exist")
-    local spread = math.max(tint.r, tint.g, tint.b) - math.min(tint.r, tint.g, tint.b)
-    assert.is_true(spread >= 0.2,
-      "the tint must be a real colour (not neutral grey/white), channel spread " .. string.format("%.2f", spread))
-    assert.is_true(tint.a ~= nil and tint.a < 1.0,
-      "the tint is a semi-transparent overlay so the shift stays subtle/readable")
-
-    -- Since ci-669 the fluid is Cindra-exclusive, so it carries the tint too: its
-    -- in-pipe colour is warmed off the vanilla lava base. The shared vanilla `lava`
-    -- fluid must be untouched (never-mutate); the Cindra fluid must exist + differ.
+  it("is VISUALLY INDISTINGUISHABLE from vanilla lava: one 'Lava', no tint (ci-a0y)", function()
+    -- ci-a0y: the user complained about a second 'Manufactured lava'. True single-
+    -- fluid unification is impossible (it would reopen the ci-669 cheap-metal
+    -- exploit or force mutating the shared Vulcanus recipes -- guarded below), so
+    -- the separate `cindra-lava` prototype survives ONLY as the invisible exploit
+    -- gate. To the player it must look like ordinary lava: same in-pipe/tank
+    -- colours as vanilla (no warm tint), so both read as a single "Lava".
     local cindra = prototypes.fluid[LAVA_FLUID]
-    assert.is_not_nil(cindra, "the Cindra-exclusive cindra-lava fluid must exist")
+    assert.is_not_nil(cindra, "the cindra-lava fluid (the ci-669 gate) must exist")
     local vanilla = prototypes.fluid["lava"]
     assert.is_not_nil(vanilla, "the shared vanilla lava fluid must still exist, untouched")
-    local function differs(a, b)
-      return math.abs(a.r - b.r) + math.abs(a.g - b.g) + math.abs(a.b - b.b) > 0.05
+
+    local function same(a, b)
+      return math.abs(a.r - b.r) + math.abs(a.g - b.g) + math.abs(a.b - b.b) < 0.01
     end
-    assert.is_true(differs(cindra.base_color, vanilla.base_color),
-      "the Cindra fluid's base colour must be tinted distinct from vanilla lava")
+    assert.is_true(same(cindra.base_color, vanilla.base_color),
+      "cindra-lava base_color must MATCH vanilla lava (no visible tint -- one 'Lava')")
+    assert.is_true(same(cindra.flow_color, vanilla.flow_color),
+      "cindra-lava flow_color must MATCH vanilla lava (no visible tint)")
   end)
 
   it("is gated: disabled by default, unlocked only by its own tech (recipe + machine + casts)", function()

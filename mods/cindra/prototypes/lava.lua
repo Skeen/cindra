@@ -26,8 +26,9 @@
 --
 -- The fix, foreseen by the old §15-5 balance note ("a Cindra casting tier",
 -- §15-14 / ci-63d):
---   1. The lava recipe outputs a Cindra-EXCLUSIVE `cindra-lava` fluid (a tinted
---      clone of vanilla lava), never the shared `lava` the Vulcanus chain eats.
+--   1. The lava recipe outputs a Cindra-EXCLUSIVE `cindra-lava` fluid (an
+--      otherwise-identical clone of vanilla lava), never the shared `lava` the
+--      Vulcanus chain eats.
 --   2. Cindra-exclusive `cindra-molten-iron/copper-from-lava` recipes consume
 --      `cindra-lava` and return only a SMALL stone byproduct that is
 --      `ignored_by_productivity` -- productivity can never inflate it. They still
@@ -38,6 +39,23 @@
 -- (guarded in tests); Vulcanus is unaffected. On Cindra the vanilla molten recipes
 -- simply have no input (no vanilla lava is produced there), so the player casts
 -- through the Cindra recipes.
+--
+-- === ci-a0y: ONE VISIBLE LAVA (the separate fluid is an INVISIBLE gate) ======
+-- User complaint: "Why is there a difference from Lava to Manufactured lava? It
+-- should just be ordinary lava." TRUE single-fluid unification is impossible: the
+-- ci-669 stone invariant (returned stone <= ~1/3 of consumed at legendary, never
+-- self-sustaining at the +300% cap) is only met by the Cindra casts' small,
+-- productivity-immune byproduct, and those casts can only be the SOLE casting path
+-- on Cindra if Cindra lava is a distinct fluid id (recipes are per-FORCE, so the
+-- generous vanilla casts stay unlocked; the ONLY invariant-safe block is a
+-- different input fluid -- see the two vanilla facts above). Collapsing the fluids
+-- would either reopen the cheap-metal exploit or force mutating shared Vulcanus
+-- recipes (forbidden). So the `cindra-lava` prototype SURVIVES purely as that gate,
+-- but it is made INDISTINGUISHABLE from vanilla lava to the player: vanilla icon,
+-- vanilla colours, and the displayed name "Lava" (locale) -- no tint, no
+-- "Manufactured lava" label anywhere. Cindra has no lava lakes, so the player only
+-- ever produces `cindra-lava` and sees exactly one "Lava". The mechanical
+-- separateness is real but invisible; the exploit gate is unchanged.
 --
 -- STONE INVARIANT (ci-669, asserted in tests/test_lava.lua): across the full
 -- stone->lava->molten-iron and ->molten-copper chains the loop NET-CONSUMES stone
@@ -71,11 +89,12 @@
 --    and ruinous). Productivity is ALLOWED: lava is the central intermediate and
 --    its cost is ruinous power, so a productivity bonus is a fair reward.
 --
--- 2. THE `cindra-lava` FLUID. A Cindra-exclusive tinted clone of vanilla lava
---    (deep-copied so we never alias/mutate the shared fluid). The tint carries the
---    "manufactured, not natural" identity, and -- crucially for ci-669 -- being a
---    DISTINCT fluid is what lets the Cindra casting recipes replace the generous
---    vanilla ones without leaving the vanilla ones exploitable.
+-- 2. THE `cindra-lava` FLUID. A Cindra-exclusive clone of vanilla lava (deep-copied
+--    so we never alias/mutate the shared fluid) that is VISUALLY IDENTICAL to it
+--    (ci-a0y: vanilla icon + colours, displayed as "Lava"). Being a DISTINCT fluid
+--    is -- crucially for ci-669 -- what lets the Cindra casting recipes replace the
+--    generous vanilla ones without leaving the vanilla ones exploitable; that
+--    separateness is now invisible to the player (see the ci-a0y note above).
 --
 -- 3. THE LAVA-MANUFACTURER MACHINE. A dedicated Cindra building (a foundry clone
 --    for v1 art reuse) with a BIG crafting_speed and a PROPORTIONALLY big electric
@@ -109,16 +128,15 @@
 -- doubled LAVA_OUT and energy_required together, so N and energy-per-lava are both
 -- exactly as ci-e8a left them; only the stone:lava material ratio changed.)
 --
--- ART. The manufactured-lava RECIPE uses the vanilla lava fluid icon, color-
--- layered warmer so the pour reads distinct from natural Vulcanus lava
--- (prototypes/lava-icon.lua), on BOTH the recipe and the Cindra fluid. The
--- MACHINE (cindra-lava-manufacturer) wears the user-supplied "glass-furnace" set
+-- ART. The lava RECIPE and the Cindra fluid both use the plain vanilla lava fluid
+-- icon and colours (ci-a0y: no tint -- one visible "Lava"; the old warm
+-- lava-icon.lua layer was removed with the visible split). The MACHINE
+-- (cindra-lava-manufacturer) wears the user-supplied "glass-furnace" set
 -- by Hurricane046 (CC-BY) -- an animated body, a ground shadow, and an emissive
 -- molten glow that fits a stone->lava melter. See
 -- graphics/entity/lava-manufacturer/ATTRIBUTION.md (and CREDITS.md) for the
 -- per-asset record; wiring is in the "glass-furnace art" block below.
 local util = require("util")
-local lava_icon = require("prototypes.lava-icon")
 
 -- The ratio + energy are the ci-669 balance values: 1 stone in, 10 lava out, at a
 -- real crafting time. LAVA_OUT and ENERGY_REQUIRED were doubled together from the
@@ -157,18 +175,16 @@ local MANUFACTURER_DRAW = "40000kW" -- 40 MW = 625 kW/speed * 64, foundry-matche
 data:extend({ { type = "recipe-category", name = LAVA_CATEGORY } })
 
 -- === The cindra-lava fluid ==================================================
--- A Cindra-exclusive, tinted clone of vanilla lava. Deep-copied so we never alias
--- or mutate the shared `lava` fluid the Vulcanus chain consumes. Being a DISTINCT
+-- A Cindra-exclusive clone of vanilla lava. Deep-copied so we never alias or
+-- mutate the shared `lava` fluid the Vulcanus chain consumes. Being a DISTINCT
 -- fluid is load-bearing for ci-669: only the Cindra casting recipes eat it, so the
 -- generous vanilla molten recipes have no input on Cindra and stay unexploitable.
+-- ci-a0y: the clone keeps vanilla lava's icon AND colours untouched, so it reads
+-- as ordinary "Lava" in icons, pipes, and tanks -- the separate fluid is purely
+-- the invisible exploit gate, never a visible second lava. Its displayed name is
+-- "Lava" too (locale fluid-name.cindra-lava).
 local lava_fluid = util.table.deepcopy(data.raw["fluid"]["lava"])
 lava_fluid.name = LAVA_FLUID
-lava_fluid.icons = lava_icon.build()
-lava_fluid.icon = nil -- superseded by the layered `icons`
--- Warmer/brighter in pipes + tanks than the natural Vulcanus pour, so manufactured
--- lava reads distinct at a glance while still obviously being lava.
-lava_fluid.base_color = { r = 1.0, g = 0.55, b = 0.15 }
-lava_fluid.flow_color = { r = 0.5, g = 0.18, b = 0.02 }
 lava_fluid.localised_name = { "fluid-name.cindra-lava" }
 
 -- === The lava-manufacturer machine =========================================
@@ -337,11 +353,8 @@ local recipe = {
   -- Central intermediate + ruinous power cost: productivity is a fair reward and
   -- matches vanilla intermediate conventions. Power stays the dominant cost.
   allow_productivity = true,
-  -- Single fluid product, shown color-layered warmer so manufactured lava reads
-  -- distinct from the natural Vulcanus pour. The tint lives on the RECIPE icon and
-  -- the Cindra-exclusive fluid, NEVER on the shared `lava` the Vulcanus chain
-  -- consumes.
-  icons = lava_icon.build(),
+  -- No custom icon (ci-a0y): with a single fluid main_product the recipe shows the
+  -- fluid's icon, i.e. the plain vanilla lava icon -- one visible "Lava", no tint.
   main_product = LAVA_FLUID,
 }
 
