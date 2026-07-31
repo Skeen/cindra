@@ -47,7 +47,7 @@ picture = {
 
 | Building / item            | Icon                              | Entity sprite | Owning bead(s)        |
 |----------------------------|-----------------------------------|:-------------:|-----------------------|
-| Electrolysis cell ⭐        | (v1: reused electric-furnace)     | (v1 reuse)    | **ci-txh** (signature aluminium); art **ci-wfv** |
+| Electrolysis cell ⭐        | `icons/arc-furnace-icon.png` (Hurricane046, CC-BY) | ✔ `entity/electrolysis-cell/` (arc-furnace, CC-BY) | **ci-txh** (signature aluminium); art **ci-wfv** |
 | Aluminium (item)           | (v1: steel-plate, cool silver)    | —             | **ci-txh** |
 | Lava-manufacture building  | `icons/lava-manufacturer.png`     | —             | **ci-8mw** (§15-5 lava recipe) |
 | ~~Ice crusher / processor~~ | (retired ci-9l6)                 | —             | **ci-rgv** → retired: ice fields mine ice+calcite directly, no ground crusher |
@@ -61,7 +61,8 @@ picture = {
 | Cindra science pack        | `icons/cindra-science-pack.png`   | —             | **ci-3or** (§15-12 science/tech) |
 
 ⭐ = signature building (the aluminium electrolysis cell, ci-84s pivot; bespoke
-art tracked in ci-wfv, v1 reuses the electric-furnace sprite). Priority buildings
+art wired in ci-wfv -- Hurricane046's "arc furnace" set, CC-BY, converted to RGBA;
+see `entity/electrolysis-cell/ATTRIBUTION.md`). Priority buildings
 (mass driver, flare-PoC storage/dissipator) all have both an icon and an entity
 sprite. Cindra reuses the plain vanilla solar panel (ci-8al), so there is no
 custom panel art.
@@ -97,7 +98,8 @@ icon_size = 64`.
 
 These replaced the earlier tinted-vanilla placeholders (petroleum-gas / water /
 calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entity
-still reuses the electric-furnace art (bespoke building art tracked in ci-wfv).
+now wears Hurricane046's "arc furnace" building art (CC-BY, wired in ci-wfv; see
+`entity/electrolysis-cell/ATTRIBUTION.md`).
 
 ## Red-mud subsystem art (ci-c7j) — v1 placeholders
 

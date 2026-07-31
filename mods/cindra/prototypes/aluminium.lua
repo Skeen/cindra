@@ -56,8 +56,9 @@
 --
 -- ART: bespoke item icons (ci-6vj S6) for alumina (white refined-mineral render)
 -- and aluminium (aluminium-plate render), from Malcolm Riley's `unused-renders`
--- (CC-BY-4.0); see graphics/ART-MANIFEST.md. The electrolysis CELL entity still
--- reuses the electric-furnace art (bespoke building art tracked in ci-wfv).
+-- (CC-BY-4.0); see graphics/ART-MANIFEST.md. The electrolysis CELL entity wears
+-- Hurricane046's bespoke "arc furnace" set (CC-BY, ci-wfv) -- see the graphics_set
+-- block below and graphics/entity/electrolysis-cell/ATTRIBUTION.md.
 
 local util = require("util")
 
@@ -154,7 +155,92 @@ cell.fluid_boxes = {
   },
 }
 cell.fluid_boxes_off_when_no_fluid_recipe = true
--- v1 art reuse: keep the cloned electric-furnace sprite + icon (bespoke art TODO).
+
+-- === Bespoke art: Hurricane046's "arc furnace" (ci-wfv) ======================
+-- The signature aluminium building wears the ARC FURNACE set by Hurricane046
+-- (CC-BY, made for the "LL" mod) -- an animated brushed-steel body with a molten
+-- electric-arc glow, exactly the electric/molten-alloy read the electrolysis cell
+-- wants. The glass-furnace set (its LL sibling) is already taken by the
+-- lava-manufacturer (ci-oi8), so the two signature machines stay visually
+-- distinct. See graphics/entity/electrolysis-cell/ATTRIBUTION.md + CREDITS.md.
+--
+-- The cloned electric-furnace brings its OWN graphics_set (base body + heater
+-- working_visualisations). Replace it WHOLESALE so the cell reads as its own
+-- machine, not a reskinned electric furnace, and no electric-furnace art leaks.
+local ENTITY_GFX = "__cindra__/graphics/entity/electrolysis-cell/"
+local ICON = "__cindra__/graphics/icons/arc-furnace-icon.png"
+
+-- Single-file animation sheet: 50 frames of 320x320 px, laid out 8 per row (rows
+-- 0-5 full = 48 frames, row 6 = 2), so line_length 8 walks the grid and stops at
+-- frame 50. The emission sheet shares the exact geometry so the glow registers on
+-- the body frame-for-frame. (Verified against the source PNGs: 2560x2240 = 8x7 of
+-- 320, with 50 non-empty cells.)
+local FRAME_W, FRAME_H = 320, 320
+local FRAME_COUNT = 50
+local LINE_LENGTH = 8
+-- The electric-furnace footprint is 3x3 (collision 2.4, selection 3x3). The
+-- 320px frame at scale 0.45 renders ~144 px (~4.5 tiles), a modest overhang that
+-- reads as a grand signature machine over its 3x3 box without swamping neighbours
+-- (cf. the vanilla electric furnace's own overhang). shift 0 centres the body and
+-- seats it on the ground. Final scale/shift are pending an in-engine render
+-- (PLAYTEST.md) exactly as the glass-furnace set was tuned (ci-ijk).
+local BODY_SCALE = 0.45
+local BODY_SHIFT = { 0, 0 }
+
+-- Body + shadow + emissive molten glow. The emission sheet is FULLY OPAQUE (black
+-- background, bright arc openings), so it MUST blend "additive" with draw_as_glow
+-- -- draw_as_glow alone does NOT change the blend op, so an opaque black frame
+-- would paint a black box over the body (the ci-036 glass-furnace regression).
+-- Additive makes the black background contribute nothing and only the arc
+-- openings add light, exactly how the vanilla electric-furnace light layer blends.
+cell.graphics_set = {
+  animation = {
+    layers = {
+      { -- lit, opaque body
+        filename = ENTITY_GFX .. "arc-furnace-hr-animation-1.png",
+        width = FRAME_W,
+        height = FRAME_H,
+        frame_count = FRAME_COUNT,
+        line_length = LINE_LENGTH,
+        scale = BODY_SCALE,
+        shift = BODY_SHIFT,
+        animation_speed = 0.5,
+      },
+      { -- ground shadow: one static image (all layers of a layered Animation must
+        -- share frame_count, so pin it to 1 and let the engine hold the frame).
+        filename = ENTITY_GFX .. "arc-furnace-hr-shadow.png",
+        width = 600,
+        height = 400,
+        frame_count = 1,
+        repeat_count = FRAME_COUNT,
+        scale = BODY_SCALE,
+        shift = BODY_SHIFT,
+        draw_as_shadow = true,
+      },
+      { -- emissive molten arc glow, locked to the body geometry
+        filename = ENTITY_GFX .. "arc-furnace-hr-emission-1.png",
+        width = FRAME_W,
+        height = FRAME_H,
+        frame_count = FRAME_COUNT,
+        line_length = LINE_LENGTH,
+        scale = BODY_SCALE,
+        shift = BODY_SHIFT,
+        animation_speed = 0.5,
+        draw_as_glow = true,
+        blend_mode = "additive",
+      },
+    },
+  },
+}
+-- Drop every inherited electric-furnace overlay so nothing of the old machine
+-- leaks through the new body.
+cell.graphics_set_flipped = nil
+cell.working_visualisations = nil
+-- Wear the arc-furnace icon (matching the entity), clearing any inherited layered
+-- electric-furnace icon.
+cell.icon = ICON
+cell.icon_size = 64
+cell.icons = nil
 
 local cell_item = util.table.deepcopy(data.raw.item["electric-furnace"])
 cell_item.name = CELL
@@ -162,6 +248,10 @@ cell_item.place_result = CELL
 cell_item.order = "z[cindra]-c[electrolysis-cell]"
 cell_item.localised_name = { "item-name.cindra-electrolysis-cell" }
 cell_item.localised_description = { "item-description.cindra-electrolysis-cell" }
+-- Item wears the same arc-furnace icon as the entity.
+cell_item.icon = ICON
+cell_item.icon_size = 64
+cell_item.icons = nil
 
 -- === Recipes =================================================================
 -- LEACH: 20 stone + 30 sulfuric-acid + 20 water -> 10 alumina + 14 stone + 2

@@ -1,0 +1,305 @@
+-- Plain-Lua unit test for the electrolysis-cell's ENTITY/ITEM art wiring
+-- (prototypes/aluminium.lua, ci-wfv: Hurricane046's bespoke "arc-furnace" set,
+-- CC-BY -- see graphics/entity/electrolysis-cell/ATTRIBUTION.md).
+-- Run: cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_aluminium_graphics.lua
+--
+-- The Factorio runtime API does not expose an entity/item prototype's sprite or
+-- icon FILE paths (LuaEntityPrototype has no graphics accessor), so the in-engine
+-- test (tests/test_aluminium.lua) cannot assert the art is wired. This test
+-- closes the prototype-shape gap: it stubs the data stage, requires the real
+-- prototype module, and asserts the animated body / shadow / emissive-glow
+-- layers, the 50-frame animation-sheet geometry, the additive glow blend, the
+-- icon, that every referenced PNG actually ships AS RGBA (never indexed/palette,
+-- which Factorio draws as a black box), and that the inherited electric-furnace
+-- overlays were dropped. A renamed/removed asset, an un-wired layer, a wrong
+-- frame count, a re-exported palette sheet, or a leftover electric-furnace
+-- working-visualisation fails here.
+
+package.path = package.path .. ";./?.lua;./?/init.lua"
+
+local passed, failed = 0, 0
+
+local function test(name, fn)
+  local ok, err = pcall(fn)
+  if ok then
+    passed = passed + 1
+    print("ok - " .. name)
+  else
+    failed = failed + 1
+    print("not ok - " .. name .. ": " .. tostring(err))
+  end
+end
+
+local function assert_eq(a, b, msg)
+  if a ~= b then error((msg or "values differ") .. " (" .. tostring(a) .. " ~= " .. tostring(b) .. ")", 2) end
+end
+
+local function assert_true(x, msg)
+  if not x then error(msg or "expected true", 2) end
+end
+
+local function assert_nil(x, msg)
+  if x ~= nil then error(msg or "expected nil", 2) end
+end
+
+-- === Stub the Factorio data stage ==========================================
+-- prototypes/aluminium.lua needs `util` (deepcopy + table + by_pixel), the global
+-- `data` (calcite + steel-plate items to clone for the two item defs, the
+-- electric-furnace `furnace` entity + item to clone for the cell, and an :extend
+-- sink), and `defines.direction` for the cell's output fluid box.
+
+local function deepcopy(t)
+  if type(t) ~= "table" then return t end
+  local out = {}
+  for k, v in pairs(t) do out[k] = deepcopy(v) end
+  return out
+end
+
+package.loaded["util"] = {
+  table = { deepcopy = deepcopy },
+  by_pixel = function(x, y) return { x / 32, y / 32 } end,
+}
+
+_G.defines = { direction = { north = 0, east = 2, south = 4, west = 6 } }
+
+-- Registry is keyed by type then name (the entity, item, recipe, and build recipe
+-- share the "cindra-electrolysis-cell" name, so a name-only key would collide).
+local registry = {}
+local data = {
+  raw = {
+    -- The electric furnace the cell deep-copies. Carries a graphics_set, a
+    -- graphics_set_flipped, and working_visualisations so we can prove the
+    -- arc-furnace wiring REPLACES them rather than leaking electric-furnace art.
+    ["furnace"] = {
+      ["electric-furnace"] = {
+        type = "furnace",
+        name = "electric-furnace",
+        icon = "__base__/electric-furnace-icon.png",
+        icons = { { icon = "__base__/electric-furnace-icon.png" } },
+        icon_size = 64,
+        crafting_categories = { "smelting" },
+        graphics_set = {
+          animation = { layers = { { filename = "__base__/electric-furnace.png", width = 239, height = 219 } } },
+          working_visualisations = { { animation = { filename = "__base__/electric-furnace-heater.png" } } },
+        },
+        graphics_set_flipped = { animation = { filename = "__base__/electric-furnace-flipped.png" } },
+        working_visualisations = { { animation = { filename = "__base__/electric-furnace-work.png" } } },
+        fast_replaceable_group = "furnace",
+        next_upgrade = "electric-furnace",
+      },
+    },
+    ["item"] = {
+      ["electric-furnace"] = {
+        type = "item",
+        name = "electric-furnace",
+        icon = "__base__/electric-furnace-icon.png",
+        icons = { { icon = "__base__/electric-furnace-icon.png" } },
+        icon_size = 64,
+      },
+      -- alumina clones calcite; aluminium clones steel-plate (item defs only; this
+      -- test asserts the MACHINE art, not the item icons, but the module needs them
+      -- to load).
+      ["calcite"] = { type = "item", name = "calcite", icon = "__base__/calcite.png", icon_size = 64, stack_size = 50 },
+      ["steel-plate"] = { type = "item", name = "steel-plate", icon = "__base__/steel-plate.png", icon_size = 64, stack_size = 100 },
+    },
+  },
+}
+function data:extend(list)
+  for _, proto in ipairs(list) do
+    registry[proto.type] = registry[proto.type] or {}
+    registry[proto.type][proto.name] = proto
+  end
+end
+_G.data = data
+
+require("prototypes.aluminium")
+
+local CELL = "cindra-electrolysis-cell"
+local function proto(kind, name) return (registry[kind] or {})[name] end
+
+-- Translate a Factorio mod path ("__cindra__/graphics/...") to a path relative to
+-- the mod root (the cwd this test runs from) and check it exists.
+local function ships(modpath)
+  local rel = modpath:gsub("^__cindra__/", "./")
+  local f = io.open(rel, "rb")
+  if f then f:close() return true end
+  return false
+end
+
+local function all_ship(layer)
+  if layer.filename then assert_true(ships(layer.filename), "PNG must ship: " .. layer.filename) end
+  if layer.filenames then
+    for _, fn in ipairs(layer.filenames) do
+      assert_true(ships(fn), "PNG must ship: " .. fn)
+    end
+  end
+end
+
+-- The PNG IHDR colour-type byte (offset 25, 0-indexed): 6 = truecolour+alpha
+-- (RGBA), 2 = truecolour, 4 = grey+alpha, 0 = grey, 3 = indexed/palette. The PNG
+-- layout is: 8-byte signature, then the IHDR chunk (length + "IHDR" + width[4] +
+-- height[4] + bit-depth[1] + colour-type[1] ...), so the colour type is the 26th
+-- byte (1-indexed) of the file.
+local function png_color_type(modpath)
+  local rel = modpath:gsub("^__cindra__/", "./")
+  local f = io.open(rel, "rb")
+  if not f then return nil end
+  local head = f:read(26)
+  f:close()
+  if not head or #head < 26 then return nil end
+  return head:byte(26)
+end
+
+-- Every PNG a layer references must be a truecolour RGBA sheet (colour type 6).
+-- The arc-furnace source PNGs shipped as indexed/palette (type 3) and the shadow
+-- as grey+alpha (type 4); Factorio draws both as a solid black box (the ci-8r6
+-- glass-furnace bug). ci-wfv converts them to RGBA; this fails on any regression
+-- back to a palette/grey sheet, passes on RGBA.
+local RGBA = 6
+local function all_rgba(layer)
+  local files = {}
+  if layer.filename then files[#files + 1] = layer.filename end
+  for _, fn in ipairs(layer.filenames or {}) do files[#files + 1] = fn end
+  for _, fn in ipairs(files) do
+    assert_eq(RGBA, png_color_type(fn),
+      "PNG must be truecolour RGBA (not indexed/palette/grey, which Factorio draws black): " .. fn)
+  end
+end
+
+local function layers()
+  local m = proto("furnace", CELL)
+  assert_true(m ~= nil, "electrolysis-cell entity must be registered")
+  assert_true(m.graphics_set ~= nil and m.graphics_set.animation ~= nil, "graphics_set.animation must exist")
+  local ls = m.graphics_set.animation.layers
+  assert_true(ls ~= nil, "animation must be layered (body + shadow + glow)")
+  return ls
+end
+
+local function find_layers()
+  local body, shadow, glow
+  for _, l in ipairs(layers()) do
+    if l.draw_as_shadow then shadow = l
+    elseif l.draw_as_glow then glow = l
+    else body = l end
+  end
+  return body, shadow, glow
+end
+
+-- === graphics_set.animation: body / shadow / glow layers ====================
+test("electrolysis-cell wires a 3-layer animation (body + shadow + glow)", function()
+  local m = proto("furnace", CELL)
+  assert_eq("furnace", m.type, "still a furnace (electric-furnace clone)")
+  assert_eq(3, #layers(), "expected body + shadow + glow layers")
+  local body, shadow, glow = find_layers()
+  assert_true(body ~= nil, "a lit opaque body layer must exist")
+  assert_true(shadow ~= nil, "a draw_as_shadow layer must exist")
+  assert_true(glow ~= nil, "a draw_as_glow (emission) layer must exist")
+end)
+
+-- === Body is the 50-frame arc-furnace animation (320x320, 8/row) ============
+test("body layer is the 50-frame arc-furnace animation (320x320, line_length 8)", function()
+  local body = find_layers()
+  assert_true(body.filename ~= nil, "body uses a single-file sheet")
+  assert_true(body.filename:find("arc%-furnace%-hr%-animation%-1") ~= nil,
+    "body must be the arc-furnace animation sheet, got: " .. tostring(body.filename))
+  assert_eq(320, body.width, "frame width")
+  assert_eq(320, body.height, "frame height")
+  assert_eq(50, body.frame_count, "50 frames total (48 full rows + 2)")
+  assert_eq(8, body.line_length, "8 frames per row")
+  assert_true(body.scale ~= nil, "body must set a scale")
+  assert_true(body.shift ~= nil, "body must set a shift")
+  assert_true(not body.draw_as_shadow and not body.draw_as_glow, "body is the lit, opaque layer")
+  all_ship(body)
+  all_rgba(body)
+end)
+
+-- === Body must sit on the 3x3 footprint, not float or vanish ================
+test("body/emission scale fits the footprint and the shift does not float it", function()
+  local body, _, glow = find_layers()
+  -- 320px frame; a scale in [0.35, 0.6] renders ~112-192 px, seating the machine
+  -- over its 3x3 box (electric-furnace body is ~120 px) with a modest signature
+  -- overhang. A regression to a tiny or absurd scale fails here.
+  assert_true(body.scale >= 0.35 and body.scale <= 0.6,
+    "body scale must fit the 3x3 box (0.35-0.6), got " .. tostring(body.scale))
+  -- shift.y must not lift the body off the ground (a large negative float).
+  assert_true(body.shift[2] > -0.2,
+    "body must not be lifted off the ground (shift.y ~ 0), got " .. tostring(body.shift[2]))
+  -- Body + emission must stay locked together (same scale + shift) or the molten
+  -- arc glow drifts off the body.
+  assert_eq(body.scale, glow.scale, "emission scale must match the body")
+  assert_eq(body.shift[1], glow.shift[1], "emission shift.x must match the body")
+  assert_eq(body.shift[2], glow.shift[2], "emission shift.y must match the body")
+end)
+
+test("shadow layer is a draw_as_shadow layer from the shadow image", function()
+  local _, shadow = find_layers()
+  assert_true(shadow.filename:find("shadow") ~= nil, "shadow must use the shadow image")
+  all_ship(shadow)
+  all_rgba(shadow)
+end)
+
+test("emission layer is a draw_as_glow arc-furnace emission sheet matching the body", function()
+  local _, _, glow = find_layers()
+  assert_true(glow.filename ~= nil, "glow uses a single-file sheet")
+  assert_true(glow.filename:find("emission") ~= nil, "glow must use the emission sheet")
+  -- Emission is drawn on the SAME frame geometry as the body so it registers.
+  assert_eq(320, glow.width, "glow frame width matches body")
+  assert_eq(320, glow.height, "glow frame height matches body")
+  assert_eq(50, glow.frame_count, "glow frame count matches body")
+  assert_eq(8, glow.line_length, "glow line_length matches body")
+  all_ship(glow)
+  all_rgba(glow)
+end)
+
+-- === The emission layer MUST blend additive (the ci-036 black-box cause) =====
+test("emission layer blends additive so it never paints a black box over the body", function()
+  -- The emission sheet is FULLY OPAQUE (alpha 1 everywhere) with a black
+  -- background and bright arc openings. draw_as_glow alone does NOT change the
+  -- blend op, so the opaque black background would draw straight over the furnace
+  -- body -> a solid black box with only the openings showing (the ci-036
+  -- glass-furnace symptom). blend_mode = "additive" makes the black background
+  -- contribute nothing and only the bright openings add glow. Fails on a nil
+  -- blend_mode, passes on the fix.
+  local _, _, glow = find_layers()
+  assert_eq("additive", glow.blend_mode,
+    "emission layer must set blend_mode = 'additive' (opaque black bg would else box the body)")
+end)
+
+-- === Every layer ships as truecolour RGBA, never indexed/palette (ci-8r6) ====
+test("every arc-furnace layer ships as truecolour RGBA, not indexed/palette", function()
+  for _, l in ipairs(layers()) do all_rgba(l) end
+end)
+
+-- === Inherited electric-furnace art must be dropped (no reskin leak) =========
+test("inherited electric-furnace overlays are cleared", function()
+  local m = proto("furnace", CELL)
+  assert_nil(m.graphics_set_flipped, "electric-furnace graphics_set_flipped must be dropped")
+  assert_nil(m.working_visualisations, "electric-furnace working_visualisations must be dropped")
+  -- The replaced graphics_set must not carry the electric-furnace's own nested
+  -- working_visualisations either.
+  assert_nil(m.graphics_set.working_visualisations,
+    "the cloned graphics_set.working_visualisations must be gone (replaced wholesale)")
+  -- No layer may reference electric-furnace art.
+  for _, l in ipairs(layers()) do
+    if l.filename then
+      assert_true(l.filename:find("electric%-furnace") == nil, "no electric-furnace art may leak: " .. l.filename)
+    end
+  end
+end)
+
+-- === Item + entity icon =====================================================
+test("entity and item share the arc-furnace icon at icon_size 64", function()
+  local e = proto("furnace", CELL)
+  local item = proto("item", CELL)
+  assert_true(item ~= nil, "electrolysis-cell item must be registered")
+  for _, p in ipairs({ e, item }) do
+    assert_true(p.icon and p.icon:find("arc%-furnace%-icon") ~= nil,
+      "icon must be the arc-furnace icon, got: " .. tostring(p.icon))
+    assert_eq(64, p.icon_size, "icon_size must match the 64px icon")
+    assert_nil(p.icons, "the inherited layered electric-furnace icon must be cleared")
+    assert_true(ships(p.icon), "icon PNG must ship: " .. p.icon)
+  end
+end)
+
+print(string.format("\n%d passed, %d failed", passed, failed))
+os.exit(failed == 0 and 0 or 1)
