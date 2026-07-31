@@ -6,11 +6,12 @@ The "arc-furnace" building graphics in this directory
 `../../icons/arc-furnace-icon.png` / `arc-furnace-icon-big.png` are externally
 sourced. They are shipped here under the terms below.
 
-> **Custody note (ci-a6z):** this set previously dressed the electrolysis cell.
-> The cell now wears the "oxidizer" set (see `../electrolysis-cell/`), so the
-> arc-furnace art was relocated to this neutral, model-named directory and is
-> reserved for the iron-recovery building (bead **ci-hs1j**). Nothing references
-> these files yet; ci-hs1j wires them. See `../../ART-MANIFEST.md`.
+> **Custody note (ci-a6z → ci-hs1j):** this set previously dressed the
+> electrolysis cell. The cell now wears the "oxidizer" set (see
+> `../electrolysis-cell/`), so the arc-furnace art was relocated to this neutral,
+> model-named directory. **ci-hs1j wired it** onto the iron-recovery building
+> (`cindra-arc-furnace`, renamed from the carbothermic furnace) via
+> `prototypes/red-mud.lua`. See `../../ART-MANIFEST.md`.
 
 | field   | value                                                              |
 | ------- | ------------------------------------------------------------------ |

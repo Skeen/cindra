@@ -122,7 +122,7 @@ require("prototypes.plastics")
 -- Red mud (ci-c7j): the Bayer alumina route + iron recovery, folded into the
 -- ci-6vj graph. `stone + quicklime -> alumina + red mud` (an alternative to the
 -- acid leach), then `red mud + CO2 + [ruinous power] -> iron + slag` in a
--- dedicated carbothermic furnace -- Cindra's waste-born iron, and the sink that
+-- dedicated arc furnace -- Cindra's waste-born iron, and the sink that
 -- closes the calcination loop (quicklime -> Bayer, CO2 -> iron recovery). Loads
 -- AFTER plastics (reads its quicklime + CO2) and aluminium (reads its alumina);
 -- gates behind the materials-chemistry tech (calcination is its prereq).

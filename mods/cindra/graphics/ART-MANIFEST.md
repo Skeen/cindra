@@ -48,7 +48,7 @@ picture = {
 | Building / item            | Icon                              | Entity sprite | Owning bead(s)        |
 |----------------------------|-----------------------------------|:-------------:|-----------------------|
 | Electrolysis cell ⭐        | `icons/oxidizer-icon.png` (Hurricane046, CC-BY 4.0) | ✔ `entity/electrolysis-cell/` (oxidizer, CC-BY 4.0) | **ci-txh** (signature aluminium); art **ci-wfv** → **ci-a6z** (oxidizer swap, 4x4 box) |
-| _Iron-recovery building_   | `icons/arc-furnace-icon.png` (Hurricane046, CC-BY) | ✔ `entity/arc-furnace/` (arc-furnace, CC-BY) | **ci-hs1j** — set freed by **ci-a6z**; not yet wired |
+| Arc furnace (iron recovery) | `icons/arc-furnace-icon.png` (Hurricane046, CC-BY) | ✔ `entity/arc-furnace/` (arc-furnace, CC-BY) | **ci-hs1j** — set freed by **ci-a6z**; wired to `cindra-arc-furnace` (renamed from carbothermic furnace) |
 | Aluminium (item)           | (v1: steel-plate, cool silver)    | —             | **ci-txh** |
 | Lava-manufacture building  | `icons/lava-manufacturer.png`     | —             | **ci-8mw** (§15-5 lava recipe) |
 | ~~Ice crusher / processor~~ | (retired ci-9l6)                 | —             | **ci-rgv** → retired: ice fields mine ice+calcite directly, no ground crusher |
@@ -106,12 +106,13 @@ calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entit
 now wears Hurricane046's "oxidizer" building art (CC-BY 4.0, reassigned from the
 "arc furnace" set in ci-a6z; see `entity/electrolysis-cell/ATTRIBUTION.md`).
 
-## Red-mud subsystem art (ci-c7j → bespoke ci-zdp)
+## Red-mud subsystem art (ci-c7j → bespoke ci-zdp → arc-furnace building ci-hs1j)
 
-The Bayer/iron-recovery subsystem (`prototypes/red-mud.lua`) now ships **bespoke**
-art (ci-zdp), replacing the ci-c7j placeholders (which reused the `cindra-stone`
-render under a tint for the items and the assembling-machine-3 clone art for the
-furnace).
+The Bayer/iron-recovery subsystem (`prototypes/red-mud.lua`) ships **bespoke**
+item art (ci-zdp), replacing the ci-c7j placeholders (which reused the
+`cindra-stone` render under a tint). The iron-recovery **building** wears the
+arc-furnace model (ci-hs1j), replacing both the ci-c7j assembling-machine-3 clone
+art and ci-zdp's interim procedural carbothermic-furnace sprite.
 
 **Item icons** are Blender renders from Malcolm Riley's
 [`unused-renders`](https://github.com/malcolmriley/unused-renders) — **CC-BY-4.0,
@@ -119,21 +120,23 @@ author Malcolm Riley** (the durable attribution for both files below). Each was
 downloaded from the repo above and resized from its 1024×1024 original to a 64×64
 RGBA icon; no other edit was made to the pixels. Red mud additionally carries an
 in-prototype rust-red tint (not baked into the file), the same trick the spent
-catalysts use. The **carbothermic-furnace** icon + in-world sprite are procedural
-Cindra art from `scripts/gen-entity-art.py` (deterministic, seed `0xC19D2A`), in
-the same one-family style as the mass driver / capacitor / dissipator.
+catalysts use. The iron-recovery **building** wears Hurricane046's animated "arc
+furnace" set (see the asset table at the top of this file); ci-zdp's procedural
+carbothermic-furnace icon + sprite were **retired** in ci-hs1j when the building
+was renamed/reskinned to the arc-furnace model (mayor Option A: model/name/art
+only; the CO2 recipe + economy are unchanged).
 
 | Cindra item / building        | Delivered art                                                     | Source                                          | Wired by |
 |-------------------------------|-------------------------------------------------------------------|-------------------------------------------------|----------|
 | `cindra-red-mud`              | `icons/cindra-red-mud.png` (+ in-engine rust tint)                | `item/original/pile-dust-crushed-iron-ore-1.png`| `prototypes/red-mud.lua` |
 | `cindra-slag`                 | `icons/cindra-slag.png`                                           | `item/original/material-chunk-slag-1.png`       | `prototypes/red-mud.lua` |
-| `cindra-carbothermic-furnace` | `icons/carbothermic-furnace.png` + `entity/carbothermic-furnace/` | `scripts/gen-entity-art.py` (procedural)        | `prototypes/red-mud.lua` |
+| `cindra-arc-furnace`          | `icons/arc-furnace-icon.png` + `entity/arc-furnace/` (animated)   | Hurricane046, CC-BY (freed by ci-a6z)           | `prototypes/red-mud.lua` |
 
-Iron is the vanilla `iron-plate` (no new icon needed). The furnace's bespoke
-sprite is wired as its `graphics_set.animation` (a static HR single frame +
-shadow), fully replacing the assembling-machine-3 art, so no vanilla sprite
-leaks through. The slag vent recipe and the red-mud tech reuse the two new item
-icons (slag / red-mud respectively).
+Iron is the vanilla `iron-plate` (no new icon needed). The arc furnace's set is
+wired as its `graphics_set.animation` (animated body + shadow + additive emission
+glow), fully replacing the assembling-machine-3 art, so no vanilla sprite leaks
+through. The slag vent recipe and the red-mud tech reuse the two new item icons
+(slag / red-mud respectively).
 
 ## Scope / known limits (honest first pass)
 

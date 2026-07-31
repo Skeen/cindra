@@ -515,11 +515,13 @@ append (§6 never-mutate).
   power sink". We keep the cell (it *is* the "shitton of electricity" machine the
   brief describes) rather than demote electrolysis to a generic plant; the brief's
   intent (huge draw) is preserved, the signature-building invariant is not broken.
-- **Carbothermic furnace** (`cindra-carbothermic-furnace`, ci-c7j) — a high-draw
-  reduction furnace (its private `cindra-carbothermic` category). Runs iron
-  recovery only: reduces red mud with CO2 into iron + slag. The second-largest
-  continuous single-building draw (45 MW, below the 50 MW electrolysis cell,
-  above the 40 MW electric heater), so it lands as another flare-timed power sink.
+- **Arc furnace** (`cindra-arc-furnace`, ci-c7j; renamed + reskinned from the
+  "carbothermic furnace" to Hurricane046's arc-furnace model in ci-hs1j — the
+  recipe/economy is unchanged) — a high-draw reduction furnace (its private
+  `cindra-arc-furnace` category). Runs iron recovery only: reduces red mud with
+  CO2 into iron + slag. The second-largest continuous single-building draw (45 MW,
+  below the 50 MW electrolysis cell, above the 40 MW electric heater), so it lands
+  as another flare-timed power sink.
 - **Chemical plant** (vanilla) — all the wet chemistry: water electrolysis,
   methanol synthesis, MTO+polymerisation, both catalyst-reprocessing/regeneration
   steps, alumina leaching, methanol rocket fuel, and the vanilla `sulfuric-acid`
@@ -529,8 +531,8 @@ append (§6 never-mutate).
 
 ### 8.2 The recipe table
 
-Machine key: **LM** = lava manufacturer, **EC** = electrolysis cell, **CF** =
-carbothermic furnace, **CP** = chemical plant, **AM** = assembling machine.
+Machine key: **LM** = lava manufacturer, **EC** = electrolysis cell, **AF** =
+arc furnace, **CP** = chemical plant, **AM** = assembling machine.
 Fluids are marked *(f)*. All Cindra recipes are `enabled=false` and gated by a
 Cindra tech (§8.5). "prod" = whether productivity modules are allowed.
 
@@ -556,7 +558,7 @@ Cindra tech (§8.5). "prod" = whether productivity modules are allowed.
 | 18 | Vent CO2 (emergency sink) | CP | 100 CO2 *(f)* | — | **off** |
 | 19 | Vent quicklime (emergency sink) | AM | 10 quicklime | — | **off** |
 | 20 | Alumina (Bayer process) | AM | 20 stone + 5 quicklime | 10 alumina + 5 red-mud | **off** |
-| 21 | Iron recovery | CF | 10 red-mud + 20 CO2 *(f)* | 5 iron-plate (vanilla) + 5 slag | **off** |
+| 21 | Iron recovery | AF | 10 red-mud + 20 CO2 *(f)* | 5 iron-plate (vanilla) + 5 slag | **off** |
 | 22 | Vent slag (emergency sink) | AM | 10 slag | — | **off** |
 
 Rows 20-22 (ci-c7j) are the **red-mud subsystem**: the Bayer route is an
@@ -666,7 +668,7 @@ the vanilla sulfuric-acid recipe) → `cindra-aluminium` (leaching + electrolysi
 the cell + powder) → `cindra-calcite-olefins` renamed in spirit to the **materials
 chemistry** tech (calcination, electrolysis, methanol, both catalyst systems, MTO,
 rocket fuels, the vents), prereq `cindra-aluminium` → **`cindra-red-mud`** (ci-c7j:
-the Bayer route, iron recovery, the carbothermic furnace, and the slag vent),
+the Bayer route, iron recovery, the arc furnace, and the slag vent),
 prereq `cindra-calcite-olefins` because Bayer needs the quicklime and iron
 recovery needs the CO2 that only calcination frees. The whole red-mud subsystem
 is clustered in that one tech (no fragmentation). Early game has few sinks
