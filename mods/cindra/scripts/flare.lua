@@ -5,9 +5,10 @@
 -- multiplier - no bespoke power system, no artificial overdrive. The flare is
 -- the daylight cycle driven to full day (~6 MW/panel peak); the "dim"
 -- between-flare trough is a near-night daytime whose non-zero solar factor,
--- scaled by the fixed 100x surface multiplier, still delivers a 400 kW baseline
--- (ci-ezk: the night floor that runs the factory between flares, and beats
--- Vulcanus's 240 kW -- Cindra is the best solar planet). The sky LOOKS dark at
+-- scaled by the fixed 100x surface multiplier, still delivers a 330 kW baseline
+-- (ci-ezk floor re-based up, then ci-63d trimmed to Vulcanus + 150 pp: the night
+-- floor that runs the factory between flares, and beats Vulcanus's 240 kW -- Cindra
+-- is the best solar planet). The sky LOOKS dark at
 -- baseline (a deep-dusk daytime) but production is decoupled from that dimness.
 --
 -- SPORADIC timing (ci-2ba): flares no longer fire on a fixed metronome. The
@@ -29,8 +30,8 @@
 --     warning device instead of a schedule display.
 --
 -- Intensity is expressed in "Nauvis full-day equivalents": BASELINE_INTENSITY
--- (~6.67 => 400 kW) between flares, PEAK_INTENSITY (=SOLAR_MULT => ~6 MW, full
--- daylight) at the plateau -- a ~15x swing (ci-ezk). The engine's actual
+-- (~5.5 => 330 kW) between flares, PEAK_INTENSITY (=SOLAR_MULT => ~6 MW, full
+-- daylight) at the plateau -- a ~18x swing (ci-63d). The engine's actual
 -- per-panel output = PANEL_NOMINAL_W * intensity, because we drive daytime so
 -- that solar_factor = intensity / SOLAR_MULT.
 

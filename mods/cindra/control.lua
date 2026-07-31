@@ -103,8 +103,9 @@ if script.active_mods["factorio-test"] then
     "tests/test_storage",
     "tests/test_catchability",
     "tests/test_power_prototypes",
-    -- ci-ezk: ABSOLUTE solar output magnitudes (baseline ~400 kW > Vulcanus,
-    -- flare peak in the MW range, dim sky does not suppress production).
+    -- ci-ezk: ABSOLUTE solar output magnitudes (baseline ~330 kW = Vulcanus + 100-200
+    -- pp after the ci-63d trim, flare peak in the MW range, dim sky does not suppress
+    -- production).
     "tests/test_solar_magnitude",
     -- §15-12 the headline Cindra science pack (crafted in a stock assembler) + the
     -- folded tech tree (petrochemical-free, native inputs, a real energy cost).
@@ -127,6 +128,11 @@ if script.active_mods["factorio-test"] then
     -- cindra via a required (~ env-scanner) dependency, so its buildable scanner
     -- exists in every Cindra playtest instead of silently going missing.
     "tests/test_env_scanner",
+    -- §15-14 / ci-63d BALANCE PASS: the throughput/ratio audit -- every production
+    -- edge's feeder-per-consumer count stays single-digit (no ~100:1 imbalance),
+    -- craft times/rates are sane, and the exportable buildings stay
+    -- situational-not-strictly-better (§12). All derived LIVE from the prototypes.
+    "tests/test_balance_audit",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
   -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the

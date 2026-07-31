@@ -322,7 +322,15 @@ local methanol_synthesis = {
 -- shared chemical plant. Productivity is OFF (matter honesty): rocket-fuel is a
 -- terminal launch/export good, and its ~100 MJ is worth far less electricity than
 -- the methanol + O2 chain sunk into it, so this is a deep net-negative energy trade
--- that can never be burned back for a power profit (ci-669 energy analog). Unlocked
+-- that can never be burned back for a power profit (ci-669 energy analog).
+-- YIELD (ci-63d balance pass, resolving the ci-6vj S6 TUNE FLAG): 50 methanol -> 1
+-- rocket-fuel. The S6 energy pass found the original `-> 10` was energy-POSITIVE
+-- (~104 MJ electricity in vs 1000 MJ fuel_value out => burnable back for a ~5x
+-- profit), breaking the §8.6 "rocket fuel is a terminal sink, never an energy loop"
+-- invariant. DESIGN §8.6 directs ci-63d to cut the yield to ~1; at yield 1 the ~104
+-- MJ sunk exceeds the 100 MJ fuel_value even before burn losses, so the loop is
+-- robustly net-NEGATIVE (like ALICE) and this stays a pure methanol/O2 dump-sink.
+-- test_plastics asserts the energy balance live (fails on the old `-> 10` graph). Unlocked
 -- by the materials-chemistry tech (DESIGN §8.5 lists rocket fuels there): methanol
 -- itself only exists once that tech is in hand, so this recipe cannot be reachable
 -- any earlier -- unlike ALICE, whose nano-aluminium powder is a launch-tech unlock,
@@ -339,7 +347,7 @@ local methanol_rocket_fuel = {
     { type = "fluid", name = METHANOL, amount = 50 },
     { type = "fluid", name = O2, amount = 50 },
   },
-  results = { { type = "item", name = ROCKET_FUEL, amount = 10 } },
+  results = { { type = "item", name = ROCKET_FUEL, amount = 1 } }, -- ci-63d: 10 -> 1 (net-negative, §8.6)
   allow_productivity = false, -- terminal sink: never mint free rocket-fuel (ci-669)
   main_product = ROCKET_FUEL,
   crafting_machine_tint = { primary = { r = 0.85, g = 0.55, b = 0.35 } },

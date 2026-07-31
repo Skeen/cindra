@@ -50,7 +50,7 @@ local CINDRA_RECIPES = {
   "cindra-aluminium",                       -- electrolyse: 4 alumina -> 2 aluminium + 30 O2(ignored)   [PROD ON]
   "cindra-aluminium-powder",                -- 1 aluminium -> 2 powder
   "cindra-solid-rocket-fuel",               -- ALICE: 2 powder + 2 ice + 10 O2 -> 1 rocket-fuel
-  "cindra-methanol-rocket-fuel",            -- 50 methanol + 50 O2 -> 10 rocket-fuel
+  "cindra-methanol-rocket-fuel",            -- 50 methanol + 50 O2 -> 1 rocket-fuel (ci-63d: net-negative sink)
   "cindra-methanol-synthesis",              -- 20 CO2 + 60 H2 + mcat -> 20 methanol + 20 water (+catalyst rolls)
   "cindra-methanol-catalyst",               -- 10 copper + 2 alumina -> 1 mcat
   "cindra-methanol-catalyst-reprocessing",  -- 1 spent-mcat + 20 acid -> 6 copper + 1 alumina

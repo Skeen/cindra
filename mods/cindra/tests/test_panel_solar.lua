@@ -135,9 +135,9 @@ describe("position-scaled solar - real engine output", function()
       flare.apply(s, PEAK_TICK)
       after_ticks(120, function()
         local ratio = sink.energy / base_e
-        -- ci-ezk re-baseline: swing is ~15x (6 MW / 400 kW), not the old 100x.
-        -- Position scaling multiplies the flare, it does not flatten it.
-        assert.is_true(ratio > 10 and ratio < 20,
+        -- ci-ezk re-baseline + ci-63d trim: swing is ~18x (6 MW / 330 kW), not the
+        -- old 100x. Position scaling multiplies the flare, it does not flatten it.
+        assert.is_true(ratio > 10 and ratio < 22,
           "position scaling multiplies the flare, it does not flatten it; got "
             .. string.format("%.1f", ratio))
         done()

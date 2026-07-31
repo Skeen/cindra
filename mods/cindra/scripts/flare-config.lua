@@ -33,24 +33,29 @@ C.SOLAR_MULT = 100
 -- variants (production = this * factor) strictly BELOW the full band, so a
 -- nightward band never out-produces the sunward vanilla panel.
 C.PANEL_NOMINAL_W = 60e3 -- 60 kW (vanilla solar-panel)
--- Absolute per-panel output targets (ci-ezk). Cindra is the BEST solar planet, so
--- even the between-flare BASELINE must beat Vulcanus (240 kW = 4x a Nauvis panel):
---   * BASELINE_W (outside flares): 400 kW per full-band panel, > Vulcanus's 240 kW.
---     The old design pinned the baseline at ~one Nauvis full day (60 kW), which
---     read as absurdly weak (a nightward band bottomed out at ~3 kW) -- the whole
---     point of Cindra is surplus, so the floor is re-based UP to 400 kW.
+-- Absolute per-panel output targets (ci-ezk baseline, re-tuned by the §15-14
+-- balance pass ci-63d). Cindra is the BEST solar planet, so the between-flare
+-- BASELINE must BEAT Vulcanus (240 kW = 4x a Nauvis panel) -- but only MODESTLY:
+--   * BASELINE_W (outside flares): 330 kW per full-band panel. The balance target
+--     (ci-63d) is "Vulcanus + 100-200 PERCENTAGE POINTS of Nauvis", i.e. additive,
+--     NOT 2x-3x. Nauvis full day = 60 kW = 100%, so 1 pp = 0.6 kW; Vulcanus (240 kW
+--     = 400%) + 150 pp = 550% = 330 kW, mid-range. This still comfortably beats
+--     Vulcanus while staying "surplus, not overdrive". (ci-ezk first re-based the
+--     floor UP from the old ~60 kW -- which read as absurdly weak, a nightward band
+--     bottoming at ~3 kW -- to 400 kW; ci-63d then trimmed 400 -> 330 kW to land in
+--     the additive +100-200 pp window instead of the +267 pp overshoot.)
 --   * PEAK_W (at the flare plateau): the natural full-daylight ceiling, ~6 MW per
 --     panel -- squarely "megawatts", the signature spike, and unchanged so the
 --     storage/catchability balance (sized against the 6 MW peak) still holds.
 -- Real engine output = PANEL_NOMINAL_W * (solar-power_property/100) * solar_factor;
 -- with the property at 100x (prototypes/planet.lua) and intensity carrying the
 -- factor, output = PANEL_NOMINAL_W * intensity. So the intensities below ARE the
--- targets divided by the 60 kW nominal (baseline 6.67, peak 100 => 400 kW / 6 MW).
-C.BASELINE_W = 400e3        -- 400 kW: the between-flare floor (> Vulcanus 240 kW)
+-- targets divided by the 60 kW nominal (baseline 5.5, peak 100 => 330 kW / 6 MW).
+C.BASELINE_W = 330e3        -- 330 kW: the between-flare floor (Vulcanus 240 kW + 150 pp)
 -- Intensity is measured in "Nauvis full-day equivalents" = sf * SOLAR_MULT, i.e.
--- output / PANEL_NOMINAL_W. Baseline is ~6.67 of them (400 kW); the flare peak is
--- SOLAR_MULT of them (full daylight, ~6 MW) -- a ~15x swing that stays MW-scale.
-C.BASELINE_INTENSITY = C.BASELINE_W / C.PANEL_NOMINAL_W -- 6.667 (400 kW / 60 kW)
+-- output / PANEL_NOMINAL_W. Baseline is ~5.5 of them (330 kW); the flare peak is
+-- SOLAR_MULT of them (full daylight, ~6 MW) -- a ~18x swing that stays MW-scale.
+C.BASELINE_INTENSITY = C.BASELINE_W / C.PANEL_NOMINAL_W -- 5.5 (330 kW / 60 kW)
 C.PEAK_INTENSITY = C.SOLAR_MULT                         -- full daylight, ~6 MW
 C.PEAK_W = C.PANEL_NOMINAL_W * C.PEAK_INTENSITY          -- 6 MW at the plateau
 
@@ -177,7 +182,7 @@ C.BATTERY_UPKEEP_FRACTION = 0.00085
 -- Test-only measurement rig: an accumulator with flow far above the flare peak,
 -- so it absorbs a panel's full output WITHOUT throttling. Reading its energy
 -- delta over a window measures real, unthrottled engine solar output (used to
--- prove the ~6 MW peak / 400 kW baseline against the engine, not just the model). Only
+-- prove the ~6 MW peak / 330 kW baseline against the engine, not just the model). Only
 -- registered when factorio-test is loaded (see prototypes/storage.lua).
 C.MEASURE_SINK = "cindra-measurement-sink"
 C.MEASURE_FLOW_W = 500e6
@@ -185,7 +190,7 @@ C.MEASURE_BUFFER_J = 5e9
 
 -- Baseline factory consumption on the grid (W). Baseline solar runs the factory
 -- between flares (storage is NOT life-support); default equals one full-band
--- panel's BASELINE output (400 kW, ci-ezk) so a lone-panel grid is net-neutral at
+-- panel's BASELINE output (330 kW, ci-63d) so a lone-panel grid is net-neutral at
 -- rest -- the between-flare floor never damages a lone panel, only undisposed
 -- flare/array surplus does.
 --

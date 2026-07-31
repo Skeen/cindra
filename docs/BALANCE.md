@@ -20,6 +20,47 @@ anchors table and can be re-derived by any track that consumes them.
 
 ---
 
+## Balance-pass reconciliation (ci-63d, §15-14) — read this first
+
+The balance pass (`ci-63d`) validated the shipped numbers against real end-to-end
+throughput (via `tests/test_balance_audit.lua`, all rates derived LIVE from the
+prototypes) and corrected the places where the code had moved past this doc's
+first-principles derivation. The load-bearing corrections:
+
+- **The lava spine is a DEDICATED manufacturer, not a lava-making foundry.** §1
+  below derives "a foundry converts 2.5 MW → 1.333 lava/s → ~94 lava-foundries
+  per melt line." That predates the `cindra-lava-manufacturer` (ci-e8a) and the
+  ci-4ee spazz fix. The SHIPPED spine is `64 stone → 320 lava` at
+  `energy_required = 30`, `crafting_speed 2`, `40 MW` draw = **21.3 lava/s per
+  manufacturer**, so **~6 manufacturers feed one melting foundry** — single-digit,
+  and exactly the "~100 machines per foundry" absurdity this pass exists to
+  prevent. `test_lava` + `test_balance_audit` guard the single-digit ratio LIVE.
+  (The §1 `E_lava/8` energy-per-lava identity still holds in spirit; the shipped
+  `energy_per_lava` is ~1.875 MJ/lava, guarded by `test_lava`.)
+- **Baseline solar is 330 kW, not 60 kW; the flare swing is ~18×, not 100×.** §2
+  derives a 60 kW floor (1% of the 6 MW peak = a literal 100× swing). Shipped
+  reality (ci-ezk, then this pass): the floor is re-based UP to a real surplus and
+  tuned to the additive target **"Vulcanus (240 kW) + 100-200 percentage points of
+  Nauvis" = 330 kW** (`+150 pp`, NOT a 2-3× multiple). The 6 MW peak is unchanged,
+  so the swing is **~18×**. The `<100%`-catchable rule (§4) is unaffected (sized
+  against the 6 MW peak) and still holds. Guarded by `test_solar_magnitude` (the
+  +100-200 pp bound is checked live against a real Vulcanus panel) and `test_flare`.
+- **Methanol rocket fuel was energy-POSITIVE; cut `-> 10` to `-> 1`.** DESIGN §8.6
+  flagged (ci-6vj S6) that `50 methanol → 10 rocket-fuel` yields ~1000 MJ of
+  fuel_value for ~104 MJ of electricity — a burn-back profit that breaks the
+  "terminal sink, never an energy loop" invariant. This pass cut the yield to
+  `-> 1` (~104 MJ in vs 100 MJ out, robustly net-negative like ALICE), guarded by
+  a live energy-balance test in `test_plastics` that fails on the old graph.
+- **Open item #1 (verify the assumed anchors) is closed.** The molten-recipe
+  `energy_required` and the 10/15 stone byproduct are no longer "cited, not
+  measured": `test_lava` + `test_balance_audit` read them live from the shipped
+  recipes, so the lava→foundry ratio and the stone-negativity proof track reality.
+
+The rest of this doc is the original derivation, kept for its reasoning; where a
+number here disagrees with the four points above, the shipped value + its test win.
+
+---
+
 ## 0. Anchors (measured / cited, not chosen)
 
 | Anchor | Value | Source |

@@ -86,12 +86,13 @@ test("ramps fast, plateaus at the MW peak, then decays fast", function()
   assert_true(decay.intensity > C.BASELINE_INTENSITY and decay.intensity < C.PEAK_INTENSITY, "decay between peak and base")
 end)
 
-test("baseline is 400 kW and the flare peaks in the MW range (the signature magnitude, ci-ezk)", function()
-  -- Re-based (ci-ezk): a 400 kW between-flare floor (> Vulcanus's 240 kW) swings up
-  -- to the natural full-daylight ceiling (~6 MW), a ~15x spike that stays MW-scale.
-  assert_eq(400e3, C.BASELINE_W, "400 kW baseline (the best solar planet)")
+test("baseline is 330 kW and the flare peaks in the MW range (the signature magnitude, ci-63d)", function()
+  -- Re-based (ci-ezk) then trimmed to the additive +100-200 pp window (ci-63d): a
+  -- 330 kW between-flare floor (Vulcanus 240 kW + 150 pp) swings up to the natural
+  -- full-daylight ceiling (~6 MW), a ~18x spike that stays MW-scale.
+  assert_eq(330e3, C.BASELINE_W, "330 kW baseline (Vulcanus + 150 pp; best solar planet)")
   assert_eq(6e6, C.PEAK_W, "~6 MW flare peak (MW range)")
-  assert_eq(C.PANEL_NOMINAL_W * C.BASELINE_INTENSITY, C.BASELINE_W, "baseline intensity encodes 400 kW")
+  assert_eq(C.PANEL_NOMINAL_W * C.BASELINE_INTENSITY, C.BASELINE_W, "baseline intensity encodes 330 kW")
   assert_eq(C.SOLAR_MULT, C.PEAK_INTENSITY, "peak intensity = the surface multiplier (full daylight)")
   assert_true(C.PEAK_INTENSITY / C.BASELINE_INTENSITY > 10, "a large swing, still MW-scale")
 end)

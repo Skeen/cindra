@@ -5,8 +5,8 @@
 -- panel tier. The flare behaviour is entirely a property of the SURFACE (a fixed
 -- high solar multiplier + the daylight-curve flare, prototypes/planet.lua +
 -- scripts/flare.lua), which the engine already applies to any solar panel on
--- Cindra. So on Cindra a vanilla panel swings from a 400 kW baseline between
--- flares to a ~6 MW peak (ci-ezk), and the disposal-deficit rule (§15-8) degrades
+-- Cindra. So on Cindra a vanilla panel swings from a 330 kW baseline between
+-- flares to a ~6 MW peak (ci-ezk/ci-63d), and the disposal-deficit rule (§15-8) degrades
 -- those same vanilla panels when their surplus has nowhere to go -- all without a
 -- custom entity.
 --

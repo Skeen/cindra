@@ -286,9 +286,11 @@ two-temperature quench — is retired, ci-84s: the fire/ice terrain stays as a
 hazard and water source, not a craft.)
 
 Power is **high-intensity solar via the daylight curve**: a dark-weighted cycle
-whose night floor is **400 kW per panel** (runs the factory; ci-ezk re-based it
-up from the old ~Nauvis-full-day 60 kW so Cindra beats Vulcanus's 240 kW and
-reads as the best solar planet) and whose day peak ≈ the **solar flare** (~6 MW
+whose night floor is **330 kW per panel** (runs the factory; ci-ezk re-based it
+up from the old ~Nauvis-full-day 60 kW, and ci-63d trimmed it to the additive
+"Vulcanus 240 kW + 100-200 pp of Nauvis" target = +150 pp, so Cindra beats
+Vulcanus's 240 kW modestly and reads as the best solar planet) and whose day peak
+≈ the **solar flare** (~6 MW
 per panel, a ~15× spike into the MW range). The sky LOOKS dark at the baseline
 (tidal-lock deep-dusk), but production is **decoupled** from that visual dimness.
 The flare is **sporadic but telegraphed** (ci-2ba, overriding the old
@@ -460,8 +462,8 @@ is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
 | Lava power cost | very high | rival/exceed baseline solar at scale |
 | Vanilla molten iron/copper | 500 lava + 1 calcite → 250 + 10/15 stone | the UNMODIFIED Vulcanus casts, reused as-is on Cindra (ci-9yg); never mutated; a cast's 500 lava costs 100 stone in, so returned ≤ 60 < 100 at the +300% cap |
 | Surface solar multiplier | ~10000% (100× Nauvis) | set by working back from lava energy cost |
-| Baseline (night floor) | 400 kW/panel (> Vulcanus 240 kW) | ci-ezk; dark-weighted look but full production, never true zero |
-| Flare peak | ~6 MW/panel (~15× baseline) | ci-ezk; MW-scale spike, must stay relevant; <100% catchable |
+| Baseline (night floor) | 330 kW/panel (Vulcanus 240 kW + 150 pp) | ci-ezk floor re-based up, then ci-63d trimmed to the additive "Vulcanus + 100-200 pp of Nauvis" target (not 2x-3x); dark-weighted look but full production, never true zero |
+| Flare peak | ~6 MW/panel (~18× baseline) | ci-ezk/ci-63d; MW-scale spike, must stay relevant; <100% catchable |
 | Flare interval (calm gap) | random ~5–10 min | sporadic, not a metronome (ci-1c7); each event still telegraphed |
 | Electric heater temp cap | 600° | below reactor, above steam threshold |
 | Stone loop-back net | net-consuming at every module tier | ci-9yg: 100 stone in per cast (fixed, prod off) vs ≤ 60 back at the +300% cap; mining is a real top-up, never free |
@@ -525,7 +527,7 @@ Cindra tech (§8.5). "prod" = whether productivity modules are allowed.
 | 6 | Alumina electrolysis | EC | 4 alumina | 2 aluminium + 30 O2 *(f)* `ignored_by_prod` | on |
 | 7 | Nano-aluminium powder | AM | 1 aluminium | 2 powder | on |
 | 8 | ALICE rocket fuel | AM | 2 powder + 2 ice + 10 O2 *(f)* | 1 rocket-fuel (vanilla) | **off** |
-| 9 | Methanol rocket fuel | CP | 50 methanol *(f)* + 50 O2 *(f)* | 10 rocket-fuel (vanilla) | **off** |
+| 9 | Methanol rocket fuel | CP | 50 methanol *(f)* + 50 O2 *(f)* | 1 rocket-fuel (vanilla) | **off** |
 | 10 | Methanol synthesis | CP | 20 CO2 *(f)* + 60 H2 *(f)* + 1 methanol-catalyst | 20 methanol *(f)* + 20 water *(f)* + methanol-catalyst `p=0.70` + spent-methanol-catalyst `p=0.20` | **off** |
 | 11 | Methanol catalyst | AM | 10 copper-plate + 2 alumina | 1 methanol-catalyst | **off** |
 | 12 | Methanol catalyst reprocessing | CP | 1 spent-methanol-catalyst + 20 sulfuric-acid *(f)* | 6 copper-plate + 1 alumina | **off** |
@@ -682,12 +684,14 @@ in hand, matching the ci-9l6 pacing intent. No unlock costs the product it gates
 - **Rocket fuel is a terminal sink, never an energy loop (ci-669 energy analog).**
   Both fuel recipes consume metal/methanol worth far more electricity than the
   vanilla `rocket-fuel`'s ~100 MJ; fuel is exported/launched, never burned back
-  into the grid to power its own production. **TUNE FLAG (ci-6vj S6 -> ci-63d):**
-  the S6 energy pass found the methanol-fuel yield (#9, `50 methanol -> 10
-  rocket-fuel`) is currently energy-*positive* (~103 MJ in vs 1000 MJ fuel_value),
-  so it breaks this invariant as written; ALICE is correctly energy-negative. The
-  balance pass (ci-63d) is to cut that yield to ~1 (or raise methanol's cost); the
-  number is pinned by a mandatory S5 guard so it needs a design decision first.
+  into the grid to power its own production. **RESOLVED (ci-6vj S6 -> ci-63d):** the
+  S6 energy pass found the methanol-fuel yield (#9) was energy-*positive* at `50
+  methanol -> 10 rocket-fuel` (~104 MJ electricity in vs 1000 MJ fuel_value out, a
+  ~5-10x burn-back profit), breaking this invariant. The balance pass cut the yield
+  to `50 methanol -> 1 rocket-fuel`, so the ~104 MJ sunk now exceeds the 100 MJ
+  fuel_value even before burn losses -- robustly net-negative, like ALICE.
+  `test_plastics` computes the energy balance LIVE and fails on the old `-> 10`
+  graph (a regression guard, not a static pin).
 
 All of the above are guarded by tests (`test_lava`, `test_aluminium`,
 `test_plastics`, `test_sulfur`, `test_mass_driver`, and a new ci-6vj graph-balance

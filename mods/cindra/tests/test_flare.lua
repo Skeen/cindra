@@ -8,7 +8,7 @@
 --   * sporadic scheduling in-engine (a long run really yields randomized calm
 --     gaps, never a fixed period),
 --   * engine embodiment (applying an event to the real Cindra surface swings
---     solar output ~15x, a 400 kW floor up to a ~6 MW peak),
+--     solar output ~18x, a 330 kW floor up to a ~6 MW peak),
 --   * the reactive forecast source the environmental scanner reads.
 
 local H = require("tests.helpers")
@@ -40,9 +40,10 @@ describe("flare cycle - canonical shape", function()
     local plateau = flare.state(PLATEAU_TICK, WS)
     assert.are.equal(P.PLATEAU, plateau.phase)
     assert.are.equal(C.PEAK_INTENSITY, plateau.intensity)
-    -- The signature magnitude (ci-ezk): a 400 kW baseline swings up to a ~6 MW peak
-    -- (a ~15x spike into the MW range). Peak = the natural full-daylight ceiling.
-    assert.are.equal(400e3, C.BASELINE_W)
+    -- The signature magnitude (ci-ezk; ci-63d trimmed the baseline to the additive
+    -- +100-200 pp window): a 330 kW baseline swings up to a ~6 MW peak (a ~18x spike
+    -- into the MW range). Peak = the natural full-daylight ceiling.
+    assert.are.equal(330e3, C.BASELINE_W)
     assert.are.equal(6e6, C.PEAK_W)
     assert.is_true(C.PEAK_INTENSITY / C.BASELINE_INTENSITY > 10) -- a large swing, still MW-scale
   end)
@@ -97,7 +98,7 @@ describe("flare cycle - sporadic timing", function()
 end)
 
 describe("flare cycle - engine embodiment", function()
-  it("driving daytime really swings real solar output ~15x (400 kW floor -> MW peak)", function()
+  it("driving daytime really swings real solar output ~18x (330 kW floor -> MW peak)", function()
     local s = H.cindra_surface()
     H.power_reset()
     flare.set_schedule(WS) -- pin a deterministic event so the ticks below land right
@@ -119,10 +120,11 @@ describe("flare cycle - engine embodiment", function()
       after_ticks(120, function()
         local peak_e = sink.energy
         local ratio = peak_e / base_e
-        -- ci-ezk re-baseline: the floor is now 400 kW (was 60 kW) so the swing is
-        -- ~15x (6 MW / 400 kW), not the old 100x. Still a large, MW-scale spike.
-        assert.is_true(ratio > 10 and ratio < 20,
-          "real solar output must swing ~15x baseline; got " .. string.format("%.1f", ratio))
+        -- ci-ezk re-baseline + ci-63d trim: the floor is now 330 kW (was 60 kW, then
+        -- 400 kW) so the swing is ~18x (6 MW / 330 kW), not the old 100x. Still a
+        -- large, MW-scale spike.
+        assert.is_true(ratio > 10 and ratio < 22,
+          "real solar output must swing ~18x baseline; got " .. string.format("%.1f", ratio))
         done()
       end)
     end)

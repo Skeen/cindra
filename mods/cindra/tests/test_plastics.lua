@@ -162,13 +162,15 @@ end)
 -- O2 sink (DESIGN §8.2, §8.4). Burns methanol against surplus oxygen into the
 -- vanilla rocket-fuel item, prod off, a terminal launch/export sink.
 describe("cindra methanol rocket fuel (ci-6vj S5 #9): a second methanol product + O2 sink", function()
-  it("burns 50 methanol + 50 O2 -> 10 vanilla rocket-fuel", function()
+  it("burns 50 methanol + 50 O2 -> 1 vanilla rocket-fuel (ci-63d: yield cut 10 -> 1)", function()
     local r = prototypes.recipe["cindra-methanol-rocket-fuel"]
     assert.is_not_nil(r, "the methanol rocket fuel recipe must exist")
     assert.are.equal(50, amount_of(r.ingredients, METHANOL), "50 methanol in (the fuel-stock)")
     assert.are.equal(50, amount_of(r.ingredients, O2), "50 oxygen in (the oxidiser -- an O2 sink)")
     -- Output is the VANILLA rocket-fuel item (no bespoke fuel type), like ALICE.
-    assert.are.equal(10, amount_of(r.products, ROCKET_FUEL), "10 vanilla rocket-fuel out")
+    -- ci-63d cut the yield 10 -> 1 to make the recipe net-negative (§8.6): the old
+    -- 10 was energy-POSITIVE (see the energy-balance test below).
+    assert.are.equal(1, amount_of(r.products, ROCKET_FUEL), "1 vanilla rocket-fuel out (net-negative sink)")
     assert.is_not_nil(prototypes.item[ROCKET_FUEL], "vanilla rocket-fuel item must exist (the product)")
   end)
 
@@ -191,15 +193,51 @@ describe("cindra methanol rocket fuel (ci-6vj S5 #9): a second methanol product 
       "methanol rocket fuel must disable productivity (never mint free rocket-fuel, ci-669)")
   end)
 
-  it("is a TERMINAL energy sink: rocket-fuel holds far less energy than its inputs cost (ci-669)", function()
+  it("is a TERMINAL energy sink: the electricity sunk in exceeds the fuel_value out (ci-669, ci-63d)", function()
     -- rocket-fuel can be burned as a fuel item, so making it must never be an energy
-    -- profit. 10 rocket-fuel = ~1 GJ of fuel_value, made from 50 methanol + 50 O2 +
-    -- chemical-plant power -- the methanol alone (roasted calcite + electrolysis H2)
-    -- cost far more electricity than that. Pin the vanilla fuel_value as a sanity
-    -- guard: fuel is a launch/export good, never fed back to power its own line.
-    local rf = prototypes.item[ROCKET_FUEL]
-    assert.is_true(rf.fuel_value ~= nil and rf.fuel_value <= 200e6,
-      "sanity: vanilla rocket-fuel holds ~100 MJ, far under the power sunk into its methanol + O2")
+    -- PROFIT (§8.6 "a terminal sink, never an energy loop"). This computes the real
+    -- electrical cost of the recipe's methanol input LIVE from the shipped chain and
+    -- asserts it exceeds the fuel_value produced -- even at a physically-impossible
+    -- 100% burn efficiency. It FAILS on the old `-> 10` graph (~104 MJ in vs 1000 MJ
+    -- out, a ~10x profit) and PASSES at the ci-63d `-> 1` yield (~104 MJ in vs 100 MJ
+    -- out). The dominant term is the calcite-roast CO2 (2 MJ/CO2, all Cindra-owned
+    -- constants), so the balance is stable against vanilla rebalances.
+    local LM, CP = "cindra-lava-manufacturer", "chemical-plant"
+
+    -- Electricity (J) to run ONE craft of `recipe` in `machine`: draw (W) * craft
+    -- time (s). energy_usage is J/tick, so *60 -> W; energy is the recipe seconds.
+    local function craft_energy(recipe_name, machine_name)
+      local m = prototypes.entity[machine_name]
+      local craft_time = prototypes.recipe[recipe_name].energy / m.get_crafting_speed()
+      return (m.energy_usage * 60) * craft_time
+    end
+    -- Electricity per unit of a named product of `recipe` crafted in `machine`.
+    local function energy_per(recipe_name, machine_name, product)
+      return craft_energy(recipe_name, machine_name) / amount_of(prototypes.recipe[recipe_name].products, product)
+    end
+
+    -- Per-molecule electrical cost of the two synthesis feeds.
+    local e_co2 = energy_per("cindra-calcination", LM, CO2)   -- the roast heat (dominant)
+    local e_h2 = energy_per("cindra-electrolysis", CP, H2)    -- water electrolysis
+
+    -- One methanol's electrical cost: its CO2 + H2 share of a synthesis craft, plus
+    -- that craft's own machine power, all per methanol produced.
+    local syn = prototypes.recipe["cindra-methanol-synthesis"]
+    local m_out = amount_of(syn.products, METHANOL)
+    local e_methanol = (amount_of(syn.ingredients, CO2) / m_out) * e_co2
+      + (amount_of(syn.ingredients, H2) / m_out) * e_h2
+      + craft_energy("cindra-methanol-synthesis", CP) / m_out
+
+    -- The fuel recipe: methanol input * per-methanol cost + the burn craft's power.
+    local fr = prototypes.recipe["cindra-methanol-rocket-fuel"]
+    local e_in = amount_of(fr.ingredients, METHANOL) * e_methanol
+      + craft_energy("cindra-methanol-rocket-fuel", CP)
+    local e_out = amount_of(fr.products, ROCKET_FUEL) * prototypes.item[ROCKET_FUEL].fuel_value
+
+    assert.is_true(e_in > e_out, string.format(
+      "methanol rocket fuel must be net-negative energy (§8.6): electricity in %.1f MJ must exceed "
+        .. "fuel_value out %.1f MJ; a positive balance means it can be burned back for a power profit",
+      e_in / 1e6, e_out / 1e6))
   end)
 end)
 
