@@ -142,46 +142,56 @@ for _, spec in ipairs({
   end)
 end
 
--- === Carbothermic furnace ===================================================
-test("the carbothermic furnace is a private-category high-draw machine", function()
-  local e = proto("assembling-machine", "cindra-carbothermic-furnace")
+-- === Arc furnace ============================================================
+test("the arc furnace is a private-category high-draw machine", function()
+  local e = proto("assembling-machine", "cindra-arc-furnace")
   assert_true(e ~= nil, "the furnace entity must be registered")
   assert_eq("45MW", e.energy_usage, "the furnace must draw 45 MW (a ruinous continuous draw)")
   assert_eq(1, #e.crafting_categories, "the furnace runs exactly one (private) category")
-  assert_eq("cindra-carbothermic", e.crafting_categories[1], "the private category")
+  assert_eq("cindra-arc-furnace", e.crafting_categories[1], "the private category")
   assert_nil(e.next_upgrade, "the furnace must not upgrade to a vanilla assembler")
-  assert_eq("cindra-carbothermic-furnace", e.minable.result, "the furnace mines back to itself")
-  local item = proto("item", "cindra-carbothermic-furnace")
+  assert_eq("cindra-arc-furnace", e.minable.result, "the furnace mines back to itself")
+  local item = proto("item", "cindra-arc-furnace")
   assert_true(item ~= nil, "the furnace item must be registered")
-  assert_eq("cindra-carbothermic-furnace", item.place_result, "the item places the furnace")
+  assert_eq("cindra-arc-furnace", item.place_result, "the item places the furnace")
 end)
 
--- === Carbothermic furnace: bespoke art (ci-zdp) =============================
-test("the furnace draws a bespoke Cindra sprite (no assembling-machine-3 art)", function()
-  local e = proto("assembling-machine", "cindra-carbothermic-furnace")
+-- === Arc furnace: bespoke art (ci-hs1j) =====================================
+-- Hurricane046's animated "arc furnace" set (CC-BY), freed by ci-a6z. The body +
+-- emission are 320x320-frame sheets; the shadow is a static image. No AM3 leak.
+test("the furnace draws the arc-furnace set (no assembling-machine-3 art)", function()
+  local e = proto("assembling-machine", "cindra-arc-furnace")
   assert_true(e.graphics_set and e.graphics_set.animation and e.graphics_set.animation.layers,
     "the furnace must render via a layered graphics_set.animation")
   local body = e.graphics_set.animation.layers[1].filename
-  local expected = "__cindra__/graphics/entity/carbothermic-furnace/carbothermic-furnace.png"
-  assert_eq(expected, body, "the furnace body sprite must be the bespoke Cindra render")
+  local expected = "__cindra__/graphics/entity/arc-furnace/arc-furnace-hr-animation-1.png"
+  assert_eq(expected, body, "the furnace body sprite must be the arc-furnace render")
   assert_true(body:find("assembling%-machine") == nil and body:find("__base__", 1, true) == nil,
     "no assembling-machine-3 / vanilla sprite may leak through")
+  assert_true(body:find("carbothermic", 1, true) == nil,
+    "no carbothermic-furnace art may leak through")
   assert_true(ships(body), "the furnace body sprite must ship: " .. body)
   assert_eq(6, png_color_type(body), "the furnace body sprite must be truecolour RGBA")
   local shadow = e.graphics_set.animation.layers[2]
   assert_true(shadow and shadow.draw_as_shadow, "the furnace must ship a shadow layer")
   assert_true(ships(shadow.filename), "the furnace shadow sprite must ship: " .. shadow.filename)
+  assert_eq(6, png_color_type(shadow.filename), "the furnace shadow sprite must be truecolour RGBA")
+  local glow = e.graphics_set.animation.layers[3]
+  assert_true(glow and glow.draw_as_glow, "the furnace must ship an emissive glow layer")
+  assert_eq("additive", glow.blend_mode, "the opaque-black emission sheet must blend additive")
+  assert_true(ships(glow.filename), "the furnace emission sprite must ship: " .. glow.filename)
 end)
 
-test("the furnace item + entity carry the bespoke furnace icon", function()
-  local icon = "__cindra__/graphics/icons/carbothermic-furnace.png"
+test("the furnace item + entity carry the arc-furnace icon", function()
+  local icon = "__cindra__/graphics/icons/arc-furnace-icon.png"
   for _, kind in ipairs({ "assembling-machine", "item" }) do
-    local p = proto(kind, "cindra-carbothermic-furnace")
-    assert_eq(icon, p.icon, kind .. " must draw the bespoke furnace icon")
+    local p = proto(kind, "cindra-arc-furnace")
+    assert_eq(icon, p.icon, kind .. " must draw the arc-furnace icon")
     assert_true(p.icon and p.icon:find("assembling%-machine") == nil,
       kind .. " must not keep the assembling-machine-3 icon")
+    assert_true(p.icon:find("carbothermic", 1, true) == nil,
+      kind .. " must not keep the carbothermic-furnace icon")
     assert_eq(64, p.icon_size, kind .. " furnace icon_size")
-    assert_eq(4, p.icon_mipmaps, kind .. " furnace icon_mipmaps (mip strip)")
   end
   assert_true(ships(icon), "the furnace icon PNG must ship: " .. icon)
   assert_eq(6, png_color_type(icon), "the furnace icon PNG must be truecolour RGBA")
@@ -214,7 +224,7 @@ test("iron recovery: red mud + CO2 -> iron-plate + slag, private category, prod 
   assert_nil(amount_of(r.ingredients, "stone"), "iron recovery touches no stone")
   assert_nil(product(r.results, "stone"), "iron recovery returns no stone")
   assert_eq(1, #r.categories, "iron recovery runs exactly one (private) category")
-  assert_eq("cindra-carbothermic", r.categories[1], "the private carbothermic category")
+  assert_eq("cindra-arc-furnace", r.categories[1], "the private arc-furnace category")
   assert_eq(false, r.allow_productivity, "iron recovery must disable productivity (no free metal)")
   assert_eq(false, r.enabled, "iron recovery must be gated off until its tech")
 end)
@@ -230,8 +240,8 @@ end)
 
 -- === Category + tech ========================================================
 test("the private recipe category is registered", function()
-  local c = proto("recipe-category", "cindra-carbothermic")
-  assert_true(c ~= nil, "the cindra-carbothermic recipe-category must be registered")
+  local c = proto("recipe-category", "cindra-arc-furnace")
+  assert_true(c ~= nil, "the cindra-arc-furnace recipe-category must be registered")
 end)
 
 test("the tech clusters the subsystem behind the materials-chemistry tech", function()
@@ -245,7 +255,7 @@ test("the tech clusters the subsystem behind the materials-chemistry tech", func
   end
   for _, rn in ipairs({
     "cindra-bayer-alumina", "cindra-iron-recovery",
-    "cindra-carbothermic-furnace", "cindra-vent-slag",
+    "cindra-arc-furnace", "cindra-vent-slag",
   }) do
     assert_true(unlocked[rn], "the tech must unlock " .. rn)
   end

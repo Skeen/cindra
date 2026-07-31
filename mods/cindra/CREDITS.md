@@ -7,8 +7,8 @@ The lava-manufacturer (stone->lava melter) building + icon graphics are the
 icon graphics are the "oxidizer" set, all by **Hurricane**
 (https://mods.factorio.com/user/Hurricane046), licensed **CC-BY**, originally
 made for the "LL" mod (the oxidizer as bundled in the Nullius Visual Overhaul).
-The "arc-furnace" set (also Hurricane046, CC-BY) is retained in
-`graphics/entity/arc-furnace/`, reserved for the iron-recovery building.
+The "arc-furnace" set (also Hurricane046, CC-BY) dresses the iron-recovery
+building (`cindra-arc-furnace`) from `graphics/entity/arc-furnace/`.
 
 > Thank you to Hurricane for the incredible custom graphics made for LL: core
 > extractor, low gravity assembling machine, and arc furnace.

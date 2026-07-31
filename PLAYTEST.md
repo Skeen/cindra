@@ -1041,13 +1041,14 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   wear bespoke Hurricane046 art. Remaining bespoke/animated art is tracked across ci-z94,
   ci-eb9, and ci-kuu. Do not file the remaining placeholder art as a gameplay bug.
 
-- [ ] **[LANDED] Red-mud subsystem art is placeholder (ci-c7j).** Red mud and
-  slag reuse the bespoke `cindra-stone` icon under a tint (reddish / dark-grey),
-  and the carbothermic furnace reuses the vanilla assembling-machine-3 sprite +
-  icon (see `graphics/ART-MANIFEST.md`). *Look for:* red mud reads reddish-brown
-  and slag reads grey on the belt/in inventory, distinct from stone and from each
-  other; the furnace is visible when placed. Bespoke art is tracked in ci-zdp. Do
-  not file the placeholder art as a gameplay bug.
+- [ ] **[LANDED] Red-mud subsystem art (ci-c7j → ci-zdp → ci-hs1j).** The ci-c7j
+  placeholders (red mud / slag as tinted `cindra-stone`, the furnace as an
+  assembling-machine-3 clone) are fully replaced: red mud + slag wear bespoke
+  Malcolm Riley renders (ci-zdp), and the iron-recovery building wears the animated
+  arc-furnace model (ci-hs1j, renamed from the carbothermic furnace; see
+  `graphics/ART-MANIFEST.md`). The visual read is tracked in the two active
+  playtest items below (ci-zdp items, ci-hs1j building). Do not file the art as a
+  gameplay bug.
 
 ## In-flight (not yet in-game)
 
@@ -1162,19 +1163,27 @@ of the current build; they are listed so "not built yet" is distinguishable from
   side; (4) they never spawn ON the impassable lava tiles (collision keeps them on
   solid ground), so they read as "at the lava's edge," not floating in it.
 
-- [ ] **Red-mud subsystem bespoke art reads correctly (ci-zdp).** The Bayer/iron-
-  recovery items and building carry bespoke art replacing the ci-c7j placeholders:
-  `cindra-red-mud` (Malcolm Riley crushed-iron-ore render + an in-engine rust-red
-  tint), `cindra-slag` (Malcolm Riley slag-chunk render), and the
-  `cindra-carbothermic-furnace` (a procedural Cindra reduction-furnace icon + in-world
-  sprite from `gen-entity-art.py`). The wiring, that every PNG ships and is RGBA, and
-  that no assembling-machine-3 / vanilla art leaks are integration- + unit-tested
-  (`unit-tests/test_red_mud.lua`, `tests/test_red_mud.lua`); only the *visual read* is
-  the playtest. *Look for:* (1) red mud reads as a rusty-red residue and slag as a
-  dark inert clinker, clearly distinct from each other and from `cindra-stone` in the
-  inventory / recipe GUI; (2) the carbothermic furnace icon reads as a hot reduction
-  furnace (ember pour, carbon charge band) and sits in the one-family brushed-steel
-  style; (3) the placed furnace shows the bespoke sprite (not the assembling-machine-3
-  body) at a sane scale for its 3×3 footprint, with the soft shadow grounded; (4) the
-  furnace's CO2 input pipe still connects and renders (the fluid box survived replacing
-  the graphics_set).
+- [ ] **Red-mud item art reads correctly (ci-zdp).** The Bayer/iron-recovery items
+  carry bespoke art replacing the ci-c7j placeholders: `cindra-red-mud` (Malcolm
+  Riley crushed-iron-ore render + an in-engine rust-red tint) and `cindra-slag`
+  (Malcolm Riley slag-chunk render). The wiring, that every PNG ships and is RGBA,
+  is unit-tested (`unit-tests/test_red_mud.lua`); only the *visual read* is the
+  playtest. *Look for:* red mud reads as a rusty-red residue and slag as a dark
+  inert clinker, clearly distinct from each other and from `cindra-stone` in the
+  inventory / recipe GUI.
+
+- [ ] **Arc-furnace iron-recovery building reads correctly (ci-hs1j).** The iron-
+  recovery building was renamed/reskinned from the "carbothermic furnace" to
+  Hurricane046's animated "arc furnace" model (icon `icons/arc-furnace-icon.png`,
+  entity set `entity/arc-furnace/`, freed by ci-a6z; the CO2 recipe + economy are
+  unchanged, mayor Option A). The wiring, that every PNG ships and is RGBA, and that
+  no assembling-machine-3 / carbothermic art leaks are integration- + unit-tested
+  (`unit-tests/test_red_mud.lua`, `tests/test_red_mud.lua`); only the *visual read*
+  is the playtest. *Look for:* (1) the building's item/entity icon is the arc-furnace
+  icon (not the old procedural carbothermic icon, not the assembling-machine-3 icon);
+  (2) the placed building shows the animated arc-furnace body with its molten glow at
+  a sane scale for its 3×3 footprint, the soft shadow grounded, and no blink-out on
+  the trailing animation frames; (3) the recipe still shows red mud + CO2 -> iron +
+  slag, and the building's CO2 input pipe still connects and renders (the fluid box
+  survived replacing the graphics_set); (4) it reads as a distinct high-draw machine
+  next to the electrolysis cell (oxidizer set), not a twin of it.

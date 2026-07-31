@@ -26,7 +26,7 @@ local C = require("scripts.flare-config")
 -- independent; cross-category ratios use these live speeds.
 local LM = "cindra-lava-manufacturer"     -- private cindra-lava-manufacturing
 local EC = "cindra-electrolysis-cell"     -- private cindra-electrolysis
-local CF = "cindra-carbothermic-furnace"  -- private cindra-carbothermic
+local AF = "cindra-arc-furnace"           -- private cindra-arc-furnace (iron recovery)
 local FOUNDRY = "foundry"                 -- vanilla metallurgy
 local CP = "chemical-plant"               -- vanilla chemistry / crafting-with-fluid
 local AM = "assembling-machine-3"         -- vanilla crafting / crafting-with-fluid
@@ -105,10 +105,10 @@ describe("balance audit (ci-63d): production-chain throughput ratios", function(
       consumer = { recipe = "cindra-science-pack", machine = AM } }, -- ~0.08
     { label = "Bayer plants per iron-recovery furnace (red-mud)", carrier = "cindra-red-mud",
       producer = { recipe = "cindra-bayer-alumina", machine = AM },
-      consumer = { recipe = "cindra-iron-recovery", machine = CF } }, -- ~0.67
+      consumer = { recipe = "cindra-iron-recovery", machine = AF } }, -- ~0.67
     { label = "calciners per iron-recovery furnace (CO2)", carrier = "cindra-carbon-dioxide",
       producer = { recipe = "cindra-calcination", machine = LM },
-      consumer = { recipe = "cindra-iron-recovery", machine = CF } }, -- ~0.1
+      consumer = { recipe = "cindra-iron-recovery", machine = AF } }, -- ~0.1
     { label = "powder assemblers per ALICE-fuel assembler (powder)", carrier = "cindra-aluminium-powder",
       producer = { recipe = "cindra-aluminium-powder", machine = AM },
       consumer = { recipe = "cindra-solid-rocket-fuel", machine = AM } }, -- ~0.33
@@ -165,19 +165,19 @@ describe("balance audit (ci-63d): craft times and rates are sane", function()
       "the science pack must be a long, expensive craft (>=30s); got " .. string.format("%.0fs", r.energy))
   end)
 
-  it("the energy apex ordering holds: electrolysis cell >= carbothermic furnace (DESIGN §8.1)", function()
+  it("the energy apex ordering holds: electrolysis cell >= arc furnace (DESIGN §8.1)", function()
     -- The continuous single-building draws are ordered by design: the electrolysis
-    -- cell (aluminium, the apex, 50 MW) out-draws the carbothermic furnace (45 MW),
-    -- which sits above the electric heater (40 MW). Both furnaces are multi-tens-of-MW
+    -- cell (aluminium, the apex, 50 MW) out-draws the arc furnace (45 MW),
+    -- which sits above the electric heater (40 MW). Both machines are multi-tens-of-MW
     -- flare-timed power sinks. (The heater is a reactor-type clone whose draw is not a
     -- crafting-machine energy_usage, so it is anchored by the >= 40 MW floor below
     -- rather than read directly.)
-    local ec, cf = draw_w(EC), draw_w(CF)
-    assert.is_true(ec >= cf, string.format(
-      "electrolysis cell must out-draw the carbothermic furnace: %.0f MW vs %.0f MW", ec / 1e6, cf / 1e6))
-    assert.is_true(cf >= 40e6, string.format(
-      "the carbothermic furnace must stay a multi-tens-of-MW flare sink (>= the 40 MW heater); got %.0f MW",
-      cf / 1e6))
+    local ec, af = draw_w(EC), draw_w(AF)
+    assert.is_true(ec >= af, string.format(
+      "electrolysis cell must out-draw the arc furnace: %.0f MW vs %.0f MW", ec / 1e6, af / 1e6))
+    assert.is_true(af >= 40e6, string.format(
+      "the arc furnace must stay a multi-tens-of-MW flare sink (>= the 40 MW heater); got %.0f MW",
+      af / 1e6))
   end)
 end)
 

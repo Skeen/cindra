@@ -7,7 +7,7 @@
 --   2. BOTH alumina routes feed the SAME electrolysis unchanged (Bayer + the acid
 --      leach both make cindra-alumina; electrolysis still eats cindra-alumina).
 --   3. IRON RECOVERY: `red mud + CO2 + [ruinous power] -> iron-plate + slag`, in a
---      dedicated high-draw CARBOTHERMIC FURNACE (private category), prod OFF,
+--      dedicated high-draw ARC FURNACE (private category), prod OFF,
 --      gated. It is a big electric draw (a flare-timed power sink) and a real CO2
 --      sink (closing the calcination loop). Output is the vanilla iron-plate.
 --   4. THE COUPLING: red mud's only consumer is iron recovery (no free vent), so
@@ -21,14 +21,14 @@
 --   8. NEVER-MUTATE-OTHER-PLANETS: the shared vanilla stone / iron-plate are read
 --      only; every new item and the furnace are Cindra's own.
 --   9. PETROCHEMICAL-FREE: no oil/coal feeds Bayer or iron recovery.
---  10. RUNTIME: a powered carbothermic furnace fed red mud + CO2 makes iron + slag.
+--  10. RUNTIME: a powered arc furnace fed red mud + CO2 makes iron + slag.
 
 local H = require("tests.helpers")
 
 local RED_MUD = "cindra-red-mud"
 local SLAG    = "cindra-slag"
-local FURNACE = "cindra-carbothermic-furnace"
-local CATEGORY = "cindra-carbothermic"
+local FURNACE = "cindra-arc-furnace"
+local CATEGORY = "cindra-arc-furnace"
 local ALUMINA  = "cindra-alumina"
 local QUICKLIME = "cindra-quicklime"
 local CO2      = "cindra-carbon-dioxide"
@@ -119,24 +119,24 @@ describe("cindra iron recovery (ci-c7j): waste-born iron + a power sink", functi
     assert.is_false(prototypes.recipe[IRON_RECOVERY].enabled, "iron recovery must be gated off until its tech")
   end)
 
-  it("iron recovery runs ONLY in the carbothermic furnace (a private category)", function()
+  it("iron recovery runs ONLY in the arc furnace (a private category)", function()
     local r = prototypes.recipe[IRON_RECOVERY]
     local in_cat = false
     for _, c in pairs(r.categories or {}) do
       if c == CATEGORY then in_cat = true end
     end
-    assert.is_true(in_cat, "iron recovery runs in the private cindra-carbothermic category")
+    assert.is_true(in_cat, "iron recovery runs in the private cindra-arc-furnace category")
     local furnace = prototypes.entity[FURNACE]
-    assert.is_not_nil(furnace, "the carbothermic furnace entity must exist")
+    assert.is_not_nil(furnace, "the arc furnace entity must exist")
     assert.is_true(furnace.crafting_categories[CATEGORY],
-      "the carbothermic furnace must run the cindra-carbothermic category")
+      "the arc furnace must run the cindra-arc-furnace category")
     -- No shared machine may run iron recovery (no category leak).
     local am = prototypes.entity["assembling-machine-3"]
     assert.is_falsy(am.crafting_categories[CATEGORY],
-      "a vanilla assembler must never run the private carbothermic category")
+      "a vanilla assembler must never run the private arc-furnace category")
   end)
 
-  it("the carbothermic furnace is a big draw: a flare-timed power sink", function()
+  it("the arc furnace is a big draw: a flare-timed power sink", function()
     local furnace = prototypes.entity[FURNACE]
     -- energy_usage is reported per TICK (J/tick); *60 gives the continuous draw in
     -- watts. Big in absolute terms (a continuous multi-MW draw) and far above the
@@ -246,7 +246,7 @@ end)
 
 -- ===========================================================================
 describe("cindra iron-recovery runtime (a powered furnace makes iron + slag)", function()
-  it("10. a powered carbothermic furnace fed red mud + CO2 produces iron and slag", function()
+  it("10. a powered arc furnace fed red mud + CO2 produces iron and slag", function()
     local s = H.cindra_surface()
     local pole = s.create_entity({ name = "substation", position = { 2, 2 }, force = "player" })
     assert.is_not_nil(pole, "substation must place")
@@ -261,7 +261,7 @@ describe("cindra iron-recovery runtime (a powered furnace makes iron + slag)", f
     game.forces["player"].recipes[IRON_RECOVERY].enabled = true
 
     local furnace = s.create_entity({ name = FURNACE, position = { 0, 0 }, force = "player" })
-    assert.is_not_nil(furnace, "the carbothermic furnace must be placeable on Cindra")
+    assert.is_not_nil(furnace, "the arc furnace must be placeable on Cindra")
     furnace.set_recipe(IRON_RECOVERY)
     furnace.insert({ name = RED_MUD, count = 100 })
     furnace.insert_fluid({ name = CO2, amount = 1000 })

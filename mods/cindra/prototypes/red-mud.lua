@@ -20,10 +20,10 @@
 --      leach), so no module tier mints free alumina/red mud.
 --
 --   2. IRON RECOVERY (the disposal mechanic + Cindra's waste-born iron): `red mud
---      + CO2 + [RUINOUS power] -> iron + slag`, in a dedicated high-draw
---      CARBOTHERMIC FURNACE (its private `cindra-carbothermic` category). The
---      carbon comes from the calciner's CO2 (closing that loop); the reduction
---      heat is paid as a large continuous electric draw, so the furnace lands as
+--      + CO2 + [RUINOUS power] -> iron + slag`, in a dedicated high-draw ARC
+--      FURNACE (its private `cindra-arc-furnace` category). The carbon comes from
+--      the calciner's CO2 (closing that loop); the reduction heat is paid as a
+--      large continuous electric draw (the arc), so the furnace lands as
 --      ANOTHER flare-timed POWER SINK next to the electrolysis cell, manufactured
 --      lava, and the mass driver -- power is the honest cost. Output is the
 --      VANILLA `iron-plate` (read as a recipe result only, never mutated), so it
@@ -57,21 +57,22 @@
 -- deep-copy. The shared vanilla `stone` / `iron-plate` / `assembling-machine-3` /
 -- `calcite` are read as ingredients/results or cloned (never mutated); the shared
 -- `cindra-quicklime` / `cindra-carbon-dioxide` / `cindra-alumina` are referenced
--- by name only. A private recipe category keeps iron recovery on the carbothermic
--- furnace alone.
+-- by name only. A private recipe category keeps iron recovery on the arc furnace
+-- alone.
 --
--- ART: bespoke icons + furnace sprite (ci-zdp). Red mud + slag draw dedicated
--- 64x64 renders from Malcolm Riley's unused-renders (CC-BY-4.0; red mud leaned
--- rust-red in-engine), and the carbothermic furnace draws a procedural Cindra
--- reduction-furnace sprite from scripts/gen-entity-art.py (no assembling-machine-3
--- art leaks). Per-asset source + attribution are in graphics/ART-MANIFEST.md.
+-- ART: bespoke item icons (ci-zdp) + the arc-furnace building set (ci-hs1j). Red
+-- mud + slag draw dedicated 64x64 renders from Malcolm Riley's unused-renders
+-- (CC-BY-4.0; red mud leaned rust-red in-engine); the iron-recovery building wears
+-- Hurricane046's animated "arc furnace" set + icon (CC-BY), freed by ci-a6z when
+-- the electrolysis cell moved to the oxidizer set (no assembling-machine-3 art
+-- leaks). Per-asset source + attribution are in graphics/ART-MANIFEST.md.
 
 local util = require("util")
 
 local RED_MUD = "cindra-red-mud"
 local SLAG    = "cindra-slag"
-local FURNACE = "cindra-carbothermic-furnace"
-local CATEGORY = "cindra-carbothermic"       -- private: furnace-only, keeps iron recovery off cheap assemblers
+local FURNACE = "cindra-arc-furnace"
+local CATEGORY = "cindra-arc-furnace"        -- private: furnace-only, keeps iron recovery off cheap assemblers
 local TECH    = "cindra-red-mud"
 
 -- Referenced-by-name interfaces from the existing graph (never mutated here).
@@ -96,28 +97,59 @@ local function set_item_icon(proto, name, tint)
   proto.pictures = nil -- fall back to the icon for belt/inventory art
 end
 
--- Bespoke entity icon: a 120x64 mip strip from the procedural entity-art
--- generator (scripts/gen-entity-art.py; icon_size 64, icon_mipmaps 4).
-local function set_entity_icon(proto, name)
-  proto.icon = bespoke(name)
+-- Arc-furnace entity/item icon: Hurricane046's flat 64x64 "arc furnace" icon
+-- (CC-BY; graphics/entity/arc-furnace/ATTRIBUTION.md). A single-layer icon with no
+-- mip strip, exactly as the electrolysis cell wore it before ci-a6z handed this set
+-- to the iron-recovery building (ci-hs1j).
+local FURNACE_ICON = ICON_DIR .. "arc-furnace-icon.png"
+local function set_furnace_icon(proto)
+  proto.icon = FURNACE_ICON
   proto.icons = nil
   proto.icon_size = 64
-  proto.icon_mipmaps = 4
+  proto.icon_mipmaps = nil
 end
 
--- The bespoke carbothermic-furnace in-world sprite (a static HR single frame +
--- soft shadow) from the same generator. Wired as the assembler's `graphics_set.
--- animation` so it fully replaces the inherited assembling-machine-3 art (no
--- vanilla sprite leak). Art dir key is the short name, like the other entities.
-local FURNACE_ART = "carbothermic-furnace"
+-- The arc-furnace in-world sprite (Hurricane046, CC-BY): an animated riveted vessel
+-- with a molten glow, freed by ci-a6z (which reskinned the electrolysis cell to the
+-- oxidizer set) and reserved for the iron-recovery building. Wired as the cloned
+-- assembler's `graphics_set.animation` so it fully replaces the inherited
+-- assembling-machine-3 art (no vanilla sprite leak). The single-file animation sheet
+-- is 2560x2240 px = an 8x7 grid of 320x320-px frames (56 cells), of which the first
+-- 50 are non-empty; line_length 8 walks the grid and frame_count 50 stops before the
+-- 6 trailing empty cells (otherwise the machine blinks out on the blanks). The
+-- emission sheet shares the exact geometry so the glow registers frame-for-frame.
+-- The furnace keeps its 3x3 assembling-machine footprint, so scale 0.45 seats the
+-- body on the box just as it did on the (then 3x3) electrolysis cell in ci-wfv.
+local FURNACE_ART = "arc-furnace"
+local FRAME_W, FRAME_H = 320, 320
+local FURNACE_FRAME_COUNT = 50
+local FURNACE_LINE_LENGTH = 8
+local FURNACE_SCALE = 0.45
+local FURNACE_SHIFT = { 0, 0 }
 local function furnace_animation()
   local dir = "__cindra__/graphics/entity/" .. FURNACE_ART .. "/"
   return {
     layers = {
-      { filename = dir .. FURNACE_ART .. ".png",
-        width = 256, height = 256, scale = 0.5, shift = { 0, -0.1 } },
-      { filename = dir .. FURNACE_ART .. "-shadow.png",
-        width = 256, height = 256, scale = 0.5, shift = { 0.3, 0 }, draw_as_shadow = true },
+      { -- lit, opaque body
+        filename = dir .. FURNACE_ART .. "-hr-animation-1.png",
+        width = FRAME_W, height = FRAME_H,
+        frame_count = FURNACE_FRAME_COUNT, line_length = FURNACE_LINE_LENGTH,
+        scale = FURNACE_SCALE, shift = FURNACE_SHIFT, animation_speed = 0.5 },
+      { -- ground shadow: one static image (all layers of a layered Animation must
+        -- share frame_count, so pin it to 1 and let the engine hold the frame).
+        filename = dir .. FURNACE_ART .. "-hr-shadow.png",
+        width = 600, height = 400,
+        frame_count = 1, repeat_count = FURNACE_FRAME_COUNT,
+        scale = FURNACE_SCALE, shift = FURNACE_SHIFT, draw_as_shadow = true },
+      { -- emissive molten arc glow, locked to the body geometry. The emission sheet
+        -- is opaque black with bright glow openings, so it MUST blend "additive" with
+        -- draw_as_glow (draw_as_glow alone does not change the blend op) or the black
+        -- frame paints a box over the body (the ci-036 glass-furnace regression).
+        filename = dir .. FURNACE_ART .. "-hr-emission-1.png",
+        width = FRAME_W, height = FRAME_H,
+        frame_count = FURNACE_FRAME_COUNT, line_length = FURNACE_LINE_LENGTH,
+        scale = FURNACE_SCALE, shift = FURNACE_SHIFT, animation_speed = 0.5,
+        draw_as_glow = true, blend_mode = "additive" },
     },
   }
 end
@@ -144,8 +176,8 @@ local CO2_PER_IRON      = 20
 local IRON_PER_IRON     = 5
 local SLAG_PER_IRON     = 5
 
--- Private recipe category: ONLY the carbothermic furnace runs iron recovery, and
--- nothing vanilla can (never-mutate-other-planets / no category leak).
+-- Private recipe category: ONLY the arc furnace runs iron recovery, and nothing
+-- vanilla can (never-mutate-other-planets / no category leak).
 local category = { type = "recipe-category", name = CATEGORY }
 
 -- === Items ===================================================================
@@ -168,13 +200,15 @@ set_item_icon(slag, SLAG)
 slag.localised_name = { "item-name." .. SLAG }
 slag.localised_description = { "item-description." .. SLAG }
 
--- === The carbothermic furnace: the iron-line power sink =======================
+-- === The arc furnace: the iron-line power sink ===============================
 -- Cloned from assembling-machine-3: it already has a correct electric energy
 -- source AND the fluid box the CO2 input needs (the zeolite catalyst proves AM3
 -- accepts a fluid ingredient). We restrict it to the private category and crank
--- the electric draw. Bespoke art (ci-zdp): the cloned assembler's graphics_set is
--- fully replaced by the Cindra reduction-furnace sprite, and the item/entity carry
--- the matching bespoke icon (no assembling-machine-3 art leaks through).
+-- the electric draw. Art (ci-hs1j): the cloned assembler's graphics_set is fully
+-- replaced by Hurricane046's animated "arc furnace" set (freed by ci-a6z), and the
+-- item/entity carry the matching arc-furnace icon (no assembling-machine-3 art
+-- leaks through). The recipe/economy is unchanged (still red mud + CO2 -> iron +
+-- slag); only the building model + name changed (mayor decision, Option A).
 local furnace = util.table.deepcopy(data.raw["assembling-machine"]["assembling-machine-3"])
 furnace.name = FURNACE
 furnace.minable = { mining_time = 0.5, result = FURNACE }
@@ -182,17 +216,17 @@ furnace.crafting_categories = { CATEGORY }
 furnace.energy_usage = FURNACE_DRAW           -- the ruinous draw (far above a stock assembler)
 furnace.fast_replaceable_group = nil          -- not interchangeable with the assembler
 furnace.next_upgrade = nil
-furnace.graphics_set = { animation = furnace_animation() } -- bespoke sprite, drops AM3 art
-furnace.graphics_set_flipped = nil            -- no flipped variant for the static single frame
-set_entity_icon(furnace, FURNACE_ART)
+furnace.graphics_set = { animation = furnace_animation() } -- arc-furnace set, drops AM3 art
+furnace.graphics_set_flipped = nil            -- no flipped variant for this single set
+set_furnace_icon(furnace)
 furnace.localised_name = { "entity-name." .. FURNACE }
 furnace.localised_description = { "entity-description." .. FURNACE }
 
 local furnace_item = util.table.deepcopy(data.raw.item["assembling-machine-3"])
 furnace_item.name = FURNACE
 furnace_item.place_result = FURNACE
-furnace_item.order = "z[cindra]-carbothermic-furnace"
-set_entity_icon(furnace_item, FURNACE_ART)
+furnace_item.order = "z[cindra]-arc-furnace"
+set_furnace_icon(furnace_item)
 furnace_item.localised_name = { "item-name." .. FURNACE }
 furnace_item.localised_description = { "item-description." .. FURNACE }
 
@@ -225,7 +259,7 @@ local bayer = {
 }
 
 -- IRON RECOVERY: 10 red mud + 20 CO2 + [RUINOUS power] -> 5 iron-plate + 5 slag,
--- in the carbothermic furnace (private category). The CO2 is the carbon reductant
+-- in the arc furnace (private category). The CO2 is the carbon reductant
 -- (closing the calcination loop); the ruinous draw over a long craft is the
 -- dominant cost. Productivity OFF: iron traces back only to real red mud (real
 -- stone via Bayer), never minted. Output is the vanilla iron-plate, so it plugs
