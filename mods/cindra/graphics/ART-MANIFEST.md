@@ -101,25 +101,34 @@ calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entit
 now wears Hurricane046's "arc furnace" building art (CC-BY, wired in ci-wfv; see
 `entity/electrolysis-cell/ATTRIBUTION.md`).
 
-## Red-mud subsystem art (ci-c7j) — v1 placeholders
+## Red-mud subsystem art (ci-c7j → bespoke ci-zdp)
 
-The Bayer/iron-recovery subsystem (`prototypes/red-mud.lua`) ships **placeholder**
-art for v1; bespoke renders are a follow-up (cf. ci-eb9). To avoid any vanilla
-placeholder leaking in, the two new items reuse the bespoke `cindra-stone` render
-under an in-prototype tint, and the furnace reuses its assembling-machine clone
-art. The **intended** bespoke sources below are again from Malcolm Riley's
-[`unused-renders`](https://github.com/malcolmriley/unused-renders) (CC-BY-4.0,
-author Malcolm Riley) — the durable attribution for when they are wired.
+The Bayer/iron-recovery subsystem (`prototypes/red-mud.lua`) now ships **bespoke**
+art (ci-zdp), replacing the ci-c7j placeholders (which reused the `cindra-stone`
+render under a tint for the items and the assembling-machine-3 clone art for the
+furnace).
 
-| Cindra item / building        | v1 placeholder                                   | Intended bespoke source (unused-renders)        | Wired by |
-|-------------------------------|--------------------------------------------------|-------------------------------------------------|----------|
-| `cindra-red-mud`              | `icons/cindra-stone.png` + reddish tint          | `item/original/pile-mud-1.png` (red-tinted)     | `prototypes/red-mud.lua` |
-| `cindra-slag`                 | `icons/cindra-stone.png` + dark-grey tint        | `item/original/pile-slag-1.png`                 | `prototypes/red-mud.lua` |
-| `cindra-carbothermic-furnace` | (v1: reused assembling-machine-3 art)            | bespoke reduction-furnace render                | `prototypes/red-mud.lua`; art follow-up ci-eb9 |
+**Item icons** are Blender renders from Malcolm Riley's
+[`unused-renders`](https://github.com/malcolmriley/unused-renders) — **CC-BY-4.0,
+author Malcolm Riley** (the durable attribution for both files below). Each was
+downloaded from the repo above and resized from its 1024×1024 original to a 64×64
+RGBA icon; no other edit was made to the pixels. Red mud additionally carries an
+in-prototype rust-red tint (not baked into the file), the same trick the spent
+catalysts use. The **carbothermic-furnace** icon + in-world sprite are procedural
+Cindra art from `scripts/gen-entity-art.py` (deterministic, seed `0xC19D2A`), in
+the same one-family style as the mass driver / capacitor / dissipator.
 
-Iron is the vanilla `iron-plate` (no new icon needed). The furnace entity passes
-the graphics audit via its assembler-clone sprite; bespoke building art is the
-same ci-eb9 follow-up.
+| Cindra item / building        | Delivered art                                                     | Source                                          | Wired by |
+|-------------------------------|-------------------------------------------------------------------|-------------------------------------------------|----------|
+| `cindra-red-mud`              | `icons/cindra-red-mud.png` (+ in-engine rust tint)                | `item/original/pile-dust-crushed-iron-ore-1.png`| `prototypes/red-mud.lua` |
+| `cindra-slag`                 | `icons/cindra-slag.png`                                           | `item/original/material-chunk-slag-1.png`       | `prototypes/red-mud.lua` |
+| `cindra-carbothermic-furnace` | `icons/carbothermic-furnace.png` + `entity/carbothermic-furnace/` | `scripts/gen-entity-art.py` (procedural)        | `prototypes/red-mud.lua` |
+
+Iron is the vanilla `iron-plate` (no new icon needed). The furnace's bespoke
+sprite is wired as its `graphics_set.animation` (a static HR single frame +
+shadow), fully replacing the assembling-machine-3 art, so no vanilla sprite
+leaks through. The slag vent recipe and the red-mud tech reuse the two new item
+icons (slag / red-mud respectively).
 
 ## Scope / known limits (honest first pass)
 

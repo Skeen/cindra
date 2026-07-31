@@ -994,3 +994,20 @@ of the current build; they are listed so "not built yet" is distinguishable from
   `rock`; (3) none appear in the temperate spawn band or anywhere on the cold/ice
   side; (4) they never spawn ON the impassable lava tiles (collision keeps them on
   solid ground), so they read as "at the lava's edge," not floating in it.
+
+- [ ] **Red-mud subsystem bespoke art reads correctly (ci-zdp).** The Bayer/iron-
+  recovery items and building carry bespoke art replacing the ci-c7j placeholders:
+  `cindra-red-mud` (Malcolm Riley crushed-iron-ore render + an in-engine rust-red
+  tint), `cindra-slag` (Malcolm Riley slag-chunk render), and the
+  `cindra-carbothermic-furnace` (a procedural Cindra reduction-furnace icon + in-world
+  sprite from `gen-entity-art.py`). The wiring, that every PNG ships and is RGBA, and
+  that no assembling-machine-3 / vanilla art leaks are integration- + unit-tested
+  (`unit-tests/test_red_mud.lua`, `tests/test_red_mud.lua`); only the *visual read* is
+  the playtest. *Look for:* (1) red mud reads as a rusty-red residue and slag as a
+  dark inert clinker, clearly distinct from each other and from `cindra-stone` in the
+  inventory / recipe GUI; (2) the carbothermic furnace icon reads as a hot reduction
+  furnace (ember pour, carbon charge band) and sits in the one-family brushed-steel
+  style; (3) the placed furnace shows the bespoke sprite (not the assembling-machine-3
+  body) at a sane scale for its 3×3 footprint, with the soft shadow grounded; (4) the
+  furnace's CO2 input pipe still connects and renders (the fluid box survived replacing
+  the graphics_set).

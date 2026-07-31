@@ -578,6 +578,36 @@ def icon_science_pack():
     return img
 
 
+def icon_carbothermic_furnace():
+    """red mud + CO2 + ruinous power -> iron + slag (prototypes/red-mud.lua).
+    A reduction shaft furnace: a dark carbon charge across the throat, a hot
+    reduction window mid-shaft, and a white-hot tap pouring molten iron. Leans
+    ember/orange (a hot role, like the lava manufacturer) but reads distinctly:
+    a tall shaft + carbon band, not an open pour bowl."""
+    S = ICON * SS
+    img, mask = paint_frame()
+    d = ImageDraw.Draw(img)
+    # Furnace shaft: a tall rounded body on the steel chassis.
+    body = [int(S*0.32), int(S*0.22), int(S*0.68), int(S*0.72)]
+    bmask = Lm(S); ImageDraw.Draw(bmask).rounded_rectangle(body, radius=int(S*0.05), fill=255)
+    paste_gradient(img, bmask, STEEL_LIGHT, STEEL_DARK, 90)
+    d.rounded_rectangle(body, radius=int(S*0.05), outline=STEEL_EDGE, width=max(3, S//100))
+    # Carbon charge band across the throat (the CO2/carbon reductant).
+    charge = [body[0]+int(S*0.03), int(S*0.30), body[2]-int(S*0.03), int(S*0.37)]
+    d.rectangle(charge, fill=STEEL_SHADOW)
+    # Glowing reduction window mid-shaft (where red mud smelts to iron).
+    win = [body[0]+int(S*0.04), int(S*0.42), body[2]-int(S*0.04), int(S*0.58)]
+    wmask = Lm(S); ImageDraw.Draw(wmask).rectangle(win, fill=255)
+    paste_gradient(img, wmask, HOT_YELLOW, EMBER, 90)
+    add_glow(img, mask, (int(S*0.5), int(S*0.50)), int(S*0.16), ORANGE, 200)
+    # Tap-hole pouring molten iron to the lower right.
+    pour = [(int(S*0.60), int(S*0.60)), (int(S*0.66), int(S*0.60)),
+            (int(S*0.78), int(S*0.78)), (int(S*0.70), int(S*0.78))]
+    d.polygon(pour, fill=ORANGE)
+    add_glow(img, mask, (int(S*0.74), int(S*0.77)), int(S*0.14), HOT_WHITE, 210)
+    return img
+
+
 # ── In-world entity base sprites (static HR single frame + shadow) ───
 def entity_sprite(size, roof_painter, footprint=0.78):
     """A 3/4 industrial block: top face + two side faces, with a roof motif.
@@ -663,6 +693,17 @@ def roof_battery(d, top, S):
     d.ellipse([cx-S*0.07, cy-S*0.04, cx+S*0.07, cy+S*0.04], fill=HOT_YELLOW)
 
 
+def roof_carbothermic_furnace(d, top, S):
+    cx, cy = _iso_center(top)
+    # Molten reduction pool glowing through the furnace roof.
+    d.ellipse([cx-S*0.13, cy-S*0.08, cx+S*0.13, cy+S*0.08], fill=EMBER_DEEP)
+    d.ellipse([cx-S*0.10, cy-S*0.06, cx+S*0.10, cy+S*0.06], fill=EMBER)
+    d.ellipse([cx-S*0.06, cy-S*0.035, cx+S*0.06, cy+S*0.035], fill=ORANGE)
+    d.ellipse([cx-S*0.025, cy-S*0.018, cx+S*0.025, cy+S*0.018], fill=HOT_YELLOW)
+    # Carbon charge chute across the pool (the reductant feed).
+    d.line([(cx-S*0.11, cy-S*0.02), (cx+S*0.11, cy+S*0.02)], fill=STEEL_SHADOW, width=max(3, S//110))
+
+
 def make_shadow(sprite):
     """A soft ground shadow projected down-right from the sprite silhouette."""
     S = sprite.size[0]
@@ -692,6 +733,7 @@ ICONS = {
     "cindra-volatiles":    icon_item_volatiles,
     "cryo-hardened-alloy": icon_item_alloy,
     "cindra-science-pack": icon_science_pack,
+    "carbothermic-furnace": icon_carbothermic_furnace,
 }
 
 ENTITIES = {
@@ -701,6 +743,7 @@ ENTITIES = {
     "cindra-solar-panel":  roof_solar,
     "capacitor":           roof_capacitor,
     "molten-salt-battery": roof_battery,
+    "carbothermic-furnace": roof_carbothermic_furnace,
 }
 ENTITY_PX = 256
 
