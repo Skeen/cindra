@@ -31,17 +31,64 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 #                  (cindra-test does not sweep it; env-scanner MRs run it directly).
 RUNNER_COVERED=" cindra env-scanner "
 
-orphans=()
-for tests_dir in mods/*/tests; do
-  [ -d "$tests_dir" ] || continue
-  # Skip a tests/ dir that holds no actual test files.
-  compgen -G "$tests_dir/*.lua" > /dev/null || continue
-  mod=$(basename "$(dirname "$tests_dir")")
-  case "$RUNNER_COVERED" in
-    *" $mod "*) : ;;                       # covered
-    *) orphans+=("$mod ($tests_dir)") ;;   # nobody runs it
+# Echo one "mod (dir)" line per mod under $base/mods/*/tests whose suite holds
+# .lua files but is NOT listed in the $covered set (space-padded, e.g. " a b ").
+#
+# Portable glob only: the flake dev-shell bash (nix bash 5.3+) does NOT ship
+# `compgen` (ci-0zqn), so the previous `compgen -G ... || continue` errored
+# (exit 127) under `set -e` for EVERY dir and skipped them all -- the guard then
+# passed unconditionally regardless of orphans. A plain glob + existence probe
+# needs no `compgen`.
+find_orphans() {
+  local base=$1 covered=$2
+  local tests_dir mod
+  local lua_files
+  for tests_dir in "$base"/mods/*/tests; do
+    [ -d "$tests_dir" ] || continue
+    # With nullglob off (bash default) an empty match leaves the literal
+    # pattern as element 0, which -e rejects -- so a tests/ dir holding no
+    # .lua files is correctly treated as "not a suite" and skipped.
+    lua_files=("$tests_dir"/*.lua)
+    [ -e "${lua_files[0]:-}" ] || continue
+    mod=$(basename "$(dirname "$tests_dir")")
+    case "$covered" in
+      *" $mod "*) : ;;                              # covered
+      *) printf '%s (%s)\n' "$mod" "$tests_dir" ;;  # nobody runs it
+    esac
+  done
+}
+
+# Self-test (ci-0zqn): prove the detection loop actually flags an orphan on a
+# throwaway fixture tree. This fails loudly if find_orphans ever goes vacuous
+# again (e.g. a builtin it leans on vanishes from the runtime bash) instead of
+# silently passing and giving false assurance.
+selftest_detection() {
+  local tmp out
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+  mkdir -p "$tmp/mods/covered-fixture/tests" \
+           "$tmp/mods/orphan-fixture/tests" \
+           "$tmp/mods/empty-fixture/tests"
+  : > "$tmp/mods/covered-fixture/tests/spec.lua"
+  : > "$tmp/mods/orphan-fixture/tests/spec.lua"
+  # empty-fixture/tests deliberately has NO .lua file.
+
+  out=$(find_orphans "$tmp" " covered-fixture ")
+  case "$out" in
+    *orphan-fixture*) : ;;
+    *) fail "self-test: orphan suite not detected -- detection loop is vacuous" ;;
   esac
-done
+  case "$out" in
+    *covered-fixture*) fail "self-test: covered mod wrongly flagged as orphan" ;;
+  esac
+  case "$out" in
+    *empty-fixture*) fail "self-test: empty tests/ dir wrongly flagged as suite" ;;
+  esac
+}
+
+selftest_detection
+
+mapfile -t orphans < <(find_orphans "$REPO" "$RUNNER_COVERED")
 
 if [ "${#orphans[@]}" -ne 0 ]; then
   printf 'orphaned integration suite (no runner executes it):\n' >&2
