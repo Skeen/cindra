@@ -140,8 +140,20 @@ function M.build_render_parameters(nauvis_params)
     cloud_flow_intensity = 0.8,
     cloud_panning_rate = -0.06,
 
-    -- Static presentation tilt of the globe's axis: a fixed angle, not motion.
-    planet_axis = { -18.0, -4.0 },
+    -- Presentation orientation of the globe's axis. ZEROED (ci-lcv): the axis
+    -- must NOT roll the globe. Cindra's surface/emission maps carry a BAKED
+    -- fire->ice gradient down the lon=0 meridian; the engine ALSO diffuse-lights
+    -- the globe from light_direction below. Those are TWO independent light axes.
+    -- A non-zero planet_axis (was {-18,-4}) rolled the baked meridian off the
+    -- vertical light terminator, so the emission fire limb and the diffuse-lit limb
+    -- crossed at an angle: the pie-slice WEDGE the orbital-view report flagged --
+    -- the exact analogue of the bake's own ci-pde X-tilt wedge (see bake-starmap.py).
+    -- With the axis un-rolled the baked lon=0 meridian lands VERTICAL, coincident
+    -- with the vertical diffuse terminator (light y-tilt is zeroed below), so the
+    -- two light axes align and the disc reads as one clean fire->ice split. Like
+    -- the bake, the small 3D pole-peek a tilt would give is sacrificed for that
+    -- alignment (verified in-engine: scripts/render-orbit.sh).
+    planet_axis = { 0.0, 0.0 },
     -- TIDAL LOCK => the axis must NOT wobble either (ci-ane). Vanilla planets set
     -- a non-zero deviation amplitude so their globes gently NOD on the orbital
     -- backdrop; Cindra inherited {6,6}, which left the rotation-frozen globe still
@@ -159,8 +171,14 @@ function M.build_render_parameters(nauvis_params)
     -- terminator meridian (bake-starmap.py), so the sunward limb blows out and the
     -- disc falls to shadow across the centre. Match that here: near-horizontal
     -- from the left (x dominant, y/z small) instead of the old three-quarter angle
-    -- that pulled the terminator off-vertical and left <50% lit (ci-6y9).
-    light_direction = { -0.90, 0.05, 0.24 },
+    -- that pulled the terminator off-vertical and left <50% lit (ci-6y9). The
+    -- vertical (y) component is ZERO (ci-lcv, was 0.05): a non-zero y tilts the
+    -- diffuse terminator off vertical, so it no longer coincides with the vertical
+    -- baked fire/ice meridian (planet_axis un-rolled above) -- the second half of
+    -- killing the two-light-axis wedge. The small +z is the only out-of-plane
+    -- component: it wraps a touch of light toward the viewer to widen the lit disc
+    -- WITHOUT rotating the terminator, so both light axes stay vertical and aligned.
+    light_direction = { -0.90, 0.0, 0.24 },
     -- Larger radius softens the terminator and wraps a little light past 90deg so
     -- ~55% of the disc reads as lit (the icon's soft, slightly-past-centre seam,
     -- ci-nyj), instead of the old crisp <50% half.

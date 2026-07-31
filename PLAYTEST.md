@@ -168,6 +168,42 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   entry is only the "the live globe visibly holds still over time" confirmation a
   static prototype assert cannot judge.
 
+- [ ] **[LANDED] Orbital view: the two light axes are aligned, no wedge (ci-lcv).**
+  The human flagged that from the ORBITAL view Cindra showed TWO different light
+  axes -- one from the BAKED fire->ice gradient in the surface/emission maps, one
+  from the engine's in-game `light_direction` -- crossing at an angle as an ugly
+  pie-slice **wedge**. Cause: a rolled `planet_axis = {-18,-4}` tilted the baked
+  `lon=0` meridian off the vertical diffuse terminator (the analogue of the bake's
+  ci-pde X-tilt wedge). Fix in `prototypes/space-appearance.lua`: un-roll
+  `planet_axis` to `{0,0}` (baked meridian vertical) and zero the vertical (y)
+  component of `light_direction` (diffuse terminator vertical) so the two coincide.
+  Before/after captured in-engine: `docs/verification/ci-lcv-orbital-light-axis.png`
+  (+ `-wide`). *Repro:* `scripts/render-orbit.sh`, or in-game park a platform in
+  orbit of Cindra / travel the approach (`./play.sh`). *Look for:* a single clean
+  fire->ice terminator running VERTICAL down the disc (molten limb left, dark
+  basalt + blue ice right); NO second boundary and NO pie-slice wedge where the
+  emission and the shading disagree. *Fallback:* the un-rolled axis + vertical
+  terminator are guarded off-game and under the runtime
+  (`unit-tests/test_space_appearance.lua`, `tests/test_space_appearance.lua`:
+  "aligns the two light axes"), and the fix was verified against a real in-engine
+  render; this entry is only the "reads as one planet, no wedge, in the live
+  client" confirmation.
+
+- [ ] **[LANDED] Star-map: Cindra dropped closer to the sun (ci-lcv).** The human
+  said the star-map view "looks great" but reads a touch far, and asked to drop
+  Cindra closer to really sell it running up against the sun. `ORBIT_DISTANCE` in
+  `prototypes/planet.lua` was moved from **6 back in to 4.5** (ci-bu4 had earlier
+  pulled it OUT from a distance-3 position that overlapped the sun disc, so 4.5
+  keeps clear margin). *Repro:* open the star-map / navigate the orbital approach
+  (`./play.sh`). *Look for:* Cindra sits noticeably TIGHTER to the star than before
+  (the innermost world, well sunward of Vulcanus) while its globe stays **fully
+  clear of the sun disc** -- not clipped or overlapping it. *Fallback:* the
+  distance value + the "clear of the sun (>3), closer than the old 6, sunward of
+  Vulcanus" guards are pinned in `tests/test_planet.lua`; this entry is only the
+  interactive "the closer orbit looks right and never touches the sun" judgement a
+  distance assert cannot make. If a visual check shows any sun-disc overlap, nudge
+  `ORBIT_DISTANCE` back up a touch (toward 5) and re-run the test.
+
 - [ ] **[LANDED] Star-map sun-side blows out to near-WHITE (ci-2f7).** Follow-up
   to ci-i9m: the left-lit gradient was correct but too subtle. The bake now drives
   the single parallel sun WAY up (energy 4 -> 13, warm-white), aimed exactly

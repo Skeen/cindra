@@ -203,6 +203,26 @@ test("orbital parity: blown-out lava limb, near-horizontal left sun, cool ice (c
     "cool blue frost sheen (specular blue > red)")
 end)
 
+-- ci-lcv: ALIGN THE TWO LIGHT AXES so the orbital globe shows NO wedge. The
+-- backdrop has two independent light axes: the BAKED fire->ice gradient down the
+-- lon=0 meridian and the ENGINE diffuse light (light_direction). The orbital-view
+-- report saw them cross at an angle -- a pie-slice wedge -- because a rolled
+-- planet_axis ({-18,-4}) tilted the baked meridian off the vertical diffuse
+-- terminator (the analogue of the bake's ci-pde X-tilt wedge). Fix, verified
+-- in-engine (scripts/render-orbit.sh): un-roll planet_axis to ZERO so the baked
+-- meridian is vertical, and zero the light's vertical (y) component so the diffuse
+-- terminator is vertical too. Guard both so a later tweak cannot silently re-tilt
+-- them (mirrors tests/test_space_appearance.lua).
+test("aligns the two light axes -> no wedge: axis un-rolled + vertical terminator (ci-lcv)", function()
+  local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+  local axis = b.planet_axis
+  assert_true(axis ~= nil, "planet_axis must be set (to zero), not left to a default")
+  assert_eq(0, axis[1], "no roll: the baked fire/ice meridian stays vertical (no wedge)")
+  assert_eq(0, axis[2], "no tilt: the presented face is square-on, not pitched")
+  assert_eq(0, b.light_direction[2],
+    "light has no vertical tilt -> diffuse terminator vertical, coincident with the baked meridian")
+end)
+
 test("REGRESSION: build_render_parameters never mutates the passed nauvis params", function()
   local input = fake_nauvis_params()
   local before = snapshot(input)

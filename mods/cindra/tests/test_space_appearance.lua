@@ -188,6 +188,28 @@ describe("cindra space appearance (art wiring, ci-94v)", function()
       "cool blue frost sheen (specular blue > red)")
   end)
 
+  -- ci-lcv: ALIGN THE TWO LIGHT AXES so the orbital globe shows NO wedge. The
+  -- backdrop has two independent light axes: the BAKED fire->ice gradient down the
+  -- lon=0 meridian (planet_surface/planet_emission) and the ENGINE diffuse light
+  -- (light_direction). The orbital-view report saw them cross at an angle -- a
+  -- pie-slice wedge -- because a rolled planet_axis ({-18,-4}) tilted the baked
+  -- meridian off the vertical diffuse terminator (the exact analogue of the bake's
+  -- own ci-pde X-tilt wedge). Fix, verified in-engine (scripts/render-orbit.sh):
+  -- un-roll planet_axis to ZERO so the baked meridian is vertical, and zero the
+  -- light's vertical (y) component so the diffuse terminator is vertical too, so
+  -- the two coincide. Guard both so a later tweak cannot silently re-tilt them.
+  it("aligns the two light axes -> no wedge: axis un-rolled + vertical terminator (ci-lcv)", function()
+    local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
+    local axis = b.planet_axis
+    assert.is_not_nil(axis, "planet_axis must be set (to zero), not left to a default")
+    assert.are.equal(0, axis[1], "no roll: the baked fire/ice meridian stays vertical (no wedge)")
+    assert.are.equal(0, axis[2], "no tilt: the presented face is square-on, not pitched")
+    -- The diffuse terminator must be VERTICAL (parallel to the baked meridian): a
+    -- non-zero y would tilt it and re-open the wedge.
+    assert.are.equal(0, b.light_direction[2],
+      "light has no vertical tilt -> diffuse terminator is vertical, coincident with the baked meridian")
+  end)
+
   -- THE cross-planet invariant: build_render_parameters must deep-copy the passed
   -- nauvis params and override only Cindra's backdrop, never mutating the shared
   -- nauvis table. This runs under Factorio's REAL util.table.deepcopy.

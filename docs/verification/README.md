@@ -159,3 +159,34 @@ To regenerate:
 nix-shell -p "python3.withPackages(ps: with ps; [numpy pillow])" \
   --run "python3 scripts/render-rock-tint.py"
 ```
+
+## Orbital light-axis alignment: no wedge (ci-lcv)
+
+![Orbital view, two light axes aligned](ci-lcv-orbital-light-axis.png)
+
+`ci-lcv-orbital-light-axis.png` (+ `-wide`) is a real in-engine capture of the
+LIVE orbital backdrop after the ci-lcv fix, from `scripts/render-orbit.sh`.
+
+### What it verifies
+
+The from-orbit globe carries TWO independent light axes: the **baked** fire->ice
+gradient down the `lon=0` meridian (in `planet_surface` / `planet_emission`), and
+the engine's **diffuse** light (`light_direction`). The playtest report saw them
+CROSS at an angle -- a pie-slice **wedge** -- because a rolled `planet_axis`
+(`{-18,-4}`) tilted the baked meridian off the vertical diffuse terminator. That
+is the exact analogue of the bake's own ci-pde X-tilt wedge (see
+`scripts/bake-starmap.py`).
+
+Fix (in `prototypes/space-appearance.lua`): un-roll `planet_axis` to `{0,0}` so
+the baked meridian is vertical, and zero the vertical (y) component of
+`light_direction` so the diffuse terminator is vertical too. With both vertical
+they COINCIDE, so the disc reads as one clean molten-left / ice-right split with a
+single terminator -- no wedge. Guarded off-game and under the runtime
+(`unit-tests/test_space_appearance.lua`, `tests/test_space_appearance.lua`:
+"aligns the two light axes").
+
+To regenerate:
+
+```bash
+scripts/render-orbit.sh   # -> .orbit-render/script-output/orbit-{close,wide}.png
+```
