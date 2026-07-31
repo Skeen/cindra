@@ -124,11 +124,11 @@ function M.build_render_parameters(nauvis_params)
       sprite_index = 1,
       rotate_with_planet = false,
       projection_style = "front-only",
-      positions = { { 0.35, 0.45 } },    -- DIAGNOSTIC placement (dark ice side)
-      size = { 0.50, 0.60 },             -- DIAGNOSTIC size
+      positions = { { -0.62, 0.42 } },   -- upper-LEFT (fire) limb; +x=right, -y=down so +y is UP
+      size = { 0.34, 0.46 },             -- small: a fraction of the disc, not the old 0.95
       position_deviation = { 0.02, 0.02 },
       rotation_deviation = 1.0,
-      starting_frame_offset = 0,
+      starting_frame_offset = 6,
     },
   }
 
