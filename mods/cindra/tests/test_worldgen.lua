@@ -28,6 +28,7 @@
 
 local field = require("scripts.resource-field")
 local terrain = require("scripts.terrain")
+local tile_damage = require("scripts.tile-damage")
 
 describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)", function()
   -- A dedicated surface cloned from the Cindra planet's own map_gen_settings (same
@@ -740,5 +741,49 @@ describe("cindra worldgen: a real zoned left->right ribbon planet (§4; ci-da2)"
       "ice must be the MAJORITY product (ice " .. amt["ice"] .. " > calcite " .. amt["calcite"] .. ")")
     -- The old feedstock chunk is gone from the field entirely.
     assert.is_nil(amt["oxide-asteroid-chunk"], "the ice field no longer drops the oxide chunk (ci-9l6)")
+  end)
+
+  -- LANDABILITY (the bead's "planet reachable/landable"). Reaching the planet is
+  -- proven in test_planet; here we prove you can actually LAND: the spawn point
+  -- and a base-sized pad around it must be walkable, cindra-owned, and take ZERO
+  -- environmental damage, so a cargo-pod drop does not deposit the player into
+  -- instant lava/ice death. Worldgen elsewhere proves the danger zones exist and
+  -- exclude resources; this proves the OPPOSITE for the landing spot.
+  it("LANDABLE: the spawn tile is a walkable, non-lethal cindra tile", function()
+    local n = tile(0, 0)
+    assert.matches("^cindra%-", n, "the landing tile at spawn must be a cindra tile, got: " .. n)
+    assert.is_true(terrain.is_walkable(n), "the spawn tile must be walkable (not the impassable wall), got: " .. n)
+    -- terrain.tile_damage returns (intensity, kind); a safe tile is intensity 0.
+    assert.are.equal(0, (terrain.tile_damage(n)),
+      "the spawn tile must deal NO environmental damage (intensity 0), got: " .. n)
+  end)
+
+  it("LANDABLE: a base-sized pad around spawn is entirely safe + buildable", function()
+    -- A 17x17 pad (|x|,|y| <= 8) straddling the origin: every tile walkable and
+    -- damage-free, so the landing zone fits a starting base, not a single pixel.
+    for x = -8, 8 do
+      for y = -8, 8 do
+        local n = tile(x, y)
+        assert.is_true(terrain.is_walkable(n),
+          "landing pad tile (" .. x .. "," .. y .. ") must be walkable, got: " .. n)
+        assert.are.equal(0, (terrain.tile_damage(n)),
+          "landing pad tile (" .. x .. "," .. y .. ") must be damage-free (intensity 0), got: " .. n)
+      end
+    end
+  end)
+
+  it("LANDABLE: a character dropped at spawn takes zero damage from a live tile-damage sweep", function()
+    -- The real runtime proof: run the ACTUAL tile-damage sweep (at the peak dps)
+    -- over a character standing on the spawn tile and confirm it loses no health.
+    -- test_tile_damage proves the same sweep DOES burn a character on lava, so a
+    -- zero here means the spawn is genuinely safe, not that the sweep is inert.
+    local char = s.create_entity({ name = "character", position = { 0, 0 }, force = "player" })
+    assert.is_not_nil(char, "a character must be placeable at spawn")
+    local before = char.health
+    tile_damage.sweep(s, tile_damage.DAMAGE_INTERVAL, 200) -- peak dps 200 (the max-dps default)
+    assert.are.equal(before, char.health,
+      "a character at the landing spot must take ZERO environmental damage (before "
+        .. tostring(before) .. ", after " .. tostring(char.health) .. ")")
+    char.destroy()
   end)
 end)

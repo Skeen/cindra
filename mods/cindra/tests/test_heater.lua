@@ -83,3 +83,60 @@ describe("cindra electric heater", function()
     e.destroy()
   end)
 end)
+
+-- The heater's two SIGNATURE runtime behaviours (DESIGN.md §5): it eats
+-- electricity (never fuel) and turns that draw into HEAT. Prototype shape proves
+-- the energy source is electric and the burner is nil, but not that the unusual
+-- "electric energy source on a reactor" configuration actually converts the draw
+-- into rising heat. These runtime tests pin exactly that: powered -> heats up,
+-- unpowered -> stays cold (no fuel path to fall back on). Mirrors the powered vs
+-- unpowered science-pack runtime split.
+describe("cindra electric heater runtime: eats power, makes heat, burns no fuel", function()
+  -- A heater on a clean Cindra surface, optionally fed by an ample electric
+  -- interface on the same substation grid (the science-pack runtime layout).
+  local function make_heater(powered)
+    local s = H.cindra_surface()
+    s.create_entity({ name = "substation", position = { 3, 3 }, force = "player" })
+    if powered then
+      local power = s.create_entity({
+        name = "electric-energy-interface", position = { 5, 0 }, force = "player",
+      })
+      power.power_production = 100000000 -- 100 MW: far more than the heater's draw
+      power.electric_buffer_size = 100000000
+      power.energy = 100000000
+    end
+    local e = s.create_entity({ name = HEATER, position = { 0, 0 }, force = "player" })
+    assert.is_not_nil(e, "the heater must be placeable on Cindra")
+    return e
+  end
+
+  it("with power, the heater draws electricity and heats up (the flare-surplus -> heat sink)", function()
+    local e = make_heater(true)
+    local t0 = e.temperature
+    async(720)
+    after_ticks(600, function()
+      assert.is_true(e.valid)
+      assert.is_true(e.temperature > t0 + 1,
+        "a powered heater must HEAT UP over time (electric draw becomes heat): "
+          .. "started " .. tostring(t0) .. " C, now " .. tostring(e.temperature) .. " C")
+      assert.is_true(e.temperature <= HEAT_CAP,
+        "... but the heat output stays capped at the 600 C ceiling")
+      e.destroy()
+      done()
+    end)
+  end)
+
+  it("with NO power, the heater stays cold (it burns no fuel -- only electricity)", function()
+    local e = make_heater(false)
+    local t0 = e.temperature
+    async(720)
+    after_ticks(600, function()
+      assert.is_true(e.valid)
+      assert.is_true(e.temperature <= t0 + 0.001,
+        "an unpowered heater cannot heat -- there is no fuel path, only the electric draw: "
+          .. "started " .. tostring(t0) .. " C, now " .. tostring(e.temperature) .. " C")
+      e.destroy()
+      done()
+    end)
+  end)
+end)

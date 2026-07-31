@@ -19,6 +19,10 @@ describe("cindra companion mods without any-planet-start", function()
     assert.is_nil(script.active_mods["any-planet-start"],
       "this suite only applies when any-planet-start is NOT installed")
     assert.is_not_nil(script.active_mods["cindra-start"], "cindra-start must be active")
+    -- cindra-dev-default is the one that calls APS.set_default_choice; prove ITS
+    -- guard held too (not just cindra-start's), so the whole companion set is clean.
+    assert.is_not_nil(script.active_mods["cindra-dev-default"],
+      "cindra-dev-default must also be active (its APS-absent skip path is exercised here)")
   end)
 
   it("registers nothing with APS: the aps-planet setting does not exist", function()
