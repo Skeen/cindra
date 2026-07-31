@@ -13,17 +13,16 @@ local H = require("tests.helpers")
 local feedback = require("scripts.damage-feedback")
 
 describe("full-screen heat/cold damage feedback (§15 v2 item 4; ci-7tl)", function()
-  -- A compact ribbon keyed by ZONE ROLE (terrain.widths reads it), so the lethal
-  -- bands sit on the paved slab near the origin. Total 60, half 30: heat lethal
-  -- p >= 18, cold lethal p <= -26, safe between. Default orientation is vertical,
-  -- so perp = -x: heat at x <= -18, cold at x >= 26, the centre (x = 0) safe.
+  -- A compact ribbon keyed by the ci-wly ZONE ROLES (terrain.widths reads it), so the
+  -- lethal bands sit near the origin. Total 44, half 22: heat lethal p >= 14, cold
+  -- lethal p <= -14, safe between. Default orientation is vertical, so perp = -x: heat
+  -- at x <= -14, cold at x >= 14, the centre (x = 0) safe.
   local CFG = {
-    hot_lava = 4, lava_mix = 4, lava_crust = 4,
-    volcanic_warm = 4, basalt = 4, scorched = 4, dry_dirt = 4,
-    building = 20,
-    cold_dust = 4, rough_ice = 4, deep_ice = 4,
+    hot_ocean = 4, hot_inner = 4, hot_outer = 4,
+    middle = 20,
+    cold_outer = 4, cold_inner = 4, cold_ocean = 4,
   }
-  local HEAT_X, COLD_X, SAFE_X = -20, 30, 0
+  local HEAT_X, COLD_X, SAFE_X = -18, 18, 0
 
   -- Ensure the test player has a character standing on `s`, robust to whatever
   -- surface/controller a previous test left it in. Teleport to the target surface

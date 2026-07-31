@@ -263,7 +263,41 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Ribbon & terrain
 
-- [ ] **[LANDED] THIN ribbon (~128-tile functional band) + impassable ICE WALL (ci-qqt) — MAYOR MUST SCREENSHOT.**
+- [ ] **[LANDED] THREE-PART TWO-HEIGHTMAP terrain redesign (ci-wly) — MAYOR MUST SCREENSHOT.**
+  The whole planet was rebuilt into three regions across the hot-cold axis: a **HOT**
+  side, a habitable **MIDDLE**, and a **COLD** side (sides ~equal width). Each side is an
+  **OCEAN + a damaging heightmap inner slope + a safe cool flat outer slope**; both
+  oceans are **~200 tiles** of nothing but ocean, **folded into the heightmap** (not
+  stamped on top). Geometry, ocean solidity, ring insulation, the family split, resource
+  banding, walkable-ice and no-pave are all integration-tested (`tests/test_worldgen.lua`,
+  `tests/test_paving.lua`); only the *look/feel* is the playtest. *Repro:* `./play.sh`
+  onto Cindra. *Look for:* (1) walking WEST from spawn: ash middle → cool cracked/smooth
+  volcanic rock → glowing cracks-hot / warm stone rings → **lava pools** → a solid
+  **hot-lava OCEAN** that reads as going on forever, then the void; (2) walking EAST:
+  ash middle → cool **dust** (frosted → lumpy → crested → flat) → **snow** rings →
+  **rough ice** → a solid **smooth-ice OCEAN**; (3) the lava and ice oceans are SOLID
+  (no gaps/holes) and each thins into pools/fingers as you move toward the middle
+  (heightmap, not a flat stripe); (4) the middle is a dark/pale **ash** mix with small
+  **soil** patches — a clean habitable build zone at spawn; (5) organic wavy boundaries
+  everywhere, never straight stripes. NOTE: the from-orbit view / star-map still show the
+  OLD colour ramp until the ci-4qyj orbital re-render lands (expected mismatch, not a bug).
+
+- [ ] **[LANDED] Smooth-ice is now WALKABLE-but-damaging; the old ice WALL is gone (ci-wly).**
+  ci-wly drops the impassable deep-ice wall. Only the two **lava** tiles remain
+  impassable (the hot-lava ocean is the one hard wall). You can now **RUN onto the
+  smooth-ice ocean** — it just freezes you (cold damage that scales with depth), so a
+  dash across the ice is survivable briefly with mitigation, not an instant stop.
+  Damage now SCALES by tile (hot-lava hottest → warm cracks mildest; smooth-ice coldest →
+  patchy snow mildest). You **cannot pave** (concrete/stone-path) over the lava, warm
+  stone, cracks-hot, or ice tiles to neutralise them (the paving reverts). *Repro:*
+  `./play.sh`, walk east onto the ice. *Look for:* you step onto the smooth ice (not
+  blocked like lava), the cold damage feedback tint rises, and it hurts more the deeper
+  you go; trying to concrete over a lava/ice tile bounces back with a "cannot pave" note.
+
+- [ ] **[SUPERSEDED by ci-wly] THIN ribbon (~128-tile functional band) + impassable ICE WALL (ci-qqt) — MAYOR MUST SCREENSHOT.**
+  NOTE (ci-wly): this entry describes the OLD 11-zone model, now REPLACED by the 3-part
+  heightmap (≈200-tile oceans, WALKABLE smooth-ice, no ice wall). Kept for history;
+  validate the two ci-wly entries above instead.
   The playfield was thinned: the **functional band** — the survivable space between the
   LAVA TRIGGER (where heat death begins, the hot walkable margin's outer edge) and the
   ICE WALL (where the impassable/cold-lethal deep ice begins) — is now **~128 tiles**,

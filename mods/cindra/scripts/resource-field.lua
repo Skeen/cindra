@@ -191,9 +191,9 @@ end
 -- (building_lo) so the sandy rocks FADE OUT BEFORE the frosty cold zones and never
 -- sit on ice/frost tiles. The margin is wider than the tile-boundary + speckle noise
 -- bleed (scripts/terrain.lua NOISE_AMPLITUDE + SPECKLE_AMPLITUDE = 14), so even where
--- a cold_dust dust tile bleeds warmward across the building/cold_dust divider, no
--- sandy rock is placed on it. The hot (sunward) edge stays at the building band's hot
--- edge -- that neighbour is warm sandy/dirt terrain, never ice, so it needs no pull.
+-- a cold-slope dust tile bleeds warmward across the middle/cold divider, no sandy rock
+-- is placed on it. The hot (sunward) edge stays at the middle's hot edge -- that
+-- neighbour is the cool volcanic hot outer slope, never ice, so it needs no pull.
 --
 -- Scaled down with the ci-qqt thin-ribbon compression: the building band shrank from
 -- 200 to 50 tiles and the tile-boundary bleed shrank with the noise amplitudes
@@ -223,15 +223,12 @@ end
 -- Per-tile spawn probability inside the ice-rock band (sparse, like the sandy rock).
 M.ICE_ROCK_PROBABILITY = 0.006
 
--- Burned volcanic rocks (ci-qy0) live in the HOT region only. ci-18n tightens them
--- to the VOLCANIC-TILE region proper (terrain.cliff_band: lava_crust .. scorched),
--- from the volcanic band's cold edge out to the walkable hot margin (the lava-crust
--- edge). This is TIGHTER than the old (building_half, hot_edge] band: it drops the
--- dry_dirt zone (perp [building_half, volcanic_lo)), whose dirt/sand tiles are NOT
--- volcanic, so the burned rocks stop spilling onto non-volcanic tiles. Still EXCLUDES
--- the temperate/building band and the ENTIRE cold/ice zone, and stops at the walkable
--- hot edge (never into the impassable lava wall, where a simple-entity could not
--- place), so they read as "in the lava areas". Boolean, pure.
+-- Burned volcanic rocks (ci-qy0) live in the HOT region only, in the VOLCANIC-TILE
+-- region proper (terrain.cliff_band: hot_inner .. hot_outer), from the middle's hot
+-- edge out to the walkable hot margin (the hot inner-slope edge, just short of the lava
+-- ocean). EXCLUDES the habitable middle and the ENTIRE cold/ice side, and stops at the
+-- walkable hot edge (never into the impassable lava ocean, where a simple-entity could
+-- not place), so they read as "in the lava areas". Boolean, pure.
 function M.burned_rock_zone(y, cfg)
   local v = terrain.cliff_band(cfg)
   return y > v.lo and y <= v.hi
@@ -312,16 +309,15 @@ function M.ice_rock_probability_expr(cfg)
 end
 
 -- Burned volcanic rocks (ci-qy0): a native simple-entity autoplace confined to the
--- VOLCANIC-TILE region (terrain.cliff_band: lava_crust .. scorched) and CLUSTERED
--- toward the lava. ci-18n tightens the inner edge from the building band's hot edge
--- to the volcanic band's cold edge, so the rocks sit on volcanic tiles rather than
--- spilling onto the neighbouring dry_dirt zone. Encodes M.burned_rock_zone as a
+-- VOLCANIC-TILE region (terrain.cliff_band: hot_inner .. hot_outer) and CLUSTERED
+-- toward the lava. The inner edge sits at the middle's hot edge (the cool volcanic
+-- slope), so the rocks sit on volcanic tiles. Encodes M.burned_rock_zone as a
 -- noise-expression string (a comparison yields 1/0, so the product is a logical AND
 -- masking probability to the band), then ramps the per-tile probability from MIN at
 -- the inner (safe) edge to MAX at the lethal lava edge and beyond -- so density rises
 -- toward the lava and the rocks read as "in the lava areas". The mask zeroes
--- probability across the temperate/building band, the dry_dirt zone, and the whole
--- cold/ice zone (matches M.burned_rock_zone; keep the two in lockstep).
+-- probability across the habitable middle and the whole cold/ice side (matches
+-- M.burned_rock_zone; keep the two in lockstep).
 function M.burned_rock_probability_expr(cfg)
   local v = terrain.cliff_band(cfg)
   local S, L = v.lo, v.hi

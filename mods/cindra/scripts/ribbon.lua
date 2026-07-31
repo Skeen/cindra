@@ -166,12 +166,12 @@ end
 -- The solar falloff ANCHORS for the live zone layout (ci-22v). Returns
 -- (full_at, zero_at, floor):
 --   full_at : y >= this earns full output (1.0). Derived from the inner edge of
---             the molten LAVA zones (terrain lava_mix.lo), so full sun lands ONLY
+--             the hot DAMAGING rings (terrain hot_inner.lo), so full sun lands ONLY
 --             on the lava/hot side -- the reward for building toward the danger --
---             and NOT at the temperate centre (the ci-22v bug: it used to hit full
+--             and NOT at the habitable middle (the ci-22v bug: it used to hit full
 --             near spawn and stay flat into the lava).
---   zero_at : y <= this earns the floor. Derived from the TEMPERATE->ICE boundary
---             (terrain building.lo, the building band's cold edge), so output falls
+--   zero_at : y <= this earns the floor. Derived from the MIDDLE->COLD boundary
+--             (terrain middle.lo, the habitable middle's cold edge), so output falls
 --             to ~nothing across the ribbon and a panel on the ice side makes
 --             essentially nothing.
 --   floor   : the far-nightward output fraction (solar_floor).
@@ -184,8 +184,8 @@ function M.solar_anchors(cfg)
   local widths = cfg.zone_widths
   local full = cfg.solar_full_at
   local zero = cfg.solar_zero_at
-  if full == nil then full = terrain.role_band("lava_mix", widths).lo end
-  if zero == nil then zero = terrain.role_band("building", widths).lo end
+  if full == nil then full = terrain.role_band("hot_inner", widths).lo end
+  if zero == nil then zero = terrain.role_band("middle", widths).lo end
   local floor = cfg.solar_floor
   if floor == nil then floor = M.DEFAULTS.solar_floor end
   return full, zero, floor

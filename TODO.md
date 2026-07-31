@@ -227,6 +227,26 @@ merge queue.
   lava energy cost; verify exportable buildings are **situational-not-strictly-
   better** than vanilla (§12 guardrail). Depends on the §8/ci-6vj graph landing.
 
+## Worldgen redesign (ci-wly keystone + staged follow-ups)
+
+- [x] **Heightmap tile redesign — 3-part hot/habitable/cold gradient + integrated
+  oceans.** `ci-wly` — replaced the old 11-zone gradient with a THREE-PART,
+  TWO-HEIGHTMAP world (HOT ocean+slope / habitable ash MIDDLE / COLD ocean+slope).
+  Both oceans folded into the heightmap (never stamped); smooth-ice now WALKABLE (no
+  ice wall); per-tile damage scaling; no-pave hazard tiles (closes `ci-8vu`). Supersedes
+  `ci-4kz` (ice wall dropped), subsumes `ci-7jc` (ocean/heightmap integration) and
+  `ci-70r` (bespoke gradient tiles). `scripts/terrain.lua`; tested in
+  `unit-tests/test_terrain.lua` + `tests/test_worldgen.lua`.
+- [ ] **Hot-side folds BRANCH.** `ci-72bw` — the alternate volcanic-folds / ash-cracks
+  / pumice texture family after cracks-hot (additive to the hot heightmap).
+- [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
+  snowfall on the cold side only.
+- [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
+  `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
+- **SEQUENCE NOTE:** native freeze (`ci-bvk`) re-aligns onto this new tile layout AFTER
+  it lands (its proven constants still apply; onset ties to the cold-side gradient now,
+  not a wall).
+
 ## Deferred / cross-cutting
 
 - **Custom art.** v1 reuses vanilla Vulcanus icons. Bespoke ribbon/terminator

@@ -43,7 +43,7 @@ describe("cindra: no paving over the ribbon (ci-cbn)", function()
 
   it("landfill cannot be hand-placed on Cindra ground (data-stage whitelist)", function()
     local s = H.cindra_surface()
-    assert.equals("cindra-sand-1", hand_build(s, "landfill", { 3, 3 }, "cindra-sand-1"))
+    assert.equals("cindra-volcanic-ash-flats", hand_build(s, "landfill", { 3, 3 }, "cindra-volcanic-ash-flats"))
   end)
 
   it("foundation cannot be hand-placed over Cindra lava or ground (data-stage)", function()
@@ -51,7 +51,7 @@ describe("cindra: no paving over the ribbon (ci-cbn)", function()
     -- Over an impassable lava tile (the exact "pave the lava safe" the design forbids).
     assert.equals("cindra-lava", hand_build(s, "foundation", { 6, 6 }, "cindra-lava"))
     -- And over ordinary walkable ground.
-    assert.equals("cindra-sand-1", hand_build(s, "foundation", { 9, 9 }, "cindra-sand-1"))
+    assert.equals("cindra-volcanic-ash-flats", hand_build(s, "foundation", { 9, 9 }, "cindra-volcanic-ash-flats"))
   end)
 
   it("landfill/foundation ARE the tiles we mean to block (is_foundation guard)", function()
@@ -59,7 +59,7 @@ describe("cindra: no paving over the ribbon (ci-cbn)", function()
     -- module relies on, and that Cindra's own tiles are exempt.
     assert.is_true(prototypes.tile["landfill"].is_foundation)
     assert.is_true(prototypes.tile["foundation"].is_foundation)
-    assert.is_false(prototypes.tile["cindra-sand-1"].is_foundation)
+    assert.is_false(prototypes.tile["cindra-volcanic-ash-flats"].is_foundation)
     assert.is_false(prototypes.tile["cindra-lava"].is_foundation)
     -- Plain paving is NOT is_foundation: decorating walkable ground stays allowed.
     assert.is_false(prototypes.tile["refined-concrete"].is_foundation)
@@ -85,12 +85,12 @@ describe("cindra: no paving over the ribbon (ci-cbn)", function()
     local p = player()
     p.get_main_inventory().clear()
 
-    local result = place_then_notify(s, "landfill", { 12, 12 }, "cindra-sand-1", {
+    local result = place_then_notify(s, "landfill", { 12, 12 }, "cindra-volcanic-ash-flats", {
       item = prototypes.item["landfill"],
       player_index = p.index,
     })
     -- Reverted to the tile it replaced (FAILS on main: no handler to revert it).
-    assert.equals("cindra-sand-1", result)
+    assert.equals("cindra-volcanic-ash-flats", result)
     -- The consumed item was handed back.
     assert.equals(1, p.get_main_inventory().get_item_count("landfill"))
   end)
@@ -106,12 +106,32 @@ describe("cindra: no paving over the ribbon (ci-cbn)", function()
 
   it("leaves ordinary (non-foundation) paving alone", function()
     local s = H.cindra_surface()
-    -- refined-concrete is not is_foundation: the handler must not revert it.
-    local result = place_then_notify(s, "refined-concrete", { 18, 18 }, "cindra-sand-1", {
+    -- refined-concrete is not is_foundation, and ash-flats is not a hazard tile: the
+    -- handler must not revert paving on safe walkable ground.
+    local result = place_then_notify(s, "refined-concrete", { 18, 18 }, "cindra-volcanic-ash-flats", {
       item = prototypes.item["refined-concrete"],
       player_index = player().index,
     })
     assert.equals("refined-concrete", result)
+  end)
+
+  it("reverts paving built over a NO-PAVE hazard tile (ci-wly, closes ci-8vu)", function()
+    -- ci-wly: you cannot pave (concrete/stone-path) atop the hottest/iciest hazard tiles
+    -- (terrain.NO_PAVE) -- the lethal ground must stay lethal. Concrete over a walkable
+    -- hazard tile (smooth-ice) is reverted; over safe ground (ash-flats) it is kept.
+    local s = H.cindra_surface()
+    local hazard = place_then_notify(s, "concrete", { 21, 21 }, "cindra-ice-smooth", {
+      item = prototypes.item["concrete"], player_index = player().index,
+    })
+    assert.equals("cindra-ice-smooth", hazard, "concrete paved over smooth-ice (a hazard) is reverted")
+    local rough = place_then_notify(s, "stone-path", { 24, 24 }, "cindra-ice-rough", {
+      item = prototypes.item["stone-brick"], player_index = player().index,
+    })
+    assert.equals("cindra-ice-rough", rough, "stone-path paved over rough-ice (a hazard) is reverted")
+    local safe = place_then_notify(s, "concrete", { 27, 27 }, "cindra-volcanic-ash-flats", {
+      item = prototypes.item["concrete"], player_index = player().index,
+    })
+    assert.equals("concrete", safe, "concrete on safe ash-flats is allowed (only hazards block)")
   end)
 
   it("does NOT touch other surfaces (nauvis foundation stays)", function()

@@ -29,8 +29,18 @@
 -- 🚨 Gated on surface.name == "cindra": no other planet -- and no space platform
 -- (its surface is never named "cindra") -- is ever touched.
 --
+-- HAZARD NO-PAVE (ci-wly): beyond foundation, you also cannot PAVE (concrete /
+-- stone-path / any tile) ATOP the hottest / iciest HAZARD tiles (terrain.NO_PAVE:
+-- hot-lava, lava, warm smooth-stone, cracks-hot, smooth-ice, rough-ice). Neutralising
+-- the lethal ground by paving over it would defeat the ribbon's danger AND reopens the
+-- ci-8vu lava-pump exploit (a concrete path onto the lava). So any tile built over a
+-- no-pave tile on the cindra surface is reverted too, tile-by-tile (a concrete batch
+-- that laps both hazard and safe ground keeps the safe part, reverts only the hazard).
+--
 -- on_player_built_tile / on_robot_built_tile cover hand, bots and blueprint
 -- (blueprint tile ghosts are revived by bots, or instant-placed by the player).
+
+local terrain = require("scripts.terrain")
 
 local M = {}
 
@@ -46,14 +56,20 @@ local function undo_paving(event)
   if not is_cindra(surface) then return end
 
   local placed = event.tile
-  if not (placed and placed.is_foundation) then return end
+  if not placed then return end
 
-  -- Restore each affected position to whatever it replaced. All entries carry the
-  -- same freshly placed foundation tile (a build applies one tile type), so the
-  -- is_foundation check above gates the whole batch.
+  -- Two reasons to revert a built tile on cindra: (1) it is foundation (landfill /
+  -- foundation / ice-platform / the Gleba soils) -- never allowed anywhere on cindra;
+  -- (2) it was paved ATOP a NO-PAVE hazard tile (terrain.NO_PAVE) -- the lethal ground
+  -- must stay lethal (ci-wly). Foundation reverts the whole batch; hazard no-pave
+  -- reverts only the positions actually over a hazard tile, so a concrete slab that
+  -- laps both hazard and safe ground keeps the safe part.
+  local block_all = placed.is_foundation
   local revert = {}
   for _, t in pairs(event.tiles) do
-    revert[#revert + 1] = { name = t.old_tile.name, position = t.position }
+    if block_all or terrain.is_no_pave(t.old_tile.name) then
+      revert[#revert + 1] = { name = t.old_tile.name, position = t.position }
+    end
   end
   if #revert == 0 then return end
   surface.set_tiles(revert)

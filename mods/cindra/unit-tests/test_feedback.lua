@@ -28,33 +28,32 @@ local function assert_true(v, msg)
   if not v then error(msg or "expected true", 2) end
 end
 
--- A compact, symmetric-ish ribbon keyed by ZONE ROLE (the cfg terrain.widths
--- reads). Zones 1-3 (hot_lava/lava_mix/lava_crust) carry HEAT damage, zone 11
--- (deep_ice) CARRIES cold. With these widths (total 60, half 30):
---   heat lethal band: p >= hot_from = 18   (lava_crust inner edge)
---   cold lethal band: p <= cold_from = -26 (deep_ice inner edge)
---   safe:            -26 < p < 18
+-- A compact, symmetric ribbon keyed by the ci-wly ZONE ROLES (the cfg terrain.widths
+-- reads). Heat zones = hot_ocean + hot_inner; cold zones = cold_inner + cold_ocean.
+-- With these widths (total 44, half 22):
+--   heat lethal band: p >= hot_from = 14   (hot_inner cold edge)
+--   cold lethal band: p <= cold_from = -14 (cold_inner hot edge)
+--   safe:            -14 < p < 14
 local CFG = {
-  hot_lava = 4, lava_mix = 4, lava_crust = 4,
-  volcanic_warm = 4, basalt = 4, scorched = 4, dry_dirt = 4,
-  building = 20,
-  cold_dust = 4, rough_ice = 4, deep_ice = 4,
+  hot_ocean = 4, hot_inner = 4, hot_outer = 4,
+  middle = 20,
+  cold_outer = 4, cold_inner = 4, cold_ocean = 4,
 }
 
 test("no tint in the safe ribbon", function()
   assert_eq(nil, feedback.overlay_for(0, CFG))
-  assert_eq(nil, feedback.overlay_for(17, CFG), "just inside the hot edge -> still safe")
-  assert_eq(nil, feedback.overlay_for(-25, CFG), "just inside the cold edge -> still safe")
+  assert_eq(nil, feedback.overlay_for(13, CFG), "just inside the hot edge -> still safe")
+  assert_eq(nil, feedback.overlay_for(-13, CFG), "just inside the cold edge -> still safe")
 end)
 
 test("heat tint across the whole hot lethal band", function()
-  assert_eq("heat", feedback.overlay_for(18, CFG), "hot lethal inner edge")
-  assert_eq("heat", feedback.overlay_for(30, CFG), "outermost hot edge")
+  assert_eq("heat", feedback.overlay_for(14, CFG), "hot lethal inner edge")
+  assert_eq("heat", feedback.overlay_for(22, CFG), "outermost hot edge")
 end)
 
 test("cold tint across the whole cold lethal band", function()
-  assert_eq("cold", feedback.overlay_for(-26, CFG), "cold lethal inner edge")
-  assert_eq("cold", feedback.overlay_for(-30, CFG), "outermost cold edge")
+  assert_eq("cold", feedback.overlay_for(-14, CFG), "cold lethal inner edge")
+  assert_eq("cold", feedback.overlay_for(-22, CFG), "outermost cold edge")
 end)
 
 test("intensity is 0 when safe", function()
@@ -63,16 +62,16 @@ test("intensity is 0 when safe", function()
 end)
 
 test("intensity ramps 0 -> 1 deeper into the hot band", function()
-  assert_near(0, feedback.intensity_for(18, CFG), "at the hot edge")
-  assert_near(1, feedback.intensity_for(30, CFG), "at the outermost hot edge")
-  assert_true(feedback.intensity_for(24, CFG) > feedback.intensity_for(20, CFG),
+  assert_near(0, feedback.intensity_for(14, CFG), "at the hot edge")
+  assert_near(1, feedback.intensity_for(22, CFG), "at the outermost hot edge")
+  assert_true(feedback.intensity_for(20, CFG) > feedback.intensity_for(16, CFG),
     "deeper toward the lava -> stronger")
 end)
 
 test("intensity ramps 0 -> 1 deeper into the cold band", function()
-  assert_near(0, feedback.intensity_for(-26, CFG), "at the cold edge")
-  assert_near(1, feedback.intensity_for(-30, CFG), "at the outermost cold edge")
-  assert_true(feedback.intensity_for(-30, CFG) > feedback.intensity_for(-27, CFG),
+  assert_near(0, feedback.intensity_for(-14, CFG), "at the cold edge")
+  assert_near(1, feedback.intensity_for(-22, CFG), "at the outermost cold edge")
+  assert_true(feedback.intensity_for(-22, CFG) > feedback.intensity_for(-16, CFG),
     "deeper toward the ice cap -> stronger")
 end)
 

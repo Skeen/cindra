@@ -95,33 +95,33 @@ end)
 
 -- === Solar output falloff (§ ci-9ht; recalibrated to ci-da2 zones, ci-22v) =====
 
--- The zone-derived anchors for the default worldgen: full output at the inner edge
--- of the molten lava zones, ~zero by the temperate->ice boundary.
-local FULL_AT = terrain.role_band("lava_mix").lo   -- 127 by default (ci-qqt thin ribbon)
-local ZERO_AT = terrain.role_band("building").lo   -- -25 by default
+-- The zone-derived anchors for the default worldgen (ci-wly): full output at the inner
+-- edge of the hot DAMAGING rings (hot_inner.lo), ~zero by the middle->cold boundary.
+local FULL_AT = terrain.role_band("hot_inner").lo   -- 130 by default
+local ZERO_AT = terrain.role_band("middle").lo      -- -60 by default
 
 test("solar anchors are DERIVED from the zone layout, not fixed tiles", function()
   local full, zero, floor = ribbon.solar_anchors()
-  assert_eq(FULL_AT, full, "full-output anchor is the molten (lava) inner edge")
-  assert_eq(ZERO_AT, zero, "zero-output anchor is the temperate->ice boundary")
+  assert_eq(FULL_AT, full, "full-output anchor is the hot damaging inner edge")
+  assert_eq(ZERO_AT, zero, "zero-output anchor is the middle->cold boundary")
   assert_eq(0.0, floor, "the far-nightward floor is ~nothing")
-  -- The anchors must be well clear of the temperate centre: the ci-22v bug was full
-  -- output landing at/near spawn. Full only sunward of the building band (the lava
-  -- side), zero on the ice side -- derived, so it tracks the compressed widths (ci-qqt).
-  assert_true(full > terrain.role_band("building").hi,
-    "full output is sunward of the building band (the lava side), not at spawn")
-  assert_true(zero <= 0, "zero output is at/beyond the nightward edge of the ribbon")
+  -- The anchors must be well clear of the middle: the ci-22v bug was full output
+  -- landing at/near spawn. Full only sunward of the middle (the lava side), zero on
+  -- the cold side -- derived, so it tracks the live widths.
+  assert_true(full > terrain.role_band("middle").hi,
+    "full output is sunward of the middle (the lava side), not at spawn")
+  assert_true(zero <= 0, "zero output is at/beyond the nightward edge of the middle")
 end)
 
 test("recalibrating a zone width moves the solar anchors with it", function()
-  -- A wider building band pushes the temperate->ice boundary further nightward, so
-  -- solar tracks the actual worldgen instead of a stale fixed tile.
-  local full, zero = ribbon.solar_anchors({ zone_widths = { building = 400 } })
-  assert_eq(terrain.role_band("building", { building = 400 }).lo, zero,
-    "the zero anchor follows the widened building band")
-  assert_eq(terrain.role_band("lava_mix", { building = 400 }).lo, full,
-    "the full anchor follows the shifted lava zone")
-  assert_true(zero < ZERO_AT, "widening the temperate band moved zero further nightward")
+  -- A wider middle pushes the middle->cold boundary further nightward, so solar tracks
+  -- the actual worldgen instead of a stale fixed tile.
+  local full, zero = ribbon.solar_anchors({ zone_widths = { middle = 400 } })
+  assert_eq(terrain.role_band("middle", { middle = 400 }).lo, zero,
+    "the zero anchor follows the widened middle")
+  assert_eq(terrain.role_band("hot_inner", { middle = 400 }).lo, full,
+    "the full anchor follows the shifted hot zone")
+  assert_true(zero < ZERO_AT, "widening the middle moved zero further nightward")
 end)
 
 test("solar output is full only on the LAVA side, ~nothing on the ICE side", function()

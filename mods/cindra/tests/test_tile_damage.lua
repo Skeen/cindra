@@ -76,7 +76,7 @@ describe("tile-based lethal-ground damage (§15-2; ci-4jl)", function()
     local lava       = damage_on("cindra-lava", "assembling-machine-1")
     local cracks_hot = damage_on("cindra-volcanic-cracks-hot", "assembling-machine-1")
     local warm       = damage_on("cindra-volcanic-cracks-warm", "assembling-machine-1")
-    local temperate  = damage_on("cindra-sand-1", "assembling-machine-1")
+    local temperate  = damage_on("cindra-volcanic-ash-flats", "assembling-machine-1")
 
     assert.are.equal(0, temperate, "temperate ground deals NO damage")
     assert.is_true(warm > 0, "warm crust deals a little damage (gentle edge)")
@@ -88,7 +88,7 @@ describe("tile-based lethal-ground damage (§15-2; ci-4jl)", function()
   it("COLD damage RAMPS with tile: smooth-ice > rough-ice > temperate=0", function()
     local smooth = damage_on("cindra-ice-smooth", "assembling-machine-1")
     local rough  = damage_on("cindra-ice-rough", "assembling-machine-1")
-    local safe   = damage_on("cindra-sand-1", "assembling-machine-1")
+    local safe   = damage_on("cindra-volcanic-ash-flats", "assembling-machine-1")
 
     assert.are.equal(0, safe, "temperate ground deals no cold damage")
     assert.is_true(rough > 0, "rough ice freezes a little")
@@ -122,7 +122,7 @@ describe("tile-based lethal-ground damage (§15-2; ci-4jl)", function()
   end)
 
   it("the SAME pump on temperate ground takes NO damage", function()
-    pave("cindra-sand-1", CX, YY)
+    pave("cindra-volcanic-ash-flats", CX, YY)
     local pump = s.create_entity({ name = "pump", position = { CX, YY }, force = "player" })
     assert.is_not_nil(pump)
     local before = pump.health
@@ -141,7 +141,7 @@ describe("tile-based lethal-ground damage (§15-2; ci-4jl)", function()
     burned.destroy()
 
     -- Character on safe ground.
-    pave("cindra-sand-1", CX, YY)
+    pave("cindra-volcanic-ash-flats", CX, YY)
     local safe = s.create_entity({ name = "character", position = { CX, YY }, force = "player" })
     local hs = safe.health
     td.sweep(s, 60, 200)

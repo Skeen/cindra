@@ -144,13 +144,14 @@ end
 
 local function cindra_ice_resource()
   local r = cindra_resource("cindra-ice", "ice", ICE_MAP_COLOR, "b[cindra-ice]",
-    -- Denser spot placement than the old narrow ribbon (ci-da2): ice now lives on
-    -- the cold cap east of the building band (x > 100), so its guaranteed
-    -- starting-area patch (placed at the origin) is masked out. A higher
-    -- spots-per-km2 keeps ice reliably present in the reachable cold zone instead
-    -- of leaving the nightside barren.
+    -- Denser spot placement than a vanilla ore (ci-da2, rebumped ci-wly): ice lives on
+    -- the cold OUTER slope east of the middle (perp -120.5..-60), so its guaranteed
+    -- starting-area patch (placed at the origin) is masked OUT -- ice relies entirely on
+    -- the regular spots. The ci-wly redesign moved the band further out and wider, so a
+    -- HIGHER spots-per-km2 (40) is needed to keep ice reliably present in the reachable
+    -- cold zone on every seed instead of leaving the nightside barren. (tune)
     banded_autoplace("cindra-ice",
-      { order = "b", base_density = 8, base_spots_per_km2 = 12, has_starting_area_placement = true },
+      { order = "b", base_density = 8, base_spots_per_km2 = 40, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
     "__cindra__/graphics/icons/ice.png")
   -- Override the single-product minable set up by cindra_resource with the FIXED
