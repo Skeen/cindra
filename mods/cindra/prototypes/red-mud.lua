@@ -60,11 +60,11 @@
 -- by name only. A private recipe category keeps iron recovery on the carbothermic
 -- furnace alone.
 --
--- ART: placeholder icons for v1 (ci-c7j). Red mud + slag reuse the bespoke
--- `cindra-stone` render under a tint; the furnace reuses its assembling-machine
--- clone art. A bespoke-render follow-up is filed (cf. ci-eb9); source + intended
--- attribution (Malcolm Riley's unused-renders, CC-BY-4.0) are in
--- graphics/ART-MANIFEST.md.
+-- ART: bespoke icons + furnace sprite (ci-zdp). Red mud + slag draw dedicated
+-- 64x64 renders from Malcolm Riley's unused-renders (CC-BY-4.0; red mud leaned
+-- rust-red in-engine), and the carbothermic furnace draws a procedural Cindra
+-- reduction-furnace sprite from scripts/gen-entity-art.py (no assembling-machine-3
+-- art leaks). Per-asset source + attribution are in graphics/ART-MANIFEST.md.
 
 local util = require("util")
 
@@ -84,11 +84,42 @@ local STONE     = "stone"                     -- VANILLA
 local ICON_DIR = "__cindra__/graphics/icons/"
 local function bespoke(name) return ICON_DIR .. name .. ".png" end
 
-local function set_icon(proto, icon, tint)
+-- Bespoke 64x64 item icon (ci-zdp). The red-mud and slag renders are Malcolm
+-- Riley's `unused-renders` (CC-BY-4.0; per-item source + attribution in
+-- graphics/ART-MANIFEST.md), resized to 64x64 with no pixel edits. An optional
+-- `tint` leans the render's hue in-engine (red mud toward its signature rust-red)
+-- without baking it into the shipped file -- the same trick the spent catalysts use.
+local function set_item_icon(proto, name, tint)
   proto.icon = nil
-  proto.icons = { { icon = icon, icon_size = 64, tint = tint } }
+  proto.icons = { { icon = bespoke(name), icon_size = 64, tint = tint } }
   proto.icon_size = 64
-  proto.pictures = nil -- fall back to the (tinted) icon for belt/inventory art
+  proto.pictures = nil -- fall back to the icon for belt/inventory art
+end
+
+-- Bespoke entity icon: a 120x64 mip strip from the procedural entity-art
+-- generator (scripts/gen-entity-art.py; icon_size 64, icon_mipmaps 4).
+local function set_entity_icon(proto, name)
+  proto.icon = bespoke(name)
+  proto.icons = nil
+  proto.icon_size = 64
+  proto.icon_mipmaps = 4
+end
+
+-- The bespoke carbothermic-furnace in-world sprite (a static HR single frame +
+-- soft shadow) from the same generator. Wired as the assembler's `graphics_set.
+-- animation` so it fully replaces the inherited assembling-machine-3 art (no
+-- vanilla sprite leak). Art dir key is the short name, like the other entities.
+local FURNACE_ART = "carbothermic-furnace"
+local function furnace_animation()
+  local dir = "__cindra__/graphics/entity/" .. FURNACE_ART .. "/"
+  return {
+    layers = {
+      { filename = dir .. FURNACE_ART .. ".png",
+        width = 256, height = 256, scale = 0.5, shift = { 0, -0.1 } },
+      { filename = dir .. FURNACE_ART .. "-shadow.png",
+        width = 256, height = 256, scale = 0.5, shift = { 0.3, 0 }, draw_as_shadow = true },
+    },
+  }
 end
 
 -- === Tune block (all `(tune)`, DESIGN.md §7 / §15-14 ci-63d) =================
@@ -119,21 +150,21 @@ local category = { type = "recipe-category", name = CATEGORY }
 
 -- === Items ===================================================================
 -- Red mud: the Bayer byproduct (iron-oxide-rich residue). Cloned from calcite for
--- a valid item def; placeholder reddish tint over the bespoke stone render (v1).
+-- a valid item def; bespoke crushed-iron-ore render leaned toward rust-red (ci-zdp).
 local red_mud = util.table.deepcopy(data.raw.item["calcite"])
 red_mud.name = RED_MUD
 red_mud.order = "z[cindra]-red-mud"
 red_mud.stack_size = 100
-set_icon(red_mud, bespoke("cindra-stone"), { r = 0.72, g = 0.34, b = 0.24, a = 1.0 })
+set_item_icon(red_mud, RED_MUD, { r = 1.5, g = 0.55, b = 0.40, a = 1.0 })
 red_mud.localised_name = { "item-name." .. RED_MUD }
 red_mud.localised_description = { "item-description." .. RED_MUD }
 
--- Slag: inert tailings from iron recovery. Placeholder dark-grey tint (v1).
+-- Slag: inert tailings from iron recovery. Bespoke slag-chunk render (ci-zdp).
 local slag = util.table.deepcopy(data.raw.item["calcite"])
 slag.name = SLAG
 slag.order = "z[cindra]-slag"
 slag.stack_size = 100
-set_icon(slag, bespoke("cindra-stone"), { r = 0.42, g = 0.44, b = 0.50, a = 1.0 })
+set_item_icon(slag, SLAG)
 slag.localised_name = { "item-name." .. SLAG }
 slag.localised_description = { "item-description." .. SLAG }
 
@@ -141,7 +172,9 @@ slag.localised_description = { "item-description." .. SLAG }
 -- Cloned from assembling-machine-3: it already has a correct electric energy
 -- source AND the fluid box the CO2 input needs (the zeolite catalyst proves AM3
 -- accepts a fluid ingredient). We restrict it to the private category and crank
--- the electric draw. v1 art reuse: keep the cloned assembler sprite + icon.
+-- the electric draw. Bespoke art (ci-zdp): the cloned assembler's graphics_set is
+-- fully replaced by the Cindra reduction-furnace sprite, and the item/entity carry
+-- the matching bespoke icon (no assembling-machine-3 art leaks through).
 local furnace = util.table.deepcopy(data.raw["assembling-machine"]["assembling-machine-3"])
 furnace.name = FURNACE
 furnace.minable = { mining_time = 0.5, result = FURNACE }
@@ -149,6 +182,9 @@ furnace.crafting_categories = { CATEGORY }
 furnace.energy_usage = FURNACE_DRAW           -- the ruinous draw (far above a stock assembler)
 furnace.fast_replaceable_group = nil          -- not interchangeable with the assembler
 furnace.next_upgrade = nil
+furnace.graphics_set = { animation = furnace_animation() } -- bespoke sprite, drops AM3 art
+furnace.graphics_set_flipped = nil            -- no flipped variant for the static single frame
+set_entity_icon(furnace, FURNACE_ART)
 furnace.localised_name = { "entity-name." .. FURNACE }
 furnace.localised_description = { "entity-description." .. FURNACE }
 
@@ -156,6 +192,7 @@ local furnace_item = util.table.deepcopy(data.raw.item["assembling-machine-3"])
 furnace_item.name = FURNACE
 furnace_item.place_result = FURNACE
 furnace_item.order = "z[cindra]-carbothermic-furnace"
+set_entity_icon(furnace_item, FURNACE_ART)
 furnace_item.localised_name = { "item-name." .. FURNACE }
 furnace_item.localised_description = { "item-description." .. FURNACE }
 
@@ -245,7 +282,7 @@ local vent_slag = {
   },
   results = {}, -- discarded: a pure sink
   allow_productivity = false,
-  icons = { { icon = bespoke("cindra-stone"), icon_size = 64, tint = { r = 0.42, g = 0.44, b = 0.50, a = 1.0 } } },
+  icons = { { icon = bespoke(SLAG), icon_size = 64 } }, -- the bespoke slag render (ci-zdp)
   localised_name = { "recipe-name.cindra-vent-slag" },
   localised_description = { "recipe-description.cindra-vent-slag" },
 }
@@ -259,8 +296,8 @@ local vent_slag = {
 local technology = {
   type = "technology",
   name = TECH,
-  -- v1 art reuse: the red-mud item render (placeholder tint over the stone render).
-  icons = { { icon = bespoke("cindra-stone"), icon_size = 64, tint = { r = 0.72, g = 0.34, b = 0.24, a = 1.0 } } },
+  -- The bespoke red-mud item render stands in for the subsystem's tech (ci-zdp).
+  icons = { { icon = bespoke(RED_MUD), icon_size = 64, tint = { r = 1.5, g = 0.55, b = 0.40, a = 1.0 } } },
   icon_size = 64,
   effects = {
     { type = "unlock-recipe", recipe = "cindra-bayer-alumina" },

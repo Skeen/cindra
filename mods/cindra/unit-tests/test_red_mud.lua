@@ -77,6 +77,28 @@ require("prototypes.red-mud")
 
 local function proto(kind, name) return (registry[kind] or {})[name] end
 
+-- Icon/sprite file checks (the runtime API does not expose icon paths, so we
+-- assert the shipped PNGs the same way test_materials_graphics does). Unit tests
+-- run from mods/cindra, so __cindra__/ maps to ./.
+local function to_rel(modpath) return (modpath:gsub("^__cindra__/", "./")) end
+
+local function ships(modpath)
+  local f = io.open(to_rel(modpath), "rb")
+  if f then f:close() return true end
+  return false
+end
+
+-- PNG colour-type byte (26th, 1-indexed): 6 = truecolour+alpha (RGBA). Factorio
+-- draws indexed/palette PNGs black, so shipped art must be RGBA.
+local function png_color_type(modpath)
+  local f = io.open(to_rel(modpath), "rb")
+  if not f then return nil end
+  local head = f:read(26)
+  f:close()
+  if not head or #head < 26 then return nil end
+  return head:byte(26)
+end
+
 local function amount_of(list, name)
   for _, e in ipairs(list) do
     if e.name == name then return e.amount end
@@ -91,20 +113,32 @@ local function product(list, name)
   return nil
 end
 
--- === Items =================================================================
+-- === Items: bespoke icons (ci-zdp) =========================================
+-- Each item draws its OWN dedicated 64x64 render (Malcolm Riley unused-renders),
+-- not the shared cindra-stone placeholder. red mud additionally leans rust-red
+-- in-engine; slag ships already-grey so it needs no tint.
 for _, spec in ipairs({
   { name = "cindra-red-mud", tinted = true },
-  { name = "cindra-slag", tinted = true },
+  { name = "cindra-slag", tinted = false },
 }) do
-  test(spec.name .. " item is registered with a Cindra-stone placeholder icon", function()
+  test(spec.name .. " draws its bespoke icon (no cindra-stone placeholder)", function()
     local p = proto("item", spec.name)
     assert_true(p ~= nil, spec.name .. " must be registered as an item")
     assert_eq(100, p.stack_size, spec.name .. " stack size")
     assert_true(p.icons and p.icons[1], spec.name .. " must set a layered icon")
-    assert_eq("__cindra__/graphics/icons/cindra-stone.png", p.icons[1].icon,
-      spec.name .. " must reuse the bespoke stone render (no vanilla placeholder)")
+    local path = p.icons[1].icon
+    local expected = "__cindra__/graphics/icons/" .. spec.name .. ".png"
+    assert_eq(expected, path, spec.name .. " must draw its own bespoke render")
+    assert_true(path:find("cindra-stone", 1, true) == nil,
+      spec.name .. " must NOT fall back to the cindra-stone placeholder")
+    assert_true(path:find("__base__", 1, true) == nil and path:find("__space%-age__") == nil,
+      spec.name .. " must not use a vanilla placeholder icon")
     assert_eq(64, p.icons[1].icon_size, spec.name .. " icon_size")
-    assert_true(p.icons[1].tint ~= nil, spec.name .. " must set a distinguishing tint")
+    assert_true(ships(path), "icon PNG must ship: " .. path)
+    assert_eq(6, png_color_type(path), "icon PNG must be truecolour RGBA: " .. path)
+    if spec.tinted then
+      assert_true(p.icons[1].tint ~= nil, spec.name .. " must keep its rust-red lean tint")
+    end
   end)
 end
 
@@ -120,6 +154,37 @@ test("the carbothermic furnace is a private-category high-draw machine", functio
   local item = proto("item", "cindra-carbothermic-furnace")
   assert_true(item ~= nil, "the furnace item must be registered")
   assert_eq("cindra-carbothermic-furnace", item.place_result, "the item places the furnace")
+end)
+
+-- === Carbothermic furnace: bespoke art (ci-zdp) =============================
+test("the furnace draws a bespoke Cindra sprite (no assembling-machine-3 art)", function()
+  local e = proto("assembling-machine", "cindra-carbothermic-furnace")
+  assert_true(e.graphics_set and e.graphics_set.animation and e.graphics_set.animation.layers,
+    "the furnace must render via a layered graphics_set.animation")
+  local body = e.graphics_set.animation.layers[1].filename
+  local expected = "__cindra__/graphics/entity/carbothermic-furnace/carbothermic-furnace.png"
+  assert_eq(expected, body, "the furnace body sprite must be the bespoke Cindra render")
+  assert_true(body:find("assembling%-machine") == nil and body:find("__base__", 1, true) == nil,
+    "no assembling-machine-3 / vanilla sprite may leak through")
+  assert_true(ships(body), "the furnace body sprite must ship: " .. body)
+  assert_eq(6, png_color_type(body), "the furnace body sprite must be truecolour RGBA")
+  local shadow = e.graphics_set.animation.layers[2]
+  assert_true(shadow and shadow.draw_as_shadow, "the furnace must ship a shadow layer")
+  assert_true(ships(shadow.filename), "the furnace shadow sprite must ship: " .. shadow.filename)
+end)
+
+test("the furnace item + entity carry the bespoke furnace icon", function()
+  local icon = "__cindra__/graphics/icons/carbothermic-furnace.png"
+  for _, kind in ipairs({ "assembling-machine", "item" }) do
+    local p = proto(kind, "cindra-carbothermic-furnace")
+    assert_eq(icon, p.icon, kind .. " must draw the bespoke furnace icon")
+    assert_true(p.icon and p.icon:find("assembling%-machine") == nil,
+      kind .. " must not keep the assembling-machine-3 icon")
+    assert_eq(64, p.icon_size, kind .. " furnace icon_size")
+    assert_eq(4, p.icon_mipmaps, kind .. " furnace icon_mipmaps (mip strip)")
+  end
+  assert_true(ships(icon), "the furnace icon PNG must ship: " .. icon)
+  assert_eq(6, png_color_type(icon), "the furnace icon PNG must be truecolour RGBA")
 end)
 
 -- === Bayer recipe ===========================================================
