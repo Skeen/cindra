@@ -37,6 +37,12 @@ script.on_event(defines.events.on_tick, function(e)
   -- shot shows the whole globe. (Panning the camera carries the globe with it, so
   -- there is no framing that also hides the small hub entity; it reads fine as a
   -- platform-eye view.)
+  -- close/wide are the ci-6y9 parity shots (they crop the fire limb off the left).
+  -- "full" zooms out so the WHOLE disc, including the fire (left) limb and its
+  -- lower edge, is in frame -- that is where the ci-cn1 solar-flare arc rides, so
+  -- this shot is how the flare gets eyeballed via render-orbit.sh. The far zoom
+  -- leaves a few black parallax-tiling gaps under llvmpipe (a harness artifact, not
+  -- the backdrop); the flare area on the lower-left limb stays clear.
   local shots = {
     { z = 0.2, pos = { 0, 0 }, tag = "close" },
     { z = 0.14, pos = { 0, 0 }, tag = "wide" },

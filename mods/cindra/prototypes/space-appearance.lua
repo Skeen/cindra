@@ -20,9 +20,10 @@
 -- Only the CLOUD layer animates, via rotate_with_planet = false, so the terminator
 -- steam band drifts while the GLOBE stays still (planet_design.md: "only the GLOBE
 -- must be static"). A SUBTLE solar-flare arc rides the dayside (fire) limb (ci-cn1):
--- the oversized full-height version was pulled in ci-i9m for reading as a bottom-of-
--- globe rocket plume, so this one is small and pinned to the LEFT limb. The flare
--- GAMEPLAY event (prototypes/flare.lua) is a separate system.
+-- the oversized full-height version pulled in ci-i9m read as a rocket plume, so this
+-- one is small, single, and sits at the fire limb's shadowed lower edge (see the
+-- flare_texture/flare_heroes notes below). The flare GAMEPLAY event
+-- (prototypes/flare.lua) is a separate system.
 
 local util = require("util")
 
@@ -93,6 +94,35 @@ local function map(name)
   return { filename = "__cindra__/graphics/space/" .. name, width = 2048, height = 1024 }
 end
 
+-- The solar-flare hero spritesheet: 24 frames on a 6-wide grid of 256px cells
+-- (scripts/gen-planet-maps.py build_flare_sheet), a seamless rise-and-fall loop.
+--
+-- IMPORTANT: a hero-cloud texture MUST be built the way vanilla space-age builds
+-- its planet-lightning clouds -- via util.sprite_load, which reads the sibling
+-- graphics/space/cindra-flare.lua for the grid metadata. A hand-rolled
+-- { filename, width, height, line_length } literal does NOT render (verified
+-- against scripts/render-orbit.sh: the sprite silently fails to draw). That is
+-- almost certainly why the earlier overlay never actually appeared on the LIVE
+-- backdrop -- the "bottom plume" ci-i9m flagged was in the BAKED star-map, a
+-- separate render.
+--
+-- util.sprite_load is a DATA-stage helper (it require()s the metadata at load).
+-- The pure module tests call build_render_parameters at control-parse time, where
+-- that require is unavailable, so fall back to the equivalent literal there -- the
+-- tests assert the wired FIELDS (they cannot render), and the field the guard
+-- checks (filename -> cindra-flare.png) is identical either way.
+local function flare_texture()
+  if data ~= nil and type(util.sprite_load) == "function" then
+    return util.sprite_load("__cindra__/graphics/space/cindra-flare",
+      { frame_count = 24, animation_speed = 0.35 })
+  end
+  return {
+    filename = "__cindra__/graphics/space/cindra-flare.png",
+    width = 256, height = 256, line_length = 6, shift = { 0, 0 },
+    frame_count = 24, animation_speed = 0.35,
+  }
+end
+
 -- Build the non-rotating orbital backdrop. Deep-copies the passed nauvis params
 -- (which carry the generic, planet-agnostic space-dust fields) and overrides only
 -- the planet-specific backdrop, so we never mutate the shared nauvis table.
@@ -101,36 +131,36 @@ function M.build_render_parameters(nauvis_params)
 
   -- Subtle solar-flare arc on the dayside (fire) limb (ci-cn1). The star is
   -- perilously close and throws flares (DESIGN.md; the gameplay event lives in
-  -- prototypes/flare.lua), so a small emissive prominence licking off the LEFT
+  -- prototypes/flare.lua), so a small emissive prominence licking off the fire
   -- limb sells that from space. This is a deliberate re-do of the overlay ci-i9m
-  -- removed: that one used full-height quads (up to 0.95 of the disc) anchored low,
-  -- so the vertical flame columns read as a "rocket-engine plume" near the bottom
-  -- of the globe. The fix is size + placement, not deletion:
-  --   * SMALL -- a fraction of the disc, so it reads as a flare tongue not a plume;
-  --   * pinned to the LEFT (fire) limb, upper hemisphere, well clear of the bottom;
+  -- removed, and the fix is SIZE + PLACEMENT, not deletion:
+  --   * SMALL -- a fraction of the disc (~0.4), so it reads as a flare tongue, not
+  --     the old up-to-0.95 full-height quad that looked like a rocket plume;
+  --   * ONE instance -- a single arc reads as a flare; two staggered ones read as
+  --     the old competing plumes;
+  --   * on the LEFT (fire) side at the fire/shadow edge (the lower terminator).
+  --     The overlay is front-only + emissive, so it only READS where the surface
+  --     behind it is dark: on the blown-out orange dayside a warm flare is
+  --     invisible (verified via scripts/render-orbit.sh across many placements),
+  --     so it rides the fire limb's shadowed lower edge where it stands out as a
+  --     compact prominence against the terminator falloff;
   --   * front-only + rotate_with_planet = false so it arcs in place while the
-  --     tidally-locked globe stays frozen (see NO_ROTATION);
-  --   * emissive so it glows against dark space like a real prominence.
-  -- The flare spritesheet is 24 frames on a 6-wide sheet of 256px cells
-  -- (scripts/gen-planet-maps.py build_flare_sheet): a seamless rise-and-fall loop.
-  local flare_sheet = util.sprite_load("__cindra__/graphics/space/cindra-flare", {
-    frame_count = 24, animation_speed = 0.35,
-  })
-  -- ONE instance: a single arc reads as a flare, two staggered ones read as the
-  -- old competing plumes. LEFT limb (negative x), upper hemisphere (positive y,
-  -- away from the bottom where the old plume sat), small size.
+  --     tidally-locked globe stays frozen (see NO_ROTATION).
+  -- Disc coords: +x is RIGHT, +y is UP (empirically, from render-orbit.sh). Final
+  -- aesthetic sign-off is the in-game PLAYTEST (this can't be judged off-game).
   local flare_heroes = {
     {
       sprite_index = 1,
       rotate_with_planet = false,
       projection_style = "front-only",
-      positions = { { -0.55, -0.35 } },  -- lower fire limb, at the fire/shadow edge; +x=right, +y=up
+      positions = { { -0.55, -0.35 } },  -- fire (LEFT) side, lower terminator edge
       size = { 0.36, 0.48 },             -- small: a fraction of the disc, not the old 0.95
       position_deviation = { 0.02, 0.02 },
       rotation_deviation = 1.0,
       starting_frame_offset = 6,
     },
   }
+  local flare_sheet = flare_texture()
 
   params.platform_backdrop = {
     emission_scales_with_shadow = false,   -- magma glows on its own, across the disc

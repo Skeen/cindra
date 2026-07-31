@@ -82,12 +82,37 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   fire faces the star, ice faces away (tidal-lock orientation preserved). *Fallback:*
   the baked star-map sprite + maps are verified off-game
   (`unit-tests/test_planet_maps.py` guards the smooth ramp / no self-lit seam / pale
-  non-electric ice / strongly glowing lava; `unit-tests/test_space_appearance.lua`
-  guards the removed hero-flare overlay). This entry is only the "the live orbital
+  non-electric ice / strongly glowing lava). This entry is only the "the live orbital
   backdrop looks right (gradient, ice, no plume)" confirmation a still-image test
-  cannot judge. Re-bake via `scripts/render-planet.sh`. **Note:** a tasteful
-  limb-flare visual could return as a follow-up bead (the flare spritesheet art
-  `graphics/space/cindra-flare.png` still exists for reuse).
+  cannot judge. Re-bake via `scripts/render-planet.sh`. **Note:** the tasteful
+  limb-flare visual returned as its own bead, ci-cn1 (see the entry below) -- small,
+  single, and confined to the fire limb, unlike the removed full-height plume.
+
+- [ ] **[LANDED] Subtle solar-flare arc on the fire limb (ci-cn1).** The star is
+  perilously close and throws flares (DESIGN.md), so the from-space globe carries a
+  SMALL emissive solar-flare prominence on the dayside (LEFT/fire) limb -- a
+  deliberate re-do of the overlay ci-i9m pulled. Wiring lives in
+  `prototypes/space-appearance.lua` (`platform_backdrop.hero_clouds` +
+  `hero_cloud_texture_1`, built via `util.sprite_load` exactly like vanilla
+  space-age hero clouds -- a hand-rolled sprite literal silently fails to draw).
+  Reused art: `graphics/space/cindra-flare.png` (+ new `cindra-flare.lua` grid
+  metadata). *Repro:* `scripts/render-orbit.sh` (the **orbit-full.png** shot frames
+  the whole disc incl. the fire limb), or in-game open the star-map / travel to
+  Cindra (`./play.sh`). *Look for:* a **single, small, warm flame prominence licking
+  off the fire (LEFT) limb** at its lower/shadowed edge -- reads as a compact flare
+  arc, NOT the old oversized full-height rocket-plume, and NOT two competing streaks.
+  It should feel like a subtle flourish, not dominate the disc. *Known constraint:*
+  the overlay is warm-toned + `front-only`, so it only READS where the surface
+  behind it is dark -- on the blown-out orange dayside a warm flare is invisible
+  (verified via `render-orbit.sh` across many placements), which is why it rides the
+  fire limb's shadowed lower edge rather than mid-limb. If the mayor wants it higher
+  on the bright limb, the flare sheet (`gen-planet-maps.py build_flare_sheet`) would
+  need a brighter/hotter regen so it can out-glow the dayside -- flag as a follow-up.
+  *Fallback:* the wiring is guarded off-game and under the real runtime
+  (`unit-tests/test_space_appearance.lua`, `tests/test_space_appearance.lua`: "single
+  small flare arc on the LEFT/fire limb") -- present, emissive, single instance,
+  small (< 0.5 of disc), on the fire side. This entry is the in-motion aesthetic
+  sign-off a still image cannot fully judge.
 
 - [ ] **[LANDED] Star-map icon: soft ~55%-lit terminator (ci-nyj).** The baked
   star-map globe used to split at a HARD 50% Lambertian half. The bake now adds a
