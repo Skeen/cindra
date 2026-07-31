@@ -727,8 +727,26 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (Cindra's "full battery"), only Cindra panels are touched, and it fires with no
   day/night cycle (tidal-lock safe). *Look for:* the health read of a panel array
   cooking sunward-first during an over-built flare, and recovering once disposal is
-  added. Panels have no bespoke "overheating" visual yet (just the health bar); an
-  emissive cue is a follow-up.
+  added. Beyond the health bar, a damaged panel now pops an **overload spark**
+  (ci-clf, next entry) so you can SEE which panels are cooking.
+
+- [ ] **[LANDED] Overload-damage spark on a burning panel (ci-clf) — VISUAL.**
+  *Repro:* build a sunward panel array with NO disposal (no dissipator/battery)
+  and ride a flare (or force it: enable the driver and let a real flare peak). The
+  most-sunward panels take disposal-deficit damage. *Look for:* the instant a panel
+  is damaged, a short **electric-arc spark** flashes on it — a brief hot orange/white
+  zap (the vanilla `sparks-0x` arc, re-tinted to Cindra's fire palette, drawn as a
+  glow), NOT Fulgora electric-blue lightning. It fires once per damaged panel per
+  damage tick, so a cooking array **shimmers with arcs sunward-first** and the front
+  advances inward as panels die; a spared/recovering panel (enough disposal) throws
+  **no** spark. The spark should read as "this panel is arcing from overload", pop
+  cleanly, and self-clear (it is a one-shot explosion entity, no lingering artifact).
+  *Fallback:* the spark prototype (a self-reaping `explosion`) and the fire-on-damage /
+  no-fire-on-recovery / one-per-hit behaviour are integration-tested
+  (`tests/test_panel_damage.lua` "overload spark visual", `tests/test_power_prototypes.lua`);
+  only the *look/feel* (tint, scale, is the flash readable but not spammy?) is the
+  playtest. *Note:* v1 reuses the vanilla arc sheets; a bespoke overload sprite is
+  an optional art follow-up.
 
 - [ ] **[LANDED] Sunward-position solar output, no visual band cue (ci-9ht,
   ci-8al).** Cindra uses the **vanilla** `solar-panel` (ci-8al). A placed panel

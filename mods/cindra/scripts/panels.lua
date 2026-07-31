@@ -128,19 +128,35 @@ function M.deficit(surface, network_id, intensity)
   }
 end
 
+-- Pop the overload-damage spark on a panel that just took a hit (ci-clf). A
+-- self-reaping electric-arc explosion (prototypes/panel-spark.lua) at the panel's
+-- position, so the otherwise-silent disposal-deficit degradation has a visible
+-- cue -- the player can SEE which panels are burning up from an unabsorbed flare.
+-- Created on the panel's OWN surface, which the sweep has already gated to
+-- "cindra", so no other planet ever sees a spark. Fired BEFORE a lethal hit so a
+-- panel about to be destroyed still arcs at its last position.
+local function spark(panel)
+  panel.surface.create_entity({ name = C.PANEL_SPARK, position = panel.position })
+end
+
 -- Apply damage for one network's deficit, edge-biased. The HP budget scales with
 -- the deficit and is spent sunward-first: a small budget only dents the sunmost
 -- panels (degrade), a large sustained budget consumes their health and kills
--- them (death), then spills to the next panel inward. Returns hp dealt + deaths.
+-- them (death), then spills to the next panel inward. Every panel that takes a
+-- hit pops an overload spark (ci-clf). Returns hp dealt, deaths, and spark count.
 local function damage_network(info)
   local budget = (info.deficit / 1e6) * C.HP_PER_MW_DEFICIT
-  local dealt, destroyed = 0, 0
+  local dealt, destroyed, sparked = 0, 0, 0
   for _, p in ipairs(info.panels) do
     if budget <= 0 then break end
     if p.valid then
       local hit = math.min(budget, p.health)
       dealt = dealt + hit
       budget = budget - hit
+      if hit > 0 then
+        spark(p)
+        sparked = sparked + 1
+      end
       if hit >= p.health then
         p.destroy()
         destroyed = destroyed + 1
@@ -149,7 +165,7 @@ local function damage_network(info)
       end
     end
   end
-  return dealt, destroyed
+  return dealt, destroyed, sparked
 end
 
 -- Recovery when disposal is sufficient: degraded panels heal back toward full, so
@@ -178,9 +194,9 @@ function M.sweep(surface, intensity)
   local summary = {}
   for id in pairs(by_net) do
     local info = M.deficit(surface, id, intensity)
-    local dealt, destroyed = 0, 0
+    local dealt, destroyed, sparked = 0, 0, 0
     if info.deficit > 0 then
-      dealt, destroyed = damage_network(info)
+      dealt, destroyed, sparked = damage_network(info)
     else
       recover(info.panels)
     end
@@ -191,6 +207,7 @@ function M.sweep(surface, intensity)
       deficit = info.deficit,
       hp_dealt = dealt,
       destroyed = destroyed,
+      sparked = sparked,
     }
   end
   return summary

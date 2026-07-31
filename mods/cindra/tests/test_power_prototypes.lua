@@ -70,6 +70,18 @@ describe("power system prototypes", function()
     assert.is_true(reduced >= 1, "there must be at least one reduced sunward band")
   end)
 
+  it("registers the overload-damage spark as a self-reaping explosion (ci-clf)", function()
+    -- The visual the damage sweep pops on a panel that takes disposal-deficit
+    -- damage. An `explosion` plays once then destroys itself, so the one-shot zap
+    -- needs no runtime cleanup.
+    local spark = prototypes.entity[C.PANEL_SPARK]
+    assert.is_not_nil(spark, "the overload-damage spark entity must exist")
+    assert.are.equal("explosion", spark.type,
+      C.PANEL_SPARK .. " must be an explosion (self-reaping one-shot animation)")
+    -- Cosmetic-only: hidden from the map/tooltips.
+    assert.is_true(spark.hidden, "the spark must be hidden (purely cosmetic)")
+  end)
+
   -- The runtime prototype API exposes an accumulator's buffer_capacity but NOT
   -- its flow limits, so the guardrail asserts the readable intrinsic tradeoff
   -- (buffer size) plus the config-level flow/upkeep facts. The flow numbers

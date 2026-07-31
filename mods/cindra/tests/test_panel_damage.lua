@@ -157,3 +157,73 @@ describe("panel damage - disposal deficit rule", function()
     end)
   end)
 end)
+
+-- The overload-damage VISUAL (ci-clf): a panel that takes disposal-deficit damage
+-- must pop a spark so the player can SEE which panels are burning up. The sweep
+-- reports the spark count and the self-reaping spark explosion is created on the
+-- Cindra surface (same tick, so it is still alive to query); a spared / recovering
+-- panel arcs nothing.
+local function sparks_on(surface)
+  return #surface.find_entities_filtered({ name = C.PANEL_SPARK })
+end
+
+-- Total sparks the sweep reports across every network.
+local function reported_sparks(summary)
+  local n = 0
+  for _, net in pairs(summary) do n = n + (net.sparked or 0) end
+  return n
+end
+
+describe("panel damage - overload spark visual (ci-clf)", function()
+  it("a panel that takes overload damage pops a spark", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.grid(s, 6, 6)
+    local p = H.panel(s, { 6, 6 })
+    H.set_consumption(0) -- full 6 MW deficit -> the panel is damaged
+
+    async(120)
+    after_ticks(6, function()
+      local summary = panels.sweep(s, PEAK)
+      assert.is_true(p.health < C.PANEL_MAX_HEALTH, "the panel must have taken damage (control)")
+      assert.are.equal(1, reported_sparks(summary), "the sweep must report one spark for the damaged panel")
+      assert.is_true(sparks_on(s) >= 1, "an overload-spark explosion must exist on the Cindra surface")
+      done()
+    end)
+  end)
+
+  it("edge-biased: only the panels that actually take a hit spark", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.grid(s, 6, 26)
+    H.panel_col(s, 6, 6) -- 6 panels, 36 MW potential at peak
+    H.set_consumption(36 * 1e6 - 1e6) -- 1 MW deficit -> only the sunmost panel(s) hit
+
+    async(120)
+    after_ticks(6, function()
+      local summary = panels.sweep(s, PEAK)
+      local n = reported_sparks(summary)
+      assert.is_true(n >= 1, "the damaged sunmost panel must spark")
+      assert.is_true(n < 6, "a small deficit must NOT spark every panel (edge-biased): " .. n)
+      assert.are.equal(n, sparks_on(s), "one spark entity per reported spark")
+      done()
+    end)
+  end)
+
+  it("no damage, no spark: sufficient disposal spares the panels and pops nothing", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.grid(s, 6, 6)
+    local p = H.panel(s, { 6, 6 })
+    H.set_consumption(100 * 1e6) -- disposal dwarfs output -> deficit <= 0, recovery path
+
+    async(120)
+    after_ticks(6, function()
+      local summary = panels.sweep(s, PEAK)
+      assert.are.equal(C.PANEL_MAX_HEALTH, p.health, "a spared panel must take no damage (control)")
+      assert.are.equal(0, reported_sparks(summary), "no damage -> no spark reported")
+      assert.are.equal(0, sparks_on(s), "no damage -> no spark entity created")
+      done()
+    end)
+  end)
+end)
