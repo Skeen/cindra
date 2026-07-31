@@ -39,6 +39,31 @@ describe("cindra APS start chain: foundry path pre-researched (no soft-lock)", f
       "the Cindra-buildable field foundry must be craftable from tick zero")
   end)
 
+  it("re-grants the pre-research chain to a force created AFTER init (the MP path, ci-xs6)", function()
+    -- on_init / on_configuration_changed only cover the forces that exist at that
+    -- point (forces['player']). A force born later -- a multiplayer team or a
+    -- scripted force -- must ALSO arrive with the foundry path, via the
+    -- on_force_created handler (cindra-start/control.lua), so no player can end up on
+    -- Cindra without it. Create a fresh force and assert the grant re-fired.
+    local name = "cindra-mp-test-force"
+    if game.forces[name] then game.merge_forces(name, "player") end
+    local force = game.create_force(name) -- fires on_force_created -> pre_research
+
+    assert.is_true(force.technologies["cindra-improvised-metallurgy"].researched,
+      "a force created after init must arrive with improvised metallurgy researched")
+    assert.is_true(force.technologies["foundry"].researched,
+      "a force created after init must have the foundry tech re-granted")
+    assert.is_true(force.technologies["cindra-lava"].researched,
+      "a force created after init must have the lava spine re-granted")
+    -- The unlock effects fire on the new force too (not just the tech flags):
+    assert.is_true(force.recipes["cindra-field-foundry"].enabled,
+      "the Cindra field foundry must be craftable on the new force from the start")
+    assert.is_true(force.recipes["cindra-lava"].enabled,
+      "manufactured lava must be craftable on the new force from the start")
+
+    game.merge_forces(name, "player") -- clean up so the surrounding suite is untouched
+  end)
+
   it("also arrives with the rest of the lava->metal spine (so the economy is reachable)", function()
     local force = game.forces["player"]
     -- The cindra-lava tech is the spine: it unlocks the caster and the lava

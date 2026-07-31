@@ -63,6 +63,29 @@ describe("nightside building-heat (§15-2)", function()
     m.destroy(); pipe.destroy()
   end)
 
+  it("the freeze-temp slider MOVES the freeze boundary (a colder threshold spares a nightward machine) (ci-xs6)", function()
+    -- The other cfg tests fix freeze_temp = -30; this one varies it. A machine at
+    -- perp -40 sits at ~-67 C on the axis: cold under the default -30 threshold,
+    -- but a colder -100 threshold pushes the freeze boundary further nightward, so
+    -- the SAME tile is no longer a freeze target. (max-dps / safe-half-width already
+    -- have such effect-varies-with-slider tests; this closes the freeze_temp gap.)
+    local WARM = { safe_half_width = 24, lethal_at = 96, wall_at = 128, freeze_temp = -30 }
+    local COLD = { safe_half_width = 24, lethal_at = 96, wall_at = 128, freeze_temp = -100 }
+
+    -- Pure classification: the boundary flips at the same coordinate.
+    assert.is_true(heat.is_cold(-40, WARM), "perp -40 is cold under the default -30 threshold")
+    assert.is_false(heat.is_cold(-40, COLD), "a colder -100 threshold moves the boundary past perp -40")
+
+    -- Engine sweep: same machine position, the cold damage follows the slider.
+    local m = s.create_entity({ name = "assembling-machine-2", position = { 40, 0 }, force = "player" })
+    local full = m.health
+    heat.sweep(s, COLD)
+    assert.are.equal(full, m.health, "a colder freeze_temp leaves the perp-40 machine unharmed")
+    heat.sweep(s, WARM)
+    assert.is_true(m.health < full, "the default freeze_temp still cold-damages the same machine")
+    m.destroy()
+  end)
+
   it("never cold-damages a machine on another planet", function()
     local nauvis = game.surfaces["nauvis"]
     local m = nauvis.create_entity({ name = "assembling-machine-2", position = { 0, -40 }, force = "player" })

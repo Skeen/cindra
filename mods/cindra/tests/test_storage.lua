@@ -136,6 +136,35 @@ describe("storage", function()
       "capacitor must be fully drained by 20 min unpowered: energy=" .. cap.energy)
   end)
 
+  it("a dissipator draws its rated ~20 MW against the engine, not just in the capture MODEL (ci-xs6)", function()
+    -- sinks.capture counts DISSIPATOR_DRAW_W (20 MW) per dissipator unconditionally;
+    -- the other storage tests only pin a >0.24 MW baseline. This pins the REAL draw:
+    -- a lone dissipator on a grid whose ONLY power source is a measurement
+    -- accumulator (500 MW flow, 5 GJ buffer) drains that accumulator at ~20 MW, so
+    -- every watt lost over the window is genuinely drawn by the dissipator (mirrors
+    -- test_solar_magnitude's engine-measured solar draw).
+    local s = H.cindra_surface()
+    H.power_reset()
+    H.grid(s, 0, 12)
+    H.dissipator(s, { 6, 6 })
+    local src = H.measure_sink(s, { -6, 6 })
+    src.energy = src.electric_buffer_size      -- the sole source: a full 5 GJ store
+
+    -- Let the network form and the dissipator's 1 MJ input buffer prime, so the
+    -- measured window reads steady-state draw, not the one-time buffer fill.
+    async(600)
+    after_ticks(120, function()
+      local e0 = src.energy
+      after_ticks(120, function()
+        local drew_w = (e0 - src.energy) / (120 / 60)
+        assert.is_true(drew_w > 18e6 and drew_w < 22e6,
+          "a dissipator must draw its rated ~20 MW against the engine; got "
+            .. string.format("%.2f MW", drew_w / 1e6))
+        done()
+      end)
+    end)
+  end)
+
   it("a fed capacitor stays charged -- the gentle leak is overwhelmed by active charging (ci-411)", function()
     local s = H.cindra_surface()
     H.power_reset()

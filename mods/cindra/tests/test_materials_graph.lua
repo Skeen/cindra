@@ -209,6 +209,66 @@ describe("cindra materials graph: the authoritative graph is present", function(
 end)
 
 -- ===========================================================================
+-- Exhaustiveness (ci-xs6): the frozen graph must COVER every shipped Cindra
+-- materials recipe that produces a tracked material, so a new byproduct emitter or
+-- stone source can't silently escape the deadlock (a) / net-stone (c) guards. The
+-- blocks below reason over the hand-maintained CINDRA_RECIPES list; this proves
+-- that list is COMPLETE against the live prototype set (not just internally
+-- consistent), which the earlier tests take on faith.
+-- ===========================================================================
+describe("cindra materials graph: the frozen graph is EXHAUSTIVE of shipped producers (ci-xs6)", function()
+  -- Materials whose accounting the guards depend on. Keying on the PRODUCE side is
+  -- exact: the Cindra byproducts/intermediates are mod-exclusive fluids/items, and
+  -- stone + lava are returned only by graph recipes (vanilla mints stone by mining
+  -- and pumps lava, never by a normal recipe), so a legitimate producer of any of
+  -- these is always a materials-graph recipe.
+  local TRACKED_OUTPUTS = {
+    STONE, LAVA, H2, O2, CO2, METHANOL, QUICKLIME, ALUMINA, ALUMINIUM, POWDER,
+    MCAT, MCAT_SPENT, ZCAT, ZCAT_SPENT, RED_MUD, SLAG,
+  }
+  local IN_GRAPH = set_of(GRAPH)
+  local VANILLA_IN_GRAPH = set_of(VANILLA_RECIPES)
+
+  -- A "shipped materials production recipe": a hand-authored Cindra recipe (or one
+  -- of the three vanilla recipes the graph reads), EXCLUDING the engine's
+  -- auto-generated recipes -- recycling (category "recycling"; e.g.
+  -- cindra-aluminium-powder-recycling would otherwise read as an off-graph aluminium
+  -- producer) and fluid barrelling (fill-/empty-<fluid>-barrel, which don't carry
+  -- the cindra- prefix).
+  local function is_shipped_material_recipe(name)
+    if name:sub(-10) == "-recycling" then return false end -- engine-generated recyclers
+    return name:sub(1, 7) == "cindra-" or VANILLA_IN_GRAPH[name]
+  end
+
+  it("every shipped recipe that produces a tracked material is in the frozen graph", function()
+    for name, r in pairs(prototypes.recipe) do
+      if is_shipped_material_recipe(name) then
+        for _, mat in ipairs(TRACKED_OUTPUTS) do
+          if produces(r, mat) then
+            assert.is_true(IN_GRAPH[name], string.format(
+              "recipe %q produces tracked material %q but is missing from the frozen graph "
+                .. "-- add it to CINDRA_RECIPES/VANILLA_RECIPES so the deadlock + net-stone "
+                .. "guards cover it", name, mat))
+          end
+        end
+      end
+    end
+  end)
+
+  -- A genuinely NEW byproduct FLUID (the classic flood/deadlock risk) would slip
+  -- past a fixed TRACKED_OUTPUTS list, so pin the Cindra-exclusive fluid set too:
+  -- adding one forces a review of the graph AND its tracked set.
+  it("the Cindra-exclusive fluid set is exactly the four the graph tracks (a new one forces review)", function()
+    local cindra_fluids = {}
+    for name in pairs(prototypes.fluid) do
+      if name:sub(1, 7) == "cindra-" then cindra_fluids[name] = true end
+    end
+    assert.are.same(set_of({ H2, O2, CO2, METHANOL }), cindra_fluids,
+      "a new cindra- fluid must be wired into the materials graph and TRACKED_OUTPUTS")
+  end)
+end)
+
+-- ===========================================================================
 -- (a) No hard deadlock.
 -- ===========================================================================
 describe("cindra materials graph (a): no byproduct can hard-deadlock the line", function()
