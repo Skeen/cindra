@@ -46,6 +46,17 @@ describe("environmental scanner (prototype shape)", function()
         "virtual signal must exist: " .. name)
     end
   end)
+
+  -- ci-6jz: rotation does nothing useful (the body is one Sprite4Way that reads
+  -- the same from every side), so it is disabled via the "not-rotatable" flag.
+  -- The prototype flag is the source of truth; the behavioural half (a PLACED
+  -- scanner reports rotatable == false) is asserted in the runtime block below.
+  -- Fails on main (a plain constant-combinator has no such flag).
+  it("carries the not-rotatable prototype flag", function()
+    local e = prototypes.entity[C.SCANNER]
+    assert.is_truthy(e.flags["not-rotatable"],
+      "scanner prototype must carry the not-rotatable flag")
+  end)
 end)
 
 -- ============================================================================

@@ -195,6 +195,64 @@ test("scanner entity has a 2x2 footprint", function()
   assert_true(cw > 1.0 and cw <= 2.0, "collision box must span most of the 2x2 (width " .. cw .. ")")
 end)
 
+-- === ci-6jz: the model must not float (shadow re-seated under the body) ======
+-- The ground shadow was stranded at the OLD (30, 6) tuning when ci-ijk moved the
+-- body down and grew it, so the building read as floating with a detached shadow.
+-- It is now re-seated under the legs at (2, -18) px. Guards the regression: the
+-- stale value had a large +x (0.94 tiles) and a positive y (below tile centre),
+-- while a grounded shadow that tracks the raised body sits roughly centred and
+-- ABOVE tile centre (negative y). Fails on the pre-fix (30, 6), passes on the fix.
+test("ground shadow is re-seated under the raised body (not the stale 1x1 offset)", function()
+  local layers = proto("constant-combinator", C.SCANNER).sprites.layers
+  local shadow
+  for _, l in ipairs(layers) do if l.draw_as_shadow then shadow = l end end
+  assert_true(shadow ~= nil, "a draw_as_shadow layer must exist")
+  local sx, sy = shadow.shift[1], shadow.shift[2]
+  assert_true(math.abs(sx) < 0.3,
+    "shadow must sit roughly under the body centre, not far to the side (x=" .. sx .. ")")
+  assert_true(sy < 0,
+    "shadow must track the up-shifted body (negative y), not the stale +y (y=" .. sy .. ")")
+end)
+
+-- === ci-6jz: rotation is disabled ===========================================
+-- The body is one Sprite4Way that reads the same from every side, so rotation is
+-- pointless; the not-rotatable flag removes it (supports_direction is asserted
+-- false in the in-engine test). Fails on main (no such flag).
+test("scanner entity carries the not-rotatable flag", function()
+  local e = proto("constant-combinator", C.SCANNER)
+  assert_true(e.flags ~= nil, "flags must be set")
+  local has = false
+  for _, f in ipairs(e.flags) do if f == "not-rotatable" then has = true end end
+  assert_true(has, "scanner must carry the 'not-rotatable' flag (rotation disabled)")
+end)
+
+-- === ci-6jz: circuit-wire attach points redesigned for the 2x2 body =========
+-- The clone inherited the 1x1 constant-combinator connection points, which
+-- floated mid-structure on the 2x2 building. They are re-seated at the front
+-- base. Guards: the field is overridden (4 direction entries), each carries a
+-- red/green wire + shadow point INSIDE the 2x2 selection box, and red != green.
+test("circuit-wire connection points are re-seated inside the 2x2 footprint", function()
+  local e = proto("constant-combinator", C.SCANNER)
+  local pts = e.circuit_wire_connection_points
+  assert_true(pts ~= nil, "circuit_wire_connection_points must be set")
+  assert_eq(4, #pts, "one entry per direction (identical; body is a Sprite4Way)")
+  local function in_box(p)
+    -- selection box is 2x2 -> [-1, 1] on each axis; a real attach point is well inside.
+    return math.abs(p[1]) < 1.0 and math.abs(p[2]) < 1.0
+  end
+  for i, entry in ipairs(pts) do
+    assert_true(entry.wire ~= nil and entry.wire.red ~= nil and entry.wire.green ~= nil,
+      "entry " .. i .. " must define red + green wire points")
+    assert_true(entry.shadow ~= nil and entry.shadow.red ~= nil and entry.shadow.green ~= nil,
+      "entry " .. i .. " must define red + green wire-shadow points")
+    assert_true(in_box(entry.wire.red) and in_box(entry.wire.green),
+      "entry " .. i .. " wire points must sit inside the 2x2 footprint")
+    -- red and green must be distinct so the two wires do not overlap.
+    assert_true(entry.wire.red[1] ~= entry.wire.green[1] or entry.wire.red[2] ~= entry.wire.green[2],
+      "entry " .. i .. " red and green wire points must differ")
+  end
+end)
+
 -- ci-ijk (Overseer): the item sorts right after the programmable-speaker, in the
 -- circuit-network subgroup. The real cross-prototype ordering (against vanilla
 -- speaker/display-panel) is asserted in the integration test

@@ -912,6 +912,34 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   vanilla item icon; the flare-countdown vs flare-intensity glyphs stay
   distinguishable despite the shared flare motif.
 
+- [ ] **[LANDED] Environmental scanner rework: grounded shadow, no rotation,
+  re-seated wires (ci-6jz).** Four playtest fixes on the 2x2 radio-station:
+  **(1) Shadow re-grounded** - the ground shadow had been left at its old 1x1
+  tuning `(30, 6)` when ci-ijk moved the body down and grew it, so the building
+  read as floating with a shadow stranded low and to the right. It is re-seated
+  under the legs at `(2, -18)` px (the shadow art's leg-feet now land on the
+  body's leg-feet at the box bottom). **(2) Rotation disabled** - the body is one
+  Sprite4Way that looks identical from every side, so the R key did nothing
+  useful; the `not-rotatable` flag removes the rotation affordance. **(3) Circuit
+  wires re-seated** - the red/green wire attach points were the inherited 1x1
+  combinator points and floated mid-structure; they now sit at the front base of
+  the machine, flanking the legs (red left, green right). **(4)** Investigated
+  re-basing the scanner on a **selector-combinator** (playtest suggestion): NOT
+  adopted - a selector's GUI modes cannot be restricted via the prototype, and
+  its Time mode only emits three fixed engine time-signals (no writable output
+  for the scanner's computed readings). Kept the constant-combinator; rationale
+  is in `prototypes/scanner.lua`. The flag, the shadow re-seat, and the wire
+  points are test-covered (`unit-tests/test_scanner_graphics.lua`,
+  `tests/test_scanner.lua`); shadow/wire values were tuned against a scaled
+  composite render (not a live client). *Look for:* the built scanner sits
+  **planted on the ground** (shadow pooled under the legs, not detached to the
+  side); pressing **R** over the ghost/placed scanner does **nothing**; dragging
+  **red and green circuit wires** onto it, the wires attach at the **front base**
+  of the building (not floating in its middle) and read tidily. *Judge:* the
+  shadow grounding and the exact wire-attach pixels - nudge the `(2, -18)` shadow
+  shift or the `wire_point` offsets in `prototypes/scanner.lua` if the shadow
+  looks slightly off or a wire endpoint lands on an odd spot.
+
 - [ ] **[LANDED] Environmental scanner is actually reachable in the Cindra
   playtest (ci-xor).** The `env-scanner` mod was never loaded in any launch
   config (missing from play.sh's mod-list, the test harness, and cindra's

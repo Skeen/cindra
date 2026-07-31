@@ -11,6 +11,13 @@ factorio-test-data-dir/
 factorio-test-data-dir
 aps-test-data-dir
 aps-test-data-dir/
+# Per-mod scratch data dirs for running a single PoC's suite in isolation
+# (env-scanner, cindra, ...). Same symlink caveat as above -> match both forms.
+# An auto-checkpoint swept es-test-data-dir in once (ci-6jz); never commit these.
+es-test-data-dir
+es-test-data-dir/
+cindra-test-data-dir
+cindra-test-data-dir/
 factorio-test-output.json
 package-lock.json
 mods-bundle/

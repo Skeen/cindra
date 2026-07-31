@@ -6,6 +6,24 @@
 -- tick. Cloning a vanilla prototype into a NEW name means this mod adds content
 -- without editing any shared/vanilla prototype (the never-mutate rule).
 --
+-- Why NOT a selector-combinator (ci-6jz investigation): a playtest asked whether
+-- the scanner should be a selector-combinator in its "Time" mode instead, and
+-- gated adoption on being able to DISABLE the selector's other modes (Select
+-- input, Count inputs, Random, Stack size, Quality, ...). Both halves fail, so we
+-- keep the constant-combinator:
+--   1. There is NO prototype field to restrict a selector's GUI mode set
+--      (SelectorCombinatorPrototype exposes only per-mode symbol sprites +
+--      default time-output signals; the mode picker is engine-hardcoded), so the
+--      other modes cannot be disabled -- the playtest's explicit precondition.
+--   2. More fundamentally, a selector computes its output from its inputs by mode
+--      and exposes only `parameters` at runtime; its Time mode emits three FIXED
+--      engine signals (game tick / day tick / day length). There is no writable
+--      output section, so it CANNOT carry the scanner's script-computed custom
+--      readings (daytime / daylight / solar / flare block). Only a constant
+--      combinator lets the runtime write arbitrary output signals.
+-- The guard is encoded in unit-tests/test_scanner_graphics.lua + the cindra
+-- integration test (both pin type == "constant-combinator").
+--
 -- The recipe is deliberately chemistry-free (iron + copper + electronic
 -- circuits, no plastic / sulfur / oil) to preserve Cindra's zero-chemistry
 -- identity, while remaining buildable on any vanilla planet (it is exportable).
@@ -74,12 +92,22 @@ local scanner_sprites = {
       scale = BODY_SCALE,
       shift = BODY_SHIFT,
     },
-    { -- ground shadow (its own composed image, not on the frame grid)
+    { -- ground shadow (its own composed image, not on the frame grid).
+      -- ci-6jz: the shadow was left at the OLD (30, 6) tuning when ci-ijk moved
+      -- the body down (shift_y -44 -> -26) and grew it (scale 0.4 -> 0.42). That
+      -- stranded the shadow low and far to the right of the raised body, so the
+      -- building read as floating with a detached shadow. Re-seat it under the
+      -- legs: the shadow art's leg-feet (canvas ~(205, 300) of the 400x350 image)
+      -- must land on the body's leg-feet (world (0, +32), the box bottom). With
+      -- the image scaled 0.42 about its centre (200, 175), that is
+      -- shift = (0 - (205-200)*0.42, 32 - (300-175)*0.42) ~= (-2, -20); a couple
+      -- px right/up gives the light a natural upper-left cast. Grounding verified
+      -- against a scaled composite (scripts render); final look tracked in PLAYTEST.
       filename = SHADOW_IMG,
       width = 400,
       height = 350,
       scale = BODY_SCALE,
-      shift = util.by_pixel(30, 6),
+      shift = util.by_pixel(2, -18),
       draw_as_shadow = true,
     },
     { -- emissive glow: screens / status LEDs / vents (renders lit in the dark).
@@ -152,6 +180,32 @@ scanner.tile_width = 2
 scanner.tile_height = 2
 scanner.collision_box = { { -0.9, -0.9 }, { 0.9, 0.9 } }
 scanner.selection_box = { { -1.0, -1.0 }, { 1.0, 1.0 } }
+
+-- Disable rotation (ci-6jz). The body is a single Sprite4Way that reads the same
+-- from every side, so the R key only ever re-poses invisible internal state --
+-- rotation does nothing useful and just confuses placement. "not-rotatable"
+-- removes the build-time rotation affordance; the entity always faces north.
+-- This makes prototypes.entity[...].supports_direction read false (asserted in
+-- tests/test_scanner.lua). We copy the cloned flags rather than mutate them in
+-- place so we never touch the shared vanilla constant-combinator's flag table.
+scanner.flags = { "placeable-neutral", "player-creation", "not-rotatable" }
+
+-- Redesign the circuit-wire attach points (ci-6jz). The clone inherited the
+-- constant-combinator's 1x1 connection points (tiny offsets tuned for a 32px
+-- body), which on this 2x2 radio-station stranded the red/green wires floating
+-- mid-structure. Re-seat them at the front base of the machine, flanking the
+-- legs at the panel/leg junction (red left, green right) -- where a wire visibly
+-- plugs in. Rotation is disabled, but the field is indexed by direction, so all
+-- four entries are identical (the Sprite4Way body looks the same every way) to
+-- stay correct if a blueprint/script ever forces a direction. `wire` is the
+-- visible attach point; `shadow` is its ground-shadow, cast down-right to match
+-- the building shadow. Positions confirmed against the scaled composite render;
+-- final in-engine look tracked in PLAYTEST.
+local wire_point = {
+  wire = { red = util.by_pixel(-9, 10), green = util.by_pixel(9, 10) },
+  shadow = { red = util.by_pixel(-1, 20), green = util.by_pixel(17, 20) },
+}
+scanner.circuit_wire_connection_points = { wire_point, wire_point, wire_point, wire_point }
 
 local scanner_item = util.table.deepcopy(data.raw["item"]["constant-combinator"])
 scanner_item.name = C.SCANNER
