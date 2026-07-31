@@ -113,10 +113,9 @@ function M.build_render_parameters(nauvis_params)
   --   * emissive so it glows against dark space like a real prominence.
   -- The flare spritesheet is 24 frames on a 6-wide sheet of 256px cells
   -- (scripts/gen-planet-maps.py build_flare_sheet): a seamless rise-and-fall loop.
-  local flare_sheet = {
-    filename = "__cindra__/graphics/space/cindra-flare.png",
-    width = 256, height = 256, line_length = 6, frame_count = 24, animation_speed = 0.35,
-  }
+  local flare_sheet = util.sprite_load("__cindra__/graphics/space/cindra-flare", {
+    frame_count = 24, animation_speed = 0.35,
+  })
   -- ONE instance: a single arc reads as a flare, two staggered ones read as the
   -- old competing plumes. LEFT limb (negative x), upper hemisphere (positive y,
   -- away from the bottom where the old plume sat), small size.
@@ -125,10 +124,10 @@ function M.build_render_parameters(nauvis_params)
       sprite_index = 1,
       rotate_with_planet = false,
       projection_style = "front-only",
-      positions = { { -0.50, 0.42 } },   -- upper-left: flames lick off the fire limb into dark sky
-      size = { 0.32, 0.44 },             -- small: a fraction of the disc, not the old 0.95
+      positions = { { 0.35, 0.45 } },    -- DIAGNOSTIC placement (dark ice side)
+      size = { 0.50, 0.60 },             -- DIAGNOSTIC size
       position_deviation = { 0.02, 0.02 },
-      rotation_deviation = 0.0,
+      rotation_deviation = 1.0,
       starting_frame_offset = 0,
     },
   }
