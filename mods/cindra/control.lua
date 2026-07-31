@@ -154,6 +154,11 @@ if script.active_mods["factorio-test"] then
       -- ci-8wu: the MINIMAL bootstrap kit (a stocked supply capsule) a Cindra
       -- start lands with; likewise only meaningful under the APS chain.
       test_files[#test_files + 1] = "tests/test_aps_kit"
+      -- ci-7p6: the END-TO-END from-nothing bootstrap -- drives a start-on-Cindra
+      -- run reaching a foundry + the lava->metal economy (and reproducing foundries)
+      -- with no Vulcanus. The positive counterpart to test_bootstrap's from-zero
+      -- stall; only meaningful under the APS kit + pre-research.
+      test_files[#test_files + 1] = "tests/test_aps_bootstrap"
     else
       test_files[#test_files + 1] = "tests/test_aps_absent"
     end
