@@ -1053,7 +1053,10 @@ of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
 
 - [ ] **[IN-FLIGHT] Native-freeze inversion: high-radius emitter UPS + frost
-  visuals (ci-b5i).** The freeze-radius spike (`mods/freeze-radius-poc/`) proved
+  visuals (ci-b5i).** The freeze-radius spike (its standalone `freeze-radius-poc`
+  mod was removed with ci-eao once concluded; the shipped freeze is the
+  cold-DAMAGE model in `scripts/building-heat.lua`, and these findings are the
+  durable record of the un-adopted inversion path) proved
   headlessly that a hot heat source with `heating_radius = 100` thaws freezable
   machines out to a hard ~100-tile clamp (square/Chebyshev reach), thaws
   already-frozen machines, sustains indefinitely, and is source-agnostic, all via
@@ -1063,7 +1066,7 @@ of the current build; they are listed so "not built yet" is distinguishable from
   pipes); the entity-count collapse (a handful of emitters vs thousands of pipes) is
   favourable but the per-emitter scan cost is unverified. **(2) The freeze VISUALS**:
   frost overlays, stopped-machine animations, and native pipe/fluid freeze
-  animation. *Repro (once integrated, or against the PoC surface):* enable
+  animation. *Repro (once the mechanic is integrated into Cindra):* enable
   `entities_require_heating`, place an r100 emitter line on the fire edge, spacing
   ≤ ~190, and watch a machine field ~100 tiles out. *Look for:* (1) UPS stays sane
   with a live radius-100 emitter line over a populated band (profile via time-usage

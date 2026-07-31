@@ -6,9 +6,9 @@ not strictly-better than a clock combinator: valuable where a daylight or flare
 rhythm drives your factory, unremarkable where it does not.
 
 Realizes `planet_design.md` §12 item 8 ("circuit-logic building"). Built as its
-own independent mod (the same standalone pattern as `mass-driver` and
-`flare-poc`), so it can ship in parallel and has no shared-file conflict with
-`mods/cindra`.
+own independent mod (the standalone-spike pattern earlier PoCs used before their
+behavior folded into `mods/cindra`), so it can ship in parallel and has no
+shared-file conflict with `mods/cindra`.
 
 ## What it does
 

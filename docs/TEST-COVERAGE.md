@@ -61,7 +61,7 @@ and is not runnable on a bare rig; it is exercised where APS is available.
 | ci-3aw | Python pixel tests (`test_planet_maps.py`, `test_starmap_lighting.py`) run by no runner. Wire in (blocked on ci-p00). | P2 |
 | ci-7k6 | `cindra-ribbon-lethal-at` / `wall-at` settings have no world effect (dead knobs). Wire up or remove. | P2 |
 | ci-zcx | Mass driver launch->catch has no runtime delivery test (only proto + hub-exists). | P2 |
-| ci-eao | Orphaned PoC suites run by no runner; freeze-radius-poc is the *only* test of high-`heating_radius` thaw. | P2 |
+| ~~ci-eao~~ | RESOLVED: the three orphaned PoC mods (`flare-poc`, `mass-driver`, `freeze-radius-poc`) were deleted -- the first two duplicate shipped `mods/cindra` coverage, freeze-radius-poc was a concluded, un-adopted spike (findings live in PLAYTEST.md / ci-b5i). `tests/no-orphan-suites.test.sh` now guards against a `mods/*/tests/` suite that no runner executes. | P2 |
 | ci-y19 | Stone/Ice map-gen slider EFFECT untested (only existence). | P3 |
 | ci-vjc | Horizontal (E-W) orientation has no full-worldgen integration test (mapping-only). | P3 |
 | ci-xs6 | Minor polish: dissipator rated draw, freeze-temp override, graph exhaustiveness, cindra-start MP force path. | P3 |

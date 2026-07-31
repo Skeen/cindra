@@ -16,18 +16,17 @@
 --   * every mod setting registered by settings.lua has a [mod-setting-name] and
 --     [mod-setting-description] entry, and every string-setting value has a
 --     [string-mod-setting-<name>] dropdown label, in that mod's locale;
---   * every player-facing entity the flare PoC defines has an [entity-name]
---     entry (its entities are editor-placeable clones with fresh names);
 --   * every sibling locale .cfg is well-formed (parses, no empty values).
 --
 -- Mods deliberately NOT swept and why:
 --   * cindra-dev-default: settings.lua only sets an APS default; registers no
 --     setting prototype and ships no prototypes, so it has nothing to translate.
---   * freeze-radius-poc: every prototype it defines is hidden (emitter clones)
---     or a non-landable test-fixture planet, so nothing is ever shown to a
---     player; it ships no locale by design.
 -- The old two-word tagline is banned repo-wide by test_branding.lua's git-grep
 -- guard, so it is not re-checked here.
+--
+-- (The flare-poc / mass-driver / freeze-radius-poc spikes were removed with
+-- ci-eao once their behavior shipped in mods/cindra or the spike concluded, so
+-- their locale sweeps went with them.)
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 
@@ -153,29 +152,6 @@ for _, m in ipairs(SETTING_MODS) do
 end
 
 -- ---------------------------------------------------------------------------
--- flare-poc: its entities are editor-placeable clones with fresh prototype
--- names, so each needs an [entity-name] or it shows the raw key on placement.
--- The names live in scripts/config.lua (a pure constant module); enumerate them
--- there so a new entity is caught automatically rather than hard-coded here.
--- ---------------------------------------------------------------------------
-test("flare-poc: every entity defined in config.lua has an [entity-name]", function()
-  local C = dofile("../flare-poc/scripts/config.lua")
-  local cfg = parse_cfg(read_file("../flare-poc/locale/en/flare-poc.cfg"), "flare-poc")
-  local names = cfg["entity-name"] or {}
-  local entity_keys = { "PANEL", "CAPACITOR", "BATTERY", "DISSIPATOR", "MEASURE_SINK" }
-  local missing = {}
-  for _, k in ipairs(entity_keys) do
-    local proto = C[k]
-    assert_true(proto ~= nil, "flare-poc config.lua no longer defines C." .. k
-      .. " (update this guard's entity list)")
-    if names[proto] == nil then missing[#missing + 1] = proto .. " (C." .. k .. ")" end
-  end
-  assert_true(#missing == 0,
-    "flare-poc entities with no [entity-name] (they show the raw key in the editor):\n  "
-      .. table.concat(missing, "\n  "))
-end)
-
--- ---------------------------------------------------------------------------
 -- Every sibling locale .cfg must be well-formed: it parses, has no duplicate
 -- keys inside a section, and no empty values (a blank value renders as an empty
 -- label, as bad as a missing one).
@@ -183,8 +159,6 @@ end)
 local SIBLING_LOCALES = {
   { mod = "cindra-start",    path = "../cindra-start/locale/en/cindra-start.cfg" },
   { mod = "env-scanner",     path = "../env-scanner/locale/en/env-scanner.cfg" },
-  { mod = "mass-driver",     path = "../mass-driver/locale/en/mass-driver.cfg" },
-  { mod = "flare-poc",       path = "../flare-poc/locale/en/flare-poc.cfg" },
 }
 
 for _, m in ipairs(SIBLING_LOCALES) do
