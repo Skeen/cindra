@@ -433,8 +433,16 @@ path (normal play) is untouched. Tested in `tests/test_foundry_bootstrap.lua`
 (prototypes + never-mutate + a powered coal→lubricant craft + an on-Cindra lava
 caster + foundry reaching the metal economy) and, under the APS invocation,
 `tests/test_aps_foundry.lua` (the
-pre-research grant). The physical starting **kit** (machines, power, initial items)
-is the bootstrap-traversal work (§15-13, ci-uex), layered on top of this.
+pre-research grant). On top of the pre-research, a start-on-Cindra game also lands
+with a MINIMAL physical starting **kit** (ci-8wu): `mods/cindra-start/control.lua`
+drops a stocked supply chest ("capsule") near the landing point holding the two
+machines that are painful to hand-bootstrap (a `foundry` and the
+`cindra-lava-manufacturer` that feeds it) plus basic power (`solar-panel` +
+`accumulator` + `small-electric-pole`), so the opening is immediately playable
+instead of a hand-craft grind. It only EASES the start; it is not a full economy
+(that traversal is ci-uex). Contents + one-chest minimality are tested in
+`tests/test_aps_kit.lua` (via cindra-start's spawn seam, the same function the
+runtime drop calls); the in-game cargo-pod drop feel is a PLAYTEST item.
 
 ## 6. Invariants (locked by tests as they land)
 

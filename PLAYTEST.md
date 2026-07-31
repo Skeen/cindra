@@ -488,6 +488,20 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   finished foundries instead; those recipes reuse vanilla lubricant/foundry icons
   (v1 placeholder art), do not file that as a bug.
 
+- [ ] **[LANDED] Bootstrap kit capsule drops on landing (ci-8wu).** A start-on-Cindra
+  game lands with a MINIMAL supply chest ("capsule") pre-stocked with the two machines
+  that are painful to hand-bootstrap plus basic power: 1 `foundry`, 1
+  `cindra-lava-manufacturer`, 3 `solar-panel`, 2 `accumulator`, 8 `small-electric-pole`.
+  The kit CONTENTS + one-chest-only minimality are logic-tested
+  (`tests/test_aps_kit.lua`, via `cindra-start`'s spawn seam); what stays a playtest is
+  the in-game DROP FLOW, which needs a real cargo-pod cutscene. *Repro:* start on Cindra
+  via any-planet-start and watch the opening. *Look for:* exactly ONE steel chest appears
+  near where the character lands (not before the cargo-pod cutscene finishes, not a
+  second copy on reload/save), it is openable and holds the kit above, and the kit gives
+  a genuine leg-up (build power + a first foundry+caster without the hand-craft grind)
+  without feeling like a free base. If it drops twice, drops on a non-Cindra start, or
+  never drops, that is a bug.
+
 ## Economy: lava, ice, aluminium
 
 - [ ] **[LANDED] Mixed ice field: sort + backpressure feel (§15-4, ci-9l6).**
