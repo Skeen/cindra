@@ -863,20 +863,23 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Mass driver (space export)
 
-- [ ] **[LANDED] Mass driver: full launch -> hub delivery (ci-o39).** The mass
-  driver is a reskinned `rocket-silo`, so launch + cross-surface delivery are the
-  ENGINE's vanilla rocket path. Prototype shape is fully integration-tested
-  (`tests/test_mass_driver.lua`: type=rocket-silo, cloned vanilla `rocket_entity`/
-  cargo pod, `launch_to_space_platforms`, a raw-aluminium+fuel launch charge,
-  productivity-module support, a vanilla platform hub as the destination);
-  end-to-end behaviour is the playtest. *Repro:* research `cindra-orbital-launch`,
-  build a `cindra-mass-driver`, power it, feed it raw aluminium + solid rocket fuel
-  (no pre-made can), optionally slot productivity modules, and load cargo (or
-  request from a platform in orbit). *Look for:* the silo assembles a launch charge
-  internally (consuming raw aluminium + fuel + a large slug of power), the rocket
-  rises, and cargo lands in the space platform's hub inventory, with NO catcher or
-  bespoke platform-side building. If the cargo pod is rejected by the hub, that is a
-  bug (the clone must keep the vanilla `rocket_entity`).
+- [ ] **[LANDED] Mass driver: full launch -> hub delivery (ci-o39, ci-zcx).** The
+  mass driver is a reskinned `rocket-silo`, so launch + cross-surface delivery are
+  the ENGINE's vanilla rocket path. Prototype shape AND the launch->catch delivery
+  are now integration-tested (`tests/test_mass_driver.lua`: type=rocket-silo, cloned
+  vanilla `rocket_entity`/cargo pod, `launch_to_space_platforms`, a raw-aluminium+fuel
+  launch charge, productivity-module support, a vanilla platform hub as the
+  destination -- and ci-zcx drives a real launch: it loads aluminium into the silo's
+  rocket cargo hold, fires `launch_rocket()` at the platform hub once the rocket is
+  ready, and asserts the payload lands in `defines.inventory.hub_main` on the orbiting
+  surface). Only the VISUAL feel of the launch is left to eyeball. *Repro:* research
+  `cindra-orbital-launch`, build a `cindra-mass-driver`, power it, feed it raw
+  aluminium + solid rocket fuel (no pre-made can), optionally slot productivity
+  modules, and load cargo (or request from a platform in orbit). *Look for:* the silo
+  assembles a launch charge internally (consuming raw aluminium + fuel + a large slug
+  of power), the rocket rises, and cargo lands in the space platform's hub inventory,
+  with NO catcher or bespoke platform-side building. If the cargo pod is rejected by
+  the hub, that is a bug (the clone must keep the vanilla `rocket_entity`).
 
 - [ ] **[LANDED] Mass driver + launch-chain art are placeholders (ci-o39).** The
   driver is a full deep-copy of the vanilla rocket-silo, so in world it wears the

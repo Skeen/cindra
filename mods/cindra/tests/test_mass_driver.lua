@@ -9,13 +9,14 @@
 --
 -- WHY MOSTLY PROTOTYPE-LEVEL PROOFS. Choosing the `rocket-silo` TYPE means launch +
 -- cross-surface delivery are the ENGINE's vanilla behaviour, not our code: there is
--- no runtime loop left to test. What we CAN pin deterministically is the shape that
+-- no runtime loop left to test. What we pin deterministically is the shape that
 -- guarantees that behaviour -- the type is rocket-silo, its cargo pod is the vanilla
 -- one (a full deep-copy keeps rocket_entity), delivery targets platforms, the launch
--- cost is our can+fuel charge, and no vanilla silo is mutated. The end-to-end visual
--- launch (load cargo -> rocket rises -> cargo lands in the hub) rides entirely on the
--- vanilla rocket path those proofs lock in, so it lives in PLAYTEST.md rather than a
--- long, power-and-timing-dependent async test.
+-- cost is our aluminium+fuel charge, and no vanilla silo is mutated. On TOP of the
+-- shape proofs, the runtime block below drives ONE real launch end to end (ci-zcx):
+-- load cargo -> ready the rocket -> launch_rocket() at a platform hub -> assert the
+-- payload lands in the hub inventory on the orbiting surface. Only the VISUAL of the
+-- launch (rocket rises, cargo pod descends) is left to PLAYTEST.md.
 
 local H = require("tests.helpers")
 
@@ -444,5 +445,85 @@ describe("cindra mass driver (runtime)", function()
     local ground = H.cindra_surface()
     assert.are_not.equal(ground.index, hub.surface.index,
       "the hub is in orbit -- a different surface from the driver, reached by the rocket path")
+  end)
+
+  -- === ci-zcx: the launch->catch runtime assertion the shape proofs only imply ==
+  -- The prototype-shape tests above pin the ingredients of native delivery (type is
+  -- rocket-silo, cloned vanilla cargo pod, launch_to_space_platforms, a platform hub
+  -- on another surface), but none of them LOAD cargo, FIRE a launch, and read the
+  -- arrival. This drives the engine's own launch end to end: fill the silo's rocket
+  -- cargo hold, hand it a finished rocket, wait for rocket_ready, launch_rocket() at
+  -- the hub station, then poll the destination hub until the payload lands there.
+  -- (The visual rise/descent -- how the launch LOOKS -- stays the PLAYTEST item; the
+  -- deterministic state transition load -> launch -> caught is proven here.)
+  it("launch->catch: a loaded launch DELIVERS cargo into the orbiting platform hub (ci-zcx)", function()
+    local ground = H.cindra_surface()
+
+    -- The silo draws ~60 MW readying its rocket and ~100 MW in the launch burst;
+    -- feed it well above that from an infinite interface so nothing stalls on power.
+    local iface = ground.create_entity({ name = "electric-energy-interface", position = { 12, 0 }, force = "player" })
+    iface.power_production = 1e9
+    iface.electric_buffer_size = 1e9
+    iface.energy = 1e9
+    ground.create_entity({ name = "substation", position = { 7, 3 }, force = "player" })
+
+    local silo = ground.create_entity({ name = DRIVER, position = { 0, 0 }, force = "player" })
+    assert.is_true(silo.valid, "the mass driver must place on Cindra")
+
+    -- Destination: a vanilla space-platform hub in orbit over Cindra -- a genuinely
+    -- DIFFERENT surface, so this is real cross-surface delivery over the rocket path.
+    local platform = game.forces["player"].create_space_platform({
+      name = "cindra-md-zcx-platform", planet = "cindra",
+      starter_pack = "space-platform-starter-pack",
+    })
+    platform.apply_starter_pack()
+    local hub = platform.hub
+    assert.is_not_nil(hub, "the platform must spawn a hub (the delivery target)")
+    assert.are_not.equal(ground.index, hub.surface.index,
+      "the hub is in orbit -- a different surface, reached only by the launch")
+    local hub_inv = hub.get_inventory(defines.inventory.hub_main)
+
+    -- Load the export cargo -- Cindra's signature aluminium (ci-84s) -- STRAIGHT into
+    -- the silo's rocket cargo hold (inventory index rocket_silo_rocket). A plain
+    -- silo.insert would feed the charge-craft INPUT (aluminium is a charge
+    -- ingredient), so target the cargo inventory explicitly to seat a real payload.
+    local CARGO_COUNT = 50
+    local cargo_inv = silo.get_inventory(defines.inventory.rocket_silo_rocket)
+    assert.is_not_nil(cargo_inv, "the silo exposes a rocket cargo inventory")
+    assert.are.equal(CARGO_COUNT, cargo_inv.insert({ name = ALUMINIUM, count = CARGO_COUNT }),
+      "the launch payload (aluminium) loads into the rocket cargo hold")
+    assert.are.equal(0, hub_inv.get_item_count(ALUMINIUM),
+      "the destination hub starts empty of the cargo (baseline for the arrival check)")
+
+    -- Hand the silo a finished rocket so it heads to rocket_ready without waiting on
+    -- the 30 s charge craft; a rocket-silo readies the rocket on its own from here.
+    silo.rocket_parts = silo.prototype.rocket_parts_required
+
+    -- Poll: fire the launch the moment the rocket is ready (the silo waits at ready
+    -- with no logistics request, so it never auto-launches out from under us), then
+    -- watch the hub until the cargo pod lands its full payload. The async() budget is
+    -- the hard cap -- if delivery never happens, the test times out and FAILS.
+    local launched = false
+    async(7200)
+    local function step()
+      if not launched then
+        if silo.rocket_silo_status == defines.rocket_silo_status.rocket_ready then
+          assert.is_true(silo.launch_rocket({ type = defines.cargo_destination.station, station = hub }),
+            "a ready, loaded mass driver must launch to the platform hub")
+          launched = true
+        end
+      elseif hub_inv.get_item_count(ALUMINIUM) >= CARGO_COUNT then
+        -- Caught: the cargo pod landed the whole payload in the orbiting hub.
+        assert.are.equal(CARGO_COUNT, hub_inv.get_item_count(ALUMINIUM),
+          "the launched aluminium must arrive in the platform hub -- launch->catch delivered end to end")
+        assert.are.equal(0, cargo_inv.get_item_count(ALUMINIUM),
+          "the silo's cargo hold emptied into the launched rocket (the payload really left the ground)")
+        silo.destroy()
+        done()
+        return
+      end
+      after_ticks(60, step)
+    end
+    after_ticks(60, step)
   end)
 end)
