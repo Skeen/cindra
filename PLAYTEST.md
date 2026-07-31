@@ -574,6 +574,23 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   emission) aligned, with the ci-036 additive molten glow intact at night. Guard:
   `unit-tests/test_lava_graphics.lua` now asserts scale >= 0.6, shift not lifted,
   and body/emission share scale+shift.
+  **ci-cge PENDING VISUAL CONFIRM (2026-07-31):** a later playtest found three
+  positioning issues at scale 0.64 / shift 0. Retuned in `prototypes/lava.lua`:
+  `BODY_SHIFT` is now `by_pixel(6, -12)` (nudged UP so the body's base aligns with
+  the bottom of the 5x5 selection box instead of overhanging south, and slightly
+  RIGHT), the shadow shift tracks the body to `by_pixel(30, -4)`, and the circuit
+  connector is rebuilt from the universal template at `by_pixel(48, 34)` so the
+  wires attach at the BOTTOM-RIGHT of the model (they were connecting mid/top).
+  *Repro:* build a `cindra-lava-manufacturer`, drop a pipe on each fluid side, and
+  run a red/green wire to it. *Look for:* (1) the body's base sits ON the bottom
+  edge of the selection box (no southward overhang, still not floating); (2) the
+  RIGHT-side pipe connectors meet the body instead of floating off it (the left
+  side was already fine); (3) circuit wires terminate at the lower-right of the
+  furnace, not its middle. If any offset needs a further nudge, adjust `BODY_SHIFT`
+  / the shadow shift / `CONNECTOR_OFFSET` in `prototypes/lava.lua`. The direction
+  of each move (up, right, bottom-right wire point) is guarded in
+  `unit-tests/test_lava_graphics.lua`; only the exact pixel amounts need eyes.
+  *Deferred:* the TOP/BOTTOM pipe connectors are a separate later test.
   **ci-036 RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the black-square bug is
   fixed and confirmed with an actual Factorio render (headless client under Xvfb +
   llvmpipe, `game.take_screenshot`), NOT just "the code looks right". The REAL root

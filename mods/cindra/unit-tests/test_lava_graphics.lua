@@ -119,6 +119,27 @@ function data:extend(list)
 end
 _G.data = data
 
+-- === Stub the core circuit-connector globals (ci-cge) =======================
+-- prototypes/lava.lua rebuilds the manufacturer's circuit connector from the core
+-- `universal_connector_template` via `circuit_connector_definitions.create_vector`
+-- to reposition the wire attachment (bottom-right). Those are real core globals in
+-- the game, absent here, so stub a create_vector that records the main_offset(s)
+-- it was called with and returns a minimal 4-direction connector carrying that
+-- offset as the wire point -- enough to assert the module aimed bottom-right.
+_G.universal_connector_template = { name = "stub-universal-template" }
+local captured_offsets = {}
+_G.circuit_connector_definitions = {
+  create_vector = function(template, defs)
+    assert(template == _G.universal_connector_template, "must reuse the universal connector template")
+    local out = {}
+    for i, d in ipairs(defs) do
+      captured_offsets[i] = d.main_offset
+      out[i] = { points = { wire = { red = d.main_offset, green = d.main_offset } } }
+    end
+    return out
+  end,
+}
+
 require("prototypes.lava")
 
 local MACHINE = "cindra-lava-manufacturer"
@@ -193,13 +214,16 @@ test("lava-manufacturer wires a 3-layer animation (body + shadow + glow)", funct
   assert_eq(3, #layers(), "expected body + shadow + glow layers")
 end)
 
--- === ci-ijk: the body must FILL the 5x5 footprint and SIT on the ground =====
-test("body/emission scale fills the 5x5 box and the shift does not float it", function()
+-- === ci-ijk + ci-cge: the body FILLS the 5x5 box and is seated bottom-aligned =
+test("body/emission scale fills the 5x5 box and the shift seats it (up + right)", function()
   -- Pre-fix (ci-ijk) the 270x310 frame drew at scale 0.5 (too small for the 5x5
-  -- foundry footprint) with a -24 px upward shift that left it hovering above the
-  -- ground. Verified in-engine: scale ~0.64 fills the box like the vanilla
-  -- foundry (356x384 @ 0.5) and shift 0 seats it. Guard both: a regression to the
-  -- small/lifted values fails here.
+  -- foundry footprint) with a -24 px (-0.75 tile) upward shift that left it hovering
+  -- above the ground. Retuned to scale ~0.64 to fill the box.
+  -- ci-cge (playtest): at shift 0 the body sat too far SOUTH (bottom overhung the
+  -- selection box) and a touch too far LEFT. It is now nudged UP (shift.y < 0, to
+  -- align the base with the selection-box bottom) and slightly RIGHT (shift.x > 0).
+  -- Guard the full window: a regression to the small scale, the -24 px float, a
+  -- downward/southward shift, or a leftward shift all fail here.
   local ls = layers()
   local body, glow
   for _, l in ipairs(ls) do
@@ -208,14 +232,38 @@ test("body/emission scale fills the 5x5 box and the shift does not float it", fu
   assert_true(body ~= nil and glow ~= nil, "body + glow layers must exist")
   assert_true(body.scale ~= nil and body.scale >= 0.6,
     "body scale must fill the 5x5 box (>= 0.6), got " .. tostring(body.scale))
-  -- shift is by_pixel -> {x/32, y/32}; the old lift was y = -24/32 = -0.75.
-  assert_true(body.shift[2] > -0.2,
-    "body must not be lifted off the ground (shift.y ~ 0), got " .. tostring(body.shift[2]))
+  -- shift is by_pixel -> {x/32, y/32}.
+  -- Up (north) but nowhere near the ci-ijk -0.75 float: a modest lift that bottom-
+  -- aligns the body without hovering it off the ground.
+  assert_true(body.shift[2] < 0 and body.shift[2] > -0.5,
+    "body must be nudged up to seat its base (0 > shift.y > -0.5), got " .. tostring(body.shift[2]))
+  -- Slightly right (the ci-cge rightward nudge, which also reseats the right pipes).
+  assert_true(body.shift[1] > 0 and body.shift[1] < 0.5,
+    "body must be nudged slightly right (0 < shift.x < 0.5), got " .. tostring(body.shift[1]))
   -- Body + emission must stay locked together (same scale + shift) or the molten
   -- glow drifts off the body.
   assert_eq(body.scale, glow.scale, "emission scale must match the body")
   assert_eq(body.shift[1], glow.shift[1], "emission shift.x must match the body")
   assert_eq(body.shift[2], glow.shift[2], "emission shift.y must match the body")
+end)
+
+-- === ci-cge: circuit wires attach at the bottom-right of the model ===========
+test("circuit connector is rebuilt to attach wires bottom-right (not mid/top)", function()
+  -- The deep-copied foundry connector puts the wire pin near the TOP (foundry
+  -- offset by_pixel(15, -50.5)); on the glass-furnace body the wires then read as
+  -- connecting in the middle. lava.lua rebuilds the connector from the universal
+  -- template at a bottom-right offset (+x right, +y down). Assert the module
+  -- produced a 4-direction connector and that every direction's wire point is
+  -- bottom-right (x > 0 AND y > 0). Fails on the inherited foundry offset (y < 0).
+  local m = proto("assembling-machine", MACHINE)
+  assert_true(m.circuit_connector ~= nil, "manufacturer must set circuit_connector")
+  assert_eq(4, #m.circuit_connector, "connector must cover all 4 directions")
+  for i, conn in ipairs(m.circuit_connector) do
+    local wire = conn.points and conn.points.wire
+    assert_true(wire ~= nil and wire.red ~= nil, "direction " .. i .. " must have a red wire point")
+    assert_true(wire.red[1] > 0, "wire must attach to the RIGHT (x > 0), got x=" .. tostring(wire.red[1]))
+    assert_true(wire.red[2] > 0, "wire must attach to the BOTTOM (y > 0), got y=" .. tostring(wire.red[2]))
+  end
 end)
 
 -- The body is a TWO-PART animation sheet: 80 frames of 270x310 laid out 8/row,

@@ -201,10 +201,15 @@ local LINES_PER_FILE = 8 -- rows in part 1; the remainder spill into part 2
 -- sat floating above the ground (empty tiles showing below it). The vanilla
 -- foundry art (356x384) fills 5x5 at scale 0.5, so match its on-screen size:
 -- 0.64 gives ~173x198 px (~5.4x6.2 tiles), filling the box and overhanging like
--- the foundry. shift 0 centres the body on the footprint (the foundry uses no
--- shift); the old -24 px lift is what made it hover.
+-- the foundry. The old -24 px lift is what made it hover.
+-- ci-cge (playtest retune): at shift 0 the body sat too far SOUTH -- its bottom
+-- overhung past the bottom of the selection box -- and read a touch too far left.
+-- Nudge it UP so the base aligns with the selection-box bottom, and very slightly
+-- RIGHT (the rightward move also reseats the right-side pipe connectors, which
+-- were floating off the body). The lift stays well short of the ci-ijk -24 px
+-- float, so the body still sits on the ground and fills the box.
 local BODY_SCALE = 0.64
-local BODY_SHIFT = util.by_pixel(0, 0)
+local BODY_SHIFT = util.by_pixel(6, -12)
 
 local body_animation_files = {
   ENTITY_GFX .. "glass-furnace-hr-animation-1.png",
@@ -241,7 +246,9 @@ manufacturer.graphics_set = {
         frame_count = 1,
         repeat_count = FRAME_COUNT,
         scale = BODY_SCALE,
-        shift = util.by_pixel(24, 8),
+        -- SE shadow offset, carried along with the ci-cge body nudge (+6,-12) so
+        -- the shadow stays seated under the moved body.
+        shift = util.by_pixel(30, -4),
         draw_as_shadow = true,
       },
       { -- emissive molten glow: stays lit in the dark (fits a lava melter).
@@ -282,6 +289,28 @@ if manufacturer.fluid_boxes then
     if type(fb) == "table" then fb.enable_working_visualisations = nil end
   end
 end
+
+-- === Circuit wire attachment point (ci-cge) =================================
+-- The deep-copied foundry connector puts the wire pin near the TOP of the box
+-- (foundry offset by_pixel(15, -50.5)); on the glass-furnace body the wires then
+-- read as connecting in the middle/top, floating off the model. Rebuild the
+-- connector from the same universal template at a BOTTOM-RIGHT offset so both the
+-- pin sprite AND the wire endpoints (points.wire) land on the lower-right of the
+-- furnace. create_vector wants one entry per direction; the glass furnace looks
+-- the same from every side (like the foundry), so all four share the offset.
+-- circuit_connector_definitions / universal_connector_template are core globals
+-- present for every base/space-age machine, so this loads whenever the game does.
+local CONNECTOR_OFFSET = util.by_pixel(48, 34) -- +x right, +y down -> bottom-right
+manufacturer.circuit_connector = circuit_connector_definitions.create_vector(
+  universal_connector_template,
+  {
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(115, 32), show_shadow = false },
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(115, 32), show_shadow = false },
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(115, 32), show_shadow = false },
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(115, 32), show_shadow = false },
+  }
+)
+
 manufacturer.icon = ICON
 manufacturer.icon_size = 64
 manufacturer.icons = nil -- clear any inherited layered icon; single icon above
