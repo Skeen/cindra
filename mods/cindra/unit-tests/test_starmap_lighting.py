@@ -6,10 +6,12 @@
 # (graphics/icons/starmap-planet-cindra.png) against the ci-2f7 lighting CONTRACT:
 # a single very strong PARALLEL sun from the LEFT, aimed PERPENDICULAR to the
 # vertical lava line, cranked so the sun-side limb blows out to near-WHITE with a
-# dramatic light->dark falloff into the frozen (ice) hemisphere. If a future
-# re-bake dims the sun, flips/rotates the light off the horizontal (so the
-# blow-out no longer sits on the left limb), or flattens the gradient into a wash,
-# this test fails.
+# dramatic light->dark falloff into the frozen (ice) hemisphere. The terminator
+# itself is the ci-6i1 DARK VOLCANIC-MOUNTAIN band (molten -> dark mountains ->
+# ice, no gray/tan blur), which supersedes the earlier ci-nyj soft-bleed reading.
+# If a future re-bake dims the sun, flips/rotates the light off the horizontal (so
+# the blow-out no longer sits on the left limb), flattens the gradient into a wash,
+# or washes/greys the dark-mountain terminator, this test fails.
 #
 # This is deliberately the same off-game verification pattern as
 # test_planet_maps.py (which guards the equirectangular albedo/emission maps this
@@ -155,30 +157,46 @@ check("ice side is not a pure-black void (right-third luminance > 15)",
       right_lum > 15.0,
       f"right-third lum={right_lum:.1f}")
 
-# --- SOFT TERMINATOR: a slight ambient bleed past 90deg -> ~55% lit (ci-nyj) ---
-# The bare Lambert key gives a HARD terminator exactly at the disc centre (a clean
-# 50% half). ci-nyj adds a subtle wrap-around ambient/reflected-ground bleed in the
-# bake so a little light spills just PAST the terminator onto the near-dark side:
-# the terminator softens and ~55% of the disc reads as lit, WITHOUT washing out the
-# deep dark ice limb (which the right-third guards above still hold dark). We assert
-# the effect two ways so a future re-bake cannot silently revert to the hard 50%:
+# --- DARK VOLCANIC-MOUNTAIN TERMINATOR (ci-6i1, supersedes the ci-nyj bleed) --
+# Original ci-nyj contract: an ambient bleed softened the terminator so the mid
+# third lifted ABOVE the ice and ~55% of the disc read as lit. ci-6i1 (P1,
+# human-flagged: "the planet should read molten -> dark mountains -> ice, with NO
+# gray/tan blur") deliberately re-baked this sprite, replacing the sandy/gray
+# terminator neutrals with a broad band of DARK VOLCANIC MOUNTAINS (reddish-brown
+# basalt) down the middle third. That makes the terminator the DARKEST band on the
+# disc -- darker than the pale-ice limb -- which is the exact opposite of the
+# ci-nyj "mid lifted above ice" reading. ci-6i1 is the later, human-approved
+# contract (verification: docs/verification/ci-6i1-terminator-orbital.png), so the
+# terminator guard now encodes the dark-mountain look. We assert it two ways so a
+# future re-bake cannot silently wash the mid band bright OR re-introduce the
+# gray/tan blur ci-6i1 killed:
 #
-# 1. The near-terminator centre band (mid third) is clearly LIFTED above the deep
-#    dark ice (right third) by the bleed. Before the softening the mid third fell to
-#    -- or below -- the ambient ice floor (mid ~= right); the bleed now lifts it a
-#    clear margin above. (This FAILS on the pre-ci-nyj hard-terminator bake.)
-check("soft terminator: bleed lifts the mid band above the deep-dark ice "
-      "(mid third >= right third + 4)",
-      mid_lum >= right_lum + 4.0,
+# 1. The mid third is the dark volcanic-mountain band: clearly DARKER than the
+#    pale-ice limb (mid well below the right third), and warm basalt-toned
+#    (R > G > B, R clearly above B) -- NOT the old neutral gray/tan terminator and
+#    NOT a bright ambient-bleed wash. (This FAILS on both the pre-ci-6i1 bright/soft
+#    bake and any revert to the gray/tan band.)
+mid_rgb = rgb[mid].mean(axis=0)             # mean colour of the terminator band
+mid_r, mid_g, mid_b = float(mid_rgb[0]), float(mid_rgb[1]), float(mid_rgb[2])
+check("terminator is the DARK volcanic-mountain band, darker than the pale ice "
+      "(mid third <= right third - 8, and mid luminance < 50)",
+      mid_lum <= right_lum - 8.0 and mid_lum < 50.0,
       f"mid={mid_lum:.1f} right={right_lum:.1f} (delta={mid_lum - right_lum:.1f})")
+check("terminator band is warm basalt, NOT neutral gray/tan "
+      "(mid mean R > G > B and R - B >= 10)",
+      mid_r > mid_g > mid_b and (mid_r - mid_b) >= 10.0,
+      f"mid mean rgb=({mid_r:.1f},{mid_g:.1f},{mid_b:.1f}) R-B={mid_r - mid_b:.1f}")
 
-# 2. The lit fraction of the disc sits around ~55% (not a hard 50%, not a wash).
-#    "Lit" = clearly above the cool ice ambient floor (luminance > 60). Before the
-#    softening this was ~0.48 (under half); the bleed pushes it to ~0.54-0.55. Kept
-#    below 0.62 so the planet still reads as a clear lit/dark globe, not over-lit.
+# 2. With the dark terminator the disc reads as a clear lit/dark globe: the molten
+#    sun side is lit, the dark mountains + ice hemisphere are not. "Lit" = clearly
+#    above the cool ice ambient floor (luminance > 60). The dark-mountain terminator
+#    pulls the lit fraction below the old ci-nyj soft window (~0.55) to ~0.45; kept
+#    above 0.38 so the sun side still blows out and the globe never crushes to a
+#    thin lit sliver.
 lit_frac = float((disc & (lum > 60.0)).sum()) / float(disc.sum())
-check("terminator softened to ~55% of the disc lit (0.50 <= lit fraction <= 0.62)",
-      0.50 <= lit_frac <= 0.62,
+check("dark-terminator globe reads as a clear lit/dark split "
+      "(0.38 <= lit fraction <= 0.52)",
+      0.38 <= lit_frac <= 0.52,
       f"lit fraction (lum>60) = {lit_frac:.3f}")
 
 print(f"\n{passed} passed, {failed} failed")
