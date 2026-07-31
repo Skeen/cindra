@@ -116,6 +116,18 @@ npm run test:unit                    # all unit-tests/test_*.lua (in the dev she
 cd mods/cindra && lua unit-tests/test_ribbon.lua
 ```
 
+Python pixel tests (the from-space planet art, guarded off-game with numpy +
+pillow) live alongside the Lua ones as `unit-tests/test_*.py` and run under the
+flake's `pythonEnv`:
+
+```sh
+npm run test:unit:py                  # all unit-tests/test_*.py (in the dev shell)
+# or a single one:
+python3 mods/cindra/unit-tests/test_planet_maps.py
+```
+
+Both `test:unit` and `test:unit:py` are part of the top-level `npm test` target.
+
 ## Launch game for manual testing
 
 ```sh

@@ -6,8 +6,9 @@
     "test:integration": "cindra-test",
     "test:integration:graphics": "cindra-test -g",
     "test:unit": "for d in mods/*/unit-tests; do m=\"${d%/unit-tests}\"; for f in \"$d\"/test_*.lua; do echo \"# $f\" && (cd \"$m\" && lua \"unit-tests/$(basename \"$f\")\") || exit 1; done; done",
-    "test:play": "bash tests/play-sh.test.sh && bash tests/play-patchelf.test.sh",
-    "test": "npm run test:unit && npm run test:play && npm run test:integration"
+    "test:unit:py": "for d in mods/*/unit-tests; do for f in \"$d\"/test_*.py; do [ -e \"$f\" ] || continue; echo \"# $f\" && python3 \"$f\" || exit 1; done; done",
+    "test:play": "bash tests/play-sh.test.sh && bash tests/play-patchelf.test.sh && bash tests/test-unit-py.test.sh",
+    "test": "npm run test:unit && npm run test:unit:py && npm run test:play && npm run test:integration"
   },
   "devDependencies": {
     "factorio-test-cli": "^3.0.0"
