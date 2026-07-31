@@ -132,8 +132,11 @@ ln -sfn "$FACTORIO_TEST_MOD" "factorio-test-data-dir/mods/factorio-test_$ver"
   building keeps a static first-frame `sprites` for ghost/blueprint/factoriopedia
   previews and the runtime draws animated body + emissive-glow overlays on each
   placed scanner (a constant-combinator body cannot frame-animate on its own).
-  The **signal icons** remain placeholder (reused base icons); a follow-up bead
-  tracks bespoke signal art.
+  The seven **virtual-signal icons** are bespoke too (ci-kuu): a self-authored,
+  deterministic set (`scripts/gen-signal-art.py`, own work) drawn as one family
+  with the Cindra art -- a shared dark steel signal plate with a coloured glyph,
+  warm-sun for the generic surface readings and ember/flare for the forecast
+  block. Regenerate byte-for-byte with `scripts/render-signal-art.sh`.
 * Never mutates another planet: it only adds its own entity and reads surface
   state. Setting a constant combinator's own output affects nothing but that
   building's wires.

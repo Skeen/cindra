@@ -223,5 +223,44 @@ test("entity and item share the radio-station icon at icon_size 64", function()
   end
 end)
 
+-- === ci-kuu: bespoke virtual-signal icons ===================================
+-- Every scanner signal must draw its OWN bespoke icon that ships in this mod,
+-- not a base-game placeholder. Fails on main (icons were __base__/graphics/...
+-- accumulator/solar-panel/etc.), passes on the fix.
+local readings = require("scripts.readings")
+
+test("all seven signals are registered as virtual-signal prototypes", function()
+  local n = 0
+  for _, name in pairs(readings.SIGNALS) do
+    n = n + 1
+    assert_true(proto("virtual-signal", name) ~= nil,
+      "virtual-signal must be registered: " .. name)
+  end
+  assert_eq(7, n, "readings.SIGNALS must define exactly seven signals")
+end)
+
+test("every signal icon is a bespoke env-scanner asset, never a base placeholder", function()
+  for _, name in pairs(readings.SIGNALS) do
+    local sig = proto("virtual-signal", name)
+    assert_true(sig.icon ~= nil, "signal must set an icon: " .. name)
+    assert_true(sig.icon:find("__base__") == nil,
+      "signal " .. name .. " must NOT use a base-game placeholder, got: " .. sig.icon)
+    assert_true(sig.icon:find("__env%-scanner__/graphics/icons/signals/") ~= nil,
+      "signal " .. name .. " must use a bespoke signals/ icon, got: " .. sig.icon)
+    assert_eq(64, sig.icon_size, "signal icon_size must be 64: " .. name)
+    assert_true(ships(sig.icon), "signal icon PNG must ship: " .. sig.icon)
+  end
+end)
+
+test("each signal's icon file is named for its signal (path derives from name)", function()
+  -- Guards the "derive path from name" wiring: a mismatch between the signal
+  -- name and its shipped PNG stem (e.g. a rename on one side only) fails here.
+  for _, name in pairs(readings.SIGNALS) do
+    local sig = proto("virtual-signal", name)
+    assert_true(sig.icon:find("/" .. name:gsub("%-", "%%-") .. "%.png$") ~= nil,
+      "signal " .. name .. " icon must be <name>.png, got: " .. sig.icon)
+  end
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)
