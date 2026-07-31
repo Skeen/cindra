@@ -846,6 +846,25 @@ These are DESIGNED and beaded but NOT on `main`. Do not expect them in a playtes
 of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
 
+- [ ] **[IN-FLIGHT] Native-freeze inversion: high-radius emitter UPS + frost
+  visuals (ci-b5i).** The freeze-radius spike (`mods/freeze-radius-poc/`) proved
+  headlessly that a hot heat source with `heating_radius = 100` thaws freezable
+  machines out to a hard ~100-tile clamp (square/Chebyshev reach), thaws
+  already-frozen machines, sustains indefinitely, and is source-agnostic, all via
+  `LuaEntity.frozen`. Two things a headless run CANNOT judge and that gate adopting
+  the mechanic on Cindra: **(1) UPS / per-tick cost** of the engine's O(R²) heating
+  scan at radius 100, an untested regime (base game runs radius ~1 with dense heat
+  pipes); the entity-count collapse (a handful of emitters vs thousands of pipes) is
+  favourable but the per-emitter scan cost is unverified. **(2) The freeze VISUALS**:
+  frost overlays, stopped-machine animations, and native pipe/fluid freeze
+  animation. *Repro (once integrated, or against the PoC surface):* enable
+  `entities_require_heating`, place an r100 emitter line on the fire edge, spacing
+  ≤ ~190, and watch a machine field ~100 tiles out. *Look for:* (1) UPS stays sane
+  with a live radius-100 emitter line over a populated band (profile via time-usage
+  overlay on a large factory); (2) machines beyond the warm band visibly frost over
+  and stop, pipes/fluids freeze, and the freeze front reads as a clean straight ice
+  line just past the emitters; (3) no bleed of thaw past ~100 tiles.
+
 - [ ] **[IN-FLIGHT] Power diode PoC: the two poles are visible and distinct
   (ci-gcd).** A research spike (one-way power transfer between two networks). Its
   behaviour -- energy A->B up to a rate cap, never B->A, networks isolated -- is
