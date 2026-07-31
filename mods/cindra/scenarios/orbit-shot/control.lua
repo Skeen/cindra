@@ -40,6 +40,7 @@ script.on_event(defines.events.on_tick, function(e)
   local shots = {
     { z = 0.2, pos = { 0, 0 }, tag = "close" },
     { z = 0.14, pos = { 0, 0 }, tag = "wide" },
+    { z = 0.07, pos = { 0, 0 }, tag = "full" },
   }
   for _, sh in ipairs(shots) do
     game.take_screenshot{

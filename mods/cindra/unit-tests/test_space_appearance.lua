@@ -145,14 +145,28 @@ test("points the backdrop maps at the baked Cindra fire/ice art", function()
   assert_eq("__cindra__/graphics/space/cindra-cloud.png", b.global_cloud.filename)
 end)
 
--- ci-i9m: the hero solar-flare overlay is REMOVED. It rendered as garish white/
--- yellow vertical PLUMES near the bottom of the globe (the "rocket-engine plume"
--- junk artifact the mayor flagged). Guard its absence so a later tweak cannot
--- quietly reintroduce the plume: no hero-cloud texture, no hero-cloud instances.
-test("no hero-flare overlay -> no bottom-of-globe plume artifact (ci-i9m)", function()
+-- ci-cn1: a SUBTLE solar-flare arc rides the dayside (fire) limb -- a deliberate
+-- re-do of the overlay ci-i9m removed. That one used full-height quads (up to 0.95
+-- of the disc) anchored low, so it read as a "rocket-engine plume" near the bottom
+-- of the globe. Guard the fix (size + placement, so a later tweak cannot drift back
+-- to the plume): the flare IS present, emissive, points at the flare spritesheet,
+-- and EVERY instance is SMALL, on the LEFT (fire) limb, and clear of the bottom.
+-- Mirrors tests/test_space_appearance.lua; keep the two in sync.
+test("subtle flare arc on the LEFT/fire limb, not the old bottom plume (ci-cn1)", function()
   local b = space.build_render_parameters(fake_nauvis_params()).platform_backdrop
-  assert_nil(b.hero_cloud_texture_1, "no hero-flare spritesheet on the backdrop")
-  assert_nil(b.hero_clouds, "no hero-flare instances on the backdrop")
+  assert_true(b.hero_cloud_texture_1 ~= nil, "flare spritesheet must be wired onto the backdrop")
+  assert_true(string.find(b.hero_cloud_texture_1.filename, "cindra-flare.png", 1, true) ~= nil,
+    "the hero texture is the baked solar-flare spritesheet")
+  assert_true(b.hero_clouds_are_emissive == true, "the flare glows against dark space (emissive)")
+  assert_true(b.hero_clouds ~= nil, "flare instances must be present")
+  assert_true(#b.hero_clouds >= 1, "at least one flare arc")
+  for i, h in ipairs(b.hero_clouds) do
+    local pos = h.positions[1]
+    assert_true(pos[1] < 0, "flare " .. i .. " sits on the LEFT (fire) limb (x < 0)")
+    assert_true(pos[2] > -0.3, "flare " .. i .. " is clear of the bottom (guards the old plume placement)")
+    assert_true(h.size[1] < 0.5 and h.size[2] < 0.5,
+      "flare " .. i .. " is small (a fraction of the disc, not the old 0.95 plume)")
+  end
 end)
 
 -- The dayside/ice emission still self-lights across the disc so the fiery limb

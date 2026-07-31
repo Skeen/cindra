@@ -19,8 +19,10 @@
 -- the same molten-day / terminator / frozen-night face is presented permanently.
 -- Only the CLOUD layer animates, via rotate_with_planet = false, so the terminator
 -- steam band drifts while the GLOBE stays still (planet_design.md: "only the GLOBE
--- must be static"). The hero solar-flare overlay was removed in ci-i9m (it rendered
--- as a bottom-of-globe plume artifact); the flare GAMEPLAY event is separate.
+-- must be static"). A SUBTLE solar-flare arc rides the dayside (fire) limb (ci-cn1):
+-- the oversized full-height version was pulled in ci-i9m for reading as a bottom-of-
+-- globe rocket plume, so this one is small and pinned to the LEFT limb. The flare
+-- GAMEPLAY event (prototypes/flare.lua) is a separate system.
 
 local util = require("util")
 
@@ -97,13 +99,39 @@ end
 function M.build_render_parameters(nauvis_params)
   local params = util.table.deepcopy(nauvis_params)
 
-  -- NO hero-flare overlay on the orbital backdrop (ci-i9m). The old flare-arc
-  -- sprites were placed as huge (up to 0.95 of the disc) front-only quads and
-  -- rendered as garish white/yellow vertical PLUMES near the bottom of the globe
-  -- -- the "rocket-engine plume" junk artifact the mayor flagged. They are removed
-  -- here so the from-space planet is a clean fire/ice globe. This is the ART view
-  -- only; the GAMEPLAY solar-flare power event (prototypes/flare.lua) is untouched.
-  -- A tasteful limb-flare visual can return later as its own bead (see PLAYTEST.md).
+  -- Subtle solar-flare arc on the dayside (fire) limb (ci-cn1). The star is
+  -- perilously close and throws flares (DESIGN.md; the gameplay event lives in
+  -- prototypes/flare.lua), so a small emissive prominence licking off the LEFT
+  -- limb sells that from space. This is a deliberate re-do of the overlay ci-i9m
+  -- removed: that one used full-height quads (up to 0.95 of the disc) anchored low,
+  -- so the vertical flame columns read as a "rocket-engine plume" near the bottom
+  -- of the globe. The fix is size + placement, not deletion:
+  --   * SMALL -- a fraction of the disc, so it reads as a flare tongue not a plume;
+  --   * pinned to the LEFT (fire) limb, upper hemisphere, well clear of the bottom;
+  --   * front-only + rotate_with_planet = false so it arcs in place while the
+  --     tidally-locked globe stays frozen (see NO_ROTATION);
+  --   * emissive so it glows against dark space like a real prominence.
+  -- The flare spritesheet is 24 frames on a 6-wide sheet of 256px cells
+  -- (scripts/gen-planet-maps.py build_flare_sheet): a seamless rise-and-fall loop.
+  local flare_sheet = {
+    filename = "__cindra__/graphics/space/cindra-flare.png",
+    width = 256, height = 256, line_length = 6, frame_count = 24, animation_speed = 0.35,
+  }
+  -- ONE instance: a single arc reads as a flare, two staggered ones read as the
+  -- old competing plumes. LEFT limb (negative x), upper hemisphere (positive y,
+  -- away from the bottom where the old plume sat), small size.
+  local flare_heroes = {
+    {
+      sprite_index = 1,
+      rotate_with_planet = false,
+      projection_style = "front-only",
+      positions = { { -0.50, 0.42 } },   -- upper-left: flames lick off the fire limb into dark sky
+      size = { 0.32, 0.44 },             -- small: a fraction of the disc, not the old 0.95
+      position_deviation = { 0.02, 0.02 },
+      rotation_deviation = 0.0,
+      starting_frame_offset = 0,
+    },
+  }
 
   params.platform_backdrop = {
     emission_scales_with_shadow = false,   -- magma glows on its own, across the disc
@@ -173,6 +201,11 @@ function M.build_render_parameters(nauvis_params)
     -- Cool blue frost sheen on the icy nightside (the bake's glossy ice catches
     -- the cool ambient); a warm/white specular would wash the ice yellow.
     specular_color = { 0.5, 0.7, 1.0, 1 },
+
+    -- Subtle emissive solar-flare arc on the fire limb (ci-cn1; defined above).
+    hero_clouds_are_emissive = true,
+    hero_cloud_texture_1 = flare_sheet,
+    hero_clouds = flare_heroes,
 
     -- Surface + relief + reflectivity: the molten/frozen crust.
     planet_surface = map("cindra.png"),
