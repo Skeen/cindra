@@ -1,4 +1,5 @@
--- One-way power transfer PoC -- the "power diode" (ci-gcd).
+-- One-way power transfer device -- the "power diode" (ci-gcd, reworked to a
+-- power-SWITCH-style single building in ci-8l4).
 --
 -- THE PROBLEM: Factorio's electric grid is a single shared pool. Every entity
 -- wired into one network draws from and feeds the same pot; there is no
@@ -6,23 +7,30 @@
 -- BETWEEN two separate networks, bridged by a device that moves energy A->B and
 -- never B->A.
 --
--- THE DEVICE (approach (a), the standard mod pattern): two electric-energy-
--- interface poles (prototypes/power-diode.lua).
---   * the INPUT pole sits on network A as a LOAD (charge-only, output_flow_limit
---     = 0). It draws power from A to fill its buffer but can NEVER push power
---     back into A.
---   * the OUTPUT pole sits on network B as a SOURCE (discharge-only,
---     input_flow_limit = 0). It feeds its buffer into B but can NEVER draw power
---     out of B.
--- Each tick the runtime moves buffered joules from the input pole to the output
--- pole, rate-capped. The energy path is therefore strictly:
+-- THE DEVICE (ci-8l4): a single placed building reskinned from the vanilla
+-- POWER-SWITCH, so it has TWO copper wire connection points. The player wires the
+-- SOURCE network to the left connector and the SINK network to the right -- two
+-- explicit power inputs, exactly like a power-switch, instead of the old two
+-- separately-placed poles paired by proximity. On placement the runtime spawns
+-- the switch's hidden guts (prototypes/power-diode.lua):
+--   * an INPUT buffer  -- an electric-energy-interface that is a LOAD
+--     (output_flow_limit 0). It draws power from the left/source network to fill
+--     its buffer but can NEVER push power back.
+--   * an OUTPUT buffer -- an EEI that is a SOURCE (input_flow_limit 0). It feeds
+--     its buffer into the right/sink network but can NEVER draw power out of it.
+--   * two hidden TAP poles, one co-located with each buffer, copper-wired to the
+--     matching switch connector -- an EEI has no copper connector of its own, so
+--     the tap pole is how each buffer lands on the network the player wired.
+-- Each tick the runtime moves buffered joules from the input buffer to the output
+-- buffer, rate-capped. The energy path is therefore strictly:
 --
---     network A --(charge <= rate)--> input.buffer --(script)--> output.buffer --(discharge <= rate)--> network B
+--     source net --(charge <= rate)--> input.buffer --(script)--> output.buffer --(discharge <= rate)--> sink net
 --
--- One-way is guaranteed THREE independent ways: the input pole cannot output to
--- A, the output pole cannot input from B, and the script only ever subtracts
--- from the input buffer and adds to the output buffer (a non-negative move). Any
--- one of the three alone blocks reverse flow; together they are belt-and-braces.
+-- One-way is guaranteed THREE independent ways: the input buffer cannot output to
+-- the source, the output buffer cannot input from the sink, and the script only
+-- ever subtracts from the input buffer and adds to the output buffer (a
+-- non-negative move). Any one alone blocks reverse flow; together they are
+-- belt-and-braces.
 --
 -- Approach (b) (a pure-prototype directional trick, no script) was investigated
 -- and found NOT viable -- see docs/power-diode-poc.md. This module is approach (a).
@@ -34,6 +42,7 @@
 local C = require("scripts.diode-config")
 
 local M = {}
+M.DEVICE = C.DEVICE
 M.INPUT = C.INPUT
 M.OUTPUT = C.OUTPUT
 M.TICK_INTERVAL = C.TICK_INTERVAL
@@ -52,10 +61,12 @@ function M.transfer_amount(available, headroom, rate_w, dt_ticks)
   return move
 end
 
--- Move energy from one input pole to one output pole, one-way, rate-capped.
+-- Move energy from one input buffer to one output buffer, one-way, rate-capped.
 -- Reads/writes only entity.energy (the live buffer content, J). Returns the
--- joules moved. `opts.rate_w` overrides the configured rate (the configurable
--- max transfer rate the PoC asks for); `opts.dt` overrides the tick delta.
+-- joules moved. `opts.rate_w` overrides the configured rate; `opts.dt` overrides
+-- the tick delta. This is a PURE buffer move (no network check) so the
+-- deterministic buffer-level tests can drive it directly; the sweep below adds
+-- the cross-network guard.
 function M.step(input, output, opts)
   opts = opts or {}
   if not (input and input.valid and output and output.valid) then return 0 end
@@ -69,58 +80,178 @@ function M.step(input, output, opts)
   return move
 end
 
--- Runtime pairing for the placed PoC: the output pole NEAREST `input` that sits
--- on a DIFFERENT electric network. A same-network match is rejected -- transfer
--- within one network is a no-op loop -- which keeps the device honest about
--- bridging two SEPARATE networks. There is deliberately no distance cap: two
--- ISOLATED networks force their poles far apart (substations within 18 tiles
--- auto-wire into ONE network), so the poles of a real diode are NOT adjacent. A
--- shipping device would instead record the input<->output link on placement
--- (on_built) rather than infer it by proximity; nearest-cross-network is enough
--- for the single-diode PoC.
-function M.find_partner(input, outputs)
-  local best, best_d2 = nil, nil
-  local ip = input.position
-  for _, out in pairs(outputs) do
-    if out.valid and out.electric_network_id ~= input.electric_network_id then
-      local dx, dy = out.position.x - ip.x, out.position.y - ip.y
-      local d2 = dx * dx + dy * dy
-      if best_d2 == nil or d2 < best_d2 then
-        best, best_d2 = out, d2
-      end
-    end
-  end
-  return best
+-- ===========================================================================
+-- Placement: spawn + wire the switch's hidden guts, and register the device.
+-- ===========================================================================
+
+local function registry()
+  storage.cindra_diodes = storage.cindra_diodes or {}
+  return storage.cindra_diodes
+end
+M.registry = registry
+
+-- Test/black-box reset: forget every registered diode (does NOT destroy world
+-- entities -- callers that wipe the surface handle that). Keeps repeated tests
+-- from inheriting stale registry entries.
+function M.reset()
+  storage.cindra_diodes = {}
 end
 
--- Drive every diode on `surface` for one sweep. Pairs each input pole with its
--- nearest cross-network output pole and moves energy A->B. Returns total joules
--- moved (handy for tests). This is the ONE place the transfer runs; the runtime
--- and the tests both call it, so there is a single source of truth.
-function M.transfer(surface, opts)
-  local inputs = surface.find_entities_filtered({ name = C.INPUT })
-  if #inputs == 0 then return 0 end
-  local outputs = surface.find_entities_filtered({ name = C.OUTPUT })
-  if #outputs == 0 then return 0 end
+-- Copper-connect a tap pole to one side of the device's power-switch. `side` is
+-- the wire_connector_id for that connector (left/right copper). reach_check is
+-- disabled: the tap sits a few tiles off the connector by construction, and the
+-- link is script-made, not a player drag.
+local function wire_tap(device, tap, side)
+  local dev_conn = device.get_wire_connector(side, true)
+  local tap_conn = tap.get_wire_connector(defines.wire_connector_id.pole_copper, true)
+  dev_conn.connect_to(tap_conn, false, defines.wire_origin.script)
+end
+
+local function destroy_helpers(d)
+  for _, key in ipairs({ "input", "output", "input_tap", "output_tap" }) do
+    local e = d[key]
+    if e and e.valid then e.destroy() end
+  end
+end
+M.destroy_helpers = destroy_helpers
+
+-- Build the two buffers + two tap poles for a placed device and wire each tap to
+-- its switch connector, then record the set in storage keyed by the device's
+-- unit_number. Idempotent: a device already registered is left untouched.
+function M.attach(device)
+  if not (device and device.valid and device.name == C.DEVICE) then return end
+  local reg = registry()
+  local unit = device.unit_number
+  if reg[unit] then return end
+
+  local surface = device.surface
+  local force = device.force
+  local p = device.position
+  local function spawn(name, dx)
+    return surface.create_entity({
+      name = name,
+      position = { p.x + dx, p.y },
+      force = force,
+      raise_built = false,
+    })
+  end
+
+  -- Input pair sits at -TAP_DX (the source/left side), output pair at +TAP_DX
+  -- (the sink/right side) -- far enough apart that neither tap's supply area
+  -- reaches the other side's buffer.
+  local input_tap = spawn(C.INPUT_TAP, -C.TAP_DX)
+  local output_tap = spawn(C.OUTPUT_TAP, C.TAP_DX)
+  local input = spawn(C.INPUT, -C.TAP_DX)
+  local output = spawn(C.OUTPUT, C.TAP_DX)
+
+  local d = {
+    device = device,
+    input = input,
+    output = output,
+    input_tap = input_tap,
+    output_tap = output_tap,
+  }
+
+  -- If any helper failed to spawn, roll back rather than register a half-built
+  -- device (the sweep would only ever no-op on it).
+  if not (input_tap and output_tap and input and output) then
+    destroy_helpers(d)
+    return
+  end
+
+  wire_tap(device, input_tap, defines.wire_connector_id.power_switch_left_copper)
+  wire_tap(device, output_tap, defines.wire_connector_id.power_switch_right_copper)
+
+  -- A power diode must NEVER bridge: a closed switch would merge the two sides
+  -- into one network and turn the one-way shuttle into a plain two-way bridge.
+  -- Force the switch OPEN so the two wired networks stay isolated. The sweep
+  -- re-asserts this each tick (see M.tick), so the device can never be toggled
+  -- into a bridge.
+  device.power_switch_state = false
+
+  reg[unit] = d
+  return d
+end
+
+-- Remove a device: destroy its hidden guts and forget it.
+function M.detach(device)
+  if not (device and device.name == C.DEVICE) then return end
+  local reg = registry()
+  local unit = device.unit_number
+  local d = reg[unit]
+  if not d then return end
+  destroy_helpers(d)
+  reg[unit] = nil
+end
+
+-- ===========================================================================
+-- The sweep: shuttle every registered diode's input buffer -> output buffer.
+-- ===========================================================================
+
+-- Drive one diode: move energy input->output ONLY when the two buffers sit on
+-- SEPARATE electric networks. A same-network match (device unwired, or its switch
+-- closed so both sides merged) is a no-op loop, so we skip it -- keeping the
+-- device honest about bridging two SEPARATE networks. Returns joules moved.
+function M.step_pair(d, opts)
+  local input, output = d.input, d.output
+  if not (input and input.valid and output and output.valid) then return 0 end
+  if input.electric_network_id == nil or output.electric_network_id == nil then return 0 end
+  if input.electric_network_id == output.electric_network_id then return 0 end
+  return M.step(input, output, opts)
+end
+
+-- One sweep over every registered diode. Prunes entries whose device has vanished
+-- without a mined/died event (defensive), destroying any orphaned guts. Returns
+-- total joules moved (handy for tests).
+function M.tick(opts)
+  local reg = storage.cindra_diodes
+  if not reg then return 0 end
   local moved = 0
-  for _, input in pairs(inputs) do
-    local partner = M.find_partner(input, outputs)
-    if partner then
-      moved = moved + M.step(input, partner, opts)
+  for unit, d in pairs(reg) do
+    if d.device and d.device.valid then
+      -- Keep the switch OPEN so the diode is always a one-way valve, never a
+      -- bridge (a closed switch would merge the two networks into one).
+      d.device.power_switch_state = false
+      moved = moved + M.step_pair(d, opts)
+    else
+      destroy_helpers(d)
+      reg[unit] = nil
     end
   end
   return moved
 end
 
--- Register the PoC runtime. Kept OFF the main driver (scripts/driver.lua) on
--- purpose: this is an isolated spike, so it owns its own handler on its own
--- distinct interval and touches nothing but its own poles. The sweep is a
--- cheap no-op on any surface where no diode is placed.
+-- Register the runtime: the periodic sweep on its OWN distinct nth-tick (kept off
+-- the main driver -- this is an isolated spike), plus the build / remove events
+-- that spawn and tear down each device's hidden guts. A cheap no-op while no
+-- device is placed.
 function M.register()
   script.on_nth_tick(C.TICK_INTERVAL, function()
-    for _, s in pairs(game.surfaces) do
-      M.transfer(s, { dt = C.TICK_INTERVAL })
-    end
+    M.tick({ dt = C.TICK_INTERVAL })
+  end)
+
+  local build_events = {
+    defines.events.on_built_entity,
+    defines.events.on_robot_built_entity,
+    defines.events.on_space_platform_built_entity,
+    defines.events.script_raised_built,
+    defines.events.script_raised_revive,
+  }
+  script.on_event(build_events, function(event)
+    local e = event.entity
+    if e and e.valid and e.name == C.DEVICE then M.attach(e) end
+  end)
+
+  local remove_events = {
+    defines.events.on_player_mined_entity,
+    defines.events.on_robot_mined_entity,
+    defines.events.on_space_platform_mined_entity,
+    defines.events.on_entity_died,
+    defines.events.script_raised_destroy,
+  }
+  script.on_event(remove_events, function(event)
+    local e = event.entity
+    if e and e.name == C.DEVICE then M.detach(e) end
   end)
 end
 

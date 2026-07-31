@@ -1001,16 +1001,21 @@ of the current build; they are listed so "not built yet" is distinguishable from
   and stop, pipes/fluids freeze, and the freeze front reads as a clean straight ice
   line just past the emitters; (3) no bleed of thaw past ~100 tiles.
 
-- [ ] **[IN-FLIGHT] Power diode PoC: the two poles are visible and distinct
-  (ci-gcd).** A research spike (one-way power transfer between two networks). Its
-  behaviour -- energy A->B up to a rate cap, never B->A, networks isolated -- is
-  fully test-covered (`tests/test_power_diode.lua`, `unit-tests/test_diode.lua`),
-  so this checkbox is only for the look a test cannot judge. *Repro:* in the
-  editor, place a **Power diode (input)** and a **Power diode (output)** (each on
-  its own pole network). *Look for:* both poles render (they reuse the vanilla
-  accumulator sprite) and are visually distinguishable -- input tinted **green**,
-  output tinted **red** -- and are selectable/minable. *Note:* isolated PoC with
-  no recipe/tech, so it is editor-spawn only; there is no crafting-tab entry yet.
+- [ ] **[IN-FLIGHT] Power diode PoC: the single power-switch-style building
+  (ci-gcd, reworked ci-8l4).** A research spike (one-way power transfer between two
+  networks). Its behaviour -- energy source->sink up to a rate cap, never back,
+  networks isolated -- is fully test-covered (`tests/test_power_diode.lua`,
+  `unit-tests/test_diode.lua`), so this checkbox is only for the look/feel a test
+  cannot judge. *Repro:* in the editor, place ONE **Power diode** (it looks like a
+  vanilla power switch, tinted pale blue). Copper-wire one side to a powered
+  network and the other side to a second, separate network with a load (e.g. an
+  accumulator). *Look for:* (1) the building renders and reads as a power switch
+  with two copper connection points; (2) power visibly flows from the wired
+  source side into the sink side and never back; (3) the switch stays visually
+  OPEN and cannot be toggled into a bridge (the runtime forces it open). *Note:*
+  the two buffers + tap poles it spawns are hidden guts -- the player only ever
+  sees/mines the one switch. Isolated PoC with no recipe/tech, so it is
+  editor-spawn only; there is no crafting-tab entry yet.
 
 - [ ] **[IN-FLIGHT] Worldgen v2: themed terrain + orientation + size sliders
   (ci-i8a).** A configurable ribbon (default **vertical**, temperature axis

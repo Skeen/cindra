@@ -34,11 +34,13 @@ remote.add_interface("cindra-flare", {
   forecast = function(surface_index) return flare.forecast(surface_index) end,
 })
 
--- One-way power transfer PoC (ci-gcd): the "power diode". Registered on its OWN
--- distinct nth-tick (7), disjoint from the driver's periodic systems, because it
--- is an isolated feasibility spike -- it moves buffered power A->B between the
--- two poles of a placed diode and touches nothing else. A cheap no-op on any
--- surface where no diode is placed.
+-- One-way power transfer device (ci-gcd, reworked to a power-SWITCH-style single
+-- building in ci-8l4): the "power diode". Registered on its OWN distinct nth-tick
+-- (7), disjoint from the driver's periodic systems, because it is an isolated
+-- feasibility spike. It spawns each placed device's hidden guts on build (its own
+-- build/mine event handlers, disjoint from every other track) and shuttles
+-- buffered power one way between the two networks the player wires to the switch.
+-- A cheap no-op on any surface where no device is placed.
 local diode = require("scripts.diode")
 diode.register()
 
