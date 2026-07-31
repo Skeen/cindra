@@ -99,6 +99,26 @@ These replaced the earlier tinted-vanilla placeholders (petroleum-gas / water /
 calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entity
 still reuses the electric-furnace art (bespoke building art tracked in ci-wfv).
 
+## Red-mud subsystem art (ci-c7j) — v1 placeholders
+
+The Bayer/iron-recovery subsystem (`prototypes/red-mud.lua`) ships **placeholder**
+art for v1; bespoke renders are a follow-up (cf. ci-eb9). To avoid any vanilla
+placeholder leaking in, the two new items reuse the bespoke `cindra-stone` render
+under an in-prototype tint, and the furnace reuses its assembling-machine clone
+art. The **intended** bespoke sources below are again from Malcolm Riley's
+[`unused-renders`](https://github.com/malcolmriley/unused-renders) (CC-BY-4.0,
+author Malcolm Riley) — the durable attribution for when they are wired.
+
+| Cindra item / building        | v1 placeholder                                   | Intended bespoke source (unused-renders)        | Wired by |
+|-------------------------------|--------------------------------------------------|-------------------------------------------------|----------|
+| `cindra-red-mud`              | `icons/cindra-stone.png` + reddish tint          | `item/original/pile-mud-1.png` (red-tinted)     | `prototypes/red-mud.lua` |
+| `cindra-slag`                 | `icons/cindra-stone.png` + dark-grey tint        | `item/original/pile-slag-1.png`                 | `prototypes/red-mud.lua` |
+| `cindra-carbothermic-furnace` | (v1: reused assembling-machine-3 art)            | bespoke reduction-furnace render                | `prototypes/red-mud.lua`; art follow-up ci-eb9 |
+
+Iron is the vanilla `iron-plate` (no new icon needed). The furnace entity passes
+the graphics audit via its assembler-clone sprite; bespoke building art is the
+same ci-eb9 follow-up.
+
 ## Scope / known limits (honest first pass)
 
 - **Entity sprites are single static frames**, not directional or animated.

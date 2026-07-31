@@ -77,6 +77,10 @@ if script.active_mods["factorio-test"] then
     -- byproduct deadlock, the O2 economy's real sinks, net-negative stone at the
     -- +300% cap, and no free-metal/carbon/plastic loop (DESIGN §8.4/§8.6).
     "tests/test_materials_graph",
+    -- ci-c7j: the red-mud subsystem (Bayer alumina route + iron recovery) --
+    -- both alumina routes feed electrolysis unchanged, iron is waste-born and a
+    -- power sink, the Al<->Fe coupling closes without hard-deadlock (DESIGN §8).
+    "tests/test_red_mud",
     "tests/test_tile_damage",
     -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +
     -- the runtime revert/refund safety net).

@@ -832,6 +832,14 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   animated art is tracked across ci-z94, ci-eb9, ci-kuu, and ci-wfv. Do not file
   placeholder art as a gameplay bug.
 
+- [ ] **[LANDED] Red-mud subsystem art is placeholder (ci-c7j).** Red mud and
+  slag reuse the bespoke `cindra-stone` icon under a tint (reddish / dark-grey),
+  and the carbothermic furnace reuses the vanilla assembling-machine-3 sprite +
+  icon (see `graphics/ART-MANIFEST.md`). *Look for:* red mud reads reddish-brown
+  and slag reads grey on the belt/in inventory, distinct from stone and from each
+  other; the furnace is visible when placed. Bespoke art is tracked in ci-zdp. Do
+  not file the placeholder art as a gameplay bug.
+
 ## In-flight (not yet in-game)
 
 These are DESIGNED and beaded but NOT on `main`. Do not expect them in a playtest

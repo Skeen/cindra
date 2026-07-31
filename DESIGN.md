@@ -496,6 +496,11 @@ append (§6 never-mutate).
   power sink". We keep the cell (it *is* the "shitton of electricity" machine the
   brief describes) rather than demote electrolysis to a generic plant; the brief's
   intent (huge draw) is preserved, the signature-building invariant is not broken.
+- **Carbothermic furnace** (`cindra-carbothermic-furnace`, ci-c7j) — a high-draw
+  reduction furnace (its private `cindra-carbothermic` category). Runs iron
+  recovery only: reduces red mud with CO2 into iron + slag. The second-largest
+  continuous single-building draw (45 MW, below the 50 MW electrolysis cell,
+  above the 40 MW electric heater), so it lands as another flare-timed power sink.
 - **Chemical plant** (vanilla) — all the wet chemistry: water electrolysis,
   methanol synthesis, MTO+polymerisation, both catalyst-reprocessing/regeneration
   steps, alumina leaching, methanol rocket fuel, and the vanilla `sulfuric-acid`
@@ -505,10 +510,10 @@ append (§6 never-mutate).
 
 ### 8.2 The recipe table
 
-Machine key: **LM** = lava manufacturer, **EC** = electrolysis cell, **CP** =
-chemical plant, **AM** = assembling machine. Fluids are marked *(f)*. All Cindra
-recipes are `enabled=false` and gated by a Cindra tech (§8.5). "prod" = whether
-productivity modules are allowed.
+Machine key: **LM** = lava manufacturer, **EC** = electrolysis cell, **CF** =
+carbothermic furnace, **CP** = chemical plant, **AM** = assembling machine.
+Fluids are marked *(f)*. All Cindra recipes are `enabled=false` and gated by a
+Cindra tech (§8.5). "prod" = whether productivity modules are allowed.
 
 | # | Recipe | Machine | Ingredients | Products | prod |
 |---|---|---|---|---|---|
@@ -531,6 +536,20 @@ productivity modules are allowed.
 | 17 | Vent oxygen (emergency sink) | CP | 100 O2 *(f)* | — | **off** |
 | 18 | Vent CO2 (emergency sink) | CP | 100 CO2 *(f)* | — | **off** |
 | 19 | Vent quicklime (emergency sink) | AM | 10 quicklime | — | **off** |
+| 20 | Alumina (Bayer process) | AM | 20 stone + 5 quicklime | 10 alumina + 5 red-mud | **off** |
+| 21 | Iron recovery | CF | 10 red-mud + 20 CO2 *(f)* | 5 iron-plate (vanilla) + 5 slag | **off** |
+| 22 | Vent slag (emergency sink) | AM | 10 slag | — | **off** |
+
+Rows 20-22 (ci-c7j) are the **red-mud subsystem**: the Bayer route is an
+ALTERNATIVE to the acid leach (#5) — both make `cindra-alumina` and both feed
+electrolysis (#6) unchanged. Bayer needs no acid, only the quicklime calcination
+(#4) frees, and it makes NO stone return (so it opens no new stone vector); its
+red mud is reduced to Cindra's first native `iron-plate` (from waste, not ore)
+using the calciner's CO2 (#4), closing that loop. Iron recovery's big continuous
+draw is another flare-timed power sink. Slag is inert terminal waste (vent only);
+iron-plate's sinks are the vanilla acid recipe (#2 — feeding the OTHER alumina
+route, so the two metal lines cross-feed), every vanilla iron/steel use, and
+orbital export.
 
 New **fluids**: `cindra-hydrogen`, `cindra-oxygen`, `cindra-carbon-dioxide`,
 `cindra-methanol` (the `cindra-olefins` intermediate of ci-400 is **removed** —
@@ -538,9 +557,11 @@ MTO+polymerisation is one step). New **items**: `cindra-alumina`,
 `cindra-aluminium`, `cindra-quicklime` (renamed from ci-400 `cindra-lime`),
 `cindra-methanol-catalyst`, `cindra-spent-methanol-catalyst`,
 `cindra-zeolite-catalyst`, `cindra-spent-zeolite-catalyst`,
-`cindra-aluminium-powder`, `cindra-science-pack`. `plastic-bar`, `rocket-fuel`,
-`sulfur`, `sulfuric-acid`, `steam`, `iron-plate`, `copper-plate`, `calcite`,
-`ice`, `water`, `lava` are all **vanilla** (read only).
+`cindra-aluminium-powder`, `cindra-science-pack`, `cindra-red-mud`,
+`cindra-slag` (ci-c7j). `plastic-bar`, `rocket-fuel`, `sulfur`, `sulfuric-acid`,
+`steam`, `iron-plate`, `copper-plate`, `calcite`, `ice`, `water`, `lava` are all
+**vanilla** (read only) — `iron-plate` is now *produced* by iron recovery (#21)
+as a recipe result, but its prototype is never mutated.
 
 ### 8.3 Resolved design decisions (the "maybe"s in the brief)
 
@@ -586,11 +607,25 @@ never stalls the whole line:
   (#9), and ALICE (#8). Emergency drain: vent-oxygen (#17). Because alumina
   electrolysis alone floods O2, the vent is expected to run in the early/mid game
   until the O2 sinks scale — documented, not a deadlock.
-- **CO2** — produced by calcination (#4), consumed by methanol synthesis (#10),
-  emergency drain vent-CO2 (#18).
-- **quicklime** — the calcination co-product; consumed by zeolite catalyst (#14)
-  and, in bulk, quicklime disposal (#16, the designated surplus sink); emergency
-  drain vent-quicklime (#19).
+- **CO2** — produced by calcination (#4), consumed by methanol synthesis (#10)
+  AND iron recovery (#21, ci-c7j — a second real CO2 sink that closes the
+  calcination loop); emergency drain vent-CO2 (#18).
+- **quicklime** — the calcination co-product; consumed by zeolite catalyst (#14),
+  the Bayer route (#20, ci-c7j — a productive quicklime sink beyond disposal), and
+  in bulk quicklime disposal (#16, the designated surplus sink); emergency drain
+  vent-quicklime (#19).
+- **red mud** (ci-c7j) — the Bayer co-product (#20); consumed by iron recovery
+  (#21). It has NO free vent: that is the intended coupling — a Bayer line that
+  outruns its iron furnaces backs up and stalls, so you must keep Al and Fe
+  throughput in step. This never HARD-deadlocks the economy (the acid-leach
+  alumina route #5 is the deadlock-free fallback, and red mud drains transitively
+  to the slag vent via iron recovery, proven in test_materials_graph).
+- **slag** (ci-c7j) — inert tailings from iron recovery (#21); genuine terminal
+  waste, so its only sink is the dedicated emergency vent-slag (#22). A fourth
+  force-emitted flood, but a pure-waste one: no free metal or stone hides in it.
+- **iron-plate** (ci-c7j) — produced by iron recovery (#21); sunk by the vanilla
+  acid recipe (#2, in-graph — feeding the acid-leach alumina route), every vanilla
+  iron/steel use, and orbital export. No free vent (iron is valuable).
 - **sulfur** — produced by stone melting (#1) and alumina leaching (#5); consumed
   by the vanilla sulfuric-acid recipe (#2).
 - **sulfuric-acid** — produced by #2; consumed by alumina leaching (#5) and
@@ -611,7 +646,11 @@ The chemistry hangs off the existing spine. `cindra-lava` (unlocks stone melting
 the vanilla sulfuric-acid recipe) → `cindra-aluminium` (leaching + electrolysis +
 the cell + powder) → `cindra-calcite-olefins` renamed in spirit to the **materials
 chemistry** tech (calcination, electrolysis, methanol, both catalyst systems, MTO,
-rocket fuels, the vents), prereq `cindra-aluminium`. Early game has few sinks
+rocket fuels, the vents), prereq `cindra-aluminium` → **`cindra-red-mud`** (ci-c7j:
+the Bayer route, iron recovery, the carbothermic furnace, and the slag vent),
+prereq `cindra-calcite-olefins` because Bayer needs the quicklime and iron
+recovery needs the CO2 that only calcination frees. The whole red-mud subsystem
+is clustered in that one tech (no fragmentation). Early game has few sinks
 (voiding via the vents is fine); the full loop lights up once the chemistry tech is
 in hand, matching the ci-9l6 pacing intent. No unlock costs the product it gates
 (no soft-lock); researched with brought vanilla packs, not the Cindra pack.
@@ -629,6 +668,14 @@ in hand, matching the ci-9l6 pacing intent. No unlock costs the product it gates
 - **No free-metal loop.** Aluminium is only ever produced by electrolysis of
   leached alumina (real power + real stone). Nothing crafts stone/ore/coal for
   free (ci-8n6; there is no ground crusher, §5a).
+- **Red-mud subsystem preserves both invariants (ci-c7j).** The Bayer route (#20)
+  and iron recovery (#21) add NO new stone source: Bayer consumes stone and
+  returns none, and iron recovery touches no stone, so the four-recipe stone-source
+  set (§8.6 stone proof) is unchanged and the net-negative proof holds at +300%.
+  No free iron: iron-plate's only Cindra source is iron recovery (prod-off),
+  which eats red mud that only the Bayer route makes from real stone — iron traces
+  back to net-negative rock, never minted. Alumina now has three producers (leach,
+  catalyst reprocessing, Bayer), all net stone-negative or make-up feeds.
 - **No free-carbon / free-plastic loop.** Carbon enters only as `calcite` →
   calcination → CO2; every conversion step disables productivity, so a prod bonus
   can never mint CO2, methanol, or plastic.

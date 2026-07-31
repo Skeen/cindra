@@ -58,9 +58,12 @@ local CINDRA_RECIPES = {
   "cindra-zeolite-catalyst",                -- 8 stone + 3 alumina + 2 quicklime + 100 steam -> 1 zcat
   "cindra-zeolite-catalyst-regeneration",   -- 1 spent-zcat + 20 O2 -> 1 zcat
   "cindra-quicklime-disposal",              -- 10 quicklime + 50 lava -> 5 stone(ignored)
+  "cindra-bayer-alumina",                   -- ci-c7j: 20 stone + 5 quicklime -> 10 alumina + 5 red-mud
+  "cindra-iron-recovery",                   -- ci-c7j: 10 red-mud + 20 CO2 -> 5 iron-plate + 5 slag
   "cindra-vent-oxygen",                     -- 100 O2 -> (pure sink)
   "cindra-vent-co2",                        -- 100 CO2 -> (pure sink)
   "cindra-vent-quicklime",                  -- 10 quicklime -> (pure sink)
+  "cindra-vent-slag",                       -- ci-c7j: 10 slag -> (pure sink)
 }
 local VANILLA_RECIPES = {
   "sulfuric-acid",            -- 5 sulfur + 1 iron-plate + 100 water -> 50 acid (unlocked, never mutated)
@@ -87,11 +90,15 @@ local MCAT_SPENT = "cindra-spent-methanol-catalyst"
 local ZCAT       = "cindra-zeolite-catalyst"
 local ZCAT_SPENT = "cindra-spent-zeolite-catalyst"
 local PLASTIC = "plastic-bar"
+local RED_MUD = "cindra-red-mud"   -- ci-c7j: Bayer byproduct, consumed by iron recovery
+local SLAG    = "cindra-slag"      -- ci-c7j: inert iron-recovery tailings (vent-only waste)
+local IRON    = "iron-plate"       -- ci-c7j: vanilla, now Cindra-produced by iron recovery
 
 local VENTS = {
   ["cindra-vent-oxygen"] = true,
   ["cindra-vent-co2"] = true,
   ["cindra-vent-quicklime"] = true,
+  ["cindra-vent-slag"] = true,
 }
 
 -- The engine's hard productivity cap (+300%): the worst case any module config
@@ -205,16 +212,27 @@ end)
 -- (a) No hard deadlock.
 -- ===========================================================================
 describe("cindra materials graph (a): no byproduct can hard-deadlock the line", function()
-  -- The full byproduct set the brief enumerates.
-  local BYPRODUCTS = { O2, CO2, QUICKLIME, SULFUR, ACID, MCAT_SPENT, ZCAT_SPENT, WATER }
-  -- The three FORCE-EMITTED floods that get a dedicated emergency vent (§8.2).
-  local FLOODS = {
+  -- The REUSED byproducts: each must have a real (non-vent) consumer, so none is a
+  -- dead item. Red mud (ci-c7j) joins the set: it is genuinely consumed by iron
+  -- recovery (the Al<->Fe coupling), not a dead-end.
+  local BYPRODUCTS = { O2, CO2, QUICKLIME, SULFUR, ACID, MCAT_SPENT, ZCAT_SPENT, WATER, RED_MUD }
+  -- The FORCE-EMITTED floods that get a dedicated emergency vent (§8.2). O2/CO2/
+  -- quicklime are USEFUL floods (a vent AND a real consumer); slag (ci-c7j) is a
+  -- PURE-WASTE flood (a vent only -- inert tailings with nothing to recover).
+  local USEFUL_FLOODS = {
     { mat = O2,        vent = "cindra-vent-oxygen" },
     { mat = CO2,       vent = "cindra-vent-co2" },
     { mat = QUICKLIME, vent = "cindra-vent-quicklime" },
   }
+  local WASTE_FLOODS = {
+    { mat = SLAG, vent = "cindra-vent-slag" },
+  }
+  -- Everything a backed-up box could hold must be able to drain to a pure sink --
+  -- the reused byproducts, both flood kinds, plus iron-plate (ci-c7j: valuable, no
+  -- vent, but it must still be able to drain so it can never hard-wedge the line).
+  local DRAINABLE = { O2, CO2, QUICKLIME, SULFUR, ACID, MCAT_SPENT, ZCAT_SPENT, WATER, RED_MUD, SLAG, IRON }
 
-  it("every byproduct has at least one real (non-vent) consumer", function()
+  it("every reused byproduct has at least one real (non-vent) consumer", function()
     for _, mat in ipairs(BYPRODUCTS) do
       local real = consumers(mat, false) -- exclude vents
       assert.is_true(#real >= 1,
@@ -222,8 +240,19 @@ describe("cindra materials graph (a): no byproduct can hard-deadlock the line", 
     end
   end)
 
-  it("each force-emitted flood (O2/CO2/quicklime) has a dedicated emergency vent (pure sink)", function()
-    for _, f in ipairs(FLOODS) do
+  it("red mud's real consumer is iron recovery, and it has NO free vent (the coupling)", function()
+    -- The Al<->Fe coupling (ci-c7j): red mud can only leave via iron recovery, so a
+    -- Bayer line that outruns its iron furnaces stalls. This is intended tension,
+    -- not a hard deadlock (the acid-leach alumina route is the fallback, and red
+    -- mud still drains transitively -- proven below).
+    assert.are.same(set_of({ "cindra-iron-recovery" }), set_of(consumers(RED_MUD, false)),
+      "red mud's only real consumer is iron recovery")
+    assert.are.same(set_of({ "cindra-iron-recovery" }), set_of(consumers(RED_MUD, true)),
+      "red mud has NO dedicated vent (its only sink is iron recovery -- the coupling)")
+  end)
+
+  it("each USEFUL force-emitted flood (O2/CO2/quicklime) has a dedicated vent AND a real consumer", function()
+    for _, f in ipairs(USEFUL_FLOODS) do
       local v = prototypes.recipe[f.vent]
       assert.is_not_nil(v, "the emergency vent must exist: " .. f.vent)
       assert.is_true(consumes(v, f.mat), f.vent .. " must consume " .. f.mat)
@@ -234,11 +263,24 @@ describe("cindra materials graph (a): no byproduct can hard-deadlock the line", 
     end
   end)
 
-  it("EVERY byproduct drains to a pure sink (transitively) -- no wedge is possible", function()
-    -- The floods drain directly; sulfur/acid/water/spent-catalysts drain through
-    -- their consumers to one of the three vents (e.g. water -> electrolysis -> O2
-    -- -> vent; sulfur -> acid -> leach -> alumina -> electrolysis -> O2 -> vent).
-    for _, mat in ipairs(BYPRODUCTS) do
+  it("each PURE-WASTE flood (slag) has a dedicated vent and is genuinely terminal", function()
+    for _, f in ipairs(WASTE_FLOODS) do
+      local v = prototypes.recipe[f.vent]
+      assert.is_not_nil(v, "the emergency vent must exist: " .. f.vent)
+      assert.is_true(consumes(v, f.mat), f.vent .. " must consume " .. f.mat)
+      assert.are.equal(0, #v.products, f.vent .. " must be a PURE sink (no products)")
+      -- Terminal waste: the ONLY sink is the vent (nothing productive consumes it,
+      -- so no free metal/stone can hide in it).
+      assert.are.equal(0, #consumers(f.mat, false),
+        f.mat .. " is terminal waste: its only sink must be the dedicated vent")
+    end
+  end)
+
+  it("EVERY drainable byproduct drains to a pure sink (transitively) -- no wedge is possible", function()
+    -- The floods drain directly; the rest drain through their consumers to one of
+    -- the vents (e.g. water -> electrolysis -> O2 -> vent; red mud -> iron recovery
+    -- -> slag -> vent-slag; iron-plate -> acid -> leach -> alumina -> O2 -> vent).
+    for _, mat in ipairs(DRAINABLE) do
       assert.is_true(drains_to_pure_sink(mat),
         mat .. " must have a drain path to a pure sink (no hard deadlock)")
     end
@@ -295,6 +337,34 @@ describe("cindra materials graph (b): the O2 economy balances (real sinks, not j
 end)
 
 -- ===========================================================================
+-- (b2) The CO2 economy still closes once iron recovery is a new CO2 consumer
+-- (ci-c7j). CO2's sole source is calcination; its real sinks are now methanol
+-- synthesis AND iron recovery, so adding the iron line only ADDS a drain -- it
+-- can never leave CO2 without a consumer.
+-- ===========================================================================
+describe("cindra materials graph (b2): the CO2 economy balances with the iron sink (ci-c7j)", function()
+  it("CO2 is produced only by calcination (its single source)", function()
+    assert.are.same(set_of({ "cindra-calcination" }), set_of(producers(CO2)),
+      "CO2's only source is calcite calcination")
+  end)
+
+  it("iron recovery is a real, non-vent CO2 sink alongside methanol synthesis", function()
+    assert.are.same(
+      set_of({ "cindra-methanol-synthesis", "cindra-iron-recovery" }),
+      set_of(consumers(CO2, false)),
+      "the real (non-vent) CO2 sinks are exactly methanol synthesis + iron recovery")
+    local iron = prototypes.recipe["cindra-iron-recovery"]
+    assert.is_true(consumes(iron, CO2), "iron recovery must consume CO2 (its carbon reductant)")
+    assert.is_nil(product_of(iron, CO2), "iron recovery is a CO2 sink, it must not re-emit CO2")
+  end)
+
+  it("the CO2 vent is the emergency relief valve on top of the real sinks", function()
+    local v = prototypes.recipe["cindra-vent-co2"]
+    assert.is_true(consumes(v, CO2) and #v.products == 0, "vent-co2 must be a pure CO2 sink")
+  end)
+end)
+
+-- ===========================================================================
 -- (c) Net stone is negative at 0% and at the +300% cap.
 -- ===========================================================================
 describe("cindra materials graph (c): net stone is NEGATIVE at 0% and +300% (ci-669)", function()
@@ -310,6 +380,19 @@ describe("cindra materials graph (c): net stone is NEGATIVE at 0% and +300% (ci-
       }),
       set_of(producers(STONE)),
       "exactly these four recipes may return stone")
+  end)
+
+  it("the red-mud path (Bayer + iron recovery) adds NO new stone source (ci-c7j)", function()
+    -- The load-bearing reason the stone proof above is UNCHANGED by ci-c7j: Bayer
+    -- consumes stone and returns none, and iron recovery touches no stone at all.
+    -- So the stone->alumina->(red mud)->iron path never mints stone, and the
+    -- four-source set stays frozen.
+    local bayer = prototypes.recipe["cindra-bayer-alumina"]
+    assert.is_true(consumes(bayer, STONE), "Bayer must consume real stone")
+    assert.is_nil(product_of(bayer, STONE), "Bayer must return NO stone (opens no stone vector)")
+    local iron = prototypes.recipe["cindra-iron-recovery"]
+    assert.is_false(consumes(iron, STONE), "iron recovery consumes no stone")
+    assert.is_nil(product_of(iron, STONE), "iron recovery returns no stone")
   end)
 
   it("every stone source is individually net stone-NEGATIVE at 0% AND at the +300% cap", function()
@@ -372,19 +455,39 @@ describe("cindra materials graph (d): no free-metal/carbon/plastic loop (matter 
     -- Aluminium has exactly one source, and it eats alumina.
     assert.are.same(set_of({ "cindra-aluminium" }), set_of(producers(ALUMINIUM)),
       "aluminium is only ever produced by electrolysis")
-    -- Alumina comes from the leach (net stone-negative) + catalyst reprocessing.
+    -- Alumina comes from the leach + catalyst reprocessing + Bayer (ci-c7j), all
+    -- net stone-negative or make-up feeds -- never a free source.
     assert.are.same(
-      set_of({ "cindra-alumina", "cindra-methanol-catalyst-reprocessing" }),
+      set_of({ "cindra-alumina", "cindra-methanol-catalyst-reprocessing", "cindra-bayer-alumina" }),
       set_of(producers(ALUMINA)),
-      "alumina comes only from the leach and catalyst reprocessing")
+      "alumina comes only from the leach, catalyst reprocessing, and the Bayer route")
     assert.is_true(consumes(prototypes.recipe["cindra-alumina"], STONE),
       "the leach that makes alumina consumes real stone")
+    assert.is_true(consumes(prototypes.recipe["cindra-bayer-alumina"], STONE),
+      "the Bayer route that makes alumina consumes real stone")
     -- The methanol-catalyst loop is net alumina-CONSUMING: the make eats 2 alumina,
     -- reprocessing hands back only 1 -- a make-up feed, never a free alumina source.
     local made = ing_amount(prototypes.recipe["cindra-methanol-catalyst"], ALUMINA)
     local recovered = product_of(prototypes.recipe["cindra-methanol-catalyst-reprocessing"], ALUMINA).amount
     assert.is_true(recovered < made, string.format(
       "the methanol-catalyst loop must net-consume alumina (make %d, recover %d)", made, recovered))
+  end)
+
+  it("NO FREE IRON: the Cindra iron source is prod-off and eats real red mud (ci-c7j)", function()
+    -- Iron-plate is now Cindra-produced. Its ONLY Cindra source is iron recovery,
+    -- which is prod-off (no minting) and consumes red mud -- and red mud's only
+    -- source is the Bayer route, which consumes real (net stone-negative) stone.
+    -- So iron traces back to real rock + power, never a free loop.
+    local iron = prototypes.recipe["cindra-iron-recovery"]
+    assert.is_false(prod_on(iron), "iron recovery must disable productivity (no minting free iron)")
+    assert.is_true(consumes(iron, RED_MUD), "iron is recovered only by consuming real red mud")
+    assert.is_true(produces(iron, IRON), "iron recovery must actually produce iron-plate")
+    -- Red mud's only producer is the Bayer route, and Bayer eats real stone.
+    assert.are.same(set_of({ "cindra-bayer-alumina" }), set_of(producers(RED_MUD)),
+      "red mud comes only from the Bayer route")
+    assert.is_true(consumes(prototypes.recipe["cindra-bayer-alumina"], STONE),
+      "the Bayer route that makes red mud consumes real stone (iron traces to rock)")
+    assert.is_nil(product_of(iron, RED_MUD), "iron recovery must not re-emit red mud (a real sink)")
   end)
 
   it("NO FREE CARBON/PLASTIC: CO2/methanol/plastic each come from ONE prod-off conversion", function()
