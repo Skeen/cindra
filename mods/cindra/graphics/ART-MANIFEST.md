@@ -47,8 +47,8 @@ picture = {
 
 | Building / item            | Icon                              | Entity sprite | Owning bead(s)        |
 |----------------------------|-----------------------------------|:-------------:|-----------------------|
-| Electrolysis cell ⭐        | (v1: reused electric-furnace)     | (v1 reuse)    | **ci-txh** (signature aluminium); art **ci-wfv** |
-| Aluminium (item)           | (v1: steel-plate, cool silver)    | —             | **ci-txh** |
+| Electrolysis cell ⭐        | `icons/electrolysis-cell.png`     | ✔ `entity/electrolysis-cell/` | **ci-txh** (signature aluminium); bespoke art **ci-eb9** (fancier arc-furnace model parked in ci-wfv) |
+| Aluminium (item)           | `icons/cindra-aluminium.png` (ci-6vj S6) | —      | **ci-txh** |
 | Lava-manufacture building  | `icons/lava-manufacturer.png`     | —             | **ci-8mw** (§15-5 lava recipe) |
 | ~~Ice crusher / processor~~ | (retired ci-9l6)                 | —             | **ci-rgv** → retired: ice fields mine ice+calcite directly, no ground crusher |
 | Ice (item)                 | `icons/ice.png`                   | —             | **ci-rgv** / **ci-l72** (resources) |
@@ -60,11 +60,15 @@ picture = {
 | Dissipator (heat sink)     | `icons/dissipator.png`            | ✔ `entity/dissipator/`          | **ci-tii** / **ci-9ay** (panel damage) |
 | Cindra science pack        | `icons/cindra-science-pack.png`   | —             | **ci-3or** (§15-12 science/tech) |
 
-⭐ = signature building (the aluminium electrolysis cell, ci-84s pivot; bespoke
-art tracked in ci-wfv, v1 reuses the electric-furnace sprite). Priority buildings
-(mass driver, flare-PoC storage/dissipator) all have both an icon and an entity
-sprite. Cindra reuses the plain vanilla solar panel (ci-8al), so there is no
-custom panel art.
+⭐ = signature building (the aluminium electrolysis cell, ci-84s pivot). It now
+carries bespoke procedural art (ci-eb9): a Hall-Héroult electrolytic pot with
+carbon anodes, a ruinous violet power arc, an aluminium bath, and the O2 it vents
+-- a static single frame in the shared Cindra visual family, replacing the reused
+electric-furnace sprite/icon. A fancier animated arc-furnace model (Hurricane046
+art) is a separate, still-parked follow-up (ci-wfv, blocked on the external
+asset). Priority buildings (mass driver, flare-PoC storage/dissipator) all have
+both an icon and an entity sprite. Cindra reuses the plain vanilla solar panel
+(ci-8al), so there is no custom panel art.
 
 ## Materials/petrochemical item + fluid icons (ci-6vj S6)
 
@@ -97,12 +101,14 @@ icon_size = 64`.
 
 These replaced the earlier tinted-vanilla placeholders (petroleum-gas / water /
 calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entity
-still reuses the electric-furnace art (bespoke building art tracked in ci-wfv).
+now carries its own bespoke procedural sprite + icon too (ci-eb9; see the signature
+row above), so nothing in the aluminium chain reuses vanilla art any more.
 
 ## Red-mud subsystem art (ci-c7j) — v1 placeholders
 
 The Bayer/iron-recovery subsystem (`prototypes/red-mud.lua`) ships **placeholder**
-art for v1; bespoke renders are a follow-up (cf. ci-eb9). To avoid any vanilla
+art for v1; bespoke renders are a follow-up (a separate red-mud art bead; ci-eb9
+covered only the aluminium chain, not this furnace). To avoid any vanilla
 placeholder leaking in, the two new items reuse the bespoke `cindra-stone` render
 under an in-prototype tint, and the furnace reuses its assembling-machine clone
 art. The **intended** bespoke sources below are again from Malcolm Riley's
@@ -113,11 +119,11 @@ author Malcolm Riley) — the durable attribution for when they are wired.
 |-------------------------------|--------------------------------------------------|-------------------------------------------------|----------|
 | `cindra-red-mud`              | `icons/cindra-stone.png` + reddish tint          | `item/original/pile-mud-1.png` (red-tinted)     | `prototypes/red-mud.lua` |
 | `cindra-slag`                 | `icons/cindra-stone.png` + dark-grey tint        | `item/original/pile-slag-1.png`                 | `prototypes/red-mud.lua` |
-| `cindra-carbothermic-furnace` | (v1: reused assembling-machine-3 art)            | bespoke reduction-furnace render                | `prototypes/red-mud.lua`; art follow-up ci-eb9 |
+| `cindra-carbothermic-furnace` | (v1: reused assembling-machine-3 art)            | bespoke reduction-furnace render                | `prototypes/red-mud.lua`; art follow-up (separate bead) |
 
 Iron is the vanilla `iron-plate` (no new icon needed). The furnace entity passes
-the graphics audit via its assembler-clone sprite; bespoke building art is the
-same ci-eb9 follow-up.
+the graphics audit via its assembler-clone sprite; bespoke building art is a
+separate red-mud follow-up (not part of ci-eb9, which covered the aluminium chain).
 
 ## Scope / known limits (honest first pass)
 

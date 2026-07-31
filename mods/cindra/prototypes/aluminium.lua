@@ -127,6 +127,24 @@ set_icon(aluminium, "__cindra__/graphics/icons/cindra-aluminium.png")
 aluminium.localised_name = { "item-name.cindra-aluminium" }
 aluminium.localised_description = { "item-description.cindra-aluminium" }
 
+-- Bespoke building art (ci-eb9): the electrolysis cell finally reads as its own
+-- machine, not the reused electric-furnace sprite. Static single-frame body +
+-- projected shadow from the ART-MANIFEST generator (scripts/gen-entity-art.py),
+-- one visual family with the other delivered Cindra buildings
+-- (graphics/ART-MANIFEST.md): a steel electrolytic pot, carbon anodes, a ruinous
+-- violet power arc, an aluminium bath, and the O2 it vents.
+local ART = "electrolysis-cell"
+local ENTITY_GFX = "__cindra__/graphics/entity/" .. ART .. "/"
+local ICON_GFX = "__cindra__/graphics/icons/" .. ART .. ".png"
+
+-- Wear the bespoke 64px icon; drop any inherited layered electric-furnace icon.
+local function bespoke_icon(proto)
+  proto.icon = ICON_GFX
+  proto.icons = nil
+  proto.icon_size = 64
+  proto.icon_mipmaps = 4
+end
+
 -- === The electrolysis cell: the big power sink ================================
 -- Cloned from the electric furnace: it already has a correct electric energy
 -- source and a smelting-style single-input flow, so feeding it alumina yields
@@ -154,12 +172,42 @@ cell.fluid_boxes = {
   },
 }
 cell.fluid_boxes_off_when_no_fluid_recipe = true
--- v1 art reuse: keep the cloned electric-furnace sprite + icon (bespoke art TODO).
+
+-- Bespoke art wiring (ci-eb9). The deep-copied electric furnace brings its OWN
+-- graphics_set; replace it wholesale with the Cindra electrolysis-cell sprite so
+-- the cell no longer looks like an electric furnace. A furnace renders from
+-- graphics_set.animation (see scripts/graphics-audit.lua RENDER_FIELDS), so the
+-- sprite MUST live there or the cell would be invisible in world. A single
+-- Animation (with layers) applies to every direction; v1 is a static frame (no
+-- working animation, per the ART-MANIFEST scope note) -- body + projected shadow.
+cell.graphics_set = {
+  animation = {
+    layers = {
+      { -- static cell body
+        filename = ENTITY_GFX .. ART .. ".png",
+        width = 256, height = 256, scale = 0.5, shift = { 0, -0.1 },
+      },
+      { -- projected ground shadow
+        filename = ENTITY_GFX .. ART .. "-shadow.png",
+        width = 256, height = 256, scale = 0.5, shift = { 0.3, 0 }, draw_as_shadow = true,
+      },
+    },
+  },
+}
+-- Drop electric-furnace overlays that would otherwise render the furnace's own
+-- working effects on top of the bespoke body (graphics_set was replaced above, so
+-- any nested working_visualisations are already gone; clear the top-level fields
+-- too, defensively, matching lava.lua's foundry-clone cleanup).
+cell.graphics_set_flipped = nil
+cell.working_visualisations = nil
+bespoke_icon(cell)
 
 local cell_item = util.table.deepcopy(data.raw.item["electric-furnace"])
 cell_item.name = CELL
 cell_item.place_result = CELL
 cell_item.order = "z[cindra]-c[electrolysis-cell]"
+cell_item.pictures = nil -- drop any inherited electric-furnace item pictures/variants
+bespoke_icon(cell_item)
 cell_item.localised_name = { "item-name.cindra-electrolysis-cell" }
 cell_item.localised_description = { "item-description.cindra-electrolysis-cell" }
 

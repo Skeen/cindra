@@ -598,7 +598,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `cindra-lava`, which unlocks the acid the leach needs). *Repro:* research the
   aluminium tech, run the leach in a chemical plant (pipe in acid + water), then
   feed alumina + ruinous power to the electrolysis cell. *Look for:* the cell reads
-  as its own building (currently a reused electric-furnace sprite), out-draws the
+  as its own building (bespoke Cindra sprite as of ci-eb9), out-draws the
   foundry on power, and leans hard on the grid/flare/capacitors; alumina and
   aluminium icons read as distinct materials (ci-6vj S6 bespoke renders: a white
   refined-mineral pile for alumina, an aluminium plate for the metal -- no longer
@@ -846,11 +846,24 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   icons so the map "contains" list reads correctly (ci-2sr). Bespoke Cindra
   resource art is a later pass.
 
-- [ ] **[LANDED] Signature-building art is placeholder.** The aluminium
-  electrolysis cell, lava manufacturer, electric heater, and mass driver
-  reuse vanilla-derived sprites/icons (see `graphics/ART-MANIFEST.md`). Bespoke and
-  animated art is tracked across ci-z94, ci-eb9, ci-kuu, and ci-wfv. Do not file
-  placeholder art as a gameplay bug.
+- [ ] **[LANDED] Some signature-building art is still placeholder.** The electric
+  heater reuses a vanilla-derived sprite/icon (see `graphics/ART-MANIFEST.md`).
+  The aluminium **electrolysis cell** (ci-eb9), lava manufacturer (ci-oi8), and
+  mass driver now ship bespoke art. Remaining bespoke/animated art is tracked
+  across ci-z94, ci-kuu, and ci-wfv (a fancier animated arc-furnace model for the
+  cell). Do not file placeholder art as a gameplay bug.
+
+- [ ] **[LANDED] Electrolysis cell has bespoke art (ci-eb9).** The signature
+  aluminium building no longer reuses the electric-furnace sprite/icon: it now
+  wears a procedurally-generated Cindra sprite + icon (a Hall-Héroult electrolytic
+  pot -- steel bath, carbon anodes, a ruinous violet power arc, and rising O2
+  bubbles), in the same brushed-steel visual family as the mass driver / capacitor
+  / dissipator. Wiring, PNG existence, RGBA format, and no-electric-furnace-leak
+  are unit-tested (`unit-tests/test_aluminium_graphics.lua`); only the *look* is
+  here. *Repro:* research the aluminium tech and place the electrolysis cell.
+  *Look for:* the cell reads as its own machine (violet electric energy + a metal
+  bath, distinct from the orange lava/battery buildings), its icon is legible in
+  the crafting menu, and the ground shadow sits sensibly under it.
 
 - [ ] **[LANDED] Red-mud subsystem art is placeholder (ci-c7j).** Red mud and
   slag reuse the bespoke `cindra-stone` icon under a tint (reddish / dark-grey),
@@ -919,9 +932,10 @@ of the current build; they are listed so "not built yet" is distinguishable from
   export, and the cryo-quench / cryo-hardened-alloy chain is fully removed with
   Cindra science re-based onto aluminium. Prototype removal + re-base are
   test-covered (`tests/test_pivot.lua`, `tests/test_science.lua`); no cryo
-  prototype survives. Bespoke signature building art (electrolysis caster,
-  modelled on Hurricane's arc/glass furnace, CC-BY) remains a separate art bead
-  (ci-wfv) - a v1 electric-furnace placeholder ships in the meantime.
+  prototype survives. The cell now ships bespoke procedural art (ci-eb9, replacing
+  the electric-furnace placeholder); a fancier animated arc-furnace model
+  (modelled on Hurricane's arc/glass furnace, CC-BY) remains a separate art bead
+  (ci-wfv).
 
 - [ ] **Ribbon terrain gradient reads as the temperature axis (ci-6c9).** The
   default orientation is now VERTICAL: the ribbon runs bottom-to-top, so the

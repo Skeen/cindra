@@ -119,9 +119,15 @@ def paste_gradient(img, mask, c0, c1, angle):
     img.paste(grad, (0, 0), mask)
 
 
-def brushed_metal_overlay(size, strength=10):
-    """Faint vertical brushed-steel streaks (deterministic)."""
-    noise = RNG.normal(0, strength, (size, 1))
+def brushed_metal_overlay(size, strength=10, rng=None):
+    """Faint vertical brushed-steel streaks (deterministic).
+
+    `rng` defaults to the shared global RNG (so existing callers are unchanged).
+    A painter added LATER can pass a private rng to avoid consuming the global
+    stream, which would otherwise shift every asset generated after it (the same
+    determinism guard `icon_item_volatiles` uses)."""
+    rng = rng if rng is not None else RNG
+    noise = rng.normal(0, strength, (size, 1))
     band = np.repeat(noise, size, axis=1).T  # vertical streaks
     band = np.clip(band, -strength, strength)
     out = np.zeros((size, size, 4), np.uint8)
@@ -131,11 +137,12 @@ def brushed_metal_overlay(size, strength=10):
     return Image.fromarray(out, "RGBA")
 
 
-def chassis(size, radius_frac=0.16, tilt=0.0):
+def chassis(size, radius_frac=0.16, tilt=0.0, rng=None):
     """The shared industrial base plate: a beveled brushed-steel rounded panel.
 
     Returns (img, mask) where mask is the plate silhouette (for scoping glows).
-    """
+    `rng` is threaded to the brushed-metal overlay so a later painter can stay
+    off the global RNG stream (see brushed_metal_overlay)."""
     img = blank(size)
     d = ImageDraw.Draw(img)
     pad = int(size * 0.10)
@@ -148,7 +155,7 @@ def chassis(size, radius_frac=0.16, tilt=0.0):
 
     # Body gradient (top lighter -> bottom darker) scoped to the plate.
     paste_gradient(img, mask, STEEL_MID, STEEL_DARK, 90 + tilt)
-    img.alpha_composite(Image.composite(brushed_metal_overlay(size),
+    img.alpha_composite(Image.composite(brushed_metal_overlay(size, rng=rng),
                                         blank(size), mask))
 
     # Bevel: bright top-left inset, dark bottom-right inset.
@@ -449,6 +456,54 @@ def icon_solar_panel():
     return img
 
 
+def icon_electrolysis_cell():
+    """Signature aluminium building (ci-eb9): a Hall-Héroult electrolytic pot.
+    Carbon anodes plunge into a bright liquid-metal bath; the ruinous electric
+    draw reads as a dominant VIOLET arc (energy role), and O2 gas -- the
+    byproduct this cell vents -- rises as pale bubbles. Distinct from the warm
+    lava/battery buildings: metal + violet power, not molten orange."""
+    S = ICON * SS
+    # A private rng (not the shared global stream): this icon is appended to the
+    # ICONS loop, which runs entirely before the ENTITIES loop, so any global-RNG
+    # draw here would shift every entity sprite below it. Staying private keeps all
+    # previously-committed art byte-identical (cf. icon_item_volatiles).
+    rng = np.random.default_rng(0xA1_2C_E1)
+    img, mask = chassis(S, rng=rng)
+    d = ImageDraw.Draw(img)
+    # The electrolytic pot: a steel bath cradling molten aluminium.
+    pot = [int(S*0.22), int(S*0.46), int(S*0.78), int(S*0.76)]
+    pmask = Lm(S); ImageDraw.Draw(pmask).rounded_rectangle(pot, radius=int(S*0.04), fill=255)
+    paste_gradient(img, pmask, STEEL_MID, STEEL_DARK, 90)
+    # Molten-aluminium bath: bright liquid metal with a restrained warm underglow
+    # (the cell is electric, not a furnace -- keep it silver, not ember).
+    bath = [pot[0]+int(S*0.03), pot[1]+int(S*0.04), pot[2]-int(S*0.03), pot[3]-int(S*0.04)]
+    bmask = Lm(S); ImageDraw.Draw(bmask).rounded_rectangle(bath, radius=int(S*0.02), fill=255)
+    paste_gradient(img, bmask, STEEL_EDGE, STEEL_MID, 90)
+    add_glow(img, bmask, (S//2, int(S*0.66)), int(S*0.18), HOT_YELLOW, 90)
+    add_glow(img, bmask, (S//2, int(S*0.62)), int(S*0.10), HOT_WHITE, 70)
+    d.rounded_rectangle(pot, radius=int(S*0.04), outline=STEEL_EDGE, width=max(3, S//100))
+    # Carbon anode blocks plunging from above into the bath (graphite bars).
+    for ax in (0.34, 0.50, 0.66):
+        x0 = int(S*ax) - int(S*0.035)
+        bar = [x0, int(S*0.22), x0+int(S*0.07), int(S*0.52)]
+        amask = Lm(S); ImageDraw.Draw(amask).rectangle(bar, fill=255)
+        paste_gradient(img, amask, STEEL_DARK, STEEL_SHADOW, 90)
+        d.rectangle(bar, outline=STEEL_LIGHT, width=max(2, S//200))
+    # RUINOUS violet power: a bright arc dancing across the anode caps + glow.
+    d.line([(int(S*0.32), int(S*0.24)), (int(S*0.42), int(S*0.30)),
+            (int(S*0.38), int(S*0.32)), (int(S*0.50), int(S*0.25)),
+            (int(S*0.62), int(S*0.32)), (int(S*0.68), int(S*0.24))],
+           fill=SPARK_WHITE, width=max(3, S//120))
+    add_glow(img, mask, (S//2, int(S*0.28)), int(S*0.24), VIOLET, 150)
+    add_glow(img, mask, (S//2, int(S*0.28)), int(S*0.11), VIOLET_LIT, 190)
+    # O2 gas venting off the bath (the byproduct): pale cyan bubbles rising.
+    for bx, by, br in [(0.40, 0.42, 0.020), (0.52, 0.38, 0.026), (0.63, 0.44, 0.017)]:
+        d.ellipse([int(S*bx)-int(S*br), int(S*by)-int(S*br),
+                   int(S*bx)+int(S*br), int(S*by)+int(S*br)],
+                  outline=ICE_PALE, width=max(2, S//200))
+    return img
+
+
 # ── Item icons ───────────────────────────────────────────────────────
 def icon_item_ice():
     """Nightside ice chunk (raw resource item)."""
@@ -579,12 +634,12 @@ def icon_science_pack():
 
 
 # ── In-world entity base sprites (static HR single frame + shadow) ───
-def entity_sprite(size, roof_painter, footprint=0.78):
+def entity_sprite(size, roof_painter, footprint=0.78, rng=None):
     """A 3/4 industrial block: top face + two side faces, with a roof motif.
 
     roof_painter(draw, quad) draws the building's signature on the top face,
-    where `quad` is the 4 corners of the top parallelogram.
-    """
+    where `quad` is the 4 corners of the top parallelogram. `rng` is threaded to
+    the brushed-metal overlay so a later sprite can stay off the global stream."""
     img = blank(size)
     d = ImageDraw.Draw(img)
     cx, cy = size/2, size*0.52
@@ -605,7 +660,7 @@ def entity_sprite(size, roof_painter, footprint=0.78):
     # Top face.
     tmask = Lm(size); ImageDraw.Draw(tmask).polygon(top, fill=255)
     paste_gradient(img, tmask, STEEL_LIGHT, STEEL_MID, 90)
-    img.alpha_composite(Image.composite(brushed_metal_overlay(size), blank(size), tmask))
+    img.alpha_composite(Image.composite(brushed_metal_overlay(size, rng=rng), blank(size), tmask))
     d.polygon(top, outline=STEEL_EDGE, width=max(2, size//180))
     # Signature roof motif (scoped to the top face).
     roof_layer = blank(size)
@@ -663,6 +718,20 @@ def roof_battery(d, top, S):
     d.ellipse([cx-S*0.07, cy-S*0.04, cx+S*0.07, cy+S*0.04], fill=HOT_YELLOW)
 
 
+def roof_electrolysis_cell(d, top, S):
+    cx, cy = _iso_center(top)
+    # Molten-metal bath on the roof (bright liquid metal, faint warm centre).
+    d.ellipse([cx-S*0.15, cy-S*0.07, cx+S*0.15, cy+S*0.07], fill=STEEL_EDGE)
+    d.ellipse([cx-S*0.10, cy-S*0.045, cx+S*0.10, cy+S*0.045], fill=HOT_YELLOW)
+    # Carbon anode bars dipping into the bath.
+    for i in (-1, 0, 1):
+        x = cx + i * S*0.10
+        d.line([(x, cy-S*0.075), (x, cy+S*0.075)], fill=STEEL_DARK, width=max(4, S//80))
+    # Ruinous violet arc riding over the anode caps.
+    d.line([(cx-S*0.11, cy-S*0.06), (cx, cy-S*0.02), (cx+S*0.11, cy-S*0.06)],
+           fill=VIOLET_LIT, width=max(3, S//120))
+
+
 def make_shadow(sprite):
     """A soft ground shadow projected down-right from the sprite silhouette."""
     S = sprite.size[0]
@@ -692,6 +761,8 @@ ICONS = {
     "cindra-volatiles":    icon_item_volatiles,
     "cryo-hardened-alloy": icon_item_alloy,
     "cindra-science-pack": icon_science_pack,
+    # Appended last: keeps every icon above byte-identical (shared-RNG order).
+    "electrolysis-cell":   icon_electrolysis_cell,
 }
 
 ENTITIES = {
@@ -701,6 +772,8 @@ ENTITIES = {
     "cindra-solar-panel":  roof_solar,
     "capacitor":           roof_capacitor,
     "molten-salt-battery": roof_battery,
+    # Appended last: keeps every sprite above byte-identical (shared-RNG order).
+    "electrolysis-cell":   roof_electrolysis_cell,
 }
 ENTITY_PX = 256
 
