@@ -98,6 +98,12 @@ require("prototypes.feedback")
 require("prototypes.flare")
 require("prototypes.storage")
 
+-- The overload-damage spark (ci-clf): a short electric-arc explosion the runtime
+-- panel-damage sweep (scripts/panels.lua) pops on a panel the instant it takes
+-- disposal-deficit damage, giving the otherwise-silent degradation a visible cue.
+-- A cosmetic explosion entity (self-reaping); wires into no recipe/tech.
+require("prototypes.panel-spark")
+
 -- §15-12 Cindra science: the HEADLINE science pack (petrochemical-free, native
 -- inputs only) crafted in an ordinary assembling machine -- its energy cost rides
 -- on a long craft plus the power-hungry aluminium input. Its tech is gated behind

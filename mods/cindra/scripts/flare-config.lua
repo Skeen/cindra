@@ -116,6 +116,11 @@ C.PANEL = "solar-panel"
 C.PANEL_BAND_PREFIX = "cindra-solar-band"
 -- Vanilla solar-panel max_health (the panels the disposal-deficit rule degrades).
 C.PANEL_MAX_HEALTH = 200
+-- The overload-damage spark (ci-clf): a short electric-arc explosion the damage
+-- sweep pops on a panel the instant it takes disposal-deficit damage, so the
+-- otherwise-silent degradation has a visible cue. Prototype in
+-- prototypes/panel-spark.lua; spawned by scripts/panels.lua.
+C.PANEL_SPARK = "cindra-panel-overload-spark"
 -- Damage budget per sweep scales with the disposal DEFICIT (MW with nowhere to
 -- go), never with panel count (mirrors the induction-damage kernel).
 C.HP_PER_MW_DEFICIT = 4.0
