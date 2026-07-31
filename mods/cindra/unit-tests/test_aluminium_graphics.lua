@@ -1,19 +1,22 @@
--- Plain-Lua unit test for the electrolysis-cell's ENTITY/ITEM art wiring
--- (prototypes/aluminium.lua, ci-wfv: Hurricane046's bespoke "arc-furnace" set,
--- CC-BY -- see graphics/entity/electrolysis-cell/ATTRIBUTION.md).
+-- Plain-Lua unit test for the electrolysis-cell's ENTITY/ITEM art + shape wiring
+-- (prototypes/aluminium.lua, ci-a6z: Hurricane046's bespoke "oxidizer" set,
+-- CC-BY 4.0 -- see graphics/entity/electrolysis-cell/ATTRIBUTION.md).
 -- Run: cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_aluminium_graphics.lua
 --
--- The Factorio runtime API does not expose an entity/item prototype's sprite or
--- icon FILE paths (LuaEntityPrototype has no graphics accessor), so the in-engine
--- test (tests/test_aluminium.lua) cannot assert the art is wired. This test
--- closes the prototype-shape gap: it stubs the data stage, requires the real
--- prototype module, and asserts the animated body / shadow / emissive-glow
--- layers, the 50-frame animation-sheet geometry, the additive glow blend, the
--- icon, that every referenced PNG actually ships AS RGBA (never indexed/palette,
--- which Factorio draws as a black box), and that the inherited electric-furnace
--- overlays were dropped. A renamed/removed asset, an un-wired layer, a wrong
--- frame count, a re-exported palette sheet, or a leftover electric-furnace
--- working-visualisation fails here.
+-- The Factorio runtime API exposes neither an entity/item prototype's sprite or
+-- icon FILE paths (LuaEntityPrototype has no graphics accessor) NOR its circuit
+-- connector wire offset, so the in-engine test (tests/test_aluminium.lua) cannot
+-- assert either. This test closes the prototype-shape gap: it stubs the data
+-- stage, requires the real prototype module, and asserts the animated body /
+-- shadow / emissive-glow layers, the 60-frame oxidizer animation-sheet geometry
+-- (8x8 grid of 280x320 frames, last 4 empty), the additive glow blend, the icon,
+-- that every referenced PNG actually ships AS RGBA (never indexed/palette, which
+-- Factorio draws as a black box), that the inherited electric-furnace overlays
+-- were dropped, that the footprint grew to a 4x4 box, and that the circuit wire
+-- attaches at the BOTTOM-RIGHT. A renamed/removed asset, an un-wired layer, a
+-- wrong frame count, a re-exported palette sheet, a leftover electric-furnace
+-- working-visualisation, a shrunk box, or a wire that drifts back to centre-top
+-- fails here.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 
@@ -69,7 +72,7 @@ local data = {
   raw = {
     -- The electric furnace the cell deep-copies. Carries a graphics_set, a
     -- graphics_set_flipped, and working_visualisations so we can prove the
-    -- arc-furnace wiring REPLACES them rather than leaking electric-furnace art.
+    -- oxidizer wiring REPLACES them rather than leaking electric-furnace art.
     ["furnace"] = {
       ["electric-furnace"] = {
         type = "furnace",
@@ -151,9 +154,9 @@ local function png_color_type(modpath)
 end
 
 -- Every PNG a layer references must be a truecolour RGBA sheet (colour type 6).
--- The arc-furnace source PNGs shipped as indexed/palette (type 3) and the shadow
--- as grey+alpha (type 4); Factorio draws both as a solid black box (the ci-8r6
--- glass-furnace bug). ci-wfv converts them to RGBA; this fails on any regression
+-- The oxidizer source PNGs shipped as indexed/palette (type 3) and the shadow as
+-- grey+alpha (type 4); Factorio draws both as a solid black box (the ci-8r6
+-- glass-furnace bug). ci-a6z converts them to RGBA; this fails on any regression
 -- back to a palette/grey sheet, passes on RGBA.
 local RGBA = 6
 local function all_rgba(layer)
@@ -196,15 +199,15 @@ test("electrolysis-cell wires a 3-layer animation (body + shadow + glow)", funct
   assert_true(glow ~= nil, "a draw_as_glow (emission) layer must exist")
 end)
 
--- === Body is the 50-frame arc-furnace animation (320x320, 8/row) ============
-test("body layer is the 50-frame arc-furnace animation (320x320, line_length 8)", function()
+-- === Body is the 60-frame oxidizer animation (280x320, 8/row) ===============
+test("body layer is the 60-frame oxidizer animation (280x320, line_length 8)", function()
   local body = find_layers()
   assert_true(body.filename ~= nil, "body uses a single-file sheet")
-  assert_true(body.filename:find("arc%-furnace%-hr%-animation%-1") ~= nil,
-    "body must be the arc-furnace animation sheet, got: " .. tostring(body.filename))
-  assert_eq(320, body.width, "frame width")
-  assert_eq(320, body.height, "frame height")
-  assert_eq(50, body.frame_count, "50 frames total (48 full rows + 2)")
+  assert_true(body.filename:find("oxidizer%-hr%-animation%-1") ~= nil,
+    "body must be the oxidizer animation sheet, got: " .. tostring(body.filename))
+  assert_eq(280, body.width, "frame width (2240/8)")
+  assert_eq(320, body.height, "frame height (2560/8)")
+  assert_eq(60, body.frame_count, "60 non-empty frames (rows 0-6 full + 4 of row 7; last 4 cells empty)")
   assert_eq(8, body.line_length, "8 frames per row")
   assert_true(body.scale ~= nil, "body must set a scale")
   assert_true(body.shift ~= nil, "body must set a shift")
@@ -213,14 +216,14 @@ test("body layer is the 50-frame arc-furnace animation (320x320, line_length 8)"
   all_rgba(body)
 end)
 
--- === Body must sit on the 3x3 footprint, not float or vanish ================
+-- === Body must sit on the 4x4 footprint, not float or vanish ================
 test("body/emission scale fits the footprint and the shift does not float it", function()
   local body, _, glow = find_layers()
-  -- 320px frame; a scale in [0.35, 0.6] renders ~112-192 px, seating the machine
-  -- over its 3x3 box (electric-furnace body is ~120 px) with a modest signature
-  -- overhang. A regression to a tiny or absurd scale fails here.
+  -- 320px-tall frame; a scale in [0.35, 0.6] renders ~112-192 px tall, seating the
+  -- machine over its 4x4 box with a modest signature overhang (0.45 -> ~4.5 tiles
+  -- tall). A regression to a tiny or absurd scale fails here.
   assert_true(body.scale >= 0.35 and body.scale <= 0.6,
-    "body scale must fit the 3x3 box (0.35-0.6), got " .. tostring(body.scale))
+    "body scale must fit the 4x4 box (0.35-0.6), got " .. tostring(body.scale))
   -- shift.y must not lift the body off the ground (a large negative float).
   assert_true(body.shift[2] > -0.2,
     "body must not be lifted off the ground (shift.y ~ 0), got " .. tostring(body.shift[2]))
@@ -238,14 +241,15 @@ test("shadow layer is a draw_as_shadow layer from the shadow image", function()
   all_rgba(shadow)
 end)
 
-test("emission layer is a draw_as_glow arc-furnace emission sheet matching the body", function()
+test("emission layer is a draw_as_glow oxidizer emission sheet matching the body", function()
   local _, _, glow = find_layers()
   assert_true(glow.filename ~= nil, "glow uses a single-file sheet")
-  assert_true(glow.filename:find("emission") ~= nil, "glow must use the emission sheet")
+  assert_true(glow.filename:find("oxidizer%-hr%-emission%-1") ~= nil,
+    "glow must use the oxidizer emission sheet, got: " .. tostring(glow.filename))
   -- Emission is drawn on the SAME frame geometry as the body so it registers.
-  assert_eq(320, glow.width, "glow frame width matches body")
+  assert_eq(280, glow.width, "glow frame width matches body")
   assert_eq(320, glow.height, "glow frame height matches body")
-  assert_eq(50, glow.frame_count, "glow frame count matches body")
+  assert_eq(60, glow.frame_count, "glow frame count matches body")
   assert_eq(8, glow.line_length, "glow line_length matches body")
   all_ship(glow)
   all_rgba(glow)
@@ -266,7 +270,7 @@ test("emission layer blends additive so it never paints a black box over the bod
 end)
 
 -- === Every layer ships as truecolour RGBA, never indexed/palette (ci-8r6) ====
-test("every arc-furnace layer ships as truecolour RGBA, not indexed/palette", function()
+test("every oxidizer layer ships as truecolour RGBA, not indexed/palette", function()
   for _, l in ipairs(layers()) do all_rgba(l) end
 end)
 
@@ -288,17 +292,69 @@ test("inherited electric-furnace overlays are cleared", function()
 end)
 
 -- === Item + entity icon =====================================================
-test("entity and item share the arc-furnace icon at icon_size 64", function()
+test("entity and item share the oxidizer icon at icon_size 64", function()
   local e = proto("furnace", CELL)
   local item = proto("item", CELL)
   assert_true(item ~= nil, "electrolysis-cell item must be registered")
   for _, p in ipairs({ e, item }) do
-    assert_true(p.icon and p.icon:find("arc%-furnace%-icon") ~= nil,
-      "icon must be the arc-furnace icon, got: " .. tostring(p.icon))
+    assert_true(p.icon and p.icon:find("oxidizer%-icon") ~= nil,
+      "icon must be the oxidizer icon, got: " .. tostring(p.icon))
     assert_eq(64, p.icon_size, "icon_size must match the 64px icon")
     assert_nil(p.icons, "the inherited layered electric-furnace icon must be cleared")
     assert_true(ships(p.icon), "icon PNG must ship: " .. p.icon)
   end
+end)
+
+-- === Footprint grew to a 4x4 box (ci-a6z) ===================================
+-- The cell was a 3x3 electric-furnace clone; the oxidizer body reads far bigger,
+-- so the box was enlarged to a full 4x4 (tile_width/height pinned to 4, selection
+-- box 4.0, collision box just inside it). A regression to the inherited 3x3 (or a
+-- selection box that no longer matches the model) fails here.
+test("selection/collision box is a 4x4 footprint", function()
+  local m = proto("furnace", CELL)
+  assert_eq(4, m.tile_width, "tile_width must be pinned to 4 (even-grid snap)")
+  assert_eq(4, m.tile_height, "tile_height must be pinned to 4")
+  assert_true(m.selection_box ~= nil, "the cell must set an explicit selection_box")
+  local sb = m.selection_box
+  local w = sb[2][1] - sb[1][1]
+  local h = sb[2][2] - sb[1][2]
+  assert_true(w >= 3.8 and w <= 4.2, "selection box must be ~4 tiles wide, got " .. tostring(w))
+  assert_true(h >= 3.8 and h <= 4.2, "selection box must be ~4 tiles tall, got " .. tostring(h))
+  -- Collision box must sit strictly inside the selection box (a bigger collision
+  -- would block placement it shouldn't).
+  local cb = m.collision_box
+  assert_true(cb ~= nil, "the cell must set an explicit collision_box")
+  assert_true((cb[2][1] - cb[1][1]) < w, "collision box must be smaller than the selection box")
+  assert_true(cb[1][1] > sb[1][1] and cb[2][1] < sb[2][1], "collision box must sit inside the selection box")
+end)
+
+-- === Circuit wire attaches at the bottom-right (ci-a6z) =====================
+-- The inherited electric-furnace connector puts the wire near centre-top, which
+-- reads badly on the tall oxidizer body. It is re-anchored to the bottom-right of
+-- the 4x4 box: +x = east (right), +y = south (down), so both the red and green
+-- wire pins must have positive x AND positive y, and green sits right of red.
+-- LuaEntityPrototype does not expose this offset at runtime, so this data-layer
+-- check is the only guard. A drift back toward the centre/top fails here.
+test("circuit wire connection point is at the bottom-right", function()
+  local m = proto("furnace", CELL)
+  assert_true(m.circuit_connector ~= nil, "the cell must define a circuit_connector")
+  assert_true(#m.circuit_connector >= 1, "the connector vector must have at least one entry")
+  for i, def in ipairs(m.circuit_connector) do
+    assert_true(def.points ~= nil and def.points.wire ~= nil,
+      "connector entry " .. i .. " must define points.wire")
+    local red, green = def.points.wire.red, def.points.wire.green
+    assert_true(red ~= nil and green ~= nil, "both red and green wire pins must be set")
+    assert_true(red[1] > 0 and red[2] > 0,
+      "red pin must be bottom-right (x>0, y>0), got {" .. red[1] .. ", " .. red[2] .. "}")
+    assert_true(green[1] > 0 and green[2] > 0,
+      "green pin must be bottom-right (x>0, y>0), got {" .. green[1] .. ", " .. green[2] .. "}")
+    assert_true(green[1] > red[1], "green pin must sit right of red (vanilla convention)")
+    -- The pins must sit inside the 4x4 half-extent (2.0), not off the machine.
+    assert_true(red[1] <= 2.0 and green[1] <= 2.0 and red[2] <= 2.0 and green[2] <= 2.0,
+      "wire pins must sit within the 4x4 footprint")
+  end
+  assert_true(m.circuit_wire_max_distance and m.circuit_wire_max_distance > 0,
+    "the cell must stay circuit-connectable (circuit_wire_max_distance > 0)")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

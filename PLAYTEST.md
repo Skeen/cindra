@@ -621,34 +621,43 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   sets `blend_mode = "additive"`; fails on the pre-fix spec). The ci-8r6 RGBA
   conversion is retained as a defensive format requirement but was never the bug.
 
-- [ ] **[LANDED] Electrolysis-cell arc-furnace art looks right (ci-wfv).** The
-  signature aluminium building `cindra-electrolysis-cell` wears Hurricane046's
-  bespoke **arc-furnace** set (CC-BY, the LL sibling of the lava-manufacturer's
-  glass furnace), wired into the furnace `graphics_set.animation` (replacing the
-  inherited electric-furnace body + heater working-visualisations): an animated
-  arc-furnace body, a ground shadow, and an always-on additive molten glow.
-  *Repro:* research the aluminium tech, build a `cindra-electrolysis-cell`, feed it
-  alumina + power and run it. *Look for:* the cell reads as its own arc furnace
-  (not an electric furnace, not an invisible/placeholder or **black** box) and its
-  body visibly **animates** (the 50-frame loop); the emissive layer **glows** (a
-  lit molten furnace, especially in the dark); a ground **shadow** casts under it;
-  the item/entity **icon** is the arc-furnace icon in the inventory, build preview,
-  and factoriopedia; and no electric-furnace **heater glow / pipe overlay** leaks.
-  *Judge the tuning:* `BODY_SCALE` (0.45) / `BODY_SHIFT` ({0,0}) in
-  `mods/cindra/prototypes/aluminium.lua` place the arc furnace on its 3x3 footprint
-  -- confirm the base sits on the tiles (not floating, buried, or wildly over/under
-  sized vs neighbours) and the shadow lands under the body. If the scale or shadow
-  offset is off, retune those two constants (the glass furnace needed an in-engine
-  render pass, ci-ijk, to land its scale/shift). The geometry (320x320 frames,
-  50-frame 8-wide sheet), the 3-layer wiring, the additive glow, the RGBA
-  conversion of the (originally palette) source PNGs, the dropped electric-furnace
-  overlays, and the icon are test-covered
-  (`unit-tests/test_aluminium_graphics.lua`, plus the mod-loads + graphics-audit
-  guard in the integration suite); only the on-screen scale/shift and animation
-  feel need eyes. **NOTE:** the source PNGs were indexed/palette (colour type 3) +
-  grey-alpha shadow -- both render as a black box in Factorio (the ci-036 /
-  ci-8r6 lava bug), so they were converted to truecolour RGBA on import; watch
-  specifically for a black-square regression if the sheets are ever re-exported.
+- [ ] **Electrolysis-cell oxidizer art + 4x4 box + bottom-right wire (ci-a6z).**
+  The signature aluminium building `cindra-electrolysis-cell` was reassigned from
+  the arc-furnace set to Hurricane046's bespoke **oxidizer** set (CC-BY 4.0, as
+  bundled in the Nullius Visual Overhaul) -- a big bulbous riveted vessel with a
+  green electro-chemical glow -- and enlarged from a 3x3 to a **4x4** footprint,
+  with its circuit wire re-anchored to the **bottom-right**. Wired into the
+  furnace `graphics_set.animation` (replacing the inherited electric-furnace body
+  + heater working-visualisations): animated oxidizer body, ground shadow,
+  always-on additive glow. *Repro:* research the aluminium tech, build a
+  `cindra-electrolysis-cell`, feed it alumina + power, and run a red/green circuit
+  wire to it. *Look for:* (1) the cell reads as its own bulbous oxidizer (not an
+  electric furnace, not an invisible/placeholder or **black** box) and its body
+  visibly **animates** (the 60-frame loop); the emissive layer **glows** green
+  (especially in the dark); a ground **shadow** casts under it; no electric-furnace
+  **heater glow / pipe overlay** leaks; the item/entity **icon** is the oxidizer
+  icon in inventory, build preview, and factoriopedia. (2) The **selection box is a
+  clean 4x4** -- hover/marquee-select it and confirm the highlighted footprint
+  matches the body (not a small 3x3 that leaves the body overhanging on all sides).
+  (3) The **circuit wire attaches at the bottom-right** of the machine, not
+  floating from the centre-top. *Judge the tuning:* `BODY_SCALE` (0.45) /
+  `BODY_SHIFT` ({0,0}) in `mods/cindra/prototypes/aluminium.lua` seat the body on
+  the 4x4 tiles -- confirm the base sits on the tiles (not floating, buried, or
+  wildly over/under sized) and the **700x500 shadow lands under the body** (its
+  canvas differs from the 280x320 body frame, so the shared scale/shift may need an
+  in-engine nudge, as the glass furnace did in ci-ijk). Also confirm the
+  points-only connector (no LED nub) still reads cleanly; if it looks bare, a
+  repositioned connector sprite could be added later. The geometry (280x320
+  frames, 60-frame 8-wide sheet, last 4 cells empty), the 3-layer wiring, the
+  additive glow, the RGBA conversion of the (originally palette) source PNGs, the
+  dropped electric-furnace overlays, the 4x4 box, the bottom-right wire point, and
+  the icon are all test-covered (`unit-tests/test_aluminium_graphics.lua` +
+  `tests/test_aluminium.lua` + the graphics-audit guard); only the on-screen
+  scale/shift, animation feel, box read, and wire attach need eyes. **NOTE:** the
+  source PNGs were indexed/palette (colour type 3) + grey-alpha shadow -- both
+  render as a black box in Factorio (the ci-036 / ci-8r6 lava bug), so they were
+  converted to truecolour RGBA on import; watch specifically for a black-square
+  regression if the sheets are ever re-exported.
 
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh; leaching + O2 reshape
   ci-6vj S2).** The signature material: `20 stone + 30 sulfuric-acid + 20 water ->
@@ -658,7 +667,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `cindra-lava`, which unlocks the acid the leach needs). *Repro:* research the
   aluminium tech, run the leach in a chemical plant (pipe in acid + water), then
   feed alumina + ruinous power to the electrolysis cell. *Look for:* the cell reads
-  as its own building (the arc-furnace art, ci-wfv; see the art entry above), out-draws the
+  as its own building (the oxidizer art, ci-a6z; see the art entry above), out-draws the
   foundry on power, and leans hard on the grid/flare/capacitors; alumina and
   aluminium icons read as distinct materials (ci-6vj S6 bespoke renders: a white
   refined-mineral pile for alumina, an aluminium plate for the metal -- no longer
@@ -927,8 +936,8 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 - [ ] **[LANDED] Some signature-building art is placeholder.** The electric
   heater and mass driver still reuse vanilla-derived sprites/icons (see
   `graphics/ART-MANIFEST.md`); the lava manufacturer (glass furnace, ci-oi8) and
-  the aluminium electrolysis cell (arc furnace, ci-wfv) now wear bespoke
-  Hurricane046 art. Remaining bespoke/animated art is tracked across ci-z94,
+  the aluminium electrolysis cell (oxidizer, ci-a6z; was arc furnace, ci-wfv) now
+  wear bespoke Hurricane046 art. Remaining bespoke/animated art is tracked across ci-z94,
   ci-eb9, and ci-kuu. Do not file the remaining placeholder art as a gameplay bug.
 
 - [ ] **[LANDED] Red-mud subsystem art is placeholder (ci-c7j).** Red mud and

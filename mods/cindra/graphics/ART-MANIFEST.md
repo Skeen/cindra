@@ -47,7 +47,8 @@ picture = {
 
 | Building / item            | Icon                              | Entity sprite | Owning bead(s)        |
 |----------------------------|-----------------------------------|:-------------:|-----------------------|
-| Electrolysis cell ⭐        | `icons/arc-furnace-icon.png` (Hurricane046, CC-BY) | ✔ `entity/electrolysis-cell/` (arc-furnace, CC-BY) | **ci-txh** (signature aluminium); art **ci-wfv** |
+| Electrolysis cell ⭐        | `icons/oxidizer-icon.png` (Hurricane046, CC-BY 4.0) | ✔ `entity/electrolysis-cell/` (oxidizer, CC-BY 4.0) | **ci-txh** (signature aluminium); art **ci-wfv** → **ci-a6z** (oxidizer swap, 4x4 box) |
+| _Iron-recovery building_   | `icons/arc-furnace-icon.png` (Hurricane046, CC-BY) | ✔ `entity/arc-furnace/` (arc-furnace, CC-BY) | **ci-hs1j** — set freed by **ci-a6z**; not yet wired |
 | Aluminium (item)           | (v1: steel-plate, cool silver)    | —             | **ci-txh** |
 | Lava-manufacture building  | `icons/lava-manufacturer.png`     | —             | **ci-8mw** (§15-5 lava recipe) |
 | ~~Ice crusher / processor~~ | (retired ci-9l6)                 | —             | **ci-rgv** → retired: ice fields mine ice+calcite directly, no ground crusher |
@@ -61,8 +62,12 @@ picture = {
 | Cindra science pack        | `icons/cindra-science-pack.png`   | —             | **ci-3or** (§15-12 science/tech) |
 
 ⭐ = signature building (the aluminium electrolysis cell, ci-84s pivot; bespoke
-art wired in ci-wfv -- Hurricane046's "arc furnace" set, CC-BY, converted to RGBA;
-see `entity/electrolysis-cell/ATTRIBUTION.md`). Priority buildings
+art first wired in ci-wfv -- Hurricane046's "arc furnace" set -- then reassigned
+in ci-a6z to Hurricane046's "oxidizer" set, CC-BY 4.0, converted to RGBA, on an
+enlarged 4x4 box; see `entity/electrolysis-cell/ATTRIBUTION.md`). The arc-furnace
+set it vacated was moved to `entity/arc-furnace/` and is reserved for the
+iron-recovery building (ci-hs1j), so the two machines never both claim it.
+Priority buildings
 (mass driver, flare-PoC storage/dissipator) all have both an icon and an entity
 sprite. Cindra reuses the plain vanilla solar panel (ci-8al), so there is no
 custom panel art.
@@ -98,8 +103,8 @@ icon_size = 64`.
 
 These replaced the earlier tinted-vanilla placeholders (petroleum-gas / water /
 calcite / copper-plate / steel-plate). The aluminium electrolysis **cell** entity
-now wears Hurricane046's "arc furnace" building art (CC-BY, wired in ci-wfv; see
-`entity/electrolysis-cell/ATTRIBUTION.md`).
+now wears Hurricane046's "oxidizer" building art (CC-BY 4.0, reassigned from the
+"arc furnace" set in ci-a6z; see `entity/electrolysis-cell/ATTRIBUTION.md`).
 
 ## Red-mud subsystem art (ci-c7j → bespoke ci-zdp)
 

@@ -57,8 +57,9 @@
 -- ART: bespoke item icons (ci-6vj S6) for alumina (white refined-mineral render)
 -- and aluminium (aluminium-plate render), from Malcolm Riley's `unused-renders`
 -- (CC-BY-4.0); see graphics/ART-MANIFEST.md. The electrolysis CELL entity wears
--- Hurricane046's bespoke "arc furnace" set (CC-BY, ci-wfv) -- see the graphics_set
--- block below and graphics/entity/electrolysis-cell/ATTRIBUTION.md.
+-- Hurricane046's bespoke "oxidizer" set (CC-BY, ci-a6z; it wore the "arc furnace"
+-- set until ci-a6z handed that off to the iron-recovery building, ci-hs1j) -- see
+-- the graphics_set block below and graphics/entity/electrolysis-cell/ATTRIBUTION.md.
 
 local util = require("util")
 
@@ -156,48 +157,94 @@ cell.fluid_boxes = {
 }
 cell.fluid_boxes_off_when_no_fluid_recipe = true
 
--- === Bespoke art: Hurricane046's "arc furnace" (ci-wfv) ======================
--- The signature aluminium building wears the ARC FURNACE set by Hurricane046
--- (CC-BY, made for the "LL" mod) -- an animated brushed-steel body with a molten
--- electric-arc glow, exactly the electric/molten-alloy read the electrolysis cell
--- wants. The glass-furnace set (its LL sibling) is already taken by the
--- lava-manufacturer (ci-oi8), so the two signature machines stay visually
--- distinct. See graphics/entity/electrolysis-cell/ATTRIBUTION.md + CREDITS.md.
+-- === Footprint: a 4x4 machine, not a 3x3 (ci-a6z) ============================
+-- The cloned electric furnace is 3x3 (collision 2.4, selection 3x3), but the
+-- oxidizer body below is a big bulbous machine that reads far larger, so its
+-- selection box has to grow to match the model (a 3x3 box under a ~4.5-tile body
+-- makes the machine impossible to click cleanly). Enlarge to a 4x4 footprint:
+-- tile_width/height are pinned to 4 so the (even) grid snap is unambiguous, the
+-- selection box is the full 4x4, and the collision box sits 0.1 tile inside it
+-- (the vanilla landing-pad 4x4 ratio). This is a Cindra-exclusive clone, so the
+-- box change cannot leak to the shared electric furnace.
+cell.tile_width = 4
+cell.tile_height = 4
+cell.collision_box = { { -1.9, -1.9 }, { 1.9, 1.9 } }
+cell.selection_box = { { -2.0, -2.0 }, { 2.0, 2.0 } }
+
+-- === Circuit-wire connection point: bottom-right (ci-a6z) ====================
+-- The inherited electric-furnace connector attaches the circuit wire near the
+-- machine's centre-top, which reads badly floating over the tall oxidizer body.
+-- Re-anchor the wire to the BOTTOM-RIGHT of the 4x4 footprint, seated on the
+-- lower-right body mass. +x = east (right), +y = south (down), so bottom-right
+-- is (+,+); the green pin sits just right of the red one, per the vanilla
+-- convention. We drop the inherited connector SPRITES and give a points-only
+-- connector (CircuitConnectorDefinition.sprites is optional): a stale centre LED
+-- with the wire attaching at the far corner would look broken, and the wire
+-- POINT is the load-bearing bit. LuaEntityPrototype does not expose the connector
+-- offset at runtime, so the plain-Lua unit test asserts this at the data layer.
+local function wire_br()
+  return {
+    points = {
+      wire = { red = { 1.3, 1.1 }, green = { 1.65, 1.1 } },
+      -- shadow is required by the engine; cast it down-right of the wire pins.
+      shadow = { red = { 1.55, 1.35 }, green = { 1.9, 1.35 } },
+    },
+  }
+end
+-- Furnaces are not rotatable, but the connector is a per-direction vector; supply
+-- four identical entries (matching the vanilla furnace convention).
+cell.circuit_connector = { wire_br(), wire_br(), wire_br(), wire_br() }
+-- Keep it circuit-connectable (the inherited furnace wire distance, defaulted for
+-- the unit-test stub which clones a connector-less electric furnace).
+cell.circuit_wire_max_distance = cell.circuit_wire_max_distance or 9
+
+-- === Bespoke art: Hurricane046's "oxidizer" set (ci-a6z) =====================
+-- The signature aluminium building wears the OXIDIZER set by Hurricane046 (CC-BY
+-- 4.0, as bundled in the Nullius Visual Overhaul) -- a big bulbous riveted vessel
+-- with a green electro-chemical glow, which reads as the grand power sink the cell
+-- is and fills the enlarged 4x4 box. It wore the "arc furnace" set until ci-a6z,
+-- which handed that set to the iron-recovery building (ci-hs1j) so the two
+-- machines do not both claim it; the arc-furnace PNGs now live in
+-- graphics/entity/arc-furnace/. See graphics/entity/electrolysis-cell/ATTRIBUTION.md
+-- + CREDITS.md.
 --
 -- The cloned electric-furnace brings its OWN graphics_set (base body + heater
 -- working_visualisations). Replace it WHOLESALE so the cell reads as its own
 -- machine, not a reskinned electric furnace, and no electric-furnace art leaks.
 local ENTITY_GFX = "__cindra__/graphics/entity/electrolysis-cell/"
-local ICON = "__cindra__/graphics/icons/arc-furnace-icon.png"
+local ICON = "__cindra__/graphics/icons/oxidizer-icon.png"
 
--- Single-file animation sheet: 50 frames of 320x320 px, laid out 8 per row (rows
--- 0-5 full = 48 frames, row 6 = 2), so line_length 8 walks the grid and stops at
--- frame 50. The emission sheet shares the exact geometry so the glow registers on
--- the body frame-for-frame. (Verified against the source PNGs: 2560x2240 = 8x7 of
--- 320, with 50 non-empty cells.)
-local FRAME_W, FRAME_H = 320, 320
-local FRAME_COUNT = 50
+-- Single-file animation sheet: 2240x2560 px = an 8x8 grid of 280x320-px frames
+-- (64 cells), of which only the first 60 are non-empty (rows 0-6 full = 56, plus
+-- the first 4 of row 7). line_length 8 walks the grid and frame_count 60 stops
+-- before the 4 trailing empty cells -- otherwise the machine blinks out on those
+-- frames as the animation cycles through the blanks. The emission sheet shares
+-- the exact geometry so the glow registers on the body frame-for-frame.
+local FRAME_W, FRAME_H = 280, 320
+local FRAME_COUNT = 60
 local LINE_LENGTH = 8
--- The electric-furnace footprint is 3x3 (collision 2.4, selection 3x3). The
--- 320px frame at scale 0.45 renders ~144 px (~4.5 tiles), a modest overhang that
--- reads as a grand signature machine over its 3x3 box without swamping neighbours
--- (cf. the vanilla electric furnace's own overhang). shift 0 centres the body and
--- seats it on the ground. Final scale/shift are pending an in-engine render
--- (PLAYTEST.md) exactly as the glass-furnace set was tuned (ci-ijk).
+-- The footprint is now 4x4 (see the box block above). The 320px-tall frame at
+-- scale 0.45 renders ~144 px (~4.5 tiles) tall and ~126 px (~3.9 tiles) wide, a
+-- modest overhang that reads as a grand signature machine over its 4x4 box
+-- without swamping neighbours. shift 0 centres the body and seats it on the
+-- ground. Final scale/shift are pending an in-engine render (PLAYTEST.md) exactly
+-- as the arc-furnace/glass-furnace sets were tuned.
 local BODY_SCALE = 0.45
 local BODY_SHIFT = { 0, 0 }
 
--- Body + shadow + emissive molten glow. The emission sheet is FULLY OPAQUE (black
--- background, bright arc openings), so it MUST blend "additive" with draw_as_glow
+-- Body + shadow + emissive glow. The emission sheet is opaque black (bright glow
+-- openings on a black background), so it MUST blend "additive" with draw_as_glow
 -- -- draw_as_glow alone does NOT change the blend op, so an opaque black frame
 -- would paint a black box over the body (the ci-036 glass-furnace regression).
--- Additive makes the black background contribute nothing and only the arc
+-- Additive makes the black background contribute nothing and only the glow
 -- openings add light, exactly how the vanilla electric-furnace light layer blends.
+-- (The oxidizer set also ships color1/color2 tint-mask sheets for Nullius tier
+-- colouring; the cell is a single fixed machine, so they are deliberately unused.)
 cell.graphics_set = {
   animation = {
     layers = {
       { -- lit, opaque body
-        filename = ENTITY_GFX .. "arc-furnace-hr-animation-1.png",
+        filename = ENTITY_GFX .. "oxidizer-hr-animation-1.png",
         width = FRAME_W,
         height = FRAME_H,
         frame_count = FRAME_COUNT,
@@ -208,17 +255,17 @@ cell.graphics_set = {
       },
       { -- ground shadow: one static image (all layers of a layered Animation must
         -- share frame_count, so pin it to 1 and let the engine hold the frame).
-        filename = ENTITY_GFX .. "arc-furnace-hr-shadow.png",
-        width = 600,
-        height = 400,
+        filename = ENTITY_GFX .. "oxidizer-hr-shadow.png",
+        width = 700,
+        height = 500,
         frame_count = 1,
         repeat_count = FRAME_COUNT,
         scale = BODY_SCALE,
         shift = BODY_SHIFT,
         draw_as_shadow = true,
       },
-      { -- emissive molten arc glow, locked to the body geometry
-        filename = ENTITY_GFX .. "arc-furnace-hr-emission-1.png",
+      { -- emissive electro-chemical glow, locked to the body geometry
+        filename = ENTITY_GFX .. "oxidizer-hr-emission-1.png",
         width = FRAME_W,
         height = FRAME_H,
         frame_count = FRAME_COUNT,
@@ -236,7 +283,7 @@ cell.graphics_set = {
 -- leaks through the new body.
 cell.graphics_set_flipped = nil
 cell.working_visualisations = nil
--- Wear the arc-furnace icon (matching the entity), clearing any inherited layered
+-- Wear the oxidizer icon (matching the entity), clearing any inherited layered
 -- electric-furnace icon.
 cell.icon = ICON
 cell.icon_size = 64
@@ -248,7 +295,7 @@ cell_item.place_result = CELL
 cell_item.order = "z[cindra]-c[electrolysis-cell]"
 cell_item.localised_name = { "item-name.cindra-electrolysis-cell" }
 cell_item.localised_description = { "item-description.cindra-electrolysis-cell" }
--- Item wears the same arc-furnace icon as the entity.
+-- Item wears the same oxidizer icon as the entity.
 cell_item.icon = ICON
 cell_item.icon_size = 64
 cell_item.icons = nil

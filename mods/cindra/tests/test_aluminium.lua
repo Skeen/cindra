@@ -181,6 +181,44 @@ describe("cindra aluminium: power is the ruinous cost", function()
   end)
 end)
 
+describe("cindra aluminium: the cell is a grand 4x4 signature machine (ci-a6z)", function()
+  -- LuaEntityPrototype exposes the boxes (but NOT the sprite paths or the circuit
+  -- connector offset), so the box growth is asserted here at runtime; the art and
+  -- the bottom-right wire point are asserted at the data layer in
+  -- unit-tests/test_aluminium_graphics.lua.
+  local function span(box) return box.right_bottom.x - box.left_top.x end
+
+  it("the oxidizer body sits on a 4x4 selection box, not the inherited 3x3", function()
+    local cell = prototypes.entity[CELL]
+    local sel = cell.selection_box
+    assert.is_true(span(sel) >= 3.8 and span(sel) <= 4.2,
+      "selection box must be ~4 tiles wide (was 3x3), got " .. span(sel))
+    local h = sel.right_bottom.y - sel.left_top.y
+    assert.is_true(h >= 3.8 and h <= 4.2, "selection box must be ~4 tiles tall, got " .. h)
+    -- The collision box must be strictly inside the selection box.
+    assert.is_true(span(cell.collision_box) < span(sel),
+      "collision box must be smaller than the selection box")
+  end)
+
+  it("does not enlarge the shared electric furnace (never-mutate-other-planets)", function()
+    -- The box change is on the Cindra-exclusive clone only; if a clone-not-mutate
+    -- went wrong and we grew the shared prototype, this fails before it leaks.
+    local base = prototypes.entity["electric-furnace"]
+    assert.is_true(span(base.selection_box) < span(prototypes.entity[CELL].selection_box),
+      "the vanilla electric furnace must keep its own (smaller) 3x3 box")
+    assert.is_true(span(base.selection_box) <= 3.2,
+      "the vanilla electric furnace stays 3x3, got " .. span(base.selection_box))
+  end)
+
+  it("stays circuit-connectable after re-anchoring the wire", function()
+    -- The wire OFFSET is not runtime-readable, but connectivity is: a placed cell
+    -- must expose a circuit (red-wire) connector.
+    local cell = prototypes.entity[CELL]
+    assert.is_true(cell.get_max_circuit_wire_distance() > 0,
+      "the cell must remain circuit-connectable")
+  end)
+end)
+
 describe("cindra aluminium: private category + gating", function()
   it("electrolysis lives in a private category (no vanilla smelting leak)", function()
     local cell = prototypes.entity[CELL]
