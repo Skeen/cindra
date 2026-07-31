@@ -226,6 +226,24 @@ describe("cindra start-on-Cindra foundry bootstrap", function()
       "without the tech mineral lubricant is not craftable")
   end)
 
+  it("no native foundry path leaks outside the APS start context (normal play, ci-7p6)", function()
+    -- ci-7p6 acceptance: the start-on-Cindra rescue (pre-researched improvised
+    -- metallurgy + the field foundry) must be scoped to an APS Cindra start and
+    -- NEVER leak into a normal game. In the default `mods/cindra` run cindra-start
+    -- is not even loaded, so nothing pre-researches the tech -- assert that
+    -- POSITIVELY (the sibling leak test only guards conditionally). The APS run
+    -- legitimately pre-researches it (proved in test_aps_foundry / test_aps_bootstrap),
+    -- so this default-play guard is skipped whenever cindra-start is present.
+    if script.active_mods["cindra-start"] then return end
+    local force = game.forces["player"]
+    assert.is_false(force.technologies[T_METALLURGY].researched,
+      "normal play must NOT arrive with improvised metallurgy pre-researched (no free native foundry)")
+    assert.is_false(force.recipes[R_FIELD_FOUNDRY].enabled,
+      "so the Cindra-buildable field foundry stays locked in normal play -- foundries are imported (§8)")
+    assert.is_false(force.recipes[R_CRUDE].enabled,
+      "and native lubricant stays locked -- no petrochemical-free foundry shortcut leaks into a normal game")
+  end)
+
   -- --- Runtime: the native path actually works on Cindra ------------------
   it("crude-liquefies bootstrap coal into lubricant on Cindra when powered (end-to-end)", function()
     local s = H.cindra_surface()

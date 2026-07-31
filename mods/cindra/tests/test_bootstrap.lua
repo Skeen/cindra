@@ -359,23 +359,27 @@ describe("cindra bootstrap: every stage's inputs come only from earlier stages",
 end)
 
 -- ===========================================================================
--- APS start-on-Cindra: the from-ABSOLUTE-zero soft-lock (owned by ci-arw).
+-- Start-on-Cindra: the from-ABSOLUTE-zero foundry gate (ci-arw landed; ci-7p6).
 --
 -- A normal arrival carries the finite seed above (imported foundry + a little
 -- metal). A start-on-Cindra (any-planet-start) run has NEITHER -- no Vulcanus to
 -- import a foundry from, and the vanilla foundry build needs lubricant (oil
--- chemistry Cindra cannot make). This block asserts, from the DEFAULT run (no
--- APS mods needed), that the reachability solver run from absolute zero STALLS
--- before metal -- i.e. an APS start MUST be given a foundry (starter kit) or a
--- lubricant-free foundry recipe, which is the dedicated bead ci-arw.
+-- chemistry Cindra cannot make). So from bare hand roots the chain STALLS before
+-- metal: a from-scratch Cindra start must be HANDED a foundry.
 --
--- This is a deliberate tripwire: it encodes the CURRENT gap as an executable
--- fact. When ci-arw lands a kitted / lubricant-free APS foundry, its own suite
--- proves the start-on-Cindra path closes, and THIS assertion (which asserts the
--- gap still exists on plain `mods/cindra`) must be revisited together with the
--- end-to-end APS bootstrap test tracked in the follow-up bead.
+-- ci-arw + ci-8wu closed that gap for the APS start (a lubricant-free field-foundry
+-- recipe + a minimal starter kit that hands the first foundry + caster), and ci-7p6
+-- proves the full start-on-Cindra traversal end-to-end -- but ONLY under the APS
+-- chain (tests/test_aps_bootstrap, tests/test_aps_foundry, tests/test_aps_kit).
+--
+-- This block runs on the DEFAULT `mods/cindra` (no APS mods), so it stays the
+-- guard for NORMAL play: the from-zero stall is asserted as the executable proof
+-- that no free foundry / free metal leaks into a plain game (you only ever break
+-- the stall by BEING handed a machine, which the APS kit does and normal play
+-- never does). The third case below models the exact shipped rescue -- the kit's
+-- two machines -- so the guard and the fix stay described together.
 -- ===========================================================================
-describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a foundry (ci-arw)", function()
+describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a foundry (ci-arw/ci-7p6)", function()
   -- Re-declare the solver locally (kept tiny + independent of the block above so
   -- this reads as a standalone statement of the gap).
   local PRODUCTIONS = {
@@ -431,22 +435,22 @@ describe("cindra bootstrap: start-on-Cindra from absolute zero is gated on a fou
       "and therefore no metal -> the from-zero economy cannot turn on unaided")
   end)
 
-  it("a starter foundry + a little starter metal breaks the stall (the fix ci-arw must deliver)", function()
-    -- Prove the fix is small + well-scoped: hand a start-on-Cindra player ONE
-    -- foundry (kit) plus a little starter metal (steel/gears/brick) -- the same
-    -- pinch that builds the lava caster -- and the chain immediately reaches metal.
-    -- The foundry remains the keystone (it alone cannot be built on Cindra, needing
-    -- lubricant); the caster is cheap local metal. This is the target ci-arw + the
-    -- APS kit must satisfy; the end-to-end APS-mods proof lives in the follow-up bead.
+  it("the shipped kit (a foundry + a lava caster) breaks the stall (the fix ci-arw/ci-8wu delivered)", function()
+    -- Model the ACTUAL shipped rescue, not an abstract seed: the minimal APS kit
+    -- (ci-8wu) hands the two keystone MACHINES a from-scratch start cannot easily
+    -- build -- the foundry (unbuildable on Cindra without lubricant) and the lava
+    -- caster. Because the caster itself is handed over, NO starter metal is needed:
+    -- the two machines alone turn the stone->lava->metal spine on from bare hand
+    -- roots. This is the exact condition test_aps_bootstrap drives end-to-end under
+    -- the real APS chain; here it is the paper mirror on the default run.
     local have = reach({
-      stone = true, ice = true, calcite = true,        -- the mined hand roots (ci-9l6)
-      foundry = true,                                  -- one kitted foundry
-      ["steel-plate"] = true, ["iron-gear-wheel"] = true, ["stone-brick"] = true, -- starter metal for the caster
+      stone = true, ice = true, calcite = true,          -- the mined hand roots (ci-9l6)
+      foundry = true, ["cindra-lava-manufacturer"] = true, -- the kit's two machines (ci-8wu)
     })
     assert.is_true(have["lava"] == true,
-      "with a kitted foundry + starter metal, a lava caster is buildable and stone -> lava turns on")
+      "with the kit's caster, hand-mined stone -> lava turns on (no starter metal needed)")
     assert.is_true(have["molten-iron"] == true,
-      "and the metal economy turns on -- the missing pieces for APS are the foundry (keystone) + starter metal (ci-arw)")
+      "and the kit's foundry melts it -> molten iron: the metal economy turns on (ci-arw/ci-8wu, proved end-to-end in test_aps_bootstrap)")
   end)
 end)
 
