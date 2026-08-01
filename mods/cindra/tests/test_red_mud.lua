@@ -155,6 +155,61 @@ describe("cindra iron recovery (ci-c7j): waste-born iron + a power sink", functi
     assert.is_true(base.energy_usage < furnace.energy_usage,
       "the vanilla assembler must keep its own much smaller draw")
   end)
+
+  it("the arc furnace has a 5x5 selection box under its big model (ci-1p1z)", function()
+    -- The click/highlight footprint must match the ~5-tile arc-furnace body: a full
+    -- 5x5 selection box centred on the machine (was the inherited AM3 3x3).
+    local furnace = prototypes.entity[FURNACE]
+    local sb = furnace.selection_box
+    assert.is_not_nil(sb, "the furnace must expose a selection box")
+    local w = sb.right_bottom.x - sb.left_top.x
+    local h = sb.right_bottom.y - sb.left_top.y
+    assert.is_true(math.abs(w - 5) < 1e-6,
+      "the selection box must be 5 tiles wide (got " .. w .. ")")
+    assert.is_true(math.abs(h - 5) < 1e-6,
+      "the selection box must be 5 tiles tall (got " .. h .. ")")
+    -- Centred on the model (symmetric about the entity origin).
+    assert.is_true(math.abs(sb.left_top.x + sb.right_bottom.x) < 1e-6
+      and math.abs(sb.left_top.y + sb.right_bottom.y) < 1e-6,
+      "the 5x5 selection box must be centred on the model")
+    -- The COLLISION box stays 3x3 so AM3's north CO2 pipe (position {0,-1}) is not
+    -- buried: a 5x5 collision would swallow the fluid input two tiles deep. Assert
+    -- the placement footprint is unchanged from the vanilla clone.
+    local cb = furnace.collision_box
+    local cw = cb.right_bottom.x - cb.left_top.x
+    assert.is_true(cw < 4,
+      "the collision box must stay 3x3 (keeps the CO2 pipe reachable), got width " .. cw)
+  end)
+
+  it("the arc furnace still accepts piped CO2 after the box change (ci-1p1z)", function()
+    -- Guards the collision-box decision: enlarging the click box to 5x5 must NOT
+    -- break the inherited fluid input. Pipe CO2 in from an adjacent pipe and prove
+    -- the furnace's fluid box fills (the CO2 connection is still reachable). AM3
+    -- turns its fluid boxes OFF with no fluid recipe, so set the CO2 recipe first;
+    -- with no power the machine cannot craft, so the piped CO2 simply accumulates.
+    local s = H.cindra_surface()
+    game.forces["player"].recipes[IRON_RECOVERY].enabled = true
+    local furnace = s.create_entity({ name = FURNACE, position = { 0, 0 }, force = "player" })
+    assert.is_not_nil(furnace, "the arc furnace must place")
+    furnace.set_recipe(IRON_RECOVERY)
+    -- AM3's CO2 input pipe sits at the north edge {0,-1}; the tile just north of the
+    -- 3x3 collision box is {0,-2}. A pipe there must connect and feed fluid in.
+    local pipe = s.create_entity({ name = "pipe", position = { 0, -2 }, force = "player" })
+    assert.is_not_nil(pipe, "the feeder pipe must place north of the furnace")
+    pipe.insert_fluid({ name = CO2, amount = 500 })
+
+    async(600)
+    after_ticks(180, function()
+      assert.is_true(furnace.valid)
+      local co2 = furnace.get_fluid_count(CO2)
+      assert.is_true(co2 > 0,
+        "piped CO2 must reach the furnace's fluid box (the input pipe stays "
+          .. "reachable at the 3x3 collision edge); got " .. co2)
+      furnace.destroy()
+      pipe.destroy()
+      done()
+    end)
+  end)
 end)
 
 -- ===========================================================================

@@ -1120,8 +1120,30 @@ of the current build; they are listed so "not built yet" is distinguishable from
   is the playtest. *Look for:* (1) the building's item/entity icon is the arc-furnace
   icon (not the old procedural carbothermic icon, not the assembling-machine-3 icon);
   (2) the placed building shows the animated arc-furnace body with its molten glow at
-  a sane scale for its 3×3 footprint, the soft shadow grounded, and no blink-out on
-  the trailing animation frames; (3) the recipe still shows red mud + CO2 -> iron +
-  slag, and the building's CO2 input pipe still connects and renders (the fluid box
-  survived replacing the graphics_set); (4) it reads as a distinct high-draw machine
-  next to the electrolysis cell (oxidizer set), not a twin of it.
+  a sane scale under its 5×5 selection box (ci-1p1z, below), the soft shadow grounded,
+  and no blink-out on the trailing animation frames; (3) the recipe still shows red
+  mud + CO2 -> iron + slag, and the building's CO2 input pipe still connects and
+  renders (the fluid box survived replacing the graphics_set); (4) it reads as a
+  distinct high-draw machine next to the electrolysis cell (oxidizer set), not a twin
+  of it.
+
+- [ ] **[LANDED] Arc furnace selection box is 5×5, connector unchanged (ci-1p1z).**
+  A playtest found the click/hover box was still the inherited assembling-machine-3
+  3×3, far smaller than the big arc-furnace body, so the model's outer ring was
+  un-selectable. The **selection box** now spans the full **5×5**, centred on the
+  model. The **collision box deliberately stays 3×3**: the furnace keeps AM3's CO2
+  input pipe at the north edge {0,-1}, and a 5×5 collision box would bury that pipe
+  and break the CO2 input, so the build-blocking footprint stays 3×3 while only the
+  click region grows. The circuit-wire connection point (praised as "looks amazing")
+  is **untouched** and locked by a guard test. The 5×5 selection box, the 3×3
+  collision, the still-working piped CO2, and the pinned connector offset are all
+  test-covered (`tests/test_red_mud.lua`, `unit-tests/test_red_mud.lua`); only the
+  *look/feel* is the playtest. *Repro:* build a `cindra-arc-furnace` on Cindra and
+  hover/click it. *Look for:* (1) the whole visible arc-furnace body is clickable and
+  the selection highlight box frames the model (no un-selectable outer ring); (2) the
+  circuit-wire attach point is exactly where it was before (bottom/centre of the
+  body, unchanged); (3) piping CO2 in still works. *Judgement call to confirm:* the
+  collision stays 3×3, so other machines/belts CAN be built in the 1-tile ring under
+  the model's painted edge. If that overlap reads badly and a true 5×5 build
+  footprint is wanted, that is a follow-up that must also move the CO2 pipe
+  connections outward (out of scope for ci-1p1z, which fixed only the selection box).

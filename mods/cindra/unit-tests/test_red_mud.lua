@@ -43,9 +43,11 @@ local function deepcopy(t)
   return out
 end
 
+local function by_pixel(x, y) return { x / 32, y / 32 } end
+
 package.loaded["util"] = {
   table = { deepcopy = deepcopy },
-  by_pixel = function(x, y) return { x / 32, y / 32 } end,
+  by_pixel = by_pixel,
 }
 
 -- Minimal vanilla prototypes red-mud.lua clones. Each is only cloned and then has
@@ -61,6 +63,25 @@ local data = {
       ["assembling-machine-3"] = {
         type = "assembling-machine", name = "assembling-machine-3",
         energy_usage = "375kW", crafting_categories = { "crafting" },
+        -- The real 3x3 assembler footprint (base collision 1.2, selection 1.5),
+        -- so the arc-furnace clone starts from the genuine vanilla box.
+        collision_box = { { -1.2, -1.2 }, { 1.2, 1.2 } },
+        selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } },
+        -- The genuine AM3 circuit connector (base assembler-pictures.lua feeds
+        -- circuit_connector_definitions.create_vector wire_offsets
+        -- {red = by_pixel(25,10), green = by_pixel(29,8)}, replicated across the 4
+        -- directions). We reproduce its `points` so the guard test can prove the
+        -- arc furnace inherits this connection point UNCHANGED (the human locked it).
+        circuit_wire_max_distance = 9,
+        circuit_connector = (function()
+          local one = {
+            points = {
+              wire = { red = by_pixel(25, 10), green = by_pixel(29, 8) },
+              shadow = { red = by_pixel(60, 30), green = by_pixel(60, 29) },
+            },
+          }
+          return { deepcopy(one), deepcopy(one), deepcopy(one), deepcopy(one) }
+        end)(),
       },
     },
   },
@@ -154,6 +175,50 @@ test("the arc furnace is a private-category high-draw machine", function()
   local item = proto("item", "cindra-arc-furnace")
   assert_true(item ~= nil, "the furnace item must be registered")
   assert_eq("cindra-arc-furnace", item.place_result, "the item places the furnace")
+end)
+
+-- === Arc furnace: 5x5 selection box + LOCKED circuit connector (ci-1p1z) =====
+-- The big arc-furnace body reads ~5 tiles across, so the click/highlight box grew
+-- from the inherited AM3 3x3 to a full 5x5. That edit must NOT move the circuit
+-- wire connection point (the human confirmed it "looks amazing" and locked it) and
+-- must NOT enlarge the collision box (that would bury AM3's north CO2 pipe). The
+-- runtime API does not expose the connector offset, so this data-layer test is the
+-- guard: it pins the inherited AM3 connection point as the golden value.
+local function about_eq(a, b) return math.abs(a - b) < 1e-9 end
+
+test("the furnace grows to a 5x5 selection box, collision stays 3x3", function()
+  local e = proto("assembling-machine", "cindra-arc-furnace")
+  local sb = e.selection_box
+  assert_true(sb ~= nil, "the furnace must set an explicit selection_box")
+  assert_true(about_eq(sb[1][1], -2.5) and about_eq(sb[1][2], -2.5)
+    and about_eq(sb[2][1], 2.5) and about_eq(sb[2][2], 2.5),
+    "the selection box must be the full 5x5, centred on the model")
+  -- Collision stays the inherited 3x3 so the CO2 input pipe at {0,-1} is reachable.
+  local cb = e.collision_box
+  assert_true(cb ~= nil, "the furnace must keep a collision_box")
+  assert_true(about_eq(cb[2][1] - cb[1][1], 2.4),
+    "the collision box must stay the 3x3 AM3 footprint (keeps the CO2 pipe live)")
+end)
+
+-- The GOLDEN circuit connection point, captured from the current prototype: base
+-- assembler-pictures.lua wires the AM3 connector at by_pixel(25,10)/by_pixel(29,8),
+-- i.e. wire.red = {0.78125, 0.3125}, wire.green = {0.90625, 0.25}. The furnace must
+-- inherit this UNCHANGED across all four direction entries. A future edit that
+-- re-anchors or scales the connector (e.g. while touching the box) fails here.
+test("the arc furnace's circuit connection point is LOCKED (unchanged from AM3)", function()
+  local e = proto("assembling-machine", "cindra-arc-furnace")
+  assert_true(e.circuit_connector ~= nil, "the furnace must keep a circuit_connector")
+  assert_eq(4, #e.circuit_connector, "the connector must carry all four direction entries")
+  assert_true(e.circuit_wire_max_distance and e.circuit_wire_max_distance > 0,
+    "the furnace must stay circuit-connectable")
+  for i, def in ipairs(e.circuit_connector) do
+    local w = def.points and def.points.wire
+    assert_true(w ~= nil, "connector entry " .. i .. " must define points.wire")
+    assert_true(about_eq(w.red[1], 0.78125) and about_eq(w.red[2], 0.3125),
+      "red wire pin must stay at the golden AM3 offset (entry " .. i .. ")")
+    assert_true(about_eq(w.green[1], 0.90625) and about_eq(w.green[2], 0.25),
+      "green wire pin must stay at the golden AM3 offset (entry " .. i .. ")")
+  end
 end)
 
 -- === Arc furnace: bespoke art (ci-hs1j) =====================================

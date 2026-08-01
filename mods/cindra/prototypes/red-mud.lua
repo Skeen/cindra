@@ -222,6 +222,21 @@ set_furnace_icon(furnace)
 furnace.localised_name = { "entity-name." .. FURNACE }
 furnace.localised_description = { "entity-description." .. FURNACE }
 
+-- === Selection box: a 5x5 click footprint under the big model (ci-1p1z) =======
+-- The cloned assembling-machine-3 is 3x3 (collision 1.2, selection 1.5), but the
+-- arc-furnace body below is a large riveted vessel that reads ~5 tiles across, so
+-- a 3x3 selection box leaves the model's outer ring un-clickable and the machine
+-- awkward to hover/select. Grow the SELECTION box to the full 5x5, centred on the
+-- model, so the click/highlight region matches the visible footprint.
+--
+-- The COLLISION box deliberately stays at the inherited 3x3: the furnace keeps
+-- AM3's fluid boxes, whose CO2 input pipe sits at position {0,-1} (the north edge
+-- of a 3x3 box). Enlarging the collision box to 5x5 would bury that pipe
+-- connection two tiles inside the machine and break the CO2 input, so the
+-- footprint that blocks building stays 3x3 while only the click region grows. The
+-- box is on a Cindra-exclusive clone, so this never leaks to the shared assembler.
+furnace.selection_box = { { -2.5, -2.5 }, { 2.5, 2.5 } }
+
 local furnace_item = util.table.deepcopy(data.raw.item["assembling-machine-3"])
 furnace_item.name = FURNACE
 furnace_item.place_result = FURNACE
