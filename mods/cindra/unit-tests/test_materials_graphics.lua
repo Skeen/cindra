@@ -82,6 +82,20 @@ function data:extend(list)
 end
 _G.data = data
 
+-- aluminium.lua builds the electrolysis-cell's circuit connector from these core
+-- globals (ci-sz0k, via circuit_connector_definitions.create_vector). They are
+-- present at the real data stage but absent in plain Lua; stub enough to load.
+_G.universal_connector_template = { name = "stub-universal-template" }
+_G.circuit_connector_definitions = {
+  create_vector = function(_, defs)
+    local out = {}
+    for i, d in ipairs(defs) do
+      out[i] = { points = { wire = { red = d.main_offset, green = d.main_offset } }, sprites = {} }
+    end
+    return out
+  end,
+}
+
 require("prototypes.plastics")
 require("prototypes.aluminium")
 require("prototypes.mass-driver")
