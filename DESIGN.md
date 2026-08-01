@@ -8,8 +8,8 @@ in-repo condensation plus the concrete decisions taken during implementation.
 
 > **Status: foundation + worldgen + ice processing + headline science.** §15 items 1–4 are
 > implemented and tested: the planet + surface + ribbon temperature axis (item 1),
-> the lethal edges — gradient damage, hard-wall backstop, nightside building-heat
-> (item 2), the world resources — stone / ice / bootstrap rocks
+> the lethal edges — gradient damage, hard-wall backstop, nightside NATIVE freeze
+> (item 2, ci-bvk), the world resources — stone / ice / bootstrap rocks
 > (item 3), and ice processing — mining the ice field for a fixed `ice` + `calcite`
 > mix (ci-9l6) and chemical-plant `ice-melting` → water (item 4, §5a).
 > The remaining §15 items (5–14) are the backlog in
@@ -140,13 +140,30 @@ recommendation — both **IMPLEMENTED (item 2)**:
   `scripts/driver.lua` sets it on the surface the instant it is created (a one-time
   map-gen config — **no** chunk deletion, **no** scripted void). Same mechanism as
   the vanilla "ribbon-world" preset.
-- **Nightside building-heat** — `scripts/building-heat.lua` ticks `cindra-cold`
-  damage on unheated machines past the cold threshold (axis temperature <
-  `freeze_temp`, default −30 °C). A heat source (heat pipe / reactor / heat
-  interface, or the future electric heater, which registers by name) within range
-  spares the machine. This is the "drag a heat umbilical nightward" pressure;
-  cold *damage* is used rather than toggling `active` (read-only for crafting
-  machines) and matches the spec's "take cold damage" option.
+- **Nightside NATIVE freeze** (§ freeze, ci-bvk — replaces the interim scripted
+  cold-damage model) — the Cindra planet carries `entities_require_heating = true`,
+  so the engine's real freeze applies (frost, stopped machines, native pipe/fluid
+  freeze) to any freezable entity **not** near a heat source. The nightside stays
+  cold; the habitable band is kept thawed by an INVISIBLE worldgen line of ambient
+  "lava-heat" emitters (`scripts/freeze-emitters.lua` + `prototypes/freeze-emitter.lua`)
+  representing the fire edge's warmth. The emitter is a 1×1 **heat-pipe** — the one
+  entity that both occupies a single tile (exact reach) and honours `heating_radius`
+  (a heat-**interface** silently ignores it); held hot by a periodic re-affirm sweep.
+  - **Geometry (all derived, `scripts/freeze.lua`):** a heat-pipe at `heating_radius`
+    100 thaws an INCLUSIVE Chebyshev square of measured reach **R = 101** (frozen at
+    102); emitters abut at spacing **2R+1 = 203** with no frozen seam. The warm band
+    spans, in ribbon-perpendicular coords, from the habitable middle's cold edge (the
+    freeze **ONSET**, ~p −60) sunward to the lava sea. Everything nightward of the
+    onset freezes: the safe cold-outer band becomes the reachable, buildable-but-frozen
+    **umbilical** zone (run a heat line out to work it), then the cold-damage rings,
+    then the deep-ice ocean. Because the ci-wly habitable+hot span (~260 tiles) is
+    wider than one 203-tile row, TWO parallel emitter rows (offset 203, boxes abutting)
+    cover it — the bead's "second interior row". Respects both ribbon orientations.
+  - **The electric heater (ci-f5l) composes with this natively:** a hot heater thaws
+    a pocket in the frozen band (drag warmth into the cold). This is the "drag a heat
+    umbilical nightward" pressure, now the engine's real freeze rather than scripted
+    `cindra-cold` machine damage. (Player-facing `cindra-cold` tile damage on the deep
+    ice, `scripts/tile-damage.lua`, is unchanged.)
 
 ## 4. Planet prototype decisions — IMPLEMENTED (item 1)
 
@@ -244,18 +261,21 @@ track's files or a shared file.**
 
 - **Worldgen track (`ci-9nj` / `ci-3yl`, this work):** `prototypes/damage-types.lua`,
   `prototypes/resources.lua`, `prototypes/tiles.lua`, `prototypes/noise.lua`,
-  `scripts/tile-damage.lua`, `scripts/building-heat.lua`, `scripts/terrain.lua`,
-  `scripts/resource-field.lua`, `scripts/driver.lua`, the planet map-gen in
-  `prototypes/planet.lua`, and their tests. Reads (does not own)
-  `scripts/ribbon.lua`.
+  `scripts/tile-damage.lua`, `scripts/freeze.lua` + `scripts/freeze-emitters.lua` +
+  `prototypes/freeze-emitter.lua` (native freeze, ci-bvk — replaced the retired
+  `scripts/building-heat.lua`), `scripts/terrain.lua`, `scripts/resource-field.lua`,
+  `scripts/driver.lua`, the planet map-gen + freeze flag in `prototypes/planet.lua`,
+  and their tests. Reads (does not own) `scripts/ribbon.lua`.
 - **Mechanics/economy track (`ci-4xj`):** the recipe / building / tech / power
   files — e.g. `prototypes/ice-processing.lua`, `prototypes/lava.lua`,
   `prototypes/aluminium.lua`, `prototypes/flare.lua`, `prototypes/storage.lua`,
   `prototypes/electric-heater.lua`, `prototypes/mass-driver.lua`,
   `prototypes/science.lua`, and their runtime. Consumes the worldgen resources
   (`stone` / `ice`; `ice` is mined directly from the ice field's fixed ice+calcite
-  mix, ci-9l6, and is the science pack's cold-edge input) and registers heat
-  sources by adding their name to `building-heat.HEAT_SOURCE_NAMES`.
+  mix, ci-9l6, and is the science pack's cold-edge input). Its heat sources (the
+  ci-f5l electric heater et al.) thaw nearby machines NATIVELY on the
+  `entities_require_heating` surface — no registry needed since native freeze (ci-bvk)
+  replaced the scripted `building-heat.lua` cold-damage model.
 - **Companion mods (`ci-27s`):** `mods/cindra-start`, `mods/cindra-dev-default`.
 - **Foundation-owned, shared (edit minimally, additively):** `data.lua`,
   `control.lua`, `settings.lua`, `prototypes/planet.lua`. Each track appends its

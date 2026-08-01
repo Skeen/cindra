@@ -68,4 +68,27 @@ function M.perp_neg_expr(orient)
   return "x"
 end
 
+-- The LONG-axis coordinate (along the ribbon) for a world position -- the axis the
+-- emitter lattice steps along. It is the axis `perp` does NOT use:
+--   vertical  (default): long = y  (the ribbon runs north-south)
+--   horizontal:          long = x  (the ribbon runs east-west)
+function M.long(x, y, orient)
+  orient = orient or M.orientation()
+  if orient == M.HORIZONTAL then return x end
+  return y
+end
+
+-- The INVERSE of (long, perp): the world (x, y) for a point at long-axis coordinate
+-- `long` and perpendicular coordinate `perp`. The emitter placer uses this to turn a
+-- lattice point (long = k*spacing, perp = a row centre) back into a world position,
+-- correctly for BOTH orientations. Round-trips perp()/long():
+--   vertical  (default): perp = -x, long = y  ->  x = -perp, y = long
+--   horizontal:          perp =  y, long = x  ->  x =  long, y = perp
+-- Returns two numbers (x, y).
+function M.world(long, perp, orient)
+  orient = orient or M.orientation()
+  if orient == M.HORIZONTAL then return long, perp end
+  return -perp, long
+end
+
 return M

@@ -55,5 +55,32 @@ test("perp_expr emits the sunward-positive axis for the noise DSL", function()
   assert_eq("(0 - x)", axis.perp_expr(), "default resolves to vertical")
 end)
 
+test("long() is the ribbon's OTHER axis (the emitter lattice steps along it)", function()
+  assert_eq(999, axis.long(0, 999, "vertical"), "vertical long axis is Y")
+  assert_eq(999, axis.long(999, 0, "horizontal"), "horizontal long axis is X")
+end)
+
+test("world() is the exact inverse of (long, perp) for BOTH orientations", function()
+  -- The emitter placer turns (long = lattice, perp = row) back into (x, y); it must
+  -- round-trip perp()/long() so an emitter lands on the intended tile.
+  for _, orient in ipairs({ "vertical", "horizontal" }) do
+    for _, pt in ipairs({ { 7, -13 }, { -201, 40 }, { 0, 0 }, { 33, 241 } }) do
+      local x, y = pt[1], pt[2]
+      local wx, wy = axis.world(axis.long(x, y, orient), axis.perp(x, y, orient), orient)
+      assert_eq(x, wx, orient .. ": world() recovers x")
+      assert_eq(y, wy, orient .. ": world() recovers y")
+    end
+  end
+end)
+
+test("world() places a row-40 emitter on the HOT side for both orientations", function()
+  -- perp = 40 is sunward (hot). Vertical: hot is -x, so x = -40. Horizontal: hot is
+  -- +y, so y = 40. A lattice point at long = 201 sits on the respective long axis.
+  local vx, vy = axis.world(201, 40, "vertical")
+  assert_eq(-40, vx, "vertical: sunward row is at -x"); assert_eq(201, vy, "vertical: lattice on y")
+  local hx, hy = axis.world(201, 40, "horizontal")
+  assert_eq(201, hx, "horizontal: lattice on x"); assert_eq(40, hy, "horizontal: sunward row is at +y")
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

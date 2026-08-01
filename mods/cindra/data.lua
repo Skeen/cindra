@@ -31,6 +31,14 @@ require("prototypes.decoratives")
 -- temperature-axis framing, generated as a REAL noise-driven ribbon planet.
 require("prototypes.planet")
 
+-- § freeze (ci-bvk): the invisible ambient lava-heat emitter. The planet carries
+-- `entities_require_heating = true` (planet.lua), so every freezable entity freezes
+-- unless a hot heat source is in reach; scripts/freeze-emitters.lua lines these along
+-- the ribbon to keep the habitable band thawed while the deep nightside freezes for
+-- real. A deep-copied heat-interface -- mutates no shared prototype. Loads after the
+-- planet (whose flag it serves); needs no other Cindra prototype.
+require("prototypes.freeze-emitter")
+
 -- §15-4 ice processing: mining an ice field yields a FIXED MIX of `ice` + `calcite`
 -- directly (ci-9l6, see resources.lua) -- calcite is a native mined resource and
 -- there is no feedstock chunk or ground crusher any more. The ONLY processing step

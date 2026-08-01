@@ -522,12 +522,20 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (never the lethal deep-ice zone or the warm side) and yield ice + stone; only the
   "does the frost tint read icy against live cold terrain + lighting" is the playtest.
 
-- [ ] **[LANDED] Nightside cold damage vs Aquilo freeze (feel).** Unheated
-  machines past the cold threshold (axis temp < -30 °C default) take ticking cold
-  damage rather than a reversible Aquilo-style freeze. *Look for:* the pace
-  (default 20 dps) gives enough time to run a heat umbilical out before a machine
-  dies, and reads as "drag heat with you," not "instant loss." If a reversible
-  freeze feels better, that is a future refinement, not a v1 bug.
+- [ ] **[LANDED] Nightside NATIVE freeze (ci-bvk) — feel + VISUALS.** The nightside
+  now uses the ENGINE's real Aquilo-style freeze (`entities_require_heating` + an
+  invisible worldgen lava-heat emitter line keeping the habitable band thawed), which
+  REPLACED the interim scripted cold-damage model. The frozen STATE is asserted
+  headless (`tests/test_freeze.lua`: warm band thawed, nightside machine+pipe frozen,
+  heater thaws a pocket); the VISUALS need an in-engine look. *Repro:* on Cindra,
+  build a machine + a pipe in the middle (thawed), then walk them nightward past the
+  onset (~one screen east of spawn) and leave them a while; run a heat line back out.
+  *Look for:* (1) machines past the onset grow **frost** and STOP (the vanilla frozen
+  animation), pipes/fluids **freeze** natively; (2) the freeze ONSET reads as a clean
+  line where the ice-side terrain gradient begins, not a fuzzy fade; (3) an electric
+  heater thaws a visible pocket and the machines resume when warmed. Multiplayer /
+  UPS at full ribbon scale is a separate look. If the pace feels off, that is tuning,
+  not a v1 bug.
 
 - [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
   decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the
@@ -1075,27 +1083,18 @@ These are DESIGNED and beaded but NOT on `main`. Do not expect them in a playtes
 of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
 
-- [ ] **[IN-FLIGHT] Native-freeze inversion: high-radius emitter UPS + frost
-  visuals (ci-b5i).** The freeze-radius spike (its standalone `freeze-radius-poc`
-  mod was removed with ci-eao once concluded; the shipped freeze is the
-  cold-DAMAGE model in `scripts/building-heat.lua`, and these findings are the
-  durable record of the un-adopted inversion path) proved
-  headlessly that a hot heat source with `heating_radius = 100` thaws freezable
-  machines out to a hard ~100-tile clamp (square/Chebyshev reach), thaws
-  already-frozen machines, sustains indefinitely, and is source-agnostic, all via
-  `LuaEntity.frozen`. Two things a headless run CANNOT judge and that gate adopting
-  the mechanic on Cindra: **(1) UPS / per-tick cost** of the engine's O(R²) heating
-  scan at radius 100, an untested regime (base game runs radius ~1 with dense heat
-  pipes); the entity-count collapse (a handful of emitters vs thousands of pipes) is
-  favourable but the per-emitter scan cost is unverified. **(2) The freeze VISUALS**:
-  frost overlays, stopped-machine animations, and native pipe/fluid freeze
-  animation. *Repro (once the mechanic is integrated into Cindra):* enable
-  `entities_require_heating`, place an r100 emitter line on the fire edge, spacing
-  ≤ ~190, and watch a machine field ~100 tiles out. *Look for:* (1) UPS stays sane
-  with a live radius-100 emitter line over a populated band (profile via time-usage
-  overlay on a large factory); (2) machines beyond the warm band visibly frost over
-  and stop, pipes/fluids freeze, and the freeze front reads as a clean straight ice
-  line just past the emitters; (3) no bleed of thaw past ~100 tiles.
+- [x] **[LANDED via ci-bvk] Native-freeze inversion (was the ci-b5i spike).** The
+  inversion is now the shipped nightside model (see the "Nightside NATIVE freeze"
+  entry above for the in-engine visual checklist). Record corrections the integration
+  forced: (1) `heating_radius` is a HeatPipe/Reactor field, **not** a HeatInterface
+  one — a heat-interface silently ignores it (measured: a machine 5 tiles from a
+  heating_radius-100 heat-interface stays frozen), so the shipped emitter is a 1×1
+  **heat-pipe**; (2) measured inclusive reach is **101** (frozen at 102) for
+  heating_radius 100, so spacing is **2R+1 = 203** (the spike's "~100 / 201" was off
+  by one); (3) the **UPS gate was dropped** (user, 2026-07-31): heat coverage is
+  cached on placement/heat-source-change, so per-tick freeze cost is R-independent —
+  revisit only if a real regression shows in live play. The retired scripted
+  cold-damage model (`scripts/building-heat.lua`) is gone.
 
 - [ ] **[IN-FLIGHT] Power diode PoC: the single power-switch-style building
   (ci-gcd, reworked ci-8l4).** A research spike (one-way power transfer between two

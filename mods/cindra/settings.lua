@@ -64,18 +64,10 @@ data:extend({
     maximum_value = 10000,
     order = "d-max-dps",
   },
-  -- Axis temperature (°C) at/below which unheated nightside machines freeze
-  -- (§15-2 building-heat). Tuned so the freeze zone begins around the nightward
-  -- edge of the safe band; the temperate ribbon never freezes.
-  {
-    type = "double-setting",
-    name = "cindra-nightside-freeze-temp",
-    setting_type = "startup",
-    default_value = -30,
-    minimum_value = -270,
-    maximum_value = 25,
-    order = "e-freeze-temp",
-  },
+  -- (The old `cindra-nightside-freeze-temp` slider is gone: the nightside now
+  -- freezes NATIVELY (§ freeze, ci-bvk) via entities_require_heating + the lava-heat
+  -- emitter line, whose onset is DERIVED from the ribbon zone widths below -- not a
+  -- separate temperature threshold. See scripts/freeze-emitters.lua.)
 })
 
 -- Per-zone WIDTH settings for the left->right worldgen gradient (ci-da2 / ci-a35).

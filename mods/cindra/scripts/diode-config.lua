@@ -65,8 +65,8 @@ C.INPUT_FLOW_W = C.RATE_W
 C.OUTPUT_FLOW_W = C.RATE_W
 
 -- Sweep cadence (ticks). DISTINCT from every other Cindra periodic system
--- (tile-damage 20, flare 23, panel-damage 29, building-heat 47) -- on_nth_tick is
--- REPLACE-not-add, so each system owns its own N.
+-- (tile-damage 20, flare 23, panel-damage 29) -- on_nth_tick is REPLACE-not-add, so
+-- each system owns its own N.
 C.TICK_INTERVAL = 7
 
 return C

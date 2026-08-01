@@ -3,17 +3,17 @@
 -- v1 foundation (§15 item 1) established the runtime surface + the pure ribbon
 -- temperature axis (scripts/ribbon.lua). The WORLDGEN track (§15 items 2-3) now
 -- attaches its runtime here via scripts/driver.lua: the lethal-edge damage sweep,
--- the nightside building-heat freeze, and per-chunk world generation (hard-wall
--- backstop + resource placement). Later tracks (flare §15-7, etc.) register their
--- own runtime; keep each track's handlers disjoint.
+-- the NATIVE nightside freeze (§ freeze, ci-bvk: the entities_require_heating flag +
+-- the worldgen lava-heat emitter line), and the finite-ribbon bound. Later tracks
+-- (flare §15-7, etc.) register their own runtime; keep each track's handlers disjoint.
 --
 -- Invariants (mirrors AGENTS.md / DESIGN.md):
 --   * NEVER mutate global state that affects other planets. Every runtime handler
 --     is gated on `surface.name == "cindra"`. This mod adds Cindra; it MUST NOT
 --     change any other planet's gameplay.
 --   * `script.on_nth_tick(N, fn)` is REPLACE-not-add: one handler per N. Each
---     periodic system (edge-damage, building-heat, ...) uses a distinct N; the
---     single on_init lives here.
+--     periodic system (edge-damage, flare, ...) uses a distinct N; the single
+--     on_init lives here.
 
 local driver = require("scripts.driver")
 driver.register()
@@ -95,7 +95,12 @@ if script.active_mods["factorio-test"] then
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",
     "tests/test_decoratives",
-    "tests/test_building_heat",
+    -- § freeze (ci-bvk): NATIVE freeze via the entities_require_heating flag + the
+    -- worldgen lava-heat emitter line. Replaces the retired scripted building-heat
+    -- cold-damage model: measured reach/seam vs the real emitter, warm-band thawed /
+    -- nightward frozen, both orientations, ci-f5l heater extends the warm pocket, no
+    -- other-planet mutation.
+    "tests/test_freeze",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
     -- Power system (§15 items 7-9), integrated from the flare-poc (ci-zg3):

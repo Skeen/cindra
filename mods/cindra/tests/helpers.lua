@@ -24,7 +24,11 @@ function H.cindra_surface()
   end
 
   for _, e in pairs(s.find_entities_filtered({ area = { { -60, -60 }, { 60, 60 } } })) do
-    if e.type ~= "character" then e.destroy() end
+    -- Keep the character AND the worldgen lava-heat emitters (§ freeze, ci-bvk): the
+    -- latter are ambient infrastructure the map-gen placed to keep this work area
+    -- thawed on the entities_require_heating surface, NOT test clutter. Wiping them
+    -- would refreeze every machine a test then builds here.
+    if e.type ~= "character" and e.name ~= "cindra-lava-heat" then e.destroy() end
   end
 
   local tiles = {}

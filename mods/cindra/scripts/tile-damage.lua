@@ -20,9 +20,10 @@
 --
 -- Factorio has NO native per-tick damaging-field, so this is a script sweep.
 --
--- 🚨 Scoped to `surface.name == "cindra"`: never touches an entity on any other planet.
--- Buildings' nightside FREEZE (needs a heat source) is a separate, richer mechanic in
--- scripts/building-heat.lua; this is the raw lethal-ground burn.
+-- 🚨 Scoped to `surface.name == "cindra"`: never touches an entity on any other
+-- planet. Buildings' nightside FREEZE (needs a heat source) is a separate, NATIVE
+-- mechanic (§ freeze, ci-bvk: entities_require_heating + the lava-heat emitter
+-- line); this is the raw lethal-ground burn.
 
 local terrain = require("scripts.terrain")
 local axis = require("scripts.axis")
@@ -30,8 +31,8 @@ local axis = require("scripts.axis")
 local M = {}
 
 -- Sweep cadence (ticks). on_nth_tick(N) is REPLACE-not-add, so this N stays distinct from
--- every other periodic system (building-heat 47, flare 23, panel-damage 29); it inherits
--- the old edge-damage cadence (20).
+-- every other periodic system (flare 23, panel-damage 29; freeze reheat now owns the
+-- freed 47); it inherits the old edge-damage cadence (20).
 M.DAMAGE_INTERVAL = 20
 
 -- Semantic damage kind ("heat"/"cold", from the field) -> the concrete Cindra

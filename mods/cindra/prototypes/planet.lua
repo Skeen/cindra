@@ -192,6 +192,16 @@ data:extend({
     subgroup = "planets",
     map_gen_settings = cindra_map_gen(),
     pollutant_type = nil,
+    -- NATIVE FREEZE (§ freeze, ci-bvk): turn on the engine's whole-surface freeze.
+    -- Every freezable entity on a Cindra surface freezes for real (frost, stopped
+    -- machines, native pipe/fluid freeze) UNLESS a heat source supplies its heating
+    -- energy in range. The runtime (scripts/freeze-emitters.lua) lines invisible
+    -- ambient lava-heat emitters (heating_radius = the pinned engine clamp, see
+    -- scripts/freeze.lua) along the ribbon so the habitable band stays thawed out to
+    -- the freeze onset and the deep nightside freezes -- the ci-b5i inversion. This
+    -- flag is WHOLE-PLANET (cannot be scoped to half a surface, confirmed ci-p7z /
+    -- ci-b5i) and per-PLANET, so it never touches any other world's gameplay.
+    entities_require_heating = true,
     -- Orbits perilously close to the star -> the strongest orbit solar in the
     -- system: 1000, well above Vulcanus's 600 (Nauvis 300). Platforms parked over
     -- Cindra bake in the light. (Was 2000; halved per ci-2sr.)

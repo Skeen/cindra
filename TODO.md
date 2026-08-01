@@ -32,10 +32,13 @@ merge queue.
     (`prototypes/damage-types.lua`).
   - Hard-wall backstop: `scripts/worldgen.lua` voids tiles at/beyond `wall_at`
     (`out-of-map`), making the map a finite-width ribbon.
-  - Nightside building-heat: `scripts/building-heat.lua` ticks cold damage on
-    unheated machines past the cold threshold; a nearby heat source spares them.
+  - Nightside NATIVE freeze (`ci-bvk`, replaced the interim scripted building-heat):
+    the planet's `entities_require_heating` flag + an invisible worldgen heat-pipe
+    "lava-heat" emitter line (`scripts/freeze.lua`, `scripts/freeze-emitters.lua`,
+    `prototypes/freeze-emitter.lua`) keep the habitable band thawed while the
+    nightside freezes for real; a nearby heat source (ci-f5l heater) thaws a pocket.
   - Tested: `tests/test_edge_damage.lua`, `tests/test_worldgen.lua`,
-    `tests/test_building_heat.lua`.
+    `tests/test_freeze.lua`, `unit-tests/test_freeze.lua`, `unit-tests/test_freeze_emitters.lua`.
 - [x] **§15-3 — Resources.** `ci-l72` (worldgen track `ci-9nj`).
   - `prototypes/resources.lua` + `scripts/resource-field.lua` (pure band geometry)
     + runtime placement in `scripts/worldgen.lua`: stone (ribbon), ice
@@ -257,9 +260,10 @@ merge queue.
   snowfall on the cold side only.
 - [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
   `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
-- **SEQUENCE NOTE:** native freeze (`ci-bvk`) re-aligns onto this new tile layout AFTER
-  it lands (its proven constants still apply; onset ties to the cold-side gradient now,
-  not a wall).
+- **SEQUENCE NOTE:** native freeze (`ci-bvk`) is DONE and aligned onto this tile layout:
+  its onset ties to the cold-side gradient (the middle's cold edge, ~p −60), not a wall.
+  NB the emitter had to become a 1×1 heat-pipe (a heat-interface ignores `heating_radius`)
+  and the measured reach is 101 / spacing 203, not the spike's 100 / 201.
 
 ## Deferred / cross-cutting
 

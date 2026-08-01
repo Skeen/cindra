@@ -137,8 +137,9 @@ C.STORAGE_SATURATION_THRESHOLD = 0.9
 
 -- === Tick cadences ===========================================================
 -- on_nth_tick(N) is REPLACE-not-add: every periodic system needs a DISTINCT N.
--- The worldgen track already owns 20 (edge-damage) and 47 (building-heat), so
--- the flare driver and the panel-damage sweep take fresh primes.
+-- The worldgen track already owns 20 (edge-damage); native freeze is event-driven
+-- (on_chunk_generated), not a periodic tick, so the flare driver and the
+-- panel-damage sweep take fresh primes.
 C.FLARE_INTERVAL = 23        -- advance the flare (daytime + multiplier) + upkeep
 C.PANEL_DAMAGE_INTERVAL = 29 -- the panel damage / recovery sweep
 
