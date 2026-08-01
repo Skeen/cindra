@@ -115,6 +115,32 @@ function data:extend(list)
 end
 _G.data = data
 
+-- === Stub the core circuit-connector globals (ci-sz0k) ======================
+-- aluminium.lua now builds the cell's connector from the core
+-- `universal_connector_template` via `circuit_connector_definitions.create_vector`
+-- (a real connector SPRITE at the bottom-right, matching the lava-manufacturer),
+-- replacing the ci-a6z points-only connector that rendered nothing. Those are
+-- core globals absent in plain Lua; stub a create_vector that records the
+-- main_offset(s) and returns a minimal 4-direction connector carrying the offset
+-- as the wire point AND a sprites marker -- enough to assert the module built a
+-- real (sprite-bearing) connector aimed bottom-right.
+_G.universal_connector_template = { name = "stub-universal-template" }
+local captured_offsets = {}
+_G.circuit_connector_definitions = {
+  create_vector = function(template, defs)
+    assert(template == _G.universal_connector_template, "must reuse the universal connector template")
+    local out = {}
+    for i, d in ipairs(defs) do
+      captured_offsets[i] = d.main_offset
+      out[i] = {
+        points = { wire = { red = d.main_offset, green = d.main_offset } },
+        sprites = { has_sprites = true, variation = d.variation },
+      }
+    end
+    return out
+  end,
+}
+
 require("prototypes.aluminium")
 
 local CELL = "cindra-electrolysis-cell"
@@ -224,9 +250,14 @@ test("body/emission scale fits the footprint and the shift does not float it", f
   -- tall). A regression to a tiny or absurd scale fails here.
   assert_true(body.scale >= 0.35 and body.scale <= 0.6,
     "body scale must fit the 4x4 box (0.35-0.6), got " .. tostring(body.scale))
-  -- shift.y must not lift the body off the ground (a large negative float).
+  -- ci-sz0k (playtest): the body was nudged UP a smidge so it centres in the 4x4
+  -- box (north = -y), but the lift stays tiny -- it must NOT float off the ground.
+  -- So shift.y is strictly negative (moved up from the old {0,0}) yet above the
+  -- -0.2-tile float floor.
+  assert_true(body.shift[2] < 0,
+    "body must be nudged UP a smidge (shift.y < 0), got " .. tostring(body.shift[2]))
   assert_true(body.shift[2] > -0.2,
-    "body must not be lifted off the ground (shift.y ~ 0), got " .. tostring(body.shift[2]))
+    "body must not be lifted off the ground (shift.y > -0.2), got " .. tostring(body.shift[2]))
   -- Body + emission must stay locked together (same scale + shift) or the molten
   -- arc glow drifts off the body.
   assert_eq(body.scale, glow.scale, "emission scale must match the body")
@@ -328,30 +359,38 @@ test("selection/collision box is a 4x4 footprint", function()
   assert_true(cb[1][1] > sb[1][1] and cb[2][1] < sb[2][1], "collision box must sit inside the selection box")
 end)
 
--- === Circuit wire attaches at the bottom-right (ci-a6z) =====================
--- The inherited electric-furnace connector puts the wire near centre-top, which
--- reads badly on the tall oxidizer body. It is re-anchored to the bottom-right of
--- the 4x4 box: +x = east (right), +y = south (down), so both the red and green
--- wire pins must have positive x AND positive y, and green sits right of red.
--- LuaEntityPrototype does not expose this offset at runtime, so this data-layer
--- check is the only guard. A drift back toward the centre/top fails here.
-test("circuit wire connection point is at the bottom-right", function()
+-- === Circuit connector RENDERS a sprite at the bottom-right (ci-sz0k) ========
+-- ci-a6z re-anchored the wire bottom-right but left a POINTS-ONLY connector, so
+-- nothing rendered on the model (the playtest bug: no connector visible at all).
+-- The cell now rebuilds the connector from the universal template via
+-- create_vector, which ships a real connector SPRITE co-located with the wire
+-- pins at the bottom-right of the 4x4 box (+x = east, +y = south -> bottom-right
+-- is (+,+)). Assert every direction carries a sprite AND a bottom-right wire
+-- point inside the footprint. A regression to points-only (no sprite) or a drift
+-- back toward the centre/top (y < 0) fails here. The module aims the connector
+-- via create_vector's main_offset, captured by the stub above.
+test("circuit connector renders a sprite at the bottom-right", function()
   local m = proto("furnace", CELL)
   assert_true(m.circuit_connector ~= nil, "the cell must define a circuit_connector")
-  assert_true(#m.circuit_connector >= 1, "the connector vector must have at least one entry")
+  assert_eq(4, #m.circuit_connector, "the connector must cover all 4 directions")
   for i, def in ipairs(m.circuit_connector) do
+    assert_true(def.sprites ~= nil,
+      "connector entry " .. i .. " must carry SPRITES so a connector graphic renders")
     assert_true(def.points ~= nil and def.points.wire ~= nil,
       "connector entry " .. i .. " must define points.wire")
-    local red, green = def.points.wire.red, def.points.wire.green
-    assert_true(red ~= nil and green ~= nil, "both red and green wire pins must be set")
+    local red = def.points.wire.red
+    assert_true(red ~= nil, "the wire point must be set")
     assert_true(red[1] > 0 and red[2] > 0,
-      "red pin must be bottom-right (x>0, y>0), got {" .. red[1] .. ", " .. red[2] .. "}")
-    assert_true(green[1] > 0 and green[2] > 0,
-      "green pin must be bottom-right (x>0, y>0), got {" .. green[1] .. ", " .. green[2] .. "}")
-    assert_true(green[1] > red[1], "green pin must sit right of red (vanilla convention)")
-    -- The pins must sit inside the 4x4 half-extent (2.0), not off the machine.
-    assert_true(red[1] <= 2.0 and green[1] <= 2.0 and red[2] <= 2.0 and green[2] <= 2.0,
-      "wire pins must sit within the 4x4 footprint")
+      "wire must attach bottom-right (x>0, y>0), got {" .. red[1] .. ", " .. red[2] .. "}")
+    -- The wire point must sit inside the 4x4 half-extent (2.0), not off the machine.
+    assert_true(red[1] <= 2.0 and red[2] <= 2.0,
+      "the wire point must sit within the 4x4 footprint")
+  end
+  -- Every direction must have been aimed bottom-right through create_vector.
+  assert_eq(4, #captured_offsets, "create_vector must be called for all 4 directions")
+  for i, off in ipairs(captured_offsets) do
+    assert_true(off[1] > 0 and off[2] > 0,
+      "direction " .. i .. " main_offset must be bottom-right, got {" .. off[1] .. ", " .. off[2] .. "}")
   end
   assert_true(m.circuit_wire_max_distance and m.circuit_wire_max_distance > 0,
     "the cell must stay circuit-connectable (circuit_wire_max_distance > 0)")

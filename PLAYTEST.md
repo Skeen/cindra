@@ -653,9 +653,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   the 4x4 tiles -- confirm the base sits on the tiles (not floating, buried, or
   wildly over/under sized) and the **700x500 shadow lands under the body** (its
   canvas differs from the 280x320 body frame, so the shared scale/shift may need an
-  in-engine nudge, as the glass furnace did in ci-ijk). Also confirm the
-  points-only connector (no LED nub) still reads cleanly; if it looks bare, a
-  repositioned connector sprite could be added later. The geometry (280x320
+  in-engine nudge, as the glass furnace did in ci-ijk). (The points-only
+  connector this entry flagged as possibly bare was replaced by a real connector
+  sprite in ci-sz0k -- see the dedicated entry below.) The geometry (280x320
   frames, 60-frame 8-wide sheet, last 4 cells empty), the 3-layer wiring, the
   additive glow, the RGBA conversion of the (originally palette) source PNGs, the
   dropped electric-furnace overlays, the 4x4 box, the bottom-right wire point, and
@@ -666,6 +666,27 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   render as a black box in Factorio (the ci-036 / ci-8r6 lava bug), so they were
   converted to truecolour RGBA on import; watch specifically for a black-square
   regression if the sheets are ever re-exported.
+
+- [ ] **Electrolysis-cell ("oxidizer"): model nudged up + visible circuit
+  connector (ci-sz0k).** Two playtest follow-ups to ci-a6z on the bulbous oxidizer
+  vessel (`cindra-electrolysis-cell`, the O2-venting aluminium building the human
+  reads as "the oxygenator"). (1) The body sat a touch too LOW in its 4x4
+  selection box; `BODY_SHIFT` in `mods/cindra/prototypes/aluminium.lua` moved from
+  `{0,0}` to `util.by_pixel(0,-6)` so the whole model (body + glow + shadow) rides
+  UP a smidge. (2) ci-a6z left a POINTS-ONLY connector, so NO circuit connector
+  rendered on the model at all; it is now rebuilt from the core
+  `universal_connector_template` via `circuit_connector_definitions.create_vector`
+  (the same helper the lava-manufacturer uses, ci-cge), which ships a real
+  connector SPRITE co-located with the wire pins at the bottom-right of the box.
+  *Repro:* research the aluminium tech, build a `cindra-electrolysis-cell`, and
+  run a red/green circuit wire to it. *Look for:* (a) the model now sits
+  CENTRED in the selection box (not bottom-heavy / overhanging the bottom edge) --
+  judge whether -6 px is the right smidge, more/less may be needed in-engine; (b)
+  a real circuit-connector LED nub now RENDERS at the machine's bottom-right, and
+  the wire attaches to it there (not floating, not centre-top, not invisible). The
+  connector-has-sprites + bottom-right wire point and the `shift.y` staying seated
+  (not floated) are test-covered (`unit-tests/test_aluminium_graphics.lua`); only
+  the on-screen smidge magnitude and the connector's visual placement need eyes.
 
 - [ ] **[LANDED] Aluminium chain, the power sink (ci-txh; leaching + O2 reshape
   ci-6vj S2).** The signature material: `20 stone + 30 sulfuric-acid + 20 water ->
