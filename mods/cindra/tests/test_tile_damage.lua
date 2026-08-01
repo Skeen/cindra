@@ -1,28 +1,29 @@
--- Proof: environmental damage is BELT/FIELD-based and ramps with depth (§4, §15-2;
--- ci-3yl, ci-da2, ci-4jl, REKEYED ci-oe83).
+-- Proof: environmental damage is TILE-based -- a hazard tile burns/freezes whatever
+-- stands on it, and a player-placed COVER tile (concrete) SHIELDS it (§4, §15-2;
+-- ci-3yl, ci-da2, ci-4jl, RESTORED ci-ma18).
 --
--- scripts/tile-damage.lua reads the ONE heightmap FIELD at an entity's perpendicular
--- POSITION and burns/freezes it, scaled by how deep into the belt it stands
--- (terrain.field_damage). This proves:
---   * the ramp: heat rises the deeper sunward you stand; cold rises the deeper nightward;
---     the safe middle takes nothing;
---   * the ci-oe83 fix -- damage is DECOUPLED from the tile art: a cosmetic hot tile
---     painted in the safe middle does ZERO damage, and a safe-looking tile in the belt
---     still burns. So there is no non-damaging path to either ocean;
---   * an entity whose footprint OVERLAPS the belt burns even if its centre reads safe;
---   * the sweep is Cindra-only.
+-- scripts/tile-damage.lua reads the ACTUAL tile under an entity's collision footprint
+-- and burns/freezes it (terrain.tile_damage). This is the ci-ma18 regression guard for
+-- BOTH directions of the shipped position-keyed bug:
+--   * SHIELD: concrete over hot/cold ground -> ZERO damage (the position model kept
+--     burning through a cover);
+--   * HAZARD: a hot/cold natural tile burns/freezes wherever it renders, even in the
+--     nominally-"safe" middle (the position model left cosmetically-hot tiles harmless);
+--   * a machine STRADDLING a hazard tile burns even if its centre is on safe ground;
+--   * the safe middle takes nothing; the sweep is Cindra-only.
 --
--- (This supersedes ci-4jl's per-tile model, which let a ridge of non-damaging tiles reach
--- the lava -- see ci-oe83.)
+-- (This supersedes ci-oe83's position-keyed model, which shipped concrete-over-lava
+-- still burning + hot cracks dealing nothing -- see ci-ma18.)
 
 local H = require("tests.helpers")
 local td = require("scripts.tile-damage")
 
-describe("belt/field-based lethal-ground damage (§15-2; ci-oe83)", function()
+describe("tile-based lethal-ground damage (§15-2; ci-ma18)", function()
   local YY = 3200
   local s
 
-  -- Paint an 11x11 patch of `name` centred on (cx, cy).
+  -- Paint an 11x11 patch of `name` centred on (cx, cy) (set_tiles bypasses the
+  -- no-paving handler, so we can lay any tile -- hazard or cover -- for the test).
   local function pave(name, cx, cy)
     local tiles = {}
     for x = cx - 5, cx + 5 do
@@ -36,7 +37,6 @@ describe("belt/field-based lethal-ground damage (§15-2; ci-oe83)", function()
   before_each(function()
     s = H.cindra_surface()
     storage.cindra_driver_enabled = false
-    -- Generate a wide strip so belt positions (|x| up to ~180) exist at YY.
     s.request_to_generate_chunks({ 0, YY }, 8)
     s.force_generate_chunk_requests()
     for _, e in pairs(s.find_entities_filtered({ area = { { -260, YY - 20 }, { 260, YY + 20 } } })) do
@@ -48,12 +48,13 @@ describe("belt/field-based lethal-ground damage (§15-2; ci-oe83)", function()
     storage.cindra_driver_enabled = true
   end)
 
-  -- HP lost by a fresh `entity_name` at world x (perp = -x), after ONE deterministic sweep
-  -- (peak dps 200 at a full-intensity point). Position decides the damage, so the tile
-  -- under it is irrelevant.
-  local function damage_at(x, entity_name)
-    local e = s.create_entity({ name = entity_name or "assembling-machine-1", position = { x, YY }, force = "player" })
-    assert.is_not_nil(e, (entity_name or "machine") .. " placed at x=" .. x)
+  -- HP lost by a fresh `entity_name` standing on tile `tile_name` (painted under it) at
+  -- (cx, YY), after ONE deterministic sweep (peak dps 200 at a full-intensity tile).
+  local function damage_on(tile_name, entity_name, cx)
+    cx = cx or 0
+    pave(tile_name, cx, YY)
+    local e = s.create_entity({ name = entity_name or "assembling-machine-1", position = { cx, YY }, force = "player" })
+    assert.is_not_nil(e, (entity_name or "machine") .. " placed on " .. tile_name)
     local before = e.health
     td.sweep(s, 60, 200)
     local lost = before - e.health
@@ -66,65 +67,70 @@ describe("belt/field-based lethal-ground damage (§15-2; ci-oe83)", function()
     assert.are.equal(200, td.damage_amount(300, 40), "twice the ticks = twice the HP")
   end)
 
-  it("HEAT damage RAMPS with POSITION: deeper into the hot belt burns more; middle = 0", function()
-    -- perp = -x: x=-160 (perp 160) is deep in the hot belt, x=-135 (perp 135) shallow,
-    -- x=0 the safe middle. The heat threshold is perp 130.
-    local deep    = damage_at(-160)
-    local shallow = damage_at(-135)
-    local middle  = damage_at(0)
-    assert.are.equal(0, middle, "the safe middle takes no damage")
-    assert.is_true(shallow > 0, "the shallow hot belt burns a little")
-    assert.is_true(deep > shallow, "deeper into the hot belt burns more (depth ramp)")
+  it("HAZARD: a HOT natural burns; a hotter natural burns more; safe ground = 0", function()
+    local crust   = damage_on("cindra-volcanic-cracks-hot") -- glowing hot crust
+    local hotter  = damage_on("cindra-volcanic-smooth-stone-warm") -- warm crust, hotter
+    local safe    = damage_on("cindra-volcanic-ash-flats") -- the safe middle
+    assert.are.equal(0, safe, "safe ash ground burns nothing")
+    assert.is_true(crust > 0, "the glowing hot crust burns")
+    assert.is_true(hotter > crust, "a hotter natural burns more (depth ramp)")
   end)
 
-  it("COLD damage RAMPS with POSITION: deeper into the cold belt freezes more; middle = 0", function()
-    local deep    = damage_at(160)  -- perp -160, deep cold belt
-    local shallow = damage_at(135)  -- perp -135, shallow cold belt
-    local middle  = damage_at(0)
-    assert.are.equal(0, middle, "the safe middle takes no cold damage")
-    assert.is_true(shallow > 0, "the shallow cold belt freezes a little")
-    assert.is_true(deep > shallow, "deeper into the cold belt freezes more")
+  it("HAZARD: a COLD natural freezes; a colder natural freezes more", function()
+    local snow = damage_on("cindra-snow-crests")
+    local ice  = damage_on("cindra-ice-rough")
+    assert.is_true(snow > 0, "snow freezes")
+    assert.is_true(ice > snow, "rough ice freezes more than snow")
   end)
 
-  it("CRITICAL (ci-oe83): a cosmetic LAVA tile in the safe middle does ZERO damage", function()
-    -- The exact ci-oe83 decision: damage follows the FIELD (position), not the tile. A
-    -- hot-looking (even lava) tile scattered in the safe middle burns NOTHING -- so
-    -- cosmetic scatter can never trap the player, and there is no tile-keyed damage to
-    -- exploit. (The old ci-4jl model burned here; that model is what shipped the corridor.)
-    pave("cindra-lava-hot", 0, YY)
-    local pump = s.create_entity({ name = "pump", position = { 0, YY }, force = "player" })
-    assert.is_not_nil(pump, "a pump can be placed at the safe middle")
-    local before = pump.health
-    td.sweep(s, 60, 200)
-    assert.is_true(pump.valid and pump.health == before,
-      "a pump on a cosmetic lava tile in the SAFE middle takes ZERO damage (damage is positional)")
-    pump.destroy()
+  it("SHIELD (ci-ma18): CONCRETE over hot ground stops the burn; over cold stops the freeze", function()
+    -- The exact ci-ma18 scenario, at DEEP belt positions where the shipped position model
+    -- burned right through the cover (perp = -x: x=-160 is deep hot, x=160 deep cold).
+    -- On the old model `covered_*` still burned (the bug); tile-based, the concrete shields.
+    local bare_hot = damage_on("cindra-volcanic-cracks-hot", "assembling-machine-1", -160)
+    assert.is_true(bare_hot > 0, "bare hot crust burns (control)")
+    local covered_hot = damage_on("concrete", "assembling-machine-1", -160)
+    assert.are.equal(0, covered_hot, "concrete over the hot belt takes ZERO damage")
+
+    local bare_cold = damage_on("cindra-ice-rough", "assembling-machine-1", 160)
+    assert.is_true(bare_cold > 0, "bare rough ice freezes (control)")
+    local covered_cold = damage_on("concrete", "assembling-machine-1", 160)
+    assert.are.equal(0, covered_cold, "concrete over the cold belt takes ZERO cold damage")
   end)
 
-  it("CRITICAL (ci-oe83): a SAFE-looking tile in the hot belt still BURNS (no corridor)", function()
-    -- Mirror of the above: paint a safe ash tile in the hot belt. Because damage follows
-    -- the POSITION, standing there still burns -- so no ridge of safe-looking tiles can
-    -- ever form a non-damaging walk to the ocean.
-    pave("cindra-volcanic-ash-flats", -150, YY)
-    local m = s.create_entity({ name = "assembling-machine-1", position = { -150, YY }, force = "player" })
-    assert.is_not_nil(m)
+  it("HAZARD follows the TILE, not the position: a hot tile in the SAFE middle STILL burns", function()
+    -- The inverse ci-ma18 symptom: the position model left a cosmetically-hot tile in
+    -- the safe middle harmless. Tile-based, it burns wherever it renders. x=0 is the
+    -- safe middle (perp 0), yet a hot crust tile painted there still burns.
+    local lost = damage_on("cindra-volcanic-cracks-hot", "pump", 0)
+    assert.is_true(lost > 0, "a hot crust tile in the safe middle burns (tile-keyed, not positional)")
+  end)
+
+  it("a machine STRADDLING a hot tile burns even if its centre is on safe ground", function()
+    -- Safe ash everywhere, a single lava-hot tile off-centre under a 3x3 machine.
+    pave("cindra-volcanic-ash-flats", 0, YY)
+    s.set_tiles({ { name = "cindra-lava-hot", position = { 1, YY } } }, true)
+    local m = s.create_entity({ name = "assembling-machine-1", position = { 0, YY }, force = "player" })
+    assert.is_not_nil(m, "a 3x3 machine centred on safe ash")
     local before = m.health
     td.sweep(s, 60, 200)
-    assert.is_true(m.health < before, "a safe-looking tile in the hot belt still burns (belt is unbypassable)")
+    assert.is_true(m.health < before, "the footprint overlapping the lava tile burns")
     m.destroy()
   end)
 
-  it("burns a CHARACTER in the belt, leaves one in the middle alone", function()
-    local burned = s.create_entity({ name = "character", position = { -150, YY }, force = "player" })
+  it("burns a CHARACTER on hot ground, leaves one on safe ground alone", function()
+    pave("cindra-volcanic-cracks-hot", -20, YY)
+    local burned = s.create_entity({ name = "character", position = { -20, YY }, force = "player" })
     local hb = burned.health
     td.sweep(s, 60, 200)
-    assert.is_true(burned.health < hb, "the character burns in the hot belt")
+    assert.is_true(burned.health < hb, "the character burns on the hot crust")
     burned.destroy()
 
-    local safe = s.create_entity({ name = "character", position = { 0, YY }, force = "player" })
+    pave("cindra-volcanic-ash-flats", 20, YY)
+    local safe = s.create_entity({ name = "character", position = { 20, YY }, force = "player" })
     local hs = safe.health
     td.sweep(s, 60, 200)
-    assert.are.equal(hs, safe.health, "the safe middle never burns the character")
+    assert.are.equal(hs, safe.health, "safe ash ground never burns the character")
     safe.destroy()
   end)
 
@@ -133,7 +139,7 @@ describe("belt/field-based lethal-ground damage (§15-2; ci-oe83)", function()
     local char = nauvis.create_entity({ name = "character", position = { 0, 0 }, force = "player" })
     local before = char.health
     td.sweep(nauvis, 60, 200) -- wrong surface: must be a no-op
-    assert.are.equal(before, char.health, "belt damage is Cindra-only")
+    assert.are.equal(before, char.health, "lethal-ground damage is Cindra-only")
     char.destroy()
   end)
 end)

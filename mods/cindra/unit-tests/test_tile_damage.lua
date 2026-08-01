@@ -1,15 +1,15 @@
--- Plain-Lua unit test for footprint belt damage (scripts/tile-damage.lua; ci-oe83).
+-- Plain-Lua unit test for footprint TILE damage (scripts/tile-damage.lua; ci-ma18).
 -- Run: cd mods/cindra && nix shell nixpkgs#lua -c lua unit-tests/test_tile_damage.lua
 --
--- footprint_damage reads the perpendicular EXTREMES of an entity's collision box and
--- returns the MOST-LETHAL field damage any part of it touches -- so a machine whose
--- footprint overlaps a belt burns even when its centre reads safe, and an entity fully in
--- the safe middle takes nothing. It reads only the pure field + axis maths (no game.*), so
--- it is testable off-game with a synthetic bounding box.
+-- footprint_damage samples every integer tile an entity's collision box covers and
+-- returns the MOST-LETHAL tile's damage (terrain.tile_damage) -- so a machine
+-- straddling a lava tile burns even when its centre sits on safe ground, a fully
+-- covered (concrete) footprint takes nothing, and an entity fully on safe ground takes
+-- nothing. It reads the pure tile predicate, so it is testable off-game against a fake
+-- surface whose get_tile returns a synthetic tile grid.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local td = require("scripts.tile-damage")
-local terrain = require("scripts.terrain")
 
 local passed, failed = 0, 0
 local function test(name, fn)
@@ -22,50 +22,85 @@ local function assert_eq(a, b, msg)
 end
 local function assert_true(x, msg) if not x then error(msg or "expected true", 2) end end
 
--- A fake entity with a square collision box of `half` tiles centred at world x = cx
--- (vertical orientation: perp = -x, so the box spans perp [-(cx+half), -(cx-half)]).
-local function box_entity(cx, half)
-  return { bounding_box = { left_top = { x = cx - half, y = 0 - half }, right_bottom = { x = cx + half, y = 0 + half } } }
+-- A fake surface: get_tile(x, y) returns the tile whose name grid_fn(tx, ty) gives.
+-- Defaults every tile to a safe ash tile unless grid_fn overrides it.
+local function fake_surface(grid_fn)
+  return {
+    get_tile = function(tx, ty)
+      local name = grid_fn(tx, ty) or "cindra-volcanic-ash-flats"
+      return { valid = true, name = name }
+    end,
+  }
 end
 
-test("a footprint fully in the safe middle takes ZERO damage", function()
-  local i, k = td.footprint_damage(box_entity(0, 0.4), "vertical")
-  assert_eq(0, i, "middle intensity is 0")
-  assert_eq(nil, k, "middle has no damage kind")
+-- A fake entity with a square collision box of `half` tiles centred at (cx, cy).
+local function box_entity(cx, cy, half)
+  return { bounding_box = { left_top = { x = cx - half, y = cy - half },
+                            right_bottom = { x = cx + half, y = cy + half } } }
+end
+
+test("damage_amount is dps * seconds (pure, linear in time)", function()
+  assert_eq(100, td.damage_amount(300, 20), "300 dps over 20 ticks = 100 HP")
+  assert_eq(200, td.damage_amount(300, 40), "twice the ticks = twice the HP")
 end)
 
-test("a footprint deep in the hot belt burns; deeper burns more", function()
-  local shallow = select(1, td.footprint_damage(box_entity(-135, 0.4), "vertical")) -- perp ~135
-  local deep = select(1, td.footprint_damage(box_entity(-165, 0.4), "vertical"))     -- perp ~165
-  assert_true(shallow > 0, "the shallow hot belt burns")
-  assert_true(deep > shallow, "deeper into the hot belt burns more")
-  assert_eq("heat", (select(2, td.footprint_damage(box_entity(-165, 0.4), "vertical"))), "hot belt is heat")
+test("a footprint entirely on a SAFE tile takes ZERO damage", function()
+  local s = fake_surface(function() return "cindra-volcanic-ash-flats" end)
+  local i, k = td.footprint_damage(s, box_entity(0.5, 0.5, 0.4))
+  assert_eq(0, i, "safe ground intensity is 0")
+  assert_eq(nil, k, "safe ground has no damage kind")
 end)
 
-test("a footprint deep in the cold belt freezes; deeper freezes more", function()
-  local shallow = select(1, td.footprint_damage(box_entity(135, 0.4), "vertical"))
-  local deep = select(1, td.footprint_damage(box_entity(165, 0.4), "vertical"))
-  assert_true(shallow > 0, "the shallow cold belt freezes")
-  assert_true(deep > shallow, "deeper into the cold belt freezes more")
-  assert_eq("cold", (select(2, td.footprint_damage(box_entity(165, 0.4), "vertical"))), "cold belt is cold")
+test("a footprint on a HOT natural burns; a hotter natural burns more", function()
+  local hot = fake_surface(function() return "cindra-volcanic-cracks-hot" end)
+  local hotter = fake_surface(function() return "cindra-lava" end)
+  local i1, k1 = td.footprint_damage(hot, box_entity(0.5, 0.5, 0.4))
+  local i2 = select(1, td.footprint_damage(hotter, box_entity(0.5, 0.5, 0.4)))
+  assert_true(i1 > 0, "glowing cracks-hot burns")
+  assert_eq("heat", k1, "and it is heat")
+  assert_true(i2 > i1, "molten lava burns more than the cracks")
 end)
 
-test("a WIDE footprint centred in the safe zone but OVERLAPPING the hot belt burns", function()
-  -- Centre at perp = 120 (safe), but a half-width of 20 reaches perp 140 -> in the belt.
-  local i, k = td.footprint_damage(box_entity(-120, 20), "vertical")
-  assert_true(i > 0, "the overlapping edge burns even though the centre reads safe")
-  assert_eq("heat", k, "the overlap is heat")
-  -- The same box centred deeper safe (perp 90, reach 110) never touches the belt.
-  local i2 = select(1, td.footprint_damage(box_entity(-90, 15), "vertical"))
-  assert_eq(0, i2, "a box that stays inside the safe zone takes nothing")
+test("a footprint on a COLD natural freezes; a colder natural freezes more", function()
+  local cold = fake_surface(function() return "cindra-snow-crests" end)
+  local colder = fake_surface(function() return "cindra-ice-smooth" end)
+  local i1, k1 = td.footprint_damage(cold, box_entity(0.5, 0.5, 0.4))
+  local i2 = select(1, td.footprint_damage(colder, box_entity(0.5, 0.5, 0.4)))
+  assert_true(i1 > 0, "snow freezes")
+  assert_eq("cold", k1, "and it is cold")
+  assert_true(i2 > i1, "smooth ice freezes more than snow")
 end)
 
-test("the footprint takes the MOST-LETHAL point (max intensity in its span)", function()
-  -- A box spanning perp [130, 170]: the intensity is that of the deepest point (perp 170),
-  -- not the shallow edge.
-  local edge = select(1, td.footprint_damage(box_entity(-170, 0), "vertical")) -- a point at perp 170
-  local span = select(1, td.footprint_damage(box_entity(-150, 20), "vertical")) -- perp [130,170]
-  assert_true(math.abs(span - edge) < 1e-6, "the span's damage equals its deepest point")
+test("CONCRETE cover over a hot natural SHIELDS the whole footprint (ci-ma18)", function()
+  -- Every tile the footprint covers is concrete (a player-placed cover), so even though
+  -- lava sits "underneath" in the world, the TILE is concrete -> zero damage.
+  local s = fake_surface(function() return "concrete" end)
+  local i, k = td.footprint_damage(s, box_entity(0.5, 0.5, 1.4))
+  assert_eq(0, i, "concrete-covered ground deals no damage")
+  assert_eq(nil, k, "concrete-covered ground has no damage kind")
+end)
+
+test("a footprint STRADDLING a lava tile burns even if its centre is safe (most-lethal)", function()
+  -- A 3-wide machine centred on safe ash at tile (0,0), but tile (1,0) is lava.
+  local s = fake_surface(function(tx, ty)
+    if tx == 1 and ty == 0 then return "cindra-lava-hot" end
+    return "cindra-volcanic-ash-flats"
+  end)
+  local i, k = td.footprint_damage(s, box_entity(0, 0, 1.4)) -- covers tx,ty in [-2..1]
+  assert_true(i > 0, "the overlapping lava tile burns even though the centre is safe ash")
+  assert_eq("heat", k, "and the overlap is heat")
+  -- Shrink the box so it no longer reaches tile (1,0): back to zero.
+  local i2 = select(1, td.footprint_damage(s, box_entity(-1, 0, 0.4))) -- covers tile (-1,0) only
+  assert_eq(0, i2, "a footprint that stays on safe ground takes nothing")
+end)
+
+test("the sweep is a no-op on a surface that is not named cindra", function()
+  -- sweep bails before ever touching entities when the surface name is wrong.
+  local touched = false
+  local s = { valid = true, name = "nauvis",
+    find_entities_filtered = function() touched = true; return {} end }
+  td.sweep(s, 60, 200)
+  assert_true(not touched, "sweep never scans entities off Cindra")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

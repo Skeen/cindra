@@ -471,6 +471,46 @@ function M.is_walkable(name)
   return t.walkable
 end
 
+-- ---------------------------------------------------------------------------
+-- value -> TILE damage (ci-ma18): the environmental damage a CONCRETE tile deals to
+-- an entity standing on it. This is the TILE-BASED counterpart to M.value_damage --
+-- the runtime sweep (scripts/tile-damage.lua) and the feedback tint
+-- (scripts/damage-feedback.lua) read the ACTUAL tile under an entity, not a raw
+-- position, so:
+--   * a player-placed COVER tile (concrete / refined-concrete / stone-path -- any
+--     tile that is NOT one of our value-ramp naturals) shields: it is absent from
+--     VALUE_BAND, so it deals ZERO damage. Standing on concrete-over-lava is safe.
+--   * every natural HAZARD tile burns/freezes wherever it renders: a hot crack or a
+--     lava tile the noise scattered a little off its nominal band still damages,
+--     because the TILE decides, not a positional band -- so no cosmetically-hot tile
+--     ever reads safe (the ci-ma18 symptom the position model shipped).
+--
+-- NO CORRIDOR (why tile-based is safe again): the damaging naturals are exactly the
+-- value-ramp tiles whose band crosses a threshold, and because the field is monotonic
+-- those tiles form two contiguous EDGE BELTS -- there is no ridge of non-damaging
+-- naturals reaching an ocean. A concrete cover can never bridge a zero-damage path to
+-- either ocean either, because every ocean-gating hazard (lava/hot-crust + smooth/
+-- rough ice) is in M.NO_PAVE, so paving over it is reverted (scripts/no-paving.lua).
+-- (This is what the ci-oe83 "position-keyed" rewrite got wrong: it decoupled damage
+-- from the tile to close the OLD three-heightmap corridor, but the ribbon is now ONE
+-- monotonic heightmap, so the tile IS a safe corridor-proof key.)
+--
+-- A tile is as lethal as the MOST EXTREME value its band represents (heat peaks at the
+-- band's hot bound, cold at its cold bound), so a threshold-edge hazard whose band
+-- only just enters the damaging range (e.g. glowing cracks-hot at HOT_DMG) still burns.
+function M.tile_damage(name)
+  local vb = VALUE_BAND[name]
+  if not vb then return 0, nil end -- a cover tile / soil overlay / unknown: shields
+  local hi_i, hi_k = M.value_damage(vb.hi) -- the tile's hottest represented value
+  local lo_i, lo_k = M.value_damage(vb.lo) -- the tile's coldest represented value
+  local i, k = hi_i, hi_k
+  if lo_i > hi_i then i, k = lo_i, lo_k end
+  -- A safe-band tile whose band only touches a threshold (value_damage kind but
+  -- intensity 0, e.g. cracks-warm at HOT_DMG) is SAFE: drop the phantom kind.
+  if i <= 0 then return 0, nil end
+  return i, k
+end
+
 function M.tile_names()
   local out = {}
   for _, t in ipairs(M.TILES) do out[#out + 1] = t.name end

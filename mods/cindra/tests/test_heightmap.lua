@@ -7,12 +7,19 @@
 -- several seeds and inspect real behaviour:
 --   * the ocean-solidity + emergence guards count real tiles on multiple fixed seeds;
 --   * the corridor + enclosure guards drive the REAL runtime damage sweep
---     (scripts/tile-damage.lua) on the live "cindra" surface as a model-agnostic oracle,
---     so they reproduce the live bug on the old per-tile model (which leaves undamaged
---     tiles standing in the belt) and only pass once the damage follows the field;
+--     (scripts/tile-damage.lua, now TILE-based, ci-ma18) on the live "cindra" surface as
+--     a model-agnostic oracle: they FLOOD the safe (undamaged) cells out from spawn and
+--     assert that region never reaches either ocean -- so there is no non-damaging path
+--     around the belts, whatever keys the damage;
 --   * the golden-profile + clamp + continuity guards prove the generator POSITIVELY
 --     produces the specified structure (and, since the field is seed-independent, prove
 --     the belt is unbypassable on EVERY seed, not just the sampled ones).
+--
+-- Why the no-corridor guarantee survives the ci-ma18 switch back to tile-based damage:
+-- the ribbon is now ONE monotonic heightmap, so the damaging TILES are a monotonic
+-- function of the field -- they form two contiguous EDGE BELTS exactly like the field
+-- thresholds do. A little boundary speckle can leave an isolated safe tile at a belt's
+-- inner edge, but no chain of safe tiles threads THROUGH a belt to an ocean.
 --
 -- Vertical orientation (default): ribbon long axis = Y; hot-cold gradient = X, hot on the
 -- LEFT / west, so perp = -x.
@@ -126,12 +133,12 @@ describe("ci-oe83: one heightmap, emergent oceans, belt-confined damage", functi
     end
   end)
 
-  -- === THE REPRO: no undamaged (non-damaging) cell stands in either belt =====
+  -- === THE REPRO: no SAFE corridor threads from the middle to either ocean =====
   -- Drive the REAL sweep on the LIVE "cindra" surface: place a lattice of characters across
-  -- the full width, sweep once, and read which kept full HP. On the old per-tile model the
-  -- belt is a noisy MIX with non-damaging tiles, so undamaged cells stand deep in the belt
-  -- (the walk-to-ocean corridor's building blocks); the field/belt model damages EVERY
-  -- standable belt position, so there are none.
+  -- the full width, sweep once, and read which kept full HP. Then FLOOD the safe cells out
+  -- from spawn: the reachable safe region must never reach the ocean band nor border an
+  -- ocean tile -- so there is no non-damaging walk to either ocean, whatever keys the
+  -- damage. (Removing the damage entirely would let the flood reach the oceans and FAIL.)
   local STEP = 3
 
   -- Classify a lattice on `s` into "safe"/"damage"/"ocean"/"blocked" via one real sweep.
@@ -166,30 +173,63 @@ describe("ci-oe83: one heightmap, emergent oceans, belt-confined damage", functi
     return cells, key
   end
 
-  it("REPRO: NO undamaged cell stands in either damage belt (no walk-to-ocean corridor)", function()
+  it("REPRO: no SAFE corridor threads from the middle to either ocean (ci-ma18 tile-based)", function()
     local s = live()
-    local cells = classify(s, -190, 190, WY - 45, WY + 45)
-    local hot_leak, cold_leak, hot_eg, cold_eg = 0, 0, nil, nil
-    for _, c in pairs(cells) do
-      if c.state == "safe" then
-        local p = perp_of(c.x)
-        if p >= 132 then hot_leak = hot_leak + 1; hot_eg = hot_eg or (c.x .. "," .. c.y .. " " .. c.tile) end
-        if p <= -132 then cold_leak = cold_leak + 1; cold_eg = cold_eg or (c.x .. "," .. c.y .. " " .. c.tile) end
+    local cells, key = classify(s, -190, 190, WY - 45, WY + 45)
+    -- Flood the SAFE cells outward from the sampled safe cell CLOSEST to the middle
+    -- (the spawn column may not land on the STEP lattice, so pick it dynamically).
+    local reached, stack = {}, {}
+    local seed_key
+    do
+      local best
+      for k, c in pairs(cells) do
+        if c.state == "safe" then
+          local d = math.abs(perp_of(c.x))
+          if best == nil or d < best then best = d; seed_key = k end
+        end
       end
     end
-    assert.are.equal(0, hot_leak, "an undamaged cell stands in the HOT belt (corridor): " .. tostring(hot_eg))
-    assert.are.equal(0, cold_leak, "an undamaged cell stands in the COLD belt (corridor): " .. tostring(cold_eg))
+    assert.is_not_nil(seed_key, "a safe middle seed cell exists")
+    reached[seed_key] = true; stack[1] = seed_key
+    local dirs = { { STEP, 0 }, { -STEP, 0 }, { 0, STEP }, { 0, -STEP } }
+    while #stack > 0 do
+      local c = cells[table.remove(stack)]
+      for _, d in ipairs(dirs) do
+        local nk = key(c.x + d[1], c.y + d[2])
+        local n = cells[nk]
+        if n and n.state == "safe" and not reached[nk] then reached[nk] = true; stack[#stack + 1] = nk end
+      end
+    end
+    -- The reachable safe region must stay clear of both oceans: never a cell in the ocean
+    -- band, and never a safe cell bordering an ocean tile (a corridor's last step).
+    local max_perp = 0
+    for k in pairs(reached) do
+      local c = cells[k]
+      max_perp = math.max(max_perp, math.abs(perp_of(c.x)))
+      for _, d in ipairs(dirs) do
+        local n = cells[key(c.x + d[1], c.y + d[2])]
+        assert.are_not.equal("ocean", n and n.state,
+          "a safe cell at (" .. c.x .. "," .. c.y .. ") borders an ocean tile (corridor!)")
+      end
+    end
+    -- The oceans' inner edge is perp ~190; the flood must stop well short (isolated safe
+    -- tiles cling to the belt's inner edge ~130-150, never threading the belt).
+    assert.is_true(max_perp < 175,
+      "the safe region never reaches the ocean band (max reachable perp=" .. max_perp .. ")")
   end)
 
   it("REPRO: the safe middle really IS safe (the sweep leaves every middle cell alone)", function()
-    -- Complements the belt guard: prove the safe classification is not vacuous -- the middle
-    -- band (|perp| <= 120) takes ZERO damage, so a real traversable corridor exists.
+    -- Complements the belt guard: prove the safe classification is not vacuous -- the safe
+    -- CORE takes ZERO damage, so a real traversable corridor exists. Tile-based damage has
+    -- a FUZZY boundary (a hot tile can bleed a couple of tiles inward of the perp-130
+    -- threshold on noise, ci-ma18), so the guaranteed-safe core is sampled at |perp| <= 100
+    -- -- comfortably inside the noise margin, and still far wider than the spawn pad.
     local s = live()
-    local cells = classify(s, -120, 120, WY - 30, WY + 30)
+    local cells = classify(s, -100, 100, WY - 30, WY + 30)
     local safe_mid = 0
     for _, c in pairs(cells) do
-      if math.abs(perp_of(c.x)) <= 120 then
-        assert.are_not.equal("damage", c.state, "the safe middle at (" .. c.x .. "," .. c.y .. ") must not be damaged")
+      if math.abs(perp_of(c.x)) <= 100 then
+        assert.are_not.equal("damage", c.state, "the safe core at (" .. c.x .. "," .. c.y .. ") must not be damaged")
         if c.state == "safe" then safe_mid = safe_mid + 1 end
       end
     end

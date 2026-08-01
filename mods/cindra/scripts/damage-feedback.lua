@@ -8,13 +8,14 @@
 -- ALPHA scales with how deep into the lethal band they stand -- a deeper, redder
 -- burn toward the lava; a heavier frost toward the ice cap ("scaled to intensity").
 --
--- The band decision reads the SAME source the damage does -- scripts/terrain.lua
--- M.lethal_at, keyed to the perpendicular ribbon axis via scripts/axis.lua -- so
--- the tint lines up EXACTLY with the tile-based lethal-zone damage
--- (scripts/tile-damage.lua) it explains: never a tint without damage, nor damage
--- without a tint. overlay_for / intensity_for are PURE (pass a cfg) and unit-
--- tested; the presentation is a render-layer screen effect (the tinted fill sprite
--- lives in prototypes/feedback.lua) proven against a live player.
+-- The tint decision reads the SAME source the damage does -- terrain.tile_damage of
+-- the ACTUAL tile under the character (ci-ma18) -- so the tint lines up EXACTLY with
+-- the tile-based lethal-ground damage (scripts/tile-damage.lua) it explains: never a
+-- tint without damage, nor damage without a tint. In particular a character standing
+-- on concrete-over-lava sees NOTHING (the cover shields), and a hot crack tints red
+-- wherever it renders. for_tile is PURE and unit-tested; the presentation is a
+-- render-layer screen effect (the tinted fill sprite lives in prototypes/feedback.lua)
+-- proven against a live player.
 --
 -- This replaces the salvaged worldgen-v2 GUI-banner placeholder with a proper
 -- full-screen tint, as ci-7tl asks -- the pure decision is kept, only show() moved
@@ -25,7 +26,6 @@
 -- created or destroyed. No global / other-planet state is touched.
 
 local terrain = require("scripts.terrain")
-local axis = require("scripts.axis")
 
 local M = {}
 
@@ -49,31 +49,13 @@ M.MAX_ALPHA = 0.55
 -- is world-scaled and simply drawn large enough to always cover the screen.)
 local FILL_SCALE = 2000
 
--- PURE: which overlay ("heat" | "cold" | nil) belongs at perpendicular coord `p`.
--- Delegates to terrain.lethal_at, so it matches the tile-damage sweep exactly.
-function M.overlay_for(p, cfg)
-  return terrain.lethal_at(p, cfg)
-end
-
--- PURE: normalised danger 0..1 at perpendicular coord `p` -- 0 just inside the
--- lethal edge, 1 at the outermost (hottest / coldest) band; 0 anywhere safe.
--- Drives the tint alpha so the effect is "scaled to damage intensity".
-function M.intensity_for(p, cfg)
-  local which = terrain.lethal_at(p, cfg)
-  if not which then return 0 end
-  local b = terrain.damage_bounds(cfg)
-  local _, total = terrain.bands(cfg)
-  local half = total / 2
-  local t
-  if which == "heat" then
-    local span = half - b.hot_from -- edge (hot_from) -> outermost hot edge (+half)
-    t = span > 0 and (p - b.hot_from) / span or 1
-  else
-    local span = half + b.cold_from -- cold_from is negative; outermost cold edge = -half
-    t = span > 0 and (b.cold_from - p) / span or 1
-  end
-  if t < 0 then t = 0 elseif t > 1 then t = 1 end
-  return t
+-- PURE: the tint a character on cindra tile `name` should see -> (which, intensity),
+-- where which is "heat" | "cold" | nil and intensity is the 0..1 danger driving the
+-- tint alpha (0 safe, 1 at the hottest / coldest ocean core). Delegates to
+-- terrain.tile_damage, so the tint matches the tile-damage sweep tile-for-tile: a
+-- cover tile (concrete) or a safe natural shows nothing.
+function M.for_tile(name)
+  return terrain.tile_damage(name)
 end
 
 -- Alpha for a normalised intensity.
@@ -135,19 +117,19 @@ function M.active_which(player)
   return s.which
 end
 
--- Refresh every connected player's tint from their character's position on the
--- perpendicular ribbon axis. Call on the tile-damage cadence so the tint tracks
--- the damage it explains. `cfg` defaults to nil, so the runtime reads the mod
--- settings exactly like tile-damage; tests pass an explicit cfg for determinism.
-function M.update_all(cfg)
-  local orient = axis.orientation()
+-- Refresh every connected player's tint from the TILE their character stands on.
+-- Call on the tile-damage cadence so the tint tracks the damage it explains: the
+-- SAME terrain.tile_damage the sweep burns from, read at the character's tile.
+function M.update_all()
   for _, player in pairs(game.connected_players) do
     local ch = player.character
     local which, t = nil, 0
     if ch and ch.valid and ch.surface.valid and ch.surface.name == "cindra" then
-      local p = axis.perp(ch.position.x, ch.position.y, orient)
-      which = M.overlay_for(p, cfg)
-      if which then t = M.intensity_for(p, cfg) end
+      local tile = ch.surface.get_tile(math.floor(ch.position.x), math.floor(ch.position.y))
+      if tile and tile.valid then
+        local i, k = M.for_tile(tile.name)
+        if k and i > 0 then which, t = k, i end
+      end
     end
     if which then
       show(player, which, t)

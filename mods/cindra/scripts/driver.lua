@@ -61,11 +61,12 @@ local function for_each_cindra(fn)
   end
 end
 
--- The lethal-zone damage sweep AND the full-screen heat/cold feedback tint share
--- one cadence: the tint reads the SAME terrain.lethal_at bands the sweep damages
--- on, so refreshing them together keeps the "why am I losing health" cue exactly
--- in step with the damage (ci-7tl). feedback.update_all walks connected players
--- and is a no-op for anyone off Cindra.
+-- The lethal-ground damage sweep AND the full-screen heat/cold feedback tint share
+-- one cadence: the tint reads the SAME terrain.tile_damage of the tile under the
+-- player that the sweep burns from (ci-ma18), so refreshing them together keeps the
+-- "why am I losing health" cue exactly in step with the damage (ci-7tl) -- and a
+-- concrete cover shows neither. feedback.update_all walks connected players and is a
+-- no-op for anyone off Cindra.
 local function on_tile_damage_tick()
   if not driver_enabled() then return end
   for_each_cindra(function(s) tile_damage.sweep(s) end)

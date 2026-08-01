@@ -124,6 +124,40 @@ test("value_damage: heat above HOT_DMG, cold below COLD_DMG, SAFE strictly betwe
   assert_true(intensity(0.05) < intensity(0.0), "cold intensity ramps up toward the ice extreme")
 end)
 
+test("tile_damage: hazard naturals burn/freeze, safe naturals + cover tiles shield (ci-ma18)", function()
+  local function kind(name) return (select(2, terrain.tile_damage(name))) end
+  local function intensity(name) return (select(1, terrain.tile_damage(name))) end
+  -- HEAT naturals: the lava cores + hot crust + glowing cracks all deal heat.
+  assert_eq("heat", kind("cindra-lava-hot"), "lava-hot burns")
+  assert_eq(1.0, intensity("cindra-lava-hot"), "the lava-hot ocean core is peak heat")
+  assert_eq("heat", kind("cindra-lava"), "molten lava burns")
+  assert_eq("heat", kind("cindra-volcanic-smooth-stone-warm"), "the warm crust burns")
+  assert_eq("heat", kind("cindra-volcanic-cracks-hot"), "glowing cracks-hot burn (the ci-ma18 crack)")
+  assert_true(intensity("cindra-volcanic-cracks-hot") > 0, "and the burn is non-zero")
+  assert_true(intensity("cindra-lava") > intensity("cindra-volcanic-cracks-hot"),
+    "deeper into the hot naturals burns more")
+  -- COLD naturals: the ice cores + snow deal cold.
+  assert_eq("cold", kind("cindra-ice-smooth"), "smooth ice freezes")
+  assert_eq(1.0, intensity("cindra-ice-smooth"), "the smooth-ice ocean core is peak cold")
+  assert_eq("cold", kind("cindra-ice-rough"), "rough ice freezes")
+  assert_eq("cold", kind("cindra-snow-crests"), "snow-crests freezes")
+  assert_true(intensity("cindra-ice-rough") > intensity("cindra-snow-crests"),
+    "deeper into the cold naturals freezes more")
+  -- SAFE naturals: the whole habitable middle + the safe-band edge tiles deal nothing.
+  for _, v in ipairs({ "volcanic-cracks-warm", "volcanic-cracks", "volcanic-ash-flats",
+                       "volcanic-ash-dark", "dust-flat", "snow-flat" }) do
+    assert_eq(0, intensity("cindra-" .. v), "cindra-" .. v .. " is a safe natural")
+    assert_eq(nil, kind("cindra-" .. v), "cindra-" .. v .. " has no damage kind")
+  end
+  -- SOIL overlay tiles sit in the safe middle and carry no damage of their own.
+  assert_eq(0, intensity("cindra-volcanic-soil-dark"), "soil is a safe overlay")
+  -- COVER tiles (player paving) + unknown tiles SHIELD: absent from the value ramp.
+  for _, name in ipairs({ "concrete", "refined-concrete", "stone-path", "hazard-concrete-left", "not-a-tile" }) do
+    assert_eq(0, intensity(name), name .. " shields (deals zero damage)")
+    assert_eq(nil, kind(name), name .. " has no damage kind")
+  end
+end)
+
 test("field_damage is TWO contiguous EDGE BELTS with a safe middle, crossings at +/-130", function()
   -- The heat belt begins exactly at the hot damage boundary and the cold belt at the cold
   -- one; the whole middle between them is safe. No overlap: no p is both heat and cold.
