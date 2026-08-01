@@ -91,6 +91,9 @@ if script.active_mods["factorio-test"] then
     -- shows/clears in step with the tile-based lethal-zone damage above.
     "tests/test_feedback",
     "tests/test_worldgen",
+    -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
+    -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
+    "tests/test_heightmap",
     "tests/test_decoratives",
     "tests/test_building_heat",
     "tests/test_mass_driver",

@@ -237,6 +237,20 @@ merge queue.
   `ci-4kz` (ice wall dropped), subsumes `ci-7jc` (ocean/heightmap integration) and
   `ci-70r` (bespoke gradient tiles). `scripts/terrain.lua`; tested in
   `unit-tests/test_terrain.lua` + `tests/test_worldgen.lua`.
+- [x] **ONE continuous heightmap (not three) — emergent oceans, belt-confined damage.**
+  `ci-oe83` — replaced the two-heightmap-plus-flat-middle model with a SINGLE monotonic
+  value field `H(p)` over the perpendicular axis: edge-PINNED to the lava/ice extremes,
+  CLAMPED strictly between the damage thresholds through the middle. Both oceans EMERGE as
+  the field's pinned extremes (removing the ocean band does not remove the ocean). BOTH the
+  tile art (`M.value_tile`) and the damage (`M.value_damage`/`M.field_damage`) derive from
+  the one value, so damage follows the FIELD/position, not the tile-type — killing the
+  walk-to-ocean no-damage corridor on both sides (`scripts/tile-damage.lua` rekeyed to the
+  field). Gated by `tests/test_heightmap.lua` (repro/emergence/continuity/clamp/golden/
+  no-enclosure, driving the real sweep) + `unit-tests/test_terrain.lua` +
+  `unit-tests/test_tile_damage.lua`. `ci-bvk` freeze onset keys off this field now.
+  FOLLOW-UP (aesthetic, enabled by the damage decoupling): deliberate cross-region cosmetic
+  scatter (hot-looking tiles out in the safe middle) — safe because damage is positional;
+  needs the family-separation guard relaxed. Not yet done; see PLAYTEST.
 - [ ] **Hot-side folds BRANCH.** `ci-72bw` — the alternate volcanic-folds / ash-cracks
   / pumice texture family after cracks-hot (additive to the hot heightmap).
 - [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add

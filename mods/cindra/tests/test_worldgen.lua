@@ -409,7 +409,8 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
         local n = tile(x, y)
         assert.matches("^cindra%-", n, "landing pad tile (" .. x .. "," .. y .. ") must be a cindra tile, got: " .. n)
         assert.is_true(terrain.is_walkable(n), "landing pad tile (" .. x .. "," .. y .. ") must be walkable, got: " .. n)
-        assert.are.equal(0, (terrain.tile_damage(n)), "landing pad tile (" .. x .. "," .. y .. ") must be damage-free, got: " .. n)
+        -- Damage is positional now (ci-oe83): the spawn pad is in the safe middle band.
+        assert.is_nil(terrain.lethal_at(-x), "landing pad column x=" .. x .. " must be damage-free (safe middle)")
       end
     end
   end)

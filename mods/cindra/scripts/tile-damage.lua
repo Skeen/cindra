@@ -1,49 +1,49 @@
--- Tile-based lethal-ground damage (§4, §15-2; ci-3yl, redefined ci-da2, reworked ci-4jl).
+-- Belt-based lethal-ground damage (§4, §15-2; ci-3yl, ci-da2, ci-4jl, REKEYED ci-oe83).
 --
--- The ribbon's danger is FELT as environmental damage: hot ground burns and the
--- smooth-ice cap freezes anything on it -- the player AND machines/entities alike.
--- The damage is done BY THE TILES THEMSELVES: each damaging tile prototype carries
--- an intensity (0..1) x peak-dps and a kind ("heat"/"cold") in scripts/terrain.lua
--- (M.tile_damage). Each sweep, for every damageable entity (+ the character) we
--- read the tile(s) under its collision FOOTPRINT and apply damage from the
--- MOST-LETHAL tile in that footprint.
+-- The ribbon's danger is FELT as environmental damage: the hot belt burns and the cold
+-- belt freezes anything standing in it -- the player AND machines/entities alike. The
+-- damage is keyed to the ONE heightmap FIELD (scripts/terrain.lua): the field value at an
+-- entity's perpendicular POSITION decides the damage (M.field_damage), NOT the tile-type
+-- under it.
 --
--- Why tile-based (ci-4jl): the old model keyed damage to a single perpendicular
--- COORDINATE and applied a FLAT dps across a whole band. That over-damaged at the
--- entry edge (full damage the instant you crossed the threshold) and could MISS an
--- entity sitting on a lava tile whose centre coordinate read "safe" -- so pumps and
--- machines could be placed in the lava without dying. Reading the ACTUAL tile the
--- entity touches fixes both: the ci-da2 zones are noisy MIXES, so near the safe
--- edge an entity mostly stands on warm/low-intensity tiles (a gentle burn) and
--- deeper in on lava/hot-lava (max) -- the depth ramp emerges from the terrain, and
--- anything overlapping a lava tile burns.
+-- Why belt/field-based, not per-tile (ci-oe83): ci-4jl keyed damage to the TILE under an
+-- entity. Because the tile art is noisy, a high-elevation ridge of non-damaging tiles
+-- could reach all the way to the lava ocean, giving a walk-to-lava corridor that took ZERO
+-- damage. Keying damage to the field value (i.e. the perpendicular position) closes that:
+-- the field is monotonic + clamped, so the damage is two contiguous EDGE BELTS you cannot
+-- get around -- there is no non-damaging path to either ocean at any elevation, and a
+-- cosmetic hot-looking tile scattered in the safe middle does ZERO damage.
 --
--- Factorio has NO native per-tick damaging-tile field, so this is a script sweep.
+-- We read the entity's whole collision FOOTPRINT and take the MOST-LETHAL point in it (the
+-- deepest into a belt), so a machine whose footprint overlaps the belt burns even if its
+-- centre reads safe -- the ci-8vu spirit, now position-keyed.
 --
--- 🚨 Scoped to `surface.name == "cindra"`: never touches an entity on any other
--- planet. Buildings' nightside FREEZE (needs a heat source) is a separate,
--- richer mechanic in scripts/building-heat.lua; this is the raw lethal-ground burn.
+-- Factorio has NO native per-tick damaging-field, so this is a script sweep.
+--
+-- 🚨 Scoped to `surface.name == "cindra"`: never touches an entity on any other planet.
+-- Buildings' nightside FREEZE (needs a heat source) is a separate, richer mechanic in
+-- scripts/building-heat.lua; this is the raw lethal-ground burn.
 
 local terrain = require("scripts.terrain")
+local axis = require("scripts.axis")
 
 local M = {}
 
--- Sweep cadence (ticks). on_nth_tick(N) is REPLACE-not-add, so this N stays
--- distinct from every other periodic system (building-heat 47, flare 23,
--- panel-damage 29); it inherits the old edge-damage cadence (20).
+-- Sweep cadence (ticks). on_nth_tick(N) is REPLACE-not-add, so this N stays distinct from
+-- every other periodic system (building-heat 47, flare 23, panel-damage 29); it inherits
+-- the old edge-damage cadence (20).
 M.DAMAGE_INTERVAL = 20
 
--- Semantic damage kind ("heat"/"cold", from the tile) -> the concrete Cindra
+-- Semantic damage kind ("heat"/"cold", from the field) -> the concrete Cindra
 -- damage-type prototype (prototypes/damage-types.lua).
 M.DAMAGE_TYPE = {
   heat = "cindra-heat",
   cold = "cindra-cold",
 }
 
--- Entity kinds the lethal tiles damage. Characters plus the built structures a
--- player would push out to the resource-rich edges -- so "damage hits machines
--- too". Bounded so the sweep stays cheap (safe tiles resolve to intensity 0 and
--- are skipped without a damage call).
+-- Entity kinds the belts damage. Characters plus the built structures a player would push
+-- out to the resource-rich edges -- so "damage hits machines too". Bounded so the sweep
+-- stays cheap (safe positions resolve to intensity 0 and are skipped).
 M.DAMAGEABLE_TYPES = {
   "character",
   "assembling-machine", "furnace", "mining-drill", "lab", "pump",
@@ -52,7 +52,7 @@ M.DAMAGEABLE_TYPES = {
   "roboport", "radar", "turret", "ammo-turret", "electric-turret",
 }
 
--- Peak damage-per-second at a max-intensity (1.0) tile, read from the mod settings
+-- Peak damage-per-second at a max-intensity (1.0) point, read from the mod settings
 -- (mirrors the ribbon max-dps knob). Returns nil if settings are absent (tests pass cfg).
 local function settings_dps()
   local s = settings and settings.startup
@@ -65,52 +65,48 @@ function M.damage_amount(dps, interval_ticks)
   return dps * (interval_ticks / 60)
 end
 
--- The MOST-LETHAL tile under an entity's collision footprint: returns
--- (intensity, kind) for the highest-intensity damaging tile any part of the
--- entity touches, or (0, nil) if it sits entirely on safe ground. Reading the
--- whole footprint (not just the centre) is what burns a pump overlapping a lava
--- tile -- the exploit fix. Characters have a tiny footprint, so this is the tile
--- they stand on. `surface` reads live tiles, so this is intentionally NOT pure;
--- the pure per-tile lookup is terrain.tile_damage.
-function M.footprint_damage(surface, e)
+-- The MOST-LETHAL field damage under an entity's collision footprint: returns
+-- (intensity, kind) for the deepest-into-a-belt point any part of the entity touches, or
+-- (0, nil) if it sits entirely in the safe middle. Reads the field at the footprint's
+-- perpendicular EXTREMES (the sunward-most corner for heat, the nightward-most for cold),
+-- so an entity overlapping a belt burns even if its centre reads safe. Position-keyed, so
+-- this is pure of the tile art; `cfg` (optional) overrides the live widths for tests.
+function M.footprint_damage(e, orient, cfg)
+  orient = orient or axis.orientation()
   local box = e.bounding_box
   local lt, rb = box.left_top, box.right_bottom
-  -- Integer tile coordinates the box spans (a tile at integer (tx,ty) covers
-  -- [tx, tx+1) x [ty, ty+1)). floor(lt) .. ceil(rb)-1 covers every touched tile.
-  local x0, x1 = math.floor(lt.x), math.ceil(rb.x) - 1
-  local y0, y1 = math.floor(lt.y), math.ceil(rb.y) - 1
-  local best_intensity, best_kind = 0, nil
-  for tx = x0, x1 do
-    for ty = y0, y1 do
-      local tile = surface.get_tile(tx, ty)
-      if tile and tile.valid then
-        local intensity, kind = terrain.tile_damage(tile.name)
-        if intensity > best_intensity then
-          best_intensity, best_kind = intensity, kind
-        end
-      end
-    end
+  -- The perpendicular coordinate over the box's four corners -> its [min, max] perp span.
+  local pmin, pmax
+  for _, corner in ipairs({ lt, rb, { x = lt.x, y = rb.y }, { x = rb.x, y = lt.y } }) do
+    local p = axis.perp(corner.x, corner.y, orient)
+    if pmin == nil or p < pmin then pmin = p end
+    if pmax == nil or p > pmax then pmax = p end
   end
-  return best_intensity, best_kind
+  -- Heat is worst at the highest perp (sunward-most), cold at the lowest (nightward-most).
+  local hot_i, hot_k = terrain.field_damage(pmax, cfg)
+  local cold_i, cold_k = terrain.field_damage(pmin, cfg)
+  if hot_i >= cold_i then return hot_i, hot_k end
+  return cold_i, cold_k
 end
 
--- Damage every player and machine standing on lethal GROUND, scaled by the
--- intensity of the most-lethal tile in its footprint (heat on hot ground, cold on
--- the smooth-ice cap). `dps` (optional) overrides the settings value so tests are
--- deterministic; it is the peak dps at a full-intensity (1.0) tile.
-function M.sweep(surface, interval_ticks, dps)
+-- Damage every player and machine standing in a lethal BELT, scaled by how deep into the
+-- belt its footprint reaches (heat on the hot belt, cold on the cold belt). `dps`
+-- (optional) overrides the settings value so tests are deterministic; it is the peak dps
+-- at a full-intensity (1.0) point. `cfg` (optional) overrides the live zone widths.
+function M.sweep(surface, interval_ticks, dps, cfg)
   if not (surface and surface.valid) or surface.name ~= "cindra" then return end
   interval_ticks = interval_ticks or M.DAMAGE_INTERVAL
   dps = dps or settings_dps() or 0
   if dps <= 0 then return end
+  local orient = axis.orientation()
 
   for _, e in pairs(surface.find_entities_filtered({ type = M.DAMAGEABLE_TYPES })) do
     if e.valid then
-      local intensity, kind = M.footprint_damage(surface, e)
+      local intensity, kind = M.footprint_damage(e, orient, cfg)
       if intensity > 0 and kind then
-        -- Intensity scales the peak dps into a per-tile dps -> the depth ramp;
-        -- the entity's own force + resistances still apply, so heat/cold-shielded
-        -- gear or buildings mitigate the burn, never zeroing geography.
+        -- Intensity scales the peak dps into a per-point dps -> the depth ramp; the
+        -- entity's own force + resistances still apply, so heat/cold-shielded gear or
+        -- buildings mitigate the burn, never zeroing geography.
         local amount = M.damage_amount(dps * intensity, interval_ticks)
         e.damage(amount, e.force, M.DAMAGE_TYPE[kind])
       end

@@ -320,6 +320,23 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   everywhere, never straight stripes. NOTE: the from-orbit view / star-map still show the
   OLD colour ramp until the ci-4qyj orbital re-render lands (expected mismatch, not a bug).
 
+- [ ] **[LANDED] ONE continuous heightmap — seamless surface + no walk-to-ocean corridor (ci-oe83).**
+  The terrain is now driven by a SINGLE edge-pinned value field (not three heightmaps), and
+  the environmental damage follows that field's VALUE (perpendicular position), not the tile
+  under you. The corridor/emergence/continuity/clamp/no-enclosure behaviour is integration-
+  tested by driving the real damage sweep (`tests/test_heightmap.lua`); only the *look* is
+  the playtest. *Repro:* `./play.sh` onto Cindra, walk WEST and EAST from spawn. *Look for:*
+  (1) the hot-lava and smooth-ice oceans are **contour-continuous** with the terrain in
+  front of them — the field ramps INTO the ocean, no visible "stamped-on-top" cut-off at the
+  ocean edge; (2) walking toward either ocean you **always cross a damaging belt before you
+  can reach the ocean** — there is NO high-ground / ridge path that lets you walk right up to
+  the lava or ice taking zero damage (the old bug); (3) the safe middle is always a
+  continuous traversable band down the whole long axis — you are never boxed into a pocket
+  ringed by lava/frost. FOLLOW-UP (not yet built): deliberate cross-region cosmetic scatter
+  (occasional volcanic-cracks / dust out in the safe middle for an organic, less-banded
+  look) — now SAFE to add because damage is positional, but it needs the family-separation
+  test relaxed; file/track separately before adding.
+
 - [ ] **[LANDED] Smooth-ice is now WALKABLE-but-damaging; the old ice WALL is gone (ci-wly).**
   ci-wly drops the impassable deep-ice wall. Only the two **lava** tiles remain
   impassable (the hot-lava ocean is the one hard wall). You can now **RUN onto the
