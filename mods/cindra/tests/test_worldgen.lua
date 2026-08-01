@@ -48,8 +48,21 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
 
   local HOT_FAMILY, MIDDLE_FAMILY, COLD_FAMILY = {}, {}, {}
   for _, v in ipairs({ "lava-hot", "lava", "volcanic-smooth-stone-warm", "volcanic-cracks-hot",
-                       "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone", "volcanic-ash-dark" }) do
+                       "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone", "volcanic-ash-dark",
+                       -- the ci-72bw FOLDS branch family (also hot-slope tiles):
+                       "volcanic-folds-warm", "volcanic-folds", "volcanic-folds-flat",
+                       "volcanic-ash-cracks", "volcanic-pumice-stones" }) do
     HOT_FAMILY["cindra-" .. v] = true
+  end
+  -- The two hot-outer texture families (ci-72bw): the branch noise splits the slope so a
+  -- region reads CRACKS or FOLDS, both thinning to the shared ash-dark.
+  local CRACKS_FAMILY, FOLDS_FAMILY = {}, {}
+  for _, v in ipairs({ "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone" }) do
+    CRACKS_FAMILY["cindra-" .. v] = true
+  end
+  for _, v in ipairs({ "volcanic-folds-warm", "volcanic-folds", "volcanic-folds-flat",
+                       "volcanic-ash-cracks", "volcanic-pumice-stones" }) do
+    FOLDS_FAMILY["cindra-" .. v] = true
   end
   for _, v in ipairs({ "volcanic-ash-dark", "volcanic-ash-light", "volcanic-ash-flats",
                        "volcanic-ash-soil", "volcanic-soil-light", "volcanic-soil-dark" }) do
@@ -220,6 +233,27 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
     assert.is_true(ash >= 2, "the middle mixes at least two ash tiles, saw " .. ash)
     local soil = seen["cindra-volcanic-soil-dark"] or seen["cindra-volcanic-soil-light"] or seen["cindra-volcanic-ash-soil"]
     assert.is_true(soil == true, "the middle grows soil patches")
+  end)
+
+  it("splits the hot outer slope into BOTH texture families, converging on ash-dark (ci-72bw)", function()
+    -- hot_outer band perp [60,130] -> x in [-130,-60]. The hi half [-128,-92] (perp 92..128)
+    -- is where the family members dominate; the low-frequency branch noise partitions it into
+    -- CRACKS regions and FOLDS regions along Y, so a tall column hits both.
+    local folds = count_in(FOLDS_FAMILY, -128, -92, -RY, RY)
+    local cracks = count_in(CRACKS_FAMILY, -128, -92, -RY, RY)
+    assert.is_true(folds > 200, "the FOLDS texture family generates live on the hot slope (" .. folds .. ")")
+    assert.is_true(cracks > 200, "the CRACKS texture family still generates live (" .. cracks .. ")")
+    -- CONVERGENCE: the ungated ash-dark takes over at the lo (middle-ward) edge of the slope,
+    -- in BOTH kinds of region -- it is the shared tile both families thin to.
+    local ash_dark = s.count_tiles_filtered({ name = "cindra-volcanic-ash-dark", area = { { -66, -RY }, { -61, RY } } })
+    assert.is_true(ash_dark > 500, "both families converge on ash-dark at the slope's lo edge (" .. ash_dark .. ")")
+  end)
+
+  it("keeps the FOLDS family strictly on the hot slope: it never leaks to the middle or cold side (ci-72bw)", function()
+    -- The 5 folds tiles are hot_outer-only members; none may appear at perp <= 55 (x >= -55),
+    -- i.e. anywhere in the middle or on the cold side.
+    local leak = count_in(FOLDS_FAMILY, -55, 396, -RY, RY)
+    assert.are.equal(0, leak, "no folds-family tile in the middle or cold side (found " .. leak .. ")")
   end)
 
   it("draws ORGANIC (wavy) region boundaries, never raw straight lines", function()

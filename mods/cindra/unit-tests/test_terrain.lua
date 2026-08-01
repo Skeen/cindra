@@ -68,8 +68,11 @@ test("each zone's membership is the tiles that can paint its band", function()
     assert_true(has(role, "lava-hot"), role .. " includes the lava core")
     assert_true(has(role, "volcanic-cracks-warm"), role .. " reaches the outer cracks-warm ring")
   end
-  -- The flat hot outer slope: cool tiles blending to ash-dark.
-  for _, v in ipairs({ "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone", "volcanic-ash-dark" }) do
+  -- The flat hot outer slope: BOTH texture families (cracks + folds, ci-72bw), converging
+  -- on the ungated ash-dark.
+  for _, v in ipairs({ "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone",
+                       "volcanic-folds-warm", "volcanic-folds", "volcanic-folds-flat",
+                       "volcanic-ash-cracks", "volcanic-pumice-stones", "volcanic-ash-dark" }) do
     assert_true(has("hot_outer", v), "hot_outer includes " .. v)
   end
   -- Middle: the ash mix + soil.
@@ -90,9 +93,49 @@ end)
 
 test("all clone sources are real vanilla/space-age tile family names", function()
   local names = terrain.tile_names()
-  assert_eq(23, #names, "twenty-three deduped concrete tiles")
+  assert_eq(28, #names, "twenty-eight deduped concrete tiles (23 + the 5 ci-72bw folds family)")
   assert_eq("cindra-lava-hot", names[1], "hottest tile is first (hot -> cold order)")
   assert_eq("cindra-ice-smooth", names[#names], "coldest tile (ice ocean) is last")
+end)
+
+test("the hot-outer FOLDS family (ci-72bw) is a second family, gated to hot_outer only", function()
+  -- The 5 new folds tiles are hot_outer members and NOTHING else -- they must never be a
+  -- middle or cold-side placement candidate.
+  for _, v in ipairs({ "volcanic-folds-warm", "volcanic-folds", "volcanic-folds-flat",
+                       "volcanic-ash-cracks", "volcanic-pumice-stones" }) do
+    local zones = terrain.tile_zones("cindra-" .. v)
+    assert_true(zones.hot_outer == true, v .. " is a hot_outer member")
+    for _, other in ipairs({ "hot_inner", "middle", "cold_outer", "cold_inner", "cold_ocean" }) do
+      assert_true(zones[other] ~= true, v .. " must NOT leak into " .. other)
+    end
+  end
+end)
+
+test("warm folds carries the same low heat damage as warm cracks (ci-72bw)", function()
+  local function intensity(name) return (select(1, terrain.tile_damage(name))) end
+  local function kind(name) return (select(2, terrain.tile_damage(name))) end
+  assert_eq(0.15, intensity("cindra-volcanic-folds-warm"), "warm folds burns a little (0.15)")
+  assert_eq("heat", kind("cindra-volcanic-folds-warm"), "warm folds is heat damage")
+  assert_eq(intensity("cindra-volcanic-cracks-warm"), intensity("cindra-volcanic-folds-warm"),
+    "warm folds == warm cracks heat")
+  -- The deeper folds family tiles are cool, harvestable slope (no damage), like cracks/smooth-stone.
+  for _, v in ipairs({ "volcanic-folds", "volcanic-folds-flat", "volcanic-ash-cracks", "volcanic-pumice-stones" }) do
+    assert_eq(0, intensity("cindra-" .. v), "cindra-" .. v .. " is cool, safe slope")
+  end
+end)
+
+test("the branch noise gates each family but leaves the shared ash-dark ungated (ci-72bw)", function()
+  local seed = "seed1 = " .. tostring(60) -- the branch-noise basis seed
+  -- A folds-only tile carries the branch field (seed 60) and a relu penalty.
+  local folds = terrain.probability_expr("cindra-volcanic-folds")
+  contains(folds, seed, "a folds member is gated by the branch noise (seed 60)")
+  contains(folds, tostring(terrain.BRANCH_PENALTY), "the folds term subtracts the branch penalty")
+  -- A cracks-only flat member (smooth-stone; cracks-warm also carries a ring term) is gated too.
+  local cracks = terrain.probability_expr("cindra-volcanic-smooth-stone")
+  contains(cracks, seed, "a cracks member is gated by the same branch noise (seed 60)")
+  -- ash-dark is the UNGATED convergence tile: it must carry NO branch penalty.
+  local ash = terrain.probability_expr("cindra-volcanic-ash-dark")
+  assert_true(ash:find(seed, 1, true) == nil, "ash-dark is ungated (no branch noise): " .. ash)
 end)
 
 test("only the two lava tiles are impassable; smooth-ice is now WALKABLE (ci-wly)", function()

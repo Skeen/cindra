@@ -11,7 +11,12 @@
 --   === HOT SIDE (ocean of hot-lava -> ash-dark) ===
 --   ocean of hot-lava -> lava -> volcanic-smooth-stone-warm -> volcanic-cracks-hot     (heightmap)
 --   -> volcanic-cracks-warm -> volcanic-cracks -> volcanic-smooth-stone -> ash-dark     (flat outer slope)
---   (The ci-72bw folds/pumice BRANCH after cracks-hot is a staged follow-up.)
+--   The flat outer slope BRANCHES into TWO texture families (ci-72bw), selected by a
+--   low-frequency branch noise so whole regions of the hot slope read folded/pumice
+--   instead of cracked, both converging on the ungated ash-dark:
+--     CRACKS family: cracks-warm -> cracks -> smooth-stone            (blends to ash-dark)
+--     FOLDS  family: folds-warm -> folds -> folds-flat -> ash-cracks -> pumice-stones
+--                                                                     (blends to ash-dark)
 --
 --   === COLD SIDE (ocean of smooth-ice -> ash-light) ===
 --   ocean of smooth-ice -> rough-ice -> snow-patchy -> snow-lumpy -> snow-crests ->
@@ -150,14 +155,25 @@ M.SOIL_RING_ORDER = {
 
 -- FLAT-MIX zones (the safe outer slopes + the middle). Each lists its member tiles with a
 -- weight at the band's HOT (hi) edge and COLD (lo) edge, linearly interpolated across the
--- band; a per-tile speckle interpenetrates co-present members -> an organic gradient.
-local function m(vanilla, hot, cold) return { vanilla = vanilla, hot = hot, cold = cold } end
+-- band; a per-tile speckle interpenetrates co-present members -> an organic gradient. An
+-- optional BRANCH sign (+1 / -1, ci-72bw) gates a member to one side of the low-frequency
+-- branch noise (see flat_band_term): +1 members win where the noise is positive, -1 where
+-- negative, so two families split the band; an unset branch (ash-dark) is ungated and shared.
+local function m(vanilla, hot, cold, branch) return { vanilla = vanilla, hot = hot, cold = cold, branch = branch } end
 M.FLAT_ZONES = {
-  -- hot outer slope [perp 60..130]: cracks-warm (blends to the heightmap at the hi edge)
-  -- -> cracks -> smooth-stone -> ash-dark (blends to the middle at the lo edge).
+  -- hot outer slope [perp 60..130]: the warmest members blend to the heightmap at the hi
+  -- edge; both families thin to the UNGATED ash-dark at the lo edge (blending to the middle).
+  -- A low-frequency branch noise (ci-72bw) splits the slope into two texture families so a
+  -- region reads cracked OR folded/pumice, never a wash of both:
+  --   CRACKS family (branch -1): cracks-warm -> cracks -> smooth-stone.
+  --   FOLDS  family (branch +1): folds-warm -> folds -> folds-flat -> ash-cracks -> pumice-stones.
   hot_outer = {
-    m("volcanic-cracks-warm", 1, 0.15), m("volcanic-cracks", 0.5, 0.7),
-    m("volcanic-smooth-stone", 0.3, 0.9), m("volcanic-ash-dark", 0, 0.5),
+    m("volcanic-cracks-warm", 1.0, 0.05, -1), m("volcanic-cracks", 0.7, 0.2, -1),
+    m("volcanic-smooth-stone", 0.4, 0.3, -1),
+    m("volcanic-folds-warm", 1.0, 0.05, 1), m("volcanic-folds", 0.8, 0.15, 1),
+    m("volcanic-folds-flat", 0.6, 0.25, 1), m("volcanic-ash-cracks", 0.45, 0.3, 1),
+    m("volcanic-pumice-stones", 0.3, 0.35, 1),
+    m("volcanic-ash-dark", 0.0, 0.9),
   },
   -- middle [perp -60..60]: the ash mix, even weights (soil is a separate patch ring).
   middle = {
@@ -181,6 +197,7 @@ M.TILE_DAMAGE_BY_VANILLA = {
   ["volcanic-smooth-stone-warm"] = dmg("heat", 0.45), -- warm stone ringing the lava: medium
   ["volcanic-cracks-hot"]        = dmg("heat", 0.30), -- glowing crust: medium-low
   ["volcanic-cracks-warm"]       = dmg("heat", 0.15), -- warm cracks: low (the edge-push margin)
+  ["volcanic-folds-warm"]        = dmg("heat", 0.15), -- warm folds (ci-72bw): low, == cracks-warm
   ["ice-smooth"]                 = dmg("cold", 1.00), -- the smooth-ice ocean: peak freeze
   ["ice-rough"]                  = dmg("cold", 0.50), -- rough ice: medium (the edge-push margin)
   ["snow-patchy"]                = dmg("cold", 0.20), -- the deepest snow ring: low
@@ -283,6 +300,11 @@ do
   for i, r in ipairs(M.HOT_RING_ORDER) do register(r.vanilla, 0.40 * (i - 1) / (nh - 1)) end
   -- Hot outer flat slope, then the middle mix + soil (the dark ash belt ~0.5).
   register("volcanic-cracks", 0.42); register("volcanic-smooth-stone", 0.45)
+  -- Hot-side FOLDS branch (ci-72bw): a parallel volcanic-folds/pumice family on the hot
+  -- outer slope, spanning cracks-warm (0.40) -> ash-dark (0.47), converging on ash-dark.
+  register("volcanic-folds-warm", 0.41); register("volcanic-folds", 0.43)
+  register("volcanic-folds-flat", 0.44); register("volcanic-ash-cracks", 0.45)
+  register("volcanic-pumice-stones", 0.46)
   register("volcanic-ash-dark", 0.47); register("volcanic-ash-flats", 0.50)
   register("volcanic-ash-light", 0.53)
   register("volcanic-ash-soil", 0.50); register("volcanic-soil-light", 0.50); register("volcanic-soil-dark", 0.50)
@@ -298,7 +320,7 @@ do
       local name = cindra_name(mem.vanilla)
       register(mem.vanilla, GRADIENT_POS[name]) -- ensure registered (position already set above)
       FLAT_MEMBER[name] = FLAT_MEMBER[name] or {}
-      FLAT_MEMBER[name][#FLAT_MEMBER[name] + 1] = { role = role, hot = mem.hot, cold = mem.cold }
+      FLAT_MEMBER[name][#FLAT_MEMBER[name] + 1] = { role = role, hot = mem.hot, cold = mem.cold, branch = mem.branch }
     end
   end
 
@@ -335,6 +357,16 @@ M.SEA_WALL = 60
 M.SOIL_AMPLITUDE = 26
 M.SOIL_WAVELENGTH = 22
 M.SOIL_PLATEAU = 8
+
+-- Hot-outer FAMILY branch noise (ci-72bw): a LOW-frequency field (large wavelength) whose
+-- sign picks which texture family paints a region of the hot outer slope. A member's
+-- branch sign is penalised by BRANCH_PENALTY where the noise favours the other family, so
+-- the losing family drops out and each region reads as ONE family; near the zero crossing
+-- both compete -> an organic seam. BRANCH_PENALTY dwarfs the flat weight+speckle (~3.5) so
+-- deep in a region the gate is decisive.
+M.BRANCH_AMPLITUDE = 1
+M.BRANCH_WAVELENGTH = 80
+M.BRANCH_PENALTY = 40
 
 M.HOT_GATE_STEEP = M.GATE_STEEP -- backwards-compat alias
 
@@ -486,6 +518,9 @@ local function basis(seed1, amp, wl)
 end
 local function boundary_noise() return basis(7, M.NOISE_AMPLITUDE, M.NOISE_WAVELENGTH) end
 local function speckle_noise(tile_index) return basis(100 + tile_index, M.SPECKLE_AMPLITUDE, M.SPECKLE_WAVELENGTH) end
+-- The hot-outer FAMILY branch field (ci-72bw): one low-frequency basis (seed 60) shared by
+-- every branch-gated member, so a single noise sign partitions the slope into two families.
+local function branch_noise() return basis(60, M.BRANCH_AMPLITUDE, M.BRANCH_WAVELENGTH) end
 
 local function relu(expr) return "max(0, " .. expr .. ")" end
 local function clamp01(expr) return "min(1, max(0, " .. expr .. "))" end
@@ -502,7 +537,15 @@ local function flat_band_term(mm, P, band)
   local frac = clamp01("(" .. P .. " - " .. num(band.lo) .. ") / " .. num(span))
   local weight = num(M.WEIGHT_SCALE) .. " * (" .. num(mm.cold) ..
                  " + " .. num(mm.hot - mm.cold) .. " * " .. frac .. ")"
-  return "(" .. env .. " + " .. weight .. ")"
+  local term = env .. " + " .. weight
+  -- ci-72bw: a branch-gated member is suppressed where the low-frequency branch noise
+  -- favours the OTHER family. branch +1 (folds) is penalised where the noise is negative,
+  -- branch -1 (cracks) where it is positive: penalty = BRANCH_PENALTY * relu(-branch * noise).
+  if mm.branch then
+    term = term .. " - " .. num(M.BRANCH_PENALTY) .. " * " ..
+           relu(num(-mm.branch) .. " * " .. branch_noise())
+  end
+  return "(" .. term .. ")"
 end
 
 -- One HEIGHTMAP RING term for a tile on one SIDE. gate confines the tile to the side's
