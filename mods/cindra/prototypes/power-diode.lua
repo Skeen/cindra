@@ -87,15 +87,49 @@ local function make_hidden(proto, name)
   return proto
 end
 
+-- Blank a helper's graphics so ONLY the visible power-switch DEVICE renders
+-- (ci-qj5k). The buffers are EEIs cloned from the vanilla accumulator-interface,
+-- so they inherit its BATTERY sprite; the tap poles inherit the small-pole sprite.
+-- Left alone, those leak through and the diode reads as "two batteries with poles
+-- inside" instead of the clean switch. We point the helper's render field at the
+-- 1x1 transparent core sprite (invisible in world) and stop the internal
+-- copper/circuit wires (tap<->switch) from drawing. util.empty_sprite() still
+-- carries a real filename, so the data-stage graphics audit
+-- (prototypes/graphics-audit.lua) sees a wired render field and passes -- the
+-- helper is intentionally-empty, not the silently-invisible bug audit guards
+-- against.
+--
+-- The render field differs by type: an EEI draws from `picture` (a Sprite); an
+-- electric-pole draws from `pictures` (a RotatedSprite, so it needs a
+-- direction_count). Blank exactly the field the engine reads and clear the rest.
+local function empty_sprite() return util.empty_sprite() end
+-- An empty RotatedSprite with `dirs` frames. The engine requires an electric
+-- pole's `pictures` direction_count to match its connection_points count, so the
+-- blank must carry as many (transparent) directions as the cloned pole had.
+local function empty_rotated(dirs)
+  local s = util.empty_sprite()
+  s.direction_count = dirs
+  return s
+end
+local function hide_wires(proto)
+  proto.draw_copper_wires = false
+  proto.draw_circuit_wires = false
+end
+
 -- A hidden buffer: an EEI clone with the vanilla editor knobs neutralised (fixed
 -- 0 production / usage), so energy only crosses via the network flow limits and
--- the script.
+-- the script. Its inherited accumulator/battery sprite is blanked (ci-qj5k).
 local function make_buffer(name, source)
   local buf = make_hidden(util.table.deepcopy(data.raw["electric-energy-interface"]["electric-energy-interface"]), name)
   buf.gui_mode = "none"
   buf.energy_production = "0W"
   buf.energy_usage = "0W"
   buf.energy_source = source
+  buf.picture = empty_sprite()
+  buf.pictures = nil
+  buf.animation = nil
+  buf.animations = nil
+  hide_wires(buf)
   return buf
 end
 
@@ -134,6 +168,12 @@ local function make_tap(name)
   -- comfortably past the short script wire to the switch connector (~TAP_DX-0.5,
   -- made with reach_check off) yet short of the far tap (2*TAP_DX).
   tap.maximum_wire_distance = C.TAP_DX + 1
+  -- Blank the inherited small-pole sprite and suppress its internal copper wire so
+  -- neither the pole nor the tap<->switch link leaks into the world (ci-qj5k). The
+  -- electrical connection is unaffected -- draw_copper_wires is render-only.
+  tap.pictures = empty_rotated(#tap.connection_points)
+  tap.picture = nil
+  hide_wires(tap)
   return tap
 end
 
