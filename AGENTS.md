@@ -42,6 +42,24 @@ most common cause of a rejected MR.
 - **Nothing ships without its tests.** Every change needs a test (see
   Conventions). The fix for a bug MUST add a test that fails on main and passes
   on the fix.
+- **🚨 Ship a PLAYER-OBSERVABLE INVARIANT test, not a mirror of the constants
+  (ci-m96z).** A Cindra test must assert what the PLAYER OBSERVES (behavior /
+  outcome); it must NOT merely restate the implementation model. If a test could
+  still pass while the player-visible behavior is broken, it is the WRONG test.
+  This is the mod-wide testing policy: `TESTS SHOULD TEST PLAYER BEHAVIOR --
+  THAT'S ALL PLAYERS SEE.` For anything with runtime behavior, prefer a
+  runtime/behavioral test over a prototype-field assertion (`energy_usage == X`,
+  `box == Y`); a field assertion alone does NOT satisfy this. Concretely, ship at
+  least one test that would FAIL if the observable behavior regressed:
+  - **power:** energy conservation -- no entity creates net energy from nothing;
+    a dark/empty source -> downstream gets 0; an off/gated entity -> 0 transfer &
+    0 draw; an idle downstream -> ~0 source draw (see
+    `tests/test_power_conservation.lua`, `tests/test_power_diode.lua`).
+  - **damage:** tile-based -- concrete shields, lava+cracks burn (`ci-ma18`).
+  - **on/off, demand-driven draw, correct model/overlay render, selection box
+    matches model,** etc.
+  A GREEN suite that only restated constants shipped the `ci-76if` free-energy
+  diode and the `ci-ma18` damage regression; this rule is the fix.
 
 ## 🚨 ALWAYS PREFER TESTS OVER PLAYTEST
 

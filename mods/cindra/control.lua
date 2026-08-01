@@ -134,6 +134,10 @@ if script.active_mods["factorio-test"] then
     -- ci-gcd one-way power transfer PoC: energy flows A->B up to a rate cap,
     -- never B->A; the two networks stay isolated.
     "tests/test_power_diode",
+    -- ci-m96z power-economy CONSERVATION sweep: no custom power entity (diode,
+    -- dissipator EEI, accumulators) creates net energy from nothing -- the
+    -- player-observable invariant the ci-76if free-energy diode slipped past.
+    "tests/test_power_conservation",
     -- ci-xor: the standalone env-scanner mod (the radio tower) loads alongside
     -- cindra via a required (~ env-scanner) dependency, so its buildable scanner
     -- exists in every Cindra playtest instead of silently going missing.

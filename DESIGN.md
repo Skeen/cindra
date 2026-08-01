@@ -485,6 +485,25 @@ runtime drop calls); the in-game cargo-pod drop feel is a PLAYTEST item.
 - **The ribbon axis has one source of truth:** `scripts/ribbon.lua`. Every system
   that needs "where am I on the hot–cold axis" reads it; don't re-derive the
   curve.
+- **Power conserves: no custom power entity creates net energy from nothing
+  (ci-m96z, locked by RUNTIME tests).** For every custom power entity
+  (diode / dissipator-EEI / accumulators / panels): a dark or empty source ->
+  downstream receives 0; an off/gated entity -> 0 transfer and 0 draw; an idle
+  downstream -> ~0 source draw (no parasitic constant load); and energy out this
+  tick <= energy in + legitimate generation. Pinned by
+  `tests/test_power_conservation.lua` (dissipator + accumulators),
+  `tests/test_power_diode.lua` (the diode, against ci-76if), and
+  `tests/test_solar_magnitude.lua` (panel output bounded, no free peak without
+  the flare).
+- **Tests assert PLAYER-OBSERVABLE behavior, not the implementation model
+  (ci-m96z, mod-wide testing policy).** A test asserts what the PLAYER OBSERVES
+  (behavior / outcome), never a restatement of the constants: if it could still
+  pass while the player-visible behavior is broken, it is the wrong test. For
+  anything with runtime behavior, prefer a runtime/behavioral test over a
+  prototype-field assertion. Every new/changed mechanic ships at least one test
+  that would FAIL if its observable behavior regressed (conservation, tile-based
+  damage, on/off gating, demand-driven draw, correct render, etc.). See the
+  Definition of Done in `AGENTS.md`.
 
 ## 7. Key tuning values (all `(tune)`, §16)
 
