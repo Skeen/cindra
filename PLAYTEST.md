@@ -611,6 +611,24 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   and working sound play at a **calm, normal rate** - no fast flicker/blur, no stuttering
   sound. (The tech that unlocks the chain is still "Lava casting".)
 
+- [ ] **Lava-manufacturer model centred in its selection box + wire pin bottom-right
+  (ci-72c4).** Follow-up to the ci-cge alignment pass: a playtest found the
+  `cindra-lava-manufacturer` glass-furnace model still sitting a touch LOW in its 5x5
+  selection box, and the circuit wire pin reading mid-right rather than at the
+  bottom-right corner. Retuned in `prototypes/lava.lua`: `BODY_SHIFT` `by_pixel(6, -12)`
+  -> `by_pixel(6, -18)` (a smidge more UP so the model centres in the box; still short
+  of the old -24 px float, so it stays grounded) and `CONNECTOR_OFFSET` `by_pixel(48,
+  34)` -> `by_pixel(58, 56)` (decisively into the lower-right corner, still inside the
+  box whose bottom edge is ~+80 px from centre). The ground shadow stays at `by_pixel(
+  30, -4)` (a shadow should not rise with the body). *Repro:* build a
+  `cindra-lava-manufacturer` and run a red/green wire to it. *Look for:* (1) the model is
+  vertically CENTRED in its selection box (not sitting low, not floating); (2) the
+  circuit wire terminates at the BOTTOM-RIGHT corner of the furnace, not its
+  middle-right. If either still needs a nudge, adjust `BODY_SHIFT` / `CONNECTOR_OFFSET`
+  in `prototypes/lava.lua`; the window for each (up-and-centred, bottom-right corner) is
+  guarded in `unit-tests/test_lava_graphics.lua`, and the pre-ci-72c4 values now fail
+  those guards.
+
 - [ ] **Electrolysis-cell oxidizer art + 4x4 box + bottom-right wire (ci-a6z).**
   The signature aluminium building `cindra-electrolysis-cell` was reassigned from
   the arc-furnace set to Hurricane046's bespoke **oxidizer** set (CC-BY 4.0, as

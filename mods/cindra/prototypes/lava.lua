@@ -208,8 +208,12 @@ local LINES_PER_FILE = 8 -- rows in part 1; the remainder spill into part 2
 -- RIGHT (the rightward move also reseats the right-side pipe connectors, which
 -- were floating off the body). The lift stays well short of the ci-ijk -24 px
 -- float, so the body still sits on the ground and fills the box.
+-- ci-72c4 (playtest follow-up): the -12 px lift still left the body sitting a
+-- touch LOW relative to its selection box -- its visual centre fell below the box
+-- centre. Lift a smidge more (-18 px) so the model centres in the box. Still well
+-- short of the -24 px float, so it stays grounded and box-filling.
 local BODY_SCALE = 0.64
-local BODY_SHIFT = util.by_pixel(6, -12)
+local BODY_SHIFT = util.by_pixel(6, -18)
 
 local body_animation_files = {
   ENTITY_GFX .. "glass-furnace-hr-animation-1.png",
@@ -300,7 +304,11 @@ end
 -- the same from every side (like the foundry), so all four share the offset.
 -- circuit_connector_definitions / universal_connector_template are core globals
 -- present for every base/space-age machine, so this loads whenever the game does.
-local CONNECTOR_OFFSET = util.by_pixel(48, 34) -- +x right, +y down -> bottom-right
+-- ci-72c4 (playtest follow-up): the ci-cge (48, 34) offset only dropped the pin
+-- ~1 tile below centre -- it read as mid-RIGHT, not the bottom-right CORNER the
+-- ask wants. Push it decisively into the lower-right of the 5x5 body (+58, +56)
+-- while staying inside the selection box (its bottom edge is ~+80 px from centre).
+local CONNECTOR_OFFSET = util.by_pixel(58, 56) -- +x right, +y down -> bottom-right corner
 manufacturer.circuit_connector = circuit_connector_definitions.create_vector(
   universal_connector_template,
   {

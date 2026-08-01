@@ -222,6 +222,8 @@ test("body/emission scale fills the 5x5 box and the shift seats it (up + right)"
   -- ci-cge (playtest): at shift 0 the body sat too far SOUTH (bottom overhung the
   -- selection box) and a touch too far LEFT. It is now nudged UP (shift.y < 0, to
   -- align the base with the selection-box bottom) and slightly RIGHT (shift.x > 0).
+  -- ci-72c4 (playtest follow-up): the lift grew from -12 to -18 px so the model
+  -- centres in the selection box (the -12 lift still read a touch low).
   -- Guard the full window: a regression to the small scale, the -24 px float, a
   -- downward/southward shift, or a leftward shift all fail here.
   local ls = layers()
@@ -233,10 +235,12 @@ test("body/emission scale fills the 5x5 box and the shift seats it (up + right)"
   assert_true(body.scale ~= nil and body.scale >= 0.6,
     "body scale must fill the 5x5 box (>= 0.6), got " .. tostring(body.scale))
   -- shift is by_pixel -> {x/32, y/32}.
-  -- Up (north) but nowhere near the ci-ijk -0.75 float: a modest lift that bottom-
-  -- aligns the body without hovering it off the ground.
-  assert_true(body.shift[2] < 0 and body.shift[2] > -0.5,
-    "body must be nudged up to seat its base (0 > shift.y > -0.5), got " .. tostring(body.shift[2]))
+  -- Up (north) enough to centre the body in the box (the ci-cge -12 px / -0.375
+  -- lift read a touch low), yet still short of the ci-ijk -0.75 (-24 px) float that
+  -- hovered it off the ground. The -18 px ci-72c4 lift is -0.5625 tiles, inside the
+  -- [-0.72, -0.5] window; the pre-fix -0.375 fails the upper edge.
+  assert_true(body.shift[2] <= -0.5 and body.shift[2] > -0.72,
+    "body must be lifted to centre it (-0.5 >= shift.y > -0.72), got " .. tostring(body.shift[2]))
   -- Slightly right (the ci-cge rightward nudge, which also reseats the right pipes).
   assert_true(body.shift[1] > 0 and body.shift[1] < 0.5,
     "body must be nudged slightly right (0 < shift.x < 0.5), got " .. tostring(body.shift[1]))
@@ -254,15 +258,18 @@ test("circuit connector is rebuilt to attach wires bottom-right (not mid/top)", 
   -- connecting in the middle. lava.lua rebuilds the connector from the universal
   -- template at a bottom-right offset (+x right, +y down). Assert the module
   -- produced a 4-direction connector and that every direction's wire point is
-  -- bottom-right (x > 0 AND y > 0). Fails on the inherited foundry offset (y < 0).
+  -- decisively in the lower-right CORNER. ci-72c4 (playtest follow-up): the
+  -- ci-cge (48, 34) offset only dropped the pin ~1 tile (1.06 tiles) below centre,
+  -- reading as mid-right rather than bottom-right; require the pin at least ~1.3
+  -- tiles down so a regression to that timid offset (or the foundry's y < 0) fails.
   local m = proto("assembling-machine", MACHINE)
   assert_true(m.circuit_connector ~= nil, "manufacturer must set circuit_connector")
   assert_eq(4, #m.circuit_connector, "connector must cover all 4 directions")
   for i, conn in ipairs(m.circuit_connector) do
     local wire = conn.points and conn.points.wire
     assert_true(wire ~= nil and wire.red ~= nil, "direction " .. i .. " must have a red wire point")
-    assert_true(wire.red[1] > 0, "wire must attach to the RIGHT (x > 0), got x=" .. tostring(wire.red[1]))
-    assert_true(wire.red[2] > 0, "wire must attach to the BOTTOM (y > 0), got y=" .. tostring(wire.red[2]))
+    assert_true(wire.red[1] >= 1.0, "wire must attach to the RIGHT (x >= 1.0 tile), got x=" .. tostring(wire.red[1]))
+    assert_true(wire.red[2] >= 1.3, "wire must attach to the BOTTOM CORNER (y >= 1.3 tiles), got y=" .. tostring(wire.red[2]))
   end
 end)
 
