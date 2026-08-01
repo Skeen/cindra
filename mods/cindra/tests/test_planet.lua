@@ -103,13 +103,14 @@ describe("cindra planet", function()
         "must not be always_day (0-cycle) -- that flattens the flare's daylight curve")
     end)
 
-    it("orbits close to the sun but clear of it, still sunward of Vulcanus (ci-bu4, ci-lcv)", function()
+    it("orbits close to the sun but clear of it, still sunward of Vulcanus (ci-bu4, ci-lcv, ci-zyc7)", function()
       local loc = prototypes.space_location["cindra"]
       local vulc = prototypes.space_location["vulcanus"]
       -- ci-bu4: distance 3 planted Cindra INSIDE the sun disc; pulled back to 6.
       -- ci-lcv: dropped back in to 4.5 to sell "running up against the sun" while
       -- staying clear of the disc.
-      assert.are.equal(4.5, loc.distance, "Cindra hugs the star at distance 4.5 (ci-lcv)")
+      -- ci-zyc7: 4.5 overshot slightly too close, eased a tiny smidge out to 5.
+      assert.are.equal(5, loc.distance, "Cindra hugs the star at distance 5 (ci-zyc7)")
       -- Regression guard: must stay clear of the star, NOT the in-sun overshoot
       -- (distance 3 overlapped the sun disc).
       assert.is_true(loc.distance > 3,

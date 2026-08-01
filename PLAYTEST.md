@@ -189,20 +189,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   render; this entry is only the "reads as one planet, no wedge, in the live
   client" confirmation.
 
-- [ ] **[LANDED] Star-map: Cindra dropped closer to the sun (ci-lcv).** The human
-  said the star-map view "looks great" but reads a touch far, and asked to drop
-  Cindra closer to really sell it running up against the sun. `ORBIT_DISTANCE` in
-  `prototypes/planet.lua` was moved from **6 back in to 4.5** (ci-bu4 had earlier
-  pulled it OUT from a distance-3 position that overlapped the sun disc, so 4.5
-  keeps clear margin). *Repro:* open the star-map / navigate the orbital approach
-  (`./play.sh`). *Look for:* Cindra sits noticeably TIGHTER to the star than before
-  (the innermost world, well sunward of Vulcanus) while its globe stays **fully
-  clear of the sun disc** -- not clipped or overlapping it. *Fallback:* the
+- [ ] **[LANDED] Star-map: Cindra hugs the sun, eased out a smidge (ci-lcv, ci-zyc7).**
+  The human said the star-map view "looks great" but reads a touch far, and asked to
+  drop Cindra closer to really sell it running up against the sun. `ORBIT_DISTANCE`
+  in `prototypes/planet.lua` was moved from **6 back in to 4.5** (ci-bu4 had earlier
+  pulled it OUT from a distance-3 position that overlapped the sun disc). ci-zyc7:
+  4.5 overshot slightly TOO close, so it was eased a tiny smidge back OUT to **5**
+  -- still tight to the star, just not quite on top of it. *Repro:* open the
+  star-map / navigate the orbital approach (`./play.sh`). *Look for:* Cindra sits
+  noticeably TIGHTER to the star than the old distance-6 position (the innermost
+  world, well sunward of Vulcanus) while its globe stays **fully clear of the sun
+  disc** -- not clipped, overlapping, or sitting right on top of it. *Fallback:* the
   distance value + the "clear of the sun (>3), closer than the old 6, sunward of
   Vulcanus" guards are pinned in `tests/test_planet.lua`; this entry is only the
   interactive "the closer orbit looks right and never touches the sun" judgement a
   distance assert cannot make. If a visual check shows any sun-disc overlap, nudge
-  `ORBIT_DISTANCE` back up a touch (toward 5) and re-run the test.
+  `ORBIT_DISTANCE` back up a touch and re-run the test.
 
 - [ ] **[LANDED] Star-map sun-side blows out to near-WHITE (ci-2f7).** Follow-up
   to ci-i9m: the left-lit gradient was correct but too subtle. The bake now drives

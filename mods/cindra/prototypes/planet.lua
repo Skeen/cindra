@@ -34,10 +34,13 @@ local minute = 60 * 60
 -- Vulcanus (distance 10), the innermost world of the system. ci-bu4: was 3, which
 -- planted the globe INSIDE the sun disc at the map centre, then pulled back to a
 -- clear distance 6. ci-lcv: the map view "looks great" but reads a touch far, so
--- drop it BACK IN toward the star -- to 4.5 -- to sell Cindra running up against
--- the sun. Still clear of the sun disc (well above the distance-3 in-sun
--- overshoot) and still sunward of Vulcanus, just tighter to the star.
-local ORBIT_DISTANCE = 4.5
+-- dropped it BACK IN toward the star -- to 4.5 -- to sell Cindra running up
+-- against the sun. ci-zyc7: 4.5 overshot slightly too close, so ease it a tiny
+-- smidge back OUT -- to 5 -- keeping the "up against the sun" read without
+-- sitting quite on top of it. Still clear of the sun disc (well above the
+-- distance-3 in-sun overshoot) and still sunward of Vulcanus, just tighter to
+-- the star than the old 6.
+local ORBIT_DISTANCE = 5
 -- Angular position on the orbit ring (RealOrientation: 0 = up, clockwise).
 local ORBIT_ORIENTATION = 0.05
 -- TIDAL LOCK: the fiery dayside must face the star. The star-map icon is a fixed
