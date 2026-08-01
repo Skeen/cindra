@@ -39,12 +39,13 @@ end
 -- (the ice ocean edge). HARVESTABLE FIELDS are clamped to stop short of the LETHAL
 -- damage zone (ci-fb9): the positional damage_bounds put the heat band at perp 130
 -- (hot_ocean+hot_inner) and the cold band at -130 (cold_inner+cold_ocean). ci-4iw pulls
--- the field edge a further FIELD_DAMAGE_MARGIN (9.5) into the safe side, so stone lives
--- on [-60, 120.5) and ice on (-120.5, -60) -- reaching INTO the survivable edge margin
--- (the outer slope, "reachable at a cost") but never onto the bled lethal tiles.
-local M = 9.5 -- FIELD_DAMAGE_MARGIN (NOISE_AMPLITUDE 2 + SPECKLE_AMPLITUDE 1.5 + 6)
-local HOT_FIELD_EDGE = 130 - M  -- 120.5
-local COLD_FIELD_EDGE = -130 + M -- -120.5
+-- the field edge a further FIELD_DAMAGE_MARGIN into the safe side; ci-poed widened that
+-- margin to the fjord/meander displacement bound (MAX_DISPLACEMENT 14 + SPECKLE 1.5 + 6 =
+-- 21.5), so stone lives on [-60, 108.5) and ice on (-108.5, -60) -- reaching INTO the
+-- survivable edge margin ("reachable at a cost") but never onto a bled lethal fjord tile.
+local M = field.FIELD_DAMAGE_MARGIN -- MAX_DISPLACEMENT 14 + SPECKLE_AMPLITUDE 1.5 + 6 = 21.5
+local HOT_FIELD_EDGE = 130 - M  -- 108.5
+local COLD_FIELD_EDGE = -130 + M -- -108.5
 
 test("stone lives on the middle + SAFE hot margin, not on the cold side", function()
   assert_true(field.stone_richness(0) > 0, "stone at the terminator centre")
@@ -121,6 +122,16 @@ test("stone is NEVER placeable on the cold side; ice NEVER in the hot/temperate 
     assert_true(not (field.stone_zone(p) and field.ice_zone(p)),
       "stone and ice zones overlap at p=" .. p)
   end
+end)
+
+-- ci-poed: the keep-back margin must budget the FULL fjord/meander displacement, so a
+-- resource can never land on a bled lethal tip (a lava-crust or ice fjord finger).
+test("the keep-back margin budgets the full displacement bleed (ci-poed)", function()
+  assert_true(field.FIELD_DAMAGE_MARGIN >= terrain.MAX_DISPLACEMENT,
+    "the margin (" .. field.FIELD_DAMAGE_MARGIN .. ") covers the fjord/meander bleed (" ..
+    terrain.MAX_DISPLACEMENT .. ")")
+  assert_eq(terrain.MAX_DISPLACEMENT + terrain.SPECKLE_AMPLITUDE + 6, field.FIELD_DAMAGE_MARGIN,
+    "the margin is the displacement bound + the speckle + a safety pad")
 end)
 
 -- Lethal-zone exclusion (ci-fb9) + keep-back margin (ci-4iw): NO harvestable field may
@@ -206,11 +217,13 @@ end)
 -- vertical (hot on the LEFT), so the sunward-positive perpendicular axis is "(0 - x)".
 
 test("stone mask spans the middle + survivable hot margin, short of the heat cap", function()
-  assert_eq("((0 - x) >= -60) * ((0 - x) < 120.5)", field.stone_mask_expr(), "default stone band")
+  local hot = tostring(130 - M) -- the field's hot edge (margin short of the heat cap)
+  assert_eq("((0 - x) >= -60) * ((0 - x) < " .. hot .. ")", field.stone_mask_expr(), "default stone band")
 end)
 
 test("ice mask covers the survivable cold margin, short of the cold cap", function()
-  assert_eq("((0 - x) < -60) * ((0 - x) > -120.5)", field.ice_mask_expr(), "default ice band")
+  local cold = tostring(-130 + M) -- the field's cold edge (margin short of the cold cap)
+  assert_eq("((0 - x) < -60) * ((0 - x) > " .. cold .. ")", field.ice_mask_expr(), "default ice band")
 end)
 
 test("sandy-rock autoplace masks to the WARM middle across the WHOLE ribbon (ci-18n)", function()

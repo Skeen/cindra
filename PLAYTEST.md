@@ -315,6 +315,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   look) — now SAFE to add because damage is positional, but it needs the family-separation
   test relaxed; file/track separately before adding.
 
+- [ ] **[IN-FLIGHT ci-poed] Ribbon MEANDERS with occasional lava/ice FJORDS — not straight bands.**
+  ci-poed enriches the perpendicular sampling coordinate with THREE scales on top of the
+  ci-oe83 heightmap: a fine wiggle, a large-scale MEANDER (wl ~140, amp ~8), and occasional
+  signed FJORD fingers (amp up to ~4, soft-thresholded so they are sparse). It is ONE shared
+  coordinate warp, so the surface stays a single continuous heightmap (no seams) and there is
+  still no non-damaging corridor to either ocean; the warp TAPERS to zero in the deep ocean so
+  the two seas stay solid. The meander/fjord presence, the shared warp, the spawn keep-out and
+  the deep-ocean taper are unit-tested (`unit-tests/test_terrain.lua`), and the boundary-wander
+  is integration-tested (`tests/test_worldgen.lua` "draws MEANDERING region boundaries"); only
+  the *look* is the playtest. *Repro:* `./play.sh` onto Cindra, then open the map view and walk
+  the length of the ribbon (north-south). *Look for:* (1) the hot-crust coastline and the
+  ice/snow coastline **wander** as you travel the long axis — broad sweeping curves, NOT three
+  straight vertical colour bands with a little dither; (2) **occasional** fingers of hot
+  crust/lava reach inland from the hot side and fingers of snow/ice reach in from the cold side
+  (fjords/inlets), biting into the survivable band here and there — not on every stretch; (3)
+  the habitable middle shows large-scale ash patchiness (dark/pale ash drifting), not a flat
+  brown gradient; (4) it is still ONE seamless surface (no stamped cut-offs), the oceans are
+  still solid, and spawn is still an open, safe build zone (no fjord ever reaches the spawn
+  pad). NOTE: amplitude is deliberately bounded so the existing ocean-solidity / no-enclosure
+  guards stay green; if the map still reads too tame in-game, the amplitudes (MEANDER_AMPLITUDE
+  / FJORD_AMPLITUDE / OCEAN_TAPER_RAMP in `scripts/terrain.lua`) are the knobs to push, which
+  needs those guard tests widened to a meander-robust form. The from-orbit view / star-map are
+  a SEPARATE render and do not reflect this ground change.
+
 - [ ] **[LANDED] Smooth-ice is now WALKABLE-but-damaging; the old ice WALL is gone (ci-wly).**
   ci-wly drops the impassable deep-ice wall. Only the two **lava** tiles remain
   impassable (the hot-lava ocean is the one hard wall). You can now **RUN onto the

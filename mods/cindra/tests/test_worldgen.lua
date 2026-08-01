@@ -222,17 +222,22 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
     assert.is_true(soil == true, "the middle grows soil patches")
   end)
 
-  it("draws ORGANIC (wavy) region boundaries, never raw straight lines", function()
+  it("draws MEANDERING region boundaries, not straight bands with a little dither (ci-poed)", function()
+    -- The middle->cold boundary must WANDER by a large-scale amount across the long axis --
+    -- the ci-poed fix (a meander + fjord displacement, not a +/-2 wiggle). Sample the first
+    -- cold-only (dust/snow) column per row over a long stretch and measure its spread.
     local first = {}
-    for y = -160, 160, 10 do
-      for x = 40, 120 do
+    for y = -220, 220, 8 do
+      for x = 40, 130 do
         if COLD_FAMILY[tile(x, y)] and not MIDDLE_FAMILY[tile(x, y)] then first[#first + 1] = x; break end
       end
     end
-    assert.is_true(#first >= 8, "sampled enough rows to judge the boundary")
+    assert.is_true(#first >= 20, "sampled enough rows to judge the boundary")
     local lo, hi = first[1], first[1]
     for _, x in ipairs(first) do lo = math.min(lo, x); hi = math.max(hi, x) end
-    assert.is_true(hi - lo >= 3, "the boundary wanders across rows (organic); spread=" .. tostring(hi - lo))
+    -- Main (a +/-2 wiggle) gives a spread of only ~4-6; the meander+fjord displacement gives
+    -- a broad, wandering coastline. Assert a spread well beyond fine dither.
+    assert.is_true(hi - lo >= 10, "the boundary meanders across rows (organic); spread=" .. tostring(hi - lo))
   end)
 
   -- 5. WALKABILITY -----------------------------------------------------------------
@@ -292,13 +297,13 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
   end
 
   it("places stone on the middle + survivable hot margin, never on the cold side", function()
-    -- stone zone perp [-60, 120.5) -> x in (-120.5, 60].
-    assert.is_true(count(field.STONE, -118, 60) > 0, "stone patches on the hot ribbon")
+    -- stone zone perp [-60, 108.5) -> x in (-108.5, 60] (ci-poed widened the keep-back).
+    assert.is_true(count(field.STONE, -108, 60) > 0, "stone patches on the hot ribbon")
     assert.are.equal(0, count(field.STONE, 65, 400), "no stone on the cold side (east)")
   end)
 
   it("places ice on the survivable cold margin, never on the hot/temperate ribbon", function()
-    -- ice zone perp (-120.5, -60) -> patch CENTRES at x in (60, 120.5). Resource spots
+    -- ice zone perp (-108.5, -60) -> patch CENTRES at x in (60, 108.5). Resource spots
     -- are sparse blobs, so assert on entity centres over a generous band (robust to which
     -- x a given seed's spot lands at) rather than a tight bounding-box count.
     local ice = s.find_entities_filtered({ name = field.ICE, area = { { 55, -RY }, { 130, RY } } })

@@ -100,14 +100,15 @@ local function bounds(cfg)
   return terrain.resource_bounds(cfg)
 end
 
--- Keep-back MARGIN (tiles) from the lethal-zone boundary (ci-4iw). The tile bands are
--- drawn with a boundary-noise wiggle + per-tile speckle (scripts/terrain.lua), so a
--- lethal tile (smooth-ice cap / lava crust) can wander up to NOISE_AMPLITUDE +
--- SPECKLE_AMPLITUDE (= 14) tiles past its nominal zone edge. Fields stop a WIDER
--- margin short of the damage boundary so no bled lethal tile ever carries a field --
--- the leak ci-fb9 missed by clamping EXACTLY to the boundary (same reasoning as
--- ROCK_COLD_MARGIN). Derived from the terrain amplitudes, never hardcoded.
-M.FIELD_DAMAGE_MARGIN = terrain.NOISE_AMPLITUDE + terrain.SPECKLE_AMPLITUDE + 6
+-- Keep-back MARGIN (tiles) from the lethal-zone boundary (ci-4iw; rebased on the ci-poed
+-- displacement). The tile bands are sampled on a DISPLACED perpendicular coordinate (the
+-- meander + fjord + wiggle warp, scripts/terrain.lua) plus a per-tile speckle, so a lethal
+-- tile (smooth-ice cap / lava crust) can wander up to MAX_DISPLACEMENT + SPECKLE_AMPLITUDE
+-- tiles past its nominal zone edge -- exactly a fjord finger of hot crust or ice biting
+-- inland. Fields stop a WIDER margin short of the damage boundary so no bled lethal tile
+-- (nor a fjord tip) ever carries a field -- the leak ci-fb9 missed by clamping EXACTLY to
+-- the boundary. Derived from the terrain displacement bound, never hardcoded.
+M.FIELD_DAMAGE_MARGIN = terrain.MAX_DISPLACEMENT + terrain.SPECKLE_AMPLITUDE + 6
 
 -- The damage-EXCLUDED band edges for HARVESTABLE FIELDS (ci-fb9, margin ci-4iw). A
 -- field (stone / ice patch) must NEVER generate in the LETHAL damage zone: a resource

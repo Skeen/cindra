@@ -388,6 +388,69 @@ test("a middle tile carries a value-band term; soil carries a gated patch term",
   contains(soil, "seed1 = 50", "soil is gated by the low-frequency soil patch field")
 end)
 
+-- === CI-POED: MEANDER + FJORD DISPLACEMENT ==================================
+-- The ribbon must read as landscape, not straight vertical bands with a little dither: the
+-- perpendicular sampling coordinate is displaced by a composite of three scales.
+
+test("the field is sampled on a THREE-SCALE displacement (wiggle + meander + fjords), ci-poed", function()
+  local expr = terrain.probability_expr("cindra-lava-hot")
+  contains(expr, "seed1 = 7", "the fine boundary wiggle (organic tile edges)")
+  contains(expr, "seed1 = 8", "the large-scale meander (broad wandering curves)")
+  contains(expr, "seed1 = 9", "the occasional fjord fingers")
+  -- The meander is a LARGE-SCALE feature, not fine dither: much longer wavelength than wiggle.
+  assert_true(terrain.MEANDER_WAVELENGTH > terrain.NOISE_WAVELENGTH * 5,
+    "the meander wavelength (" .. terrain.MEANDER_WAVELENGTH .. ") is large-scale vs the wiggle")
+  -- The composite is bounded to +/- MAX_DISPLACEMENT (a hard clamp on the emitted string).
+  assert_eq(terrain.NOISE_AMPLITUDE + terrain.MEANDER_AMPLITUDE + terrain.FJORD_AMPLITUDE,
+    terrain.MAX_DISPLACEMENT, "MAX_DISPLACEMENT is the sum of the three amplitudes")
+  contains(expr, "min(" .. terrain.MAX_DISPLACEMENT .. ", max(-" .. terrain.MAX_DISPLACEMENT .. ",",
+    "the composite displacement is clamped to the +/- MAX_DISPLACEMENT budget")
+end)
+
+test("EVERY tile shares the SAME perpendicular warp -> nested contours, no seam (ci-poed)", function()
+  -- The one thing that keeps a wandering coastline from ever cutting a seam or a corridor:
+  -- the identical displacement is added to the SAME axis for every tile, so the value
+  -- contours can only shift together, never leapfrog. Assert a hot tile and a cold tile
+  -- both embed the identical "<perp> + <clamped displacement>" prefix.
+  local warp = axis.perp_expr() .. " + (min(" .. terrain.MAX_DISPLACEMENT .. ", max(-" ..
+               terrain.MAX_DISPLACEMENT .. ", (basis_noise"
+  contains(terrain.probability_expr("cindra-lava-hot"), warp, "the hot tile samples the shared warp")
+  contains(terrain.probability_expr("cindra-ice-smooth"), warp, "the cold tile samples the SAME warp")
+  contains(terrain.probability_expr("cindra-volcanic-ash-flats"), warp, "the middle tile too")
+end)
+
+test("the displacement TAPERS to zero in the deep ocean so the seas stay solid (ci-poed)", function()
+  -- The envelope is 1 through the middle + belts (full fjord amplitude) and 0 out past the
+  -- ocean inner edge, so the deep ocean is sampled UNDISPLACED (field-pinned, solid).
+  assert_eq(1, terrain.displacement_envelope(0), "full displacement through the middle")
+  local ocean_edge = math.abs(terrain.role_band("hot_ocean").lo) -- 200 by default
+  assert_eq(1, terrain.displacement_envelope(ocean_edge - terrain.OCEAN_TAPER_RAMP), "full up to the ramp start")
+  assert_eq(0, terrain.displacement_envelope(ocean_edge), "zero at the ocean inner edge")
+  assert_eq(0, terrain.displacement_envelope(ocean_edge + 50), "zero out in the deep lava sea")
+  assert_eq(0, terrain.displacement_envelope(-(ocean_edge + 50)), "zero out in the deep ice sea (mirror)")
+  -- The ramp is wide enough that the warp never folds a contour back on itself.
+  assert_true(terrain.MAX_DISPLACEMENT / terrain.OCEAN_TAPER_RAMP < 1,
+    "the warp is monotone (MAX_DISPLACEMENT " .. terrain.MAX_DISPLACEMENT ..
+    " / ramp " .. terrain.OCEAN_TAPER_RAMP .. " < 1)")
+  -- The envelope reaches into the map-gen expression too.
+  contains(terrain.probability_expr("cindra-lava-hot"), "abs(" .. axis.perp_expr() .. ")",
+    "the emitted displacement is tapered by the |perp| envelope")
+end)
+
+test("the fjord/meander bleed can NEVER reach the spawn middle (ci-poed playability)", function()
+  -- A lethal tile can bleed at most MAX_DISPLACEMENT tiles inward of its damage boundary
+  -- (the fjord finger's max reach). Assert the worst-case inward reach of BOTH belts stays
+  -- clear of the building middle (|p| <= building_half), so no fjord ever walls off spawn.
+  local db = terrain.damage_bounds()
+  local half = terrain.resource_bounds().building_half
+  assert_true(db.hot_from - terrain.MAX_DISPLACEMENT > half,
+    "the hottest fjord finger (reach " .. (db.hot_from - terrain.MAX_DISPLACEMENT) ..
+    ") stays hot of the building middle (" .. half .. ")")
+  assert_true(db.cold_from + terrain.MAX_DISPLACEMENT < -half,
+    "the deepest ice fjord (reach " .. (db.cold_from + terrain.MAX_DISPLACEMENT) ..
+    ") stays cold of the building middle (" .. -half .. ")")
+end)
+
 test("the world is finite perpendicular via the map-gen = the total width", function()
   local d = terrain.finite_dimension()
   assert_eq("width", d.key, "vertical orientation bounds the X axis (width)")

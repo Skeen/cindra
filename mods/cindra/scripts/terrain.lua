@@ -377,6 +377,20 @@ function M.lethal_at(p, cfg)
   return kind
 end
 
+-- The displacement ENVELOPE at perpendicular position `p` (PURE): 1 through the middle +
+-- belts, tapering linearly to 0 over the OCEAN_TAPER_RAMP tiles just inside each ocean's
+-- inner edge, and 0 out in the deep ocean. Multiplying the composite displacement by this
+-- keeps the two seas undisplaced (solid, field-pinned) while the survivable-boundary fjords
+-- keep full amplitude. `edge` is the NEARER ocean inner edge, so BOTH oceans are protected
+-- even under an asymmetric per-zone-width override.
+function M.displacement_envelope(p, cfg)
+  local bands = M.bands(cfg)
+  local edge = math.min(math.abs(bands[1].lo), math.abs(bands[#bands].hi))
+  local e = (edge - math.abs(p)) / M.OCEAN_TAPER_RAMP
+  if e < 0 then return 0 elseif e > 1 then return 1 end
+  return e
+end
+
 -- ---------------------------------------------------------------------------
 -- The concrete TILES (deduplicated), ordered hot -> cold, + map colours.
 -- ---------------------------------------------------------------------------
@@ -546,16 +560,47 @@ function M.tile_zones(name)
 end
 
 -- ---------------------------------------------------------------------------
--- Noise tuning. The field contours are perturbed by a boundary WIGGLE that shifts the
--- perpendicular coordinate in TILES (so contours read organic), plus a small per-tile
--- SPECKLE in H units that breaks ties so co-present value bands interpenetrate at their
--- boundary. NOISE_AMPLITUDE / SPECKLE_AMPLITUDE (tile-space) stay the ci-fb9/ci-4iw
--- resource keep-back reads (scripts/resource-field.lua derives its damage margin from the
--- worst-case tile bleed = NOISE_AMPLITUDE + SPECKLE_AMPLITUDE); keeping them small keeps
--- damage tiles from bleeding into the resource band.
+-- Noise tuning. The field is sampled on the perpendicular coordinate shifted by a single
+-- composite DISPLACEMENT in TILES, so the contours (and thus every band boundary + both
+-- ocean coastlines) read organic. The displacement is ONE shared coordinate warp applied
+-- identically to every tile's field sample, so the value contours stay perfectly NESTED
+-- (a warp of the common axis can never make one band leapfrog another) -- that is what
+-- keeps the ribbon a single continuous heightmap with NO seams and NO non-damaging
+-- corridor to either ocean, however the coordinate wanders.
+--
+-- The displacement composes THREE scales (ci-poed: the ribbon must read as landscape, not
+-- as straight vertical bands with a little dither):
+--   * a fine WIGGLE (seed 7) that breaks tile edges up close;
+--   * a large-scale MEANDER (seed 8) that makes the whole ribbon undulate -- broad,
+--     sweeping curves so the lava edge, the ice edge and the habitable band all WANDER
+--     instead of running as vertical lines;
+--   * occasional signed FJORDS (seed 9): a peaky, soft-thresholded finger field that is
+--     zero most of the time and reaches deep occasionally -- a lava inlet biting coldward
+--     into the habitable band where it spikes positive, an ice inlet biting warmward where
+--     it spikes negative (the human's "occasional inflows / fjords" direction).
+-- The composite is CLAMPED to +/- MAX_DISPLACEMENT, so its worst-case tile bleed is a hard
+-- bound the resource keep-back budgets (scripts/resource-field.lua reads MAX_DISPLACEMENT)
+-- and the belts can never bleed into the spawn middle. Plus a small per-tile SPECKLE in H
+-- units that breaks ties so co-present value bands interpenetrate at their boundary.
 -- ---------------------------------------------------------------------------
-M.NOISE_AMPLITUDE = 2    -- tiles: the boundary wiggle amplitude (also the resource margin)
+M.NOISE_AMPLITUDE = 2    -- tiles: the fine boundary wiggle amplitude (organic tile edges)
 M.NOISE_WAVELENGTH = 14
+M.MEANDER_AMPLITUDE = 8  -- tiles: the large-scale ribbon meander (broad wandering curves)
+M.MEANDER_WAVELENGTH = 140
+M.FJORD_AMPLITUDE = 4    -- tiles: an occasional fjord finger's max perpendicular reach
+M.FJORD_WAVELENGTH = 78
+M.FJORD_THRESHOLD = 0.3  -- |noise| must clear this before a finger forms (keeps them sparse)
+-- The MAX magnitude (tiles) the composite perpendicular displacement can reach: the sum of
+-- the three amplitudes, enforced as a hard clamp on the emitted expression. The lethal
+-- belts can bleed at most this far inward, so the resource keep-back (resource-field.lua)
+-- budgets exactly this and the building middle (spawn) stays outside the worst-case bleed.
+M.MAX_DISPLACEMENT = M.NOISE_AMPLITUDE + M.MEANDER_AMPLITUDE + M.FJORD_AMPLITUDE
+-- The displacement TAPERS to zero over the last OCEAN_TAPER_RAMP tiles before each ocean's
+-- inner edge, so the deep ocean (beyond the edge) is sampled UNDISPLACED -- the two seas
+-- stay solid, field-pinned exactly as before, while the survivable-boundary fjords keep
+-- full amplitude. The ramp is wide enough that MAX_DISPLACEMENT / OCEAN_TAPER_RAMP < 1 (the
+-- warp never folds a contour back on itself).
+M.OCEAN_TAPER_RAMP = 22
 M.SPECKLE_AMPLITUDE = 1.5 -- tiles: nominal speckle bleed the resource margin budgets for
 M.SPECKLE_H = 0.012      -- H: the actual per-tile speckle amplitude in the value field
 M.SPECKLE_WAVELENGTH = 4
@@ -578,10 +623,48 @@ local function basis(seed1, amp, wl)
          ", input_scale = " .. num(1 / wl) .. ", output_scale = " .. num(amp) .. "}"
 end
 local function wiggle_noise() return basis(7, M.NOISE_AMPLITUDE, M.NOISE_WAVELENGTH) end
+local function meander_noise() return basis(8, M.MEANDER_AMPLITUDE, M.MEANDER_WAVELENGTH) end
 local function speckle_noise(tile_index) return basis(100 + tile_index, M.SPECKLE_H, M.SPECKLE_WAVELENGTH) end
 
 local function relu(expr) return "max(0, " .. expr .. ")" end
 local function clamp01(expr) return "min(1, max(0, " .. expr .. "))" end
+local function clamppm(expr, b) return "min(" .. num(b) .. ", max(-" .. num(b) .. ", " .. expr .. "))" end
+
+-- Occasional signed FJORD fingers (ci-poed): a raw basis field n in ~[-1, 1] passed through
+-- a soft threshold so it is ZERO while |n| < FJORD_THRESHOLD and ramps to +/- FJORD_AMPLITUDE
+-- only on the noise's peaks -- so fingers are sparse ("occasional, not every stretch") and
+-- signed (a positive spike pulls the field hotter -> a lava inlet reaching inland; a negative
+-- spike pulls it colder -> an ice inlet). Bounded strictly to [-FJORD_AMPLITUDE, +A] by the
+-- clamp, so it contributes a known share of MAX_DISPLACEMENT.
+local function fjord_noise()
+  local n = "basis_noise{x = x, y = y, seed0 = 1, seed1 = 9, input_scale = " ..
+            num(1 / M.FJORD_WAVELENGTH) .. ", output_scale = 1}"
+  local t = num(M.FJORD_THRESHOLD)
+  local span = num(1 - M.FJORD_THRESHOLD)
+  -- signed thresholded spike in [-1, 1]: positive past +t, negative past -t, flat between.
+  local spike = "((" .. relu("(" .. n .. ") - " .. t) .. ") - (" ..
+                relu("(0 - (" .. n .. ")) - " .. t) .. ")) / " .. span
+  return num(M.FJORD_AMPLITUDE) .. " * (min(1, max(-1, " .. spike .. ")))"
+end
+
+-- The ocean-taper ENVELOPE as a noise-expression (mirrors M.displacement_envelope): 1
+-- through the middle + belts, ramping to 0 over the last OCEAN_TAPER_RAMP tiles before the
+-- nearer ocean edge, so the deep ocean is sampled undisplaced (solid seas).
+local function envelope_expr(cfg)
+  local bands = M.bands(cfg)
+  local edge = math.min(math.abs(bands[1].lo), math.abs(bands[#bands].hi))
+  local a = "abs(" .. axis.perp_expr() .. ")"
+  return clamp01("(" .. num(edge) .. " - " .. a .. ") / " .. num(M.OCEAN_TAPER_RAMP))
+end
+
+-- The composite perpendicular DISPLACEMENT (tiles): the fine wiggle + the large-scale
+-- meander + the occasional fjord fingers, clamped to +/- MAX_DISPLACEMENT, then tapered by
+-- the ocean envelope. ONE expression, added to the perpendicular coordinate for EVERY tile
+-- so the warp is shared and the value contours stay nested (no seam, no corridor).
+local function displacement(cfg)
+  local sum = "(" .. wiggle_noise() .. " + " .. meander_noise() .. " + " .. fjord_noise() .. ")"
+  return "(" .. clamppm(sum, M.MAX_DISPLACEMENT) .. " * " .. envelope_expr(cfg) .. ")"
+end
 
 -- The FIELD as a noise-expression string over the wiggled perpendicular coordinate `Pexpr`.
 -- Builds the same monotonic PWL as pwl() from the cumulative slope changes:
@@ -624,7 +707,9 @@ end
 
 -- The `probability_expression` for a Cindra tile: its value-band term (or soil overlay
 -- term) + a per-tile speckle so co-present bands interpenetrate at their boundary. The
--- field is sampled on the WIGGLED perpendicular coordinate so the contours read organic.
+-- field is sampled on the DISPLACED perpendicular coordinate (the shared meander + fjord +
+-- wiggle warp) so the contours meander and send occasional fjord fingers inland, while
+-- staying nested (one continuous heightmap, no seam, no ocean corridor).
 function M.probability_expr(name, cfg)
   local tile, index
   for i, t in ipairs(M.TILES) do
@@ -633,7 +718,7 @@ function M.probability_expr(name, cfg)
   if not tile then error("terrain: unknown Cindra tile " .. tostring(name)) end
 
   local anchors = M.field_anchors(cfg)
-  local P = "(" .. axis.perp_expr() .. " + " .. wiggle_noise() .. ")"
+  local P = "(" .. axis.perp_expr() .. " + " .. displacement(cfg) .. ")"
   local Hf = field_expr(P, anchors)
 
   local term
