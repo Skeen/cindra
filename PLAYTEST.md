@@ -995,20 +995,25 @@ of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
 
 - [ ] **[IN-FLIGHT] Power diode PoC: the single power-switch-style building
-  (ci-gcd, reworked ci-8l4).** A research spike (one-way power transfer between two
-  networks). Its behaviour -- energy source->sink up to a rate cap, never back,
-  networks isolated -- is fully test-covered (`tests/test_power_diode.lua`,
-  `unit-tests/test_diode.lua`), so this checkbox is only for the look/feel a test
-  cannot judge. *Repro:* in the editor, place ONE **Power diode** (it looks like a
-  vanilla power switch, tinted pale blue). Copper-wire one side to a powered
-  network and the other side to a second, separate network with a load (e.g. an
-  accumulator). *Look for:* (1) the building renders and reads as a power switch
-  with two copper connection points; (2) power visibly flows from the wired
-  source side into the sink side and never back; (3) the switch stays visually
+  (ci-gcd, reworked ci-8l4; render fixed ci-qj5k).** A research spike (one-way power
+  transfer between two networks). Its behaviour -- energy source->sink up to a rate
+  cap, never back, networks isolated -- is fully test-covered
+  (`tests/test_power_diode.lua`, `unit-tests/test_diode.lua`), and the helper
+  entities' blank graphics are guard-tested (`unit-tests/test_power_diode_graphics.lua`),
+  so this checkbox is only for the look/feel a test cannot judge. *Repro:* in the
+  editor, place ONE **Power diode** (it looks like a vanilla power switch, tinted
+  pale blue). Copper-wire one side to a powered network and the other side to a
+  second, separate network with a load (e.g. an accumulator). *Look for:* (1) the
+  building renders as JUST the power switch and NOTHING else -- ci-qj5k: no stray
+  batteries/accumulators a few tiles to either side, no embedded power poles, no
+  floating copper wire between the switch and its hidden taps; (2) it reads as a
+  power switch with two copper connection points; (3) power visibly flows from the
+  wired source side into the sink side and never back; (4) the switch stays visually
   OPEN and cannot be toggled into a bridge (the runtime forces it open). *Note:*
-  the two buffers + tap poles it spawns are hidden guts -- the player only ever
-  sees/mines the one switch. Isolated PoC with no recipe/tech, so it is
-  editor-spawn only; there is no crafting-tab entry yet.
+  the two buffers + tap poles it spawns are hidden guts (blanked to the empty
+  sprite, wires suppressed) -- the player only ever sees/mines the one switch.
+  Isolated PoC with no recipe/tech, so it is editor-spawn only; there is no
+  crafting-tab entry yet.
 
 - [ ] **[IN-FLIGHT] Worldgen v2: themed terrain + orientation + size sliders
   (ci-i8a).** A configurable ribbon (default **vertical**, temperature axis
