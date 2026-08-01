@@ -237,28 +237,6 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   horizontal drift across the disc must be < 0.025 of the diameter; the ci-2f7
   wedge drifted ~0.066). Re-bake via `scripts/render-planet.sh`.
 
-- [ ] **[SUPERSEDED by ci-i9m] Planet from-space graphic is VIVID, not dull (ci-fg6).** The
-  earlier bake read flat: a dull matte peach dayside and a flat navy nightside.
-  *Repro:* open the star-map and the orbital-approach view of Cindra (`./play.sh`,
-  then navigate/travel to it). *Look for:* the LAVA hemisphere (left limb, sunward
-  per tidal lock) reads as **strongly GLOWING** radiant molten orange/red with a
-  soft bloom halo bleeding off the fire limb and bright magma veins; the ICE
-  hemisphere (right limb) reads as a **shimmery cool BLUE** frozen vault with icy
-  glints catching the light, NOT flat grey/navy; the sandy terminator band down
-  the centre is now a **THIN sliver** (slimmed ~10x per the space-view
-  refinement) so the disc reads as mostly FIERY + ICY hemispheres, NOT thirds.
-  The whole planet stays DARK (glow/shimmer are accents on a dark base, not an
-  overall wash-out). Fire faces the star, ice faces away
-  (orientation preserved). *Fallback:* the baked star-map sprite is verified
-  off-game (`unit-tests/test_planet_maps.py` guards the strongly-glowing dayside,
-  the visible icy-blue shimmer, and the thin sandy terminator; `unit-tests/test_space_appearance.lua` guards
-  the orbital backdrop's boosted emission_scalar + specular sheen). This entry is
-  only the "the glow/shimmer looks vivid on the live orbital backdrop, bloom and
-  all" confirmation a still-image test cannot judge. Re-bake via
-  `scripts/render-planet.sh` (tunes: gen-planet-maps.py emission/albedo,
-  bake-starmap.py Standard view transform + Emission Strength + Glare bloom +
-  cold-blue fill, space-appearance.lua emission_scalar/specular_intensity).
-
 - [ ] **[LANDED] Mod thumbnail reads as Cindra (ci-06j).** *Repro:* open the
   in-game mod manager (or the mod portal listing) and find **Cindra** by **Vuza**.
   *Look for:* the mod tile shows a planet-globe thumbnail (the 144x144 downscale of
@@ -348,28 +326,6 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   `./play.sh`, walk east onto the ice. *Look for:* you step onto the smooth ice (not
   blocked like lava), the cold damage feedback tint rises, and it hurts more the deeper
   you go; trying to concrete over a lava/ice tile bounces back with a "cannot pave" note.
-
-- [ ] **[SUPERSEDED by ci-wly] THIN ribbon (~128-tile functional band) + impassable ICE WALL (ci-qqt) — MAYOR MUST SCREENSHOT.**
-  NOTE (ci-wly): this entry describes the OLD 11-zone model, now REPLACED by the 3-part
-  heightmap (≈200-tile oceans, WALKABLE smooth-ice, no ice wall). Kept for history;
-  validate the two ci-wly entries above instead.
-  The playfield was thinned: the **functional band** — the survivable space between the
-  LAVA TRIGGER (where heat death begins, the hot walkable margin's outer edge) and the
-  ICE WALL (where the impassable/cold-lethal deep ice begins) — is now **~128 tiles**,
-  matching the vanilla ribbon-world default (was ~500). And the cold side finally has a
-  **real, visible, impassable ICE WALL**: the smooth deep-ice cap is now impassable (you
-  cannot walk onto or build on it), the cold-side twin of the molten lava wall. The band
-  width, the two triggers, and the ice-wall impassability are all integration-tested
-  (`tests/test_worldgen.lua`); only the *look/feel* is the playtest. *Repro:* `./play.sh`
-  onto Cindra. *Look for:* (1) the survivable ribbon feels **tight** — a short walk west
-  from spawn reaches the hot lava, a short walk east reaches the ice; pace it out, it is
-  ~128 tiles wall-to-wall (~64 each side of spawn); (2) walking EAST you hit a hard
-  **wall of smooth ice** you cannot step onto or build on (it stops you like the lava
-  does to the west), not a walkable icy field that just hurts; (3) the zone ORDER and
-  feel are preserved — lava sea → volcanic → sandy building centre → dust → rough-ice →
-  the ice wall — just compressed; (4) the map view reads as a narrow habitable ribbon
-  between a molten west edge and a frozen east wall; (5) the ribbon is **flat/cliff-free**
-  everywhere (no Vulcanus cliffs — the thin band has no room for them; see below).
 
 - [ ] **[LANDED] NO cliffs on the thin ribbon (ci-qqt).** ci-da2 grew Vulcanus-style
   cliffs in the volcanic zones; the thin 128-tile ribbon dropped them (a cliff would
@@ -654,69 +610,6 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   lava"** in factoriopedia, tooltips, or filters; (2) the running manufacturer's animation
   and working sound play at a **calm, normal rate** - no fast flicker/blur, no stuttering
   sound. (The tech that unlocks the chain is still "Lava casting".)
-
-- [x] **[LANDED] Lava-manufacturer glass-furnace art looks right (ci-oi8).** The
-  `cindra-lava-manufacturer` wears the user-supplied Hurricane046 **glass-furnace**
-  set (CC-BY): an animated furnace body, a ground shadow, and an always-on emissive
-  molten glow, wired into the assembling-machine `graphics_set.animation` (replacing
-  the inherited foundry art + its pipe working-visualisations). *Repro:* build a
-  `cindra-lava-manufacturer` and run it. *Look for:* the machine shows the glass-furnace
-  building (not a foundry, not an invisible/placeholder box) and its body visibly
-  **animates** (the 80-frame furnace loop); the emissive layer **glows** (reads as a lit
-  molten furnace, especially in the dark); a ground **shadow** casts correctly; the
-  item/entity **icon** is the glass-furnace icon in the inventory, build preview, and
-  factoriopedia; and the inherited foundry **pipe glow overlay is gone** (no stray
-  foundry-shaped effects near the fluid connections). *Judge the tuning:* `BODY_SCALE`
-  / `BODY_SHIFT` in `mods/cindra/prototypes/lava.lua` place the furnace on the
-  foundry-sized footprint - confirm the base sits on the tiles (not floating, buried,
-  or oversized) and the shadow lands under the body. The geometry (270x310 frames,
-  two-part 80-frame sheet, 8-wide), layer wiring, dropped foundry overlays, and icon
-  are test-covered (`unit-tests/test_lava_graphics.lua`, and the mod-loads +
-  runtime-craft checks in `tests/test_lava.lua` / `tests/test_bootstrap.lua`); only
-  the on-screen look/scale/shift and animation feel need eyes.
-  **ci-ijk RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the manufacturer was
-  FLOATING above the ground and its sprite did NOT fill its 5x5 box (too small).
-  Root cause: `BODY_SCALE` 0.5 was too small for the 5x5 foundry footprint and
-  `BODY_SHIFT` lifted it -24 px. Retuned to scale 0.64 / shift 0 (the vanilla
-  foundry, 356x384 @ 0.5, is the size reference); an actual Factorio render
-  (headless Xvfb + llvmpipe, `game.take_screenshot`, day + night, with the 5x5
-  selection box drawn and a vanilla foundry beside it) confirms the furnace now
-  fills the 5x5 box and its base sits on the ground, all layers (body / shadow /
-  emission) aligned, with the ci-036 additive molten glow intact at night. Guard:
-  `unit-tests/test_lava_graphics.lua` now asserts scale >= 0.6, shift not lifted,
-  and body/emission share scale+shift.
-  **ci-cge PENDING VISUAL CONFIRM (2026-07-31):** a later playtest found three
-  positioning issues at scale 0.64 / shift 0. Retuned in `prototypes/lava.lua`:
-  `BODY_SHIFT` is now `by_pixel(6, -12)` (nudged UP so the body's base aligns with
-  the bottom of the 5x5 selection box instead of overhanging south, and slightly
-  RIGHT), the shadow shift tracks the body to `by_pixel(30, -4)`, and the circuit
-  connector is rebuilt from the universal template at `by_pixel(48, 34)` so the
-  wires attach at the BOTTOM-RIGHT of the model (they were connecting mid/top).
-  *Repro:* build a `cindra-lava-manufacturer`, drop a pipe on each fluid side, and
-  run a red/green wire to it. *Look for:* (1) the body's base sits ON the bottom
-  edge of the selection box (no southward overhang, still not floating); (2) the
-  RIGHT-side pipe connectors meet the body instead of floating off it (the left
-  side was already fine); (3) circuit wires terminate at the lower-right of the
-  furnace, not its middle. If any offset needs a further nudge, adjust `BODY_SHIFT`
-  / the shadow shift / `CONNECTOR_OFFSET` in `prototypes/lava.lua`. The direction
-  of each move (up, right, bottom-right wire point) is guarded in
-  `unit-tests/test_lava_graphics.lua`; only the exact pixel amounts need eyes.
-  *Deferred:* the TOP/BOTTOM pipe connectors are a separate later test.
-  **ci-036 RESOLVED + VERIFIED IN-ENGINE (2026-07-30):** the black-square bug is
-  fixed and confirmed with an actual Factorio render (headless client under Xvfb +
-  llvmpipe, `game.take_screenshot`), NOT just "the code looks right". The REAL root
-  cause was NOT the palette/RGBA theory ci-8r6 chased: the emission layer was missing
-  `blend_mode = "additive"`. The emission sheet is FULLY OPAQUE (alpha 1 everywhere)
-  with a black background and bright molten openings; `draw_as_glow` alone does not
-  change the blend op, so the opaque black background was drawn straight over the
-  furnace body - a solid black square with only the openings showing (exactly the
-  user's `lavaman.png`). Adding `blend_mode = "additive"` (the same wiring the vanilla
-  foundry lights layer uses) makes the black background contribute nothing and only
-  the openings add glow. The day render now shows the full colour furnace body at the
-  foundry-scale footprint; the night render shows the body lit with glowing molten
-  openings. Guarded by `unit-tests/test_lava_graphics.lua` (asserts the emission layer
-  sets `blend_mode = "additive"`; fails on the pre-fix spec). The ci-8r6 RGBA
-  conversion is retained as a defensive format requirement but was never the bug.
 
 - [ ] **Electrolysis-cell oxidizer art + 4x4 box + bottom-right wire (ci-a6z).**
   The signature aluminium building `cindra-electrolysis-cell` was reassigned from
@@ -1082,19 +975,6 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 These are DESIGNED and beaded but NOT on `main`. Do not expect them in a playtest
 of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
-
-- [x] **[LANDED via ci-bvk] Native-freeze inversion (was the ci-b5i spike).** The
-  inversion is now the shipped nightside model (see the "Nightside NATIVE freeze"
-  entry above for the in-engine visual checklist). Record corrections the integration
-  forced: (1) `heating_radius` is a HeatPipe/Reactor field, **not** a HeatInterface
-  one — a heat-interface silently ignores it (measured: a machine 5 tiles from a
-  heating_radius-100 heat-interface stays frozen), so the shipped emitter is a 1×1
-  **heat-pipe**; (2) measured inclusive reach is **101** (frozen at 102) for
-  heating_radius 100, so spacing is **2R+1 = 203** (the spike's "~100 / 201" was off
-  by one); (3) the **UPS gate was dropped** (user, 2026-07-31): heat coverage is
-  cached on placement/heat-source-change, so per-tick freeze cost is R-independent —
-  revisit only if a real regression shows in live play. The retired scripted
-  cold-damage model (`scripts/building-heat.lua`) is gone.
 
 - [ ] **[IN-FLIGHT] Power diode PoC: the single power-switch-style building
   (ci-gcd, reworked ci-8l4).** A research spike (one-way power transfer between two
