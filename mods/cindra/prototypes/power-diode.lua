@@ -39,6 +39,14 @@
 -- from network SURPLUS, so an input buffer would never fill unless production
 -- already exceeded consumption. The input/output priorities charge/discharge on
 -- demand, which is what a conduit needs.)
+--
+-- These flow-limit/priority asymmetries give the DIRECTIONALITY. They do NOT by
+-- themselves decide HOW MUCH crosses: the runtime controller (scripts/diode.lua
+-- M.step_pair, ci-76if) rests both buffers near EMPTY and moves only what the
+-- source actually supplied against the far side's realized demand. So the buffers
+-- are a metered conduit, never a resting store -- the output does not sit full,
+-- and there is no self-charging reservoir to draw parasitically or to dump into
+-- the sink as free energy once the source goes dark.
 
 local util = require("util")
 local C = require("scripts.diode-config")

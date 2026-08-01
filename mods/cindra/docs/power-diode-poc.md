@@ -58,6 +58,30 @@ therefore strictly:
 source net --(charge <= rate)--> input.buffer --(script)--> output.buffer --(discharge <= rate)--> sink net
 ```
 
+### Demand-driven transfer (ci-76if)
+
+The sweep is a **metered controller**, not a "keep both buffers topped up" loop.
+Each sweep it measures the interval just elapsed -- how much the source actually
+charged into the input buffer, and how much the sink actually pulled out of the
+output buffer -- carries *only* that real source contribution across, and then
+sizes the *next* interval's source pull to the sink's realized demand (plus a
+small probe so a hungry sink ramps to the full rate). Both buffers rest near
+**empty**. Consequences, each a test:
+
+* **no parasitic draw** -- an idle / satisfied far side pulls nothing, so the
+  controller pulls ~nothing from the source (`transfer = min(source supplied,
+  far-side demand)`);
+* **no free generation** -- the output buffer only ever gains what was pulled
+  this interval, so a dark source yields zero at the sink and there is no
+  self-charged reservoir to dump once the source dies (`energy out <= energy in`);
+* **on/off gate** -- a disabled diode fully blocks: output emptied (nothing to
+  the sink), input parked full (no load on the source).
+
+This replaced the original oversized (50 MJ) self-charging buffers, which rested
+FULL: they drew a constant ~10 MW from the source regardless of far-side demand
+and could deliver megajoules of free energy to the sink after the source went
+dark.
+
 **One-way is guaranteed three independent ways**, any one of which alone blocks
 reverse flow:
 1. the input buffer has `output_flow_limit = 0` -- it cannot push power into the source;
@@ -111,7 +135,14 @@ the gap. So (b) collapses into (a).
   3. two networks stay isolated (distinct `electric_network_id`);
   4. energy crosses A->B end-to-end through two real isolated networks;
   5. power never reaches A even when B is flooded and A is dark -- the output
-     pole cannot even soak B's power (input_flow_limit 0).
+     pole cannot even soak B's power (input_flow_limit 0);
+  6. (ci-76if) OFF -> the far side gets 0 and the source draw is 0;
+  7. (ci-76if) ON + a satisfied/idle far side -> ~0 source draw (no parasitic
+     load);
+  8. (ci-76if) ON + a far-side deficit -> transfer ramps up to the demand, one
+     direction only;
+  9. (ci-76if) no free generation -- prime the buffers from a live source, kill
+     it, and the sink receives ~nothing further (the output collapses to ~0).
 
 ## What this could enable later
 

@@ -217,13 +217,152 @@ describe("power-diode (ci-8l4 power-switch-style one-way device)", function()
       assert.is_not.equal(d.input.electric_network_id, d.output.electric_network_id,
         "setup must produce two isolated networks")
       -- The output buffer is discharge-only (input_flow_limit = 0): the sink's
-      -- abundant power has NO way into the diode at all.
+      -- abundant power has NO way into the diode at all. A dark source also means
+      -- the controller meters zero `charged`, so nothing is ever carried into the
+      -- output buffer -- it stays empty.
       assert.are.equal(0, d.output.energy,
         "the output buffer must never soak power from the sink network: " .. d.output.energy)
-      -- ...so nothing crosses, and the dark source network stays dark.
-      assert.are.equal(0, d.input.energy, "the input buffer must stay empty: " .. d.input.energy)
+      -- ...so nothing crosses, and the dark source network stays dark. NOTE: under
+      -- the demand-metered controller (ci-76if) the INPUT buffer rests at a virtual
+      -- throttle floor (near full), not empty -- but that floor is inert
+      -- (output_flow_limit 0 -> it can never feed the source, and the sweep only
+      -- carries the metered source-charge delta across, which is 0 here). The real
+      -- one-way guard is that the flooded sink reaches neither the output buffer
+      -- (above) nor the source network (below):
       assert.are.equal(0, a_acc.energy, "the source network must receive zero power from the flooded sink: " .. a_acc.energy)
       done()
+    end)
+  end)
+
+  -- =========================================================================
+  -- ci-76if: demand-driven power economy. The diode must (a) transfer NOTHING and
+  -- draw NOTHING when gated OFF; (b) draw ~0 from the source when the far side is
+  -- satisfied/idle (no parasitic load); (c) transfer up to the far side's deficit
+  -- when it is hungry; and never generate free energy (output <= what the source
+  -- supplied this interval). Each uses a FIXED-STORE source (a charged
+  -- accumulator, no producer) so the source's energy DROP directly measures the
+  -- draw the diode places on it.
+  -- =========================================================================
+
+  -- A charged accumulator acting as the SOURCE network's whole energy store, so a
+  -- parasitic draw shows up as a measurable drop in its charge.
+  local function source_store(s, cx)
+    local acc = place(s, "accumulator", { cx, 6 })
+    acc.energy = acc.electric_buffer_size
+    return acc
+  end
+
+  it("OFF: transfers nothing and draws nothing from the source (ci-76if)", function()
+    local s = H.cindra_surface()
+    H.power_reset(); diode.reset()
+    local dev = place_device(s, { 0, 0 })
+    local subA = substation(s, -30)
+    local src = source_store(s, -30) -- source has a full 5 MJ store
+    local subB = substation(s, 30)
+    local sink = place(s, "accumulator", { 30, 6 }) -- an empty, WANTING sink
+    sink.energy = 0
+    copper(subA, WCID.pole_copper, dev, WCID.power_switch_left_copper)
+    copper(subB, WCID.pole_copper, dev, WCID.power_switch_right_copper)
+    local d = diode.registry()[dev.unit_number]
+    diode.set_enabled(dev, false) -- gate the diode OFF
+
+    async(600)
+    after_ticks(400, function()
+      assert.is_not.equal(d.input.electric_network_id, d.output.electric_network_id,
+        "setup must produce two isolated networks")
+      -- OFF blocks fully: the sink gets nothing even though it is hungry...
+      assert.are.equal(0, sink.energy, "OFF: the far side must receive zero: " .. sink.energy)
+      assert.are.equal(0, d.output.energy, "OFF: the output buffer stays empty: " .. d.output.energy)
+      -- ...and the source's store is untouched (input parked full -> no load).
+      assert.is_true(src.energy >= src.electric_buffer_size * 0.99,
+        "OFF: the source must not be drawn down: " .. src.energy .. "/" .. src.electric_buffer_size)
+      done()
+    end)
+  end)
+
+  it("ON + satisfied/idle far side draws ~0 from the source (no parasitic load) (ci-76if)", function()
+    local s = H.cindra_surface()
+    H.power_reset(); diode.reset()
+    local dev = place_device(s, { 0, 0 })
+    local subA = substation(s, -30)
+    local src = source_store(s, -30) -- full 5 MJ store on the source
+    local subB = substation(s, 30)
+    local sink = place(s, "accumulator", { 30, 6 })
+    sink.energy = sink.electric_buffer_size -- sink already FULL -> zero demand
+    copper(subA, WCID.pole_copper, dev, WCID.power_switch_left_copper)
+    copper(subB, WCID.pole_copper, dev, WCID.power_switch_right_copper)
+    local d = diode.registry()[dev.unit_number]
+    -- enabled by default
+
+    async(600)
+    after_ticks(400, function()
+      assert.is_not.equal(d.input.electric_network_id, d.output.electric_network_id,
+        "setup must produce two isolated networks")
+      -- The satisfied far side pulls nothing, so the controller must NOT drain the
+      -- source into a self-charging reservoir. The old design drained the whole
+      -- 5 MJ store filling its 100 MJ of buffers; the fixed design draws at most a
+      -- one-off demand probe (a small fraction of the rate cap).
+      local drawn = src.electric_buffer_size - src.energy
+      assert.is_true(drawn < 1e6,
+        "idle far side must not draw meaningfully from the source: drawn=" .. drawn)
+      done()
+    end)
+  end)
+
+  it("ON + far-side deficit transfers up to the demand, one direction (ci-76if)", function()
+    local s = H.cindra_surface()
+    H.power_reset(); diode.reset()
+    local dev = place_device(s, { 0, 0 })
+    local subA = substation(s, -30)
+    producer(s, { -30, 6 }, 100e6) -- sustained source
+    local subB = substation(s, 30)
+    local sink = place(s, "accumulator", { 30, 6 }) -- empty -> a real deficit
+    sink.energy = 0
+    copper(subA, WCID.pole_copper, dev, WCID.power_switch_left_copper)
+    copper(subB, WCID.pole_copper, dev, WCID.power_switch_right_copper)
+    local d = diode.registry()[dev.unit_number]
+
+    async(600)
+    after_ticks(400, function()
+      assert.is_not.equal(d.input.electric_network_id, d.output.electric_network_id,
+        "setup must produce two isolated networks")
+      -- The hungry far side ramps the transfer up and receives real power.
+      assert.is_true(sink.energy > 1e6,
+        "a far-side deficit must be served: sink=" .. sink.energy)
+      done()
+    end)
+  end)
+
+  it("no free generation: a source that goes dark stops feeding the sink (ci-76if)", function()
+    local s = H.cindra_surface()
+    H.power_reset(); diode.reset()
+    local dev = place_device(s, { 0, 0 })
+    local subA = substation(s, -30)
+    local srcprod = producer(s, { -30, 6 }, 100e6)
+    local subB = substation(s, 30)
+    local sink = place(s, "accumulator", { 30, 6 })
+    sink.energy = 0
+    copper(subA, WCID.pole_copper, dev, WCID.power_switch_left_copper)
+    copper(subB, WCID.pole_copper, dev, WCID.power_switch_right_copper)
+    local d = diode.registry()[dev.unit_number]
+
+    async(1200)
+    after_ticks(300, function()
+      -- Buffers are now primed from the live source. Kill the source.
+      srcprod.destroy()
+      local at_death = sink.energy
+      after_ticks(600, function()
+        -- With no source, the controller carries nothing across: the output buffer
+        -- collapses to ~0 and the sink gains at most the tiny in-flight residual
+        -- (one sweep's worth), NOT the megajoules a self-charged 50 MJ reservoir
+        -- would have dumped. energy out <= energy in; no free generation.
+        local extra = sink.energy - at_death
+        assert.is_true(extra < 2e6,
+          "no free energy after the source dies: extra delivered=" .. extra)
+        assert.is_true(d.output.energy < 2e6,
+          "the output buffer must collapse to ~0 with no live source: " .. d.output.energy)
+        done()
+      end)
     end)
   end)
 end)

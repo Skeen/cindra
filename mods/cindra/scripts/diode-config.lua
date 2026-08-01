@@ -52,10 +52,22 @@ C.TAP_DX = 3
 -- are sized to match so the script cap -- not the engine -- is the binding limit.
 C.RATE_W = 10e6 -- 10 MW
 
--- Each buffer's capacity (J). Big enough to hold several ticks of transfer so a
--- slow sweep interval never starves the output buffer; small relative to a real
--- battery so the diode is a conduit, not a store.
+-- Each buffer's capacity (J) -- now just a CEILING, not a working store. The
+-- demand-driven controller (scripts/diode.lua M.step_pair, ci-76if) rests both
+-- buffers near EMPTY: the output holds at most one sweep's worth of the far
+-- side's realized demand, and the input is parked near-full only as a virtual
+-- throttle floor (inert -- output_flow_limit 0 keeps it off the source). So the
+-- old "hold several ticks of transfer" reservoir is gone; the number only bounds
+-- the throttle-floor headroom arithmetic.
 C.BUFFER_J = 50e6 -- 50 MJ
+
+-- Demand probe (fraction of the per-sweep rate cap). Each sweep the controller
+-- makes at most `consumed + PROBE_FRAC*cap` joules available to the far side:
+-- the small probe lets a hungry sink ramp up to the full rate over a few sweeps,
+-- while an idle sink settles back to just the probe -- i.e. ~0 source draw. Kept
+-- small so the output buffer rests near-empty (never a default-full store) and
+-- so the one-time idle draw is negligible.
+C.PROBE_FRAC = 0.1
 
 -- Network<->buffer flow caps (W). Input buffer charges from the source network up
 -- to this; output buffer discharges into the sink network up to this. Set to the
