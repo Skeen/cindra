@@ -372,6 +372,23 @@ test("inherited foundry overlays are cleared", function()
   end
 end)
 
+-- === Nightside frost overlay (ci-z7nu) ======================================
+-- Replacing the foundry graphics_set wholesale dropped the foundry's frozen_patch,
+-- so the glass furnace froze on the nightside with NO frost sheen while the other
+-- frozen buildings kept theirs. The engine draws the frozen visual ONLY from
+-- graphics_set.frozen_patch, so it must be restored. Fails on main (no
+-- frozen_patch), passes on the fix.
+test("frozen glass furnace wears a frost overlay (graphics_set.frozen_patch)", function()
+  local m = proto("assembling-machine", MACHINE)
+  local fp = m.graphics_set.frozen_patch
+  assert_true(fp ~= nil, "graphics_set.frozen_patch must exist so the frozen furnace shows frost")
+  assert_true(fp.filename ~= nil and fp.filename:find("frozen") ~= nil,
+    "frozen_patch must point at a frost sprite, got: " .. tostring(fp and fp.filename))
+  assert_true(fp.width ~= nil and fp.height ~= nil, "frozen_patch must set width/height")
+  assert_true(m.graphics_set.reset_animation_when_frozen == true,
+    "reset_animation_when_frozen halts the molten cycle so a frozen furnace reads as stopped")
+end)
+
 -- === Item + entity icon =====================================================
 test("entity and item share the glass-furnace icon at icon_size 64", function()
   local e = proto("assembling-machine", MACHINE)

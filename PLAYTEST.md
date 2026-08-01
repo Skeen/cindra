@@ -493,6 +493,23 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   UPS at full ribbon scale is a separate look. If the pace feels off, that is tuning,
   not a v1 bug.
 
+- [ ] **[LANDED] Oxidizer + glass furnace frost overlay reads right (ci-z7nu).**
+  Both signature buildings wear bespoke art whose `graphics_set` REPLACED the
+  cloned source machine's set, which dropped the inherited `frozen_patch`, so they
+  froze functionally but showed NO frost sheen (every other frozen building kept
+  its patch). The fix restores a `frozen_patch` on each: the **oxidizer**
+  (electrolysis cell) reuses the electric-furnace frost sprite (its source
+  machine), the **glass furnace** (lava-manufacturer) reuses the foundry frost
+  sprite (its source machine). That the patch EXISTS is asserted headless
+  (`unit-tests/test_aluminium_graphics.lua`, `unit-tests/test_lava_graphics.lua`);
+  the on-screen FIT over the bespoke bodies is visual-only. *Repro:* build an
+  oxidizer and a glass furnace in the thawed band, walk them nightward past the
+  freeze onset, leave them to freeze. *Look for:* (1) BOTH grow a frost/ice sheen
+  when frozen, matching the other frozen buildings (previously they stayed bare);
+  (2) the frost sits centred on each body and reads as frost, not floating off or
+  clipped badly. If the frost's scale/shift needs a nudge to seat on the bulbous
+  oxidizer or the tall glass-furnace body, that is a cosmetic tune, not a v1 bug.
+
 - [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
   decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the
   hot (west) rocky/lava half, **ice + light-snow** decals on the cold (east) icy

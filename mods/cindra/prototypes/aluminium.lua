@@ -278,6 +278,26 @@ cell.graphics_set = {
       },
     },
   },
+  -- === Nightside frost overlay (ci-z7nu) ===================================
+  -- Cindra's `entities_require_heating` surface freezes this cell for real; the
+  -- engine draws a frost sheen ONLY from graphics_set.frozen_patch, and replacing
+  -- the electric-furnace graphics_set wholesale above dropped the furnace's own
+  -- patch (space-age wires it in a later data-updates pass, onto the shared
+  -- electric-furnace, never this clone), so the frozen oxidizer showed NO frost
+  -- while the other frozen buildings kept theirs. Restore it by reusing the
+  -- electric-furnace frost sprite -- the cell's source machine; at scale 0.5 it
+  -- renders ~3.7 tiles wide, a close match for the ~3.9-tile oxidizer body.
+  -- reset_animation_when_frozen halts the electro-chemical cycle on frame 0 so a
+  -- frozen cell reads as stopped, matching vanilla frozen machines. Final frost
+  -- shift/scale against the bulbous body is a visual tune (PLAYTEST.md).
+  frozen_patch = {
+    filename = "__space-age__/graphics/entity/frozen/electric-furnace/electric-furnace.png",
+    width = 239,
+    height = 219,
+    shift = util.by_pixel(0.75, 5.75),
+    scale = 0.5,
+  },
+  reset_animation_when_frozen = true,
 }
 -- Drop every inherited electric-furnace overlay so nothing of the old machine
 -- leaks through the new body.

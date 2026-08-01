@@ -278,6 +278,27 @@ manufacturer.graphics_set = {
       },
     },
   },
+  -- === Nightside frost overlay (ci-z7nu) ===================================
+  -- Cindra's `entities_require_heating` surface freezes this building for real;
+  -- the engine draws a frost sheen ONLY from graphics_set.frozen_patch, and
+  -- replacing the foundry's graphics_set wholesale above dropped the foundry's
+  -- own patch, so the frozen glass furnace showed NO frost (the other frozen
+  -- buildings keep theirs and did). Restore it by reusing the foundry frost
+  -- sprite: the glass furnace IS a foundry clone at the same footprint, so the
+  -- foundry-frozen sheen registers over the body exactly as it does on a foundry.
+  -- reset_animation_when_frozen freezes the molten cycle on frame 0 so a frozen
+  -- furnace reads as stopped, matching vanilla frozen machines. Spelled out as an
+  -- explicit sprite (foundry-frozen.lua metadata: 376x398, shift by_pixel(0,-6))
+  -- rather than util.sprite_load so it needs no companion-metadata read. Final
+  -- frost shift/scale against the bespoke body is a visual tune (PLAYTEST.md).
+  frozen_patch = {
+    filename = "__space-age__/graphics/entity/foundry/foundry-frozen.png",
+    width = 376,
+    height = 398,
+    shift = util.by_pixel(0, -6),
+    scale = 0.5,
+  },
+  reset_animation_when_frozen = true,
 }
 -- Drop foundry-specific overlays that would render the foundry's own working
 -- effects on top of the glass-furnace body.
