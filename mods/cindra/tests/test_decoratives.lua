@@ -11,6 +11,10 @@
 --      decals bleed into the rocky/lava zone -- the "no decals in the wrong zone"
 --      acceptance, proven on the live surface (mirrors the ci-7w0 stone/ice purity).
 --   4. CLEAN CENTRE: the temperate terminator band stays decal-free.
+--   5. LEGIBLE COLD GROUND (ci-tizx): the ice/snow decals never touch the BROWN
+--      habitable band (they start at the icy-ground edge), they fade in from that
+--      edge, and even at full strength they cover only a small fraction of the
+--      ground -- the tiles dominate, not the decals.
 --
 -- The pure zone geometry is proven off-game in unit-tests/test_decorative_field.lua;
 -- this proves it actually generates. The VISUAL read (do the decals look like ice vs
@@ -74,7 +78,10 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   end
 
   -- Default geometry: safe_half_width 24, wall_at 128. Perp = -x, so the hot (rocky/
-  -- lava) zone is x < -24 (west) and the icy zone is x > 24 (east).
+  -- lava) zone is x < -24 (west). The icy decal zone starts only where the ground
+  -- itself turns snow/ice (ci-tizx): perp < damage cold_from (-130) -> x > 130 (east).
+  -- Everything between is the BROWN habitable band and must carry no ice/snow decal.
+  local COLD_X = -terrain.damage_bounds().cold_from -- 130: the icy-ground edge, in x
 
   -- 1. ROCKY HOT HALF -------------------------------------------------------------
   it("scatters rock / crater / pebble decals across the hot (rocky/lava) half", function()
@@ -89,12 +96,12 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   end)
 
   -- 2. ICY COLD HALF --------------------------------------------------------------
-  it("scatters ice + snow decals across the icy (cold) half", function()
-    assert.is_true(count_any(cold_names, 25, 128) > 0,
-      "ice/snow decals generate on the cold (east) half")
-    assert.is_true(count("cindra-ice-decal", 25, 128) > 0, "ice decals present")
-    assert.is_true(count("cindra-snowy-decal", 25, 128)
-      + count("cindra-snow-drift-decal", 25, 128) > 0, "light-snow decals present")
+  it("scatters ice + snow decals across the icy (cold) ground", function()
+    assert.is_true(count_any(cold_names, COLD_X + 1, 340) > 0,
+      "ice/snow decals generate on the icy (east) ground")
+    assert.is_true(count("cindra-ice-decal", COLD_X + 1, 340) > 0, "ice decals present")
+    assert.is_true(count("cindra-snowy-decal", COLD_X + 1, 340)
+      + count("cindra-snow-drift-decal", COLD_X + 1, 340) > 0, "light-snow decals present")
   end)
 
   -- 3. ZONE PURITY: no bleed into the wrong zone ----------------------------------
@@ -106,6 +113,50 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   it("keeps ice/snow decals OUT of the entire hot + temperate zone (no snow in lava)", function()
     assert.are.equal(0, count_any(cold_names, -128, 24),
       "no ice/snow decals anywhere sunward of the icy zone (rocky/lava + temperate)")
+  end)
+
+  -- 5. LEGIBLE COLD GROUND (ci-tizx) ----------------------------------------------
+  -- The frost used to start at the safe band (x > 24) and so buried the ~100 tiles of
+  -- BROWN habitable ground (ash + dust) that run out to the icy edge at x = 130.
+  it("keeps ice/snow decals OFF the whole brown habitable band (ci-tizx)", function()
+    assert.are.equal(0, count_any(cold_names, -400, COLD_X),
+      "no ice/snow decals warmward of the icy-ground edge (x <= " .. COLD_X .. ")")
+  end)
+
+  -- The decals fade IN from that edge, so the near strip is markedly sparser than the
+  -- deep strip: no stamped line where the frost begins.
+  it("fades the frost in from the icy edge instead of stamping a line (ci-tizx)", function()
+    local span = field.COLD_FADE_SPAN
+    -- Equal-width strips: the first half of the ramp vs deep past it (full density).
+    local w = math.floor(span / 2)
+    local near = count_any(cold_names, COLD_X + 1, COLD_X + w)
+    local deep = count_any(cold_names, COLD_X + 2 * span, COLD_X + 2 * span + w - 1)
+    assert.is_true(deep > 0, "the deep icy ground still reads as frosted")
+    assert.is_true(near < deep,
+      "frost thickens toward the ice wall (near=" .. near .. " deep=" .. deep .. ")")
+  end)
+
+  -- The point of the bead: the GROUND must dominate. Even at full fade the cold decals
+  -- may cover only a small fraction of the tiles. Measured per tile in a deep strip
+  -- (the densest place they get). MEASURED on this fixed seed: 0.182 decals/tile with
+  -- the pre-ci-tizx densities, 0.059 after -- the ceiling sits between the two, so a
+  -- regression back to the carpet fails here.
+  it("leaves the icy ground legible: decals stay a small fraction of it (ci-tizx)", function()
+    local x1, x2 = COLD_X + 2 * field.COLD_FADE_SPAN, 340
+    local y1, y2 = -200, 200
+    local n = 0
+    for _, name in ipairs(cold_names) do
+      for _, d in ipairs(s.find_decoratives_filtered({ name = name })) do
+        local p = d.position
+        if p.x >= x1 and p.x <= x2 and p.y >= y1 and p.y <= y2 then n = n + 1 end
+      end
+    end
+    local tiles = (x2 - x1 + 1) * (y2 - y1 + 1)
+    local per_tile = n / tiles
+    log("ci-tizx cold decal density: " .. n .. " / " .. tiles .. " = " .. per_tile)
+    assert.is_true(per_tile > 0, "some frost survives out on the deep ice")
+    assert.is_true(per_tile < 0.1,
+      "cold decals must stay sparse (" .. string.format("%.4f", per_tile) .. " per tile)")
   end)
 
   -- 4. CLEAN CENTRE ---------------------------------------------------------------

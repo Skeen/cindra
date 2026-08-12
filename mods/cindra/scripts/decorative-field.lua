@@ -38,8 +38,24 @@
 -- (cindra_decorative_peaks, prototypes/noise.lua) so we never depend on another
 -- planet's named noise.
 
+--
+-- COLD-SIDE PULL-BACK + THINNING (ci-tizx). The first cut gated the ice/snow decals
+-- at the ribbon's safe band (p < -safe_half_width = -24) and kept Aquilo's own
+-- densities, which put a near-carpet of snow decals across ~100 tiles of BROWN
+-- habitable ground (the ash + dust bands run out to the cold damage boundary at
+-- p = -130; only past that does the terrain actually turn snow/ice -- see
+-- terrain.VALUE_RAMP). The result obscured the tiles underneath. Now:
+--   * the cold decals start where the GROUND turns icy (terrain.damage_bounds().cold_from,
+--     the snow/ice belt edge), so no snow decal ever lands on the habitable browns;
+--   * they FADE IN over COLD_FADE_SPAN tiles from that edge, so the boundary is a
+--     gradient, not a stamped line, and the decals are thickest near the ice wall;
+--   * each cold decal carries a `density` multiplier well below 1 (the big
+--     snow-drift art the sparsest), so the ground dominates the decals.
+-- The hot side is untouched: this bead is the cold-side read only.
+
 local ribbon = require("scripts.ribbon")
 local axis = require("scripts.axis")
+local terrain = require("scripts.terrain")
 
 local M = {}
 
@@ -67,11 +83,13 @@ end
 --     bias widens that fraction (denser); a more-negative bias narrows it (sparser).
 --   * coef * cindra_decorative_peaks modulates that by the smooth peaks field
 --     (patchy clumping), the sign chosen per decal as Aquilo's own decals do.
---   * bias sets the overall coverage. The ice/snow decals keep Aquilo's own values
---     (bias 0 / 0.3 -> a dense frosted ground, the intended icy look). The rock /
---     crater / pebble decals use markedly more-negative biases so they read as
---     OCCASIONAL scatter (rocks strewn about), not a carpet; bigger decals
---     (medium rock, large crater) are the sparsest.
+--   * bias sets the overall coverage. The rock / crater / pebble decals use markedly
+--     negative biases so they read as OCCASIONAL scatter (rocks strewn about), not a
+--     carpet; bigger decals (medium rock, large crater) are the sparsest. The ice /
+--     snow decals keep AQUILO's own biases (0 / 0.3) -- that is the clumping
+--     CHARACTER we mirror -- and are thinned by their `density` multiplier instead
+--     (ci-tizx), which scales the resulting probability directly and so is the one
+--     knob that maps linearly onto "how much of the ground is covered".
 -- `seed` varies the random field per decal so they do not all land on the same tiles.
 local function scatter(seed, coef, bias)
   return "min(1, random_penalty{x = x, y = y, seed = " .. num(seed) ..
@@ -82,8 +100,9 @@ end
 -- The decorative catalogue: each a NEW `cindra-*` optimized-decorative cloned
 -- (prototypes/decoratives.lua) from a vanilla decorative for its art, given a
 -- zone-gated Cindra autoplace. `side` picks the zone mask; `scatter` is the base
--- density expression above.
---   name                          clone_from             side    scatter
+-- density expression above; `density` (default 1) is a straight multiplier on the
+-- resulting probability -- the fraction of the mirrored vanilla density we keep.
+--   name                          clone_from             side    scatter   density
 M.DECORATIVES = {
   -- HOT half -- Vulcanus rocks + pebbles + craters (the rocky/lava zone). Occasional
   -- scatter (negative biases), sparsest for the biggest decals.
@@ -92,24 +111,53 @@ M.DECORATIVES = {
   { name = "cindra-volcanic-rock-medium", clone_from = "medium-volcanic-rock", side = "hot",  scatter = scatter(3, 0.5, -0.75) },
   { name = "cindra-crater-small",         clone_from = "crater-small",         side = "hot",  scatter = scatter(6, 0.5, -0.7) },
   { name = "cindra-crater-large",         clone_from = "crater-large",         side = "hot",  scatter = scatter(7, 0.5, -0.9) },
-  -- COLD half -- Aquilo ice + light-snow decals (the icy zone).
-  { name = "cindra-ice-decal",            clone_from = "aqulio-ice-decal-blue", side = "cold", scatter = scatter(1, 0.5, 0.0) },
-  { name = "cindra-snowy-decal",          clone_from = "aqulio-snowy-decal",    side = "cold", scatter = scatter(1, -0.5, 0.3) },
-  { name = "cindra-snow-drift-decal",     clone_from = "snow-drift-decal",      side = "cold", scatter = scatter(2, -0.5, 0.3) },
+  -- COLD half -- Aquilo ice + light-snow decals, confined to the icy ground and
+  -- thinned so the tiles read through (ci-tizx). The snow-drift art is huge (a
+  -- ~6.6 x 4.6 tile decal), so at equal probability it alone carpets the ground:
+  -- it gets the sparsest density of the three.
+  { name = "cindra-ice-decal",            clone_from = "aqulio-ice-decal-blue", side = "cold", scatter = scatter(1, 0.5, 0.0),  density = 0.4 },
+  { name = "cindra-snowy-decal",          clone_from = "aqulio-snowy-decal",    side = "cold", scatter = scatter(1, -0.5, 0.3), density = 0.4 },
+  { name = "cindra-snow-drift-decal",     clone_from = "snow-drift-decal",      side = "cold", scatter = scatter(2, -0.5, 0.3), density = 0.15 },
 }
+
+-- How far nightward of the icy-ground edge the cold decals reach FULL density: they
+-- fade in linearly across this span, so the frost thickens toward the ice wall
+-- instead of starting at a hard line (ci-tizx).
+M.COLD_FADE_SPAN = 40
+
+-- Where the cold (ice/snow) decals START, in perpendicular tiles: the inner edge of
+-- the cold belt, i.e. exactly where the terrain's own value ramp turns from the brown
+-- dust of the habitable band to snow/ice (scripts/terrain.lua owns that boundary; we
+-- read it rather than re-deriving it). Everything warmward of this is habitable
+-- BROWN ground and must stay decal-free on the cold side (ci-tizx).
+function M.cold_start(cfg)
+  return terrain.damage_bounds(cfg).cold_from
+end
 
 -- Numeric zone predicates (unit-testable off the game). `y` is the signed
 -- perpendicular coordinate (sunward-positive). The hot (rocky/lava) zone is beyond
--- the safe band sunward; the cold (icy) zone is beyond it nightward. They share the
--- |y| <= safe_half_width divider and never overlap.
+-- the safe band sunward; the cold (icy) zone starts only where the ground itself
+-- turns icy (M.cold_start), far nightward of the safe band -- so the two never
+-- overlap and the whole habitable band is free of ice/snow decals.
 function M.hot_zone(y, cfg)
   cfg = ribbon.resolve(cfg)
   return y > cfg.safe_half_width
 end
 
 function M.cold_zone(y, cfg)
-  cfg = ribbon.resolve(cfg)
-  return y < -cfg.safe_half_width
+  return y < M.cold_start(cfg)
+end
+
+-- The cold fade-in fraction (0 at the icy-ground edge, 1 once COLD_FADE_SPAN tiles
+-- nightward of it). The numeric mirror of M.cold_fade_expr below: a decal's placement
+-- probability is scaled by this, so frost is sparse at the boundary and full-strength
+-- out by the ice wall.
+function M.cold_fade(y, cfg)
+  local start = M.cold_start(cfg)
+  local f = (start - y) / M.COLD_FADE_SPAN
+  if f < 0 then return 0 end
+  if f > 1 then return 1 end
+  return f
 end
 
 -- The zone mask as a noise-expression string (1 inside the zone, 0 outside): a
@@ -121,17 +169,37 @@ function M.hot_mask_expr(cfg)
   return "(" .. M.PERP .. " > " .. num(cfg.safe_half_width) .. ")"
 end
 
+-- The cold mask starts at the icy-ground edge (M.cold_start), NOT at the safe band:
+-- the habitable browns run all the way out to the cold belt, and snow decals scattered
+-- over them are what buried the tiles (ci-tizx).
 function M.cold_mask_expr(cfg)
-  cfg = ribbon.resolve(cfg)
-  return "(" .. M.PERP .. " < " .. num(-cfg.safe_half_width) .. ")"
+  return "(" .. M.PERP .. " < " .. num(M.cold_start(cfg)) .. ")"
+end
+
+-- The cold fade-in as a noise-expression string: 0 at the icy-ground edge, ramping to
+-- 1 COLD_FADE_SPAN tiles nightward. Encodes M.cold_fade; multiplying a decal's
+-- probability by it thins the frost at the boundary and leaves it full near the wall.
+function M.cold_fade_expr(cfg)
+  return "clamp((" .. num(M.cold_start(cfg)) .. " - " .. M.PERP .. ") / " ..
+         num(M.COLD_FADE_SPAN) .. ", 0, 1)"
 end
 
 -- The full `probability_expression` string for one decorative: its base scatter
--- ANDed (multiplied) with its side's zone mask. Outside the zone the mask is 0, so
--- the decal never generates there; inside, the sparse scatter decides per tile.
+-- ANDed (multiplied) with its side's zone mask, then scaled by its `density`
+-- multiplier and (cold side) the fade-in ramp. Outside the zone the mask is 0, so the
+-- decal never generates there; inside, the scaled sparse scatter decides per tile.
+-- The scale factors multiply the PROBABILITY, so halving `density` halves the covered
+-- fraction of ground -- the direct, predictable knob for "how much ground shows".
 function M.probability_expr(spec, cfg)
   local mask = (spec.side == "hot") and M.hot_mask_expr(cfg) or M.cold_mask_expr(cfg)
-  return "(" .. spec.scatter .. ") * (" .. mask .. ")"
+  local expr = "(" .. spec.scatter .. ") * (" .. mask .. ")"
+  if spec.density and spec.density ~= 1 then
+    expr = expr .. " * " .. num(spec.density)
+  end
+  if spec.side == "cold" then
+    expr = expr .. " * (" .. M.cold_fade_expr(cfg) .. ")"
+  end
+  return expr
 end
 
 -- All Cindra decorative names (for the planet map-gen decorative allow-list).

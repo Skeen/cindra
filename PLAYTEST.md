@@ -498,6 +498,27 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (never the lethal deep-ice zone or the warm side) and yield ice + stone; only the
   "does the frost tint read icy against live cold terrain + lighting" is the playtest.
 
+- [ ] **[LANDED] Cold-side frost decals are SPARSE and stay off the brown band (ci-tizx).**
+  The human reported the snow/ice decal scatter was so thick you could barely see the
+  ground tiles, and that it bled deep into the brown habitable band. It did: the frost
+  was gated at the ribbon safe band (perp −24) while the habitable BROWNS (ash + dust)
+  run all the way out to the icy edge at perp −130, so ~100 tiles of brown ground were
+  carpeted. Now the ice/snow decals start only where the terrain itself turns snow/ice
+  (`terrain.damage_bounds().cold_from`), fade in over 40 tiles, and each carries a
+  density multiplier (0.4 / 0.4 / 0.15 for the huge snow-drift art) — a measured drop
+  from 0.182 to 0.059 decals per tile. Ice-rock chunk scatter halved (0.006 → 0.003).
+  In-engine before/after proof: `docs/verification/ci-tizx-cold-decal-density.png`
+  (regenerate with `scripts/render-mapgen.sh`). *Repro:* walk east from spawn across
+  the dust band and on into the frost/ice belt (or `scripts/render-mapgen.sh`).
+  *Look for:* (1) the brown dust band carries NO snow/ice decals at all — just the
+  ground and the odd ice-rock; (2) the frost thickens gradually as you cross into the
+  snow tiles, with no stamped line where it starts; (3) out by the ice wall it still
+  reads clearly as frozen, but the ice/snow TILES dominate the decals. *Fallback:* the
+  geometry + thinning are guarded off-game (`unit-tests/test_decorative_field.lua`) and
+  on a live surface (`tests/test_decoratives.lua`: the habitable band is decal-free, the
+  fade ramps, the deep-ice density stays under the ceiling; `tests/test_worldgen.lua`
+  for the ice-rock density). Only "does the cold half still FEEL cold" is the playtest.
+
 - [ ] **[LANDED] Nightside NATIVE freeze (ci-bvk) — feel + VISUALS.** The nightside
   now uses the ENGINE's real Aquilo-style freeze (`entities_require_heating` + an
   invisible worldgen lava-heat emitter line keeping the habitable band thawed), which

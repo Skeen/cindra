@@ -221,7 +221,12 @@ function M.ice_rock_zone(y, cfg)
 end
 
 -- Per-tile spawn probability inside the ice-rock band (sparse, like the sandy rock).
-M.ICE_ROCK_PROBABILITY = 0.006
+-- HALVED from the original 0.006 (ci-tizx): the ice-rock chunks share the cold outer
+-- band with the frost decals, and at 0.006 the two together buried the ground tiles.
+-- The band is 70 tiles deep and runs the WHOLE length of the ribbon, so 0.003 still
+-- leaves an ample hand-mined ice + stone bootstrap, just with ground showing between
+-- the chunks.
+M.ICE_ROCK_PROBABILITY = 0.003
 
 -- Burned volcanic rocks (ci-qy0) live in the HOT region only, in the VOLCANIC-TILE
 -- region proper (terrain.cliff_band: hot_inner .. hot_outer), from the middle's hot

@@ -476,6 +476,21 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
     assert.are.equal(0, warm_leak, "no ice-rocks centred on the warm/temperate ribbon")
   end)
 
+  -- ci-tizx: the ice-rock chunks share the cold outer band with the frost decals, and
+  -- at the original 0.006 the two together buried the ground tiles. The scatter must
+  -- stay THIN enough that the terrain reads through it, while still bootstrapping.
+  it("keeps the ice-rock scatter thin enough to see the ground through (ci-tizx)", function()
+    local x1, x2, y1, y2 = 62, 128, -300, 300
+    local n = s.count_entities_filtered({ name = field.ICE_ROCK, area = { { x1, y1 }, { x2, y2 } } })
+    local per_tile = n / ((x2 - x1) * (y2 - y1))
+    log("ci-tizx ice-rock density: " .. n .. " -> " .. per_tile .. " per tile")
+    assert.is_true(per_tile > 0.0002, "still an ample hand-mined bootstrap scatter")
+    -- Measured: ~0.0029/tile at the ci-tizx density, ~0.0058 at the original one --
+    -- the ceiling sits between the two, so a regression to the carpet fails here.
+    assert.is_true(per_tile < 0.0042,
+      "ice-rocks stay sparse (" .. string.format("%.5f", per_tile) .. " per tile)")
+  end)
+
   local function count_burned(x1, x2)
     local n = 0
     for _, name in ipairs(field.burned_rock_names()) do
