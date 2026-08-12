@@ -819,12 +819,34 @@ function M.probability_expr(name, cfg)
   return "(" .. term .. ") + " .. speckle_noise(index)
 end
 
+-- The map-gen key that bounds the ribbon's PERPENDICULAR (hot-cold) axis, and the
+-- total ribbon width to bound it at. Vertical bands on X -> "width"; horizontal
+-- bands on Y -> "height".
 function M.finite_dimension(cfg)
   local _, total = M.bands(cfg)
   return {
     key = (axis.orientation() == axis.HORIZONTAL) and "height" or "width",
     value = total,
   }
+end
+
+-- The map-gen key of the ribbon's LONG axis: the one that must stay INFINITE.
+function M.infinite_dimension_key()
+  return (axis.orientation() == axis.HORIZONTAL) and "width" or "height"
+end
+
+-- The map-gen bounds for BOTH world axes. A ribbon is bounded on exactly ONE axis,
+-- so this states the long axis explicitly as 0 (= infinite in Factorio) rather than
+-- leaving it to whatever the surface already carried. Setting only the finite key
+-- is what broke the horizontal ribbon (ci-65p): a surface whose OTHER axis was
+-- already bounded -- a world generated under the other orientation, or any settings
+-- source that carries a size -- kept that bound and boxed the player in on both
+-- axes, which is a rectangle, not a ribbon.
+function M.map_gen_bounds(cfg)
+  local finite = M.finite_dimension(cfg)
+  local bounds = { width = 0, height = 0 }
+  bounds[finite.key] = finite.value
+  return bounds
 end
 
 return M

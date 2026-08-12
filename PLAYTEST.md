@@ -279,6 +279,26 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Ribbon & terrain
 
+- [ ] **[LANDED] HORIZONTAL ribbon orientation: fire at the TOP, endless east-west (ci-65p).**
+  The non-default orientation was broken two ways: the world was boxed in on BOTH axes
+  (a rectangle, not a ribbon) and the fire sat at the BOTTOM. Fixed: the map-gen now
+  states both axes (`terrain.map_gen_bounds` — perpendicular = the ribbon width, long =
+  0/infinite) and the sunward coordinate is `-y`, so the lava ocean is NORTH and the ice
+  ocean SOUTH. A test run can only load ONE startup orientation, so the live horizontal
+  world is playtest-only; the mapping and bounds for both orientations are covered in
+  `unit-tests/test_axis.lua` + `unit-tests/test_terrain.lua`, and `tests/test_orientation.lua`
+  proves the live surface obeys them in whichever orientation the run is configured with.
+  *Repro:* Settings → Mod settings → Startup → set **Ribbon orientation = Horizontal
+  (east-west, hot to the north)**, then start a NEW game on Cindra. *Look for:* (1) the
+  **lava ocean is at the TOP** of the screen (walk north into the heat) and the **ice
+  ocean at the bottom**; (2) walking EAST or WEST along the ribbon never hits a void
+  wall — the ash middle runs on for thousands of tiles; (3) the void backstop appears
+  only past the lava (north) and past the ice (south); (4) the map view reads as a
+  horizontal band, not a square. *Caveat (expected, not a bug):* flipping the setting on
+  an EXISTING save re-opens the long axis for chunks not yet generated, but any chunk
+  already generated as void under the old orientation stays void — a straight void scar
+  along the old boundary. Start a new world to see the clean ribbon.
+
 - [ ] **[LANDED] THREE-PART TWO-HEIGHTMAP terrain redesign (ci-wly) — MAYOR MUST SCREENSHOT.**
   The whole planet was rebuilt into three regions across the hot-cold axis: a **HOT**
   side, a habitable **MIDDLE**, and a **COLD** side (sides ~equal width). Each side is an

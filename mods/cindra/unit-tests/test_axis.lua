@@ -43,16 +43,37 @@ test("vertical: the perpendicular axis is X, sunward-positive toward the LEFT", 
   assert_eq(0, axis.perp(0, 999, "vertical"), "the long (N-S) axis does not change temperature")
 end)
 
-test("horizontal (legacy): the perpendicular axis is Y, sunward = +Y", function()
-  assert_eq(40, axis.perp(0, 40, "horizontal"), "+Y is sunward-positive")
-  assert_eq(-40, axis.perp(0, -40, "horizontal"), "-Y is nightward-negative")
+test("horizontal: the perpendicular axis is Y, FIRE AT THE TOP (sunward = -Y)", function()
+  -- ci-65p: the horizontal ribbon put the fire at the BOTTOM. It belongs at the top,
+  -- matching the vertical ribbon's hot-side convention (hot toward the screen edge
+  -- the player reads first). p = -y: north (up, -Y) is HOT, south (down, +Y) is COLD.
+  assert_eq(40, axis.perp(0, -40, "horizontal"), "the TOP (-Y / north) is sunward-positive")
+  assert_eq(-40, axis.perp(0, 40, "horizontal"), "the BOTTOM (+Y / south) is nightward-negative")
   assert_eq(0, axis.perp(999, 0, "horizontal"), "the long (E-W) axis does not change temperature")
+end)
+
+test("both orientations put the fire on the SAME screen side convention", function()
+  -- The hot end of the gradient is at negative world coordinate on the perpendicular
+  -- axis in BOTH orientations: -x (left) vertically, -y (top) horizontally. A player
+  -- walking toward the fire walks toward the top-left origin either way.
+  for _, case in ipairs({ { "vertical", -300, 0 }, { "horizontal", 0, -300 } }) do
+    local orient, x, y = case[1], case[2], case[3]
+    assert_true(axis.perp(x, y, orient) > 0, orient .. ": the negative perpendicular side is HOT")
+    assert_true(axis.perp(-x, -y, orient) < 0, orient .. ": the opposite side is COLD")
+  end
 end)
 
 test("perp_expr emits the sunward-positive axis for the noise DSL", function()
   assert_eq("(0 - x)", axis.perp_expr("vertical"), "vertical bands on -x (hot left)")
-  assert_eq("y", axis.perp_expr("horizontal"), "horizontal bands on y")
+  assert_eq("(0 - y)", axis.perp_expr("horizontal"), "horizontal bands on -y (hot top)")
   assert_eq("(0 - x)", axis.perp_expr(), "default resolves to vertical")
+end)
+
+test("perp_neg_expr is exactly -perp_expr for both orientations", function()
+  -- The cold-side band masks read "how deep nightward am I". Emitted separately to
+  -- keep the expression clean, so it MUST stay the negation of perp_expr.
+  assert_eq("x", axis.perp_neg_expr("vertical"), "vertical nightward is +x (east)")
+  assert_eq("y", axis.perp_neg_expr("horizontal"), "horizontal nightward is +y (south, the bottom)")
 end)
 
 test("long() is the ribbon's OTHER axis (the emitter lattice steps along it)", function()
@@ -75,11 +96,12 @@ end)
 
 test("world() places a row-40 emitter on the HOT side for both orientations", function()
   -- perp = 40 is sunward (hot). Vertical: hot is -x, so x = -40. Horizontal: hot is
-  -- +y, so y = 40. A lattice point at long = 201 sits on the respective long axis.
+  -- -y (the TOP), so y = -40. A lattice point at long = 201 sits on the respective
+  -- long axis.
   local vx, vy = axis.world(201, 40, "vertical")
   assert_eq(-40, vx, "vertical: sunward row is at -x"); assert_eq(201, vy, "vertical: lattice on y")
   local hx, hy = axis.world(201, 40, "horizontal")
-  assert_eq(201, hx, "horizontal: lattice on x"); assert_eq(40, hy, "horizontal: sunward row is at +y")
+  assert_eq(201, hx, "horizontal: lattice on x"); assert_eq(-40, hy, "horizontal: sunward row is at -y (top)")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

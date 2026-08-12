@@ -92,6 +92,9 @@ if script.active_mods["factorio-test"] then
     -- deepening warm/cool toward each extreme), cosmetic and independent of damage.
     "tests/test_feedback",
     "tests/test_worldgen",
+    -- ci-65p: the ribbon is bounded ACROSS its hot-cold axis only and runs forever
+    -- along its long axis, with the fire on the sunward side, in EITHER orientation.
+    "tests/test_orientation",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",
