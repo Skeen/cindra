@@ -11,15 +11,20 @@
 -- Cindra-buildable field foundry) lets the player crude-liquefy bootstrap coal
 -- into lubricant, cast a first foundry, and reach the economy with no soft-lock.
 --
--- WHAT IT ALSO DOES NOW (ci-8wu): hands out a MINIMAL physical starting KIT --
--- a landed supply chest ("capsule") pre-stocked with the two machines that are
--- painful to hand-bootstrap plus basic power, so a from-scratch Cindra start is
--- immediately playable instead of grinding the first foundry + power by hand.
--- The kit only EASES the opening; it is not a full economy (that traversal is
--- ci-uex). Placed once, near where the player lands, via on_player_created +
--- an on_nth_tick(30) poll (APS drops the player into a cargo-pod cutscene where
--- player.character is briefly nil, so we retry until the character exists and
--- the player is standing on the Cindra surface).
+-- WHAT IT ALSO DOES NOW (ci-8wu, relocated by ci-q6nh): hands out a MINIMAL
+-- physical starting KIT -- the two machines that are painful to hand-bootstrap
+-- plus basic power, so a from-scratch Cindra start is immediately playable
+-- instead of grinding the first foundry + power by hand. The kit only EASES the
+-- opening; it is not a full economy (that traversal is ci-uex).
+--
+-- The kit is loaded INTO THE CRASH-SITE SPACESHIP APS already drops on the
+-- surface (ci-q6nh), not into a separate chest beside it: the wreck is where a
+-- player instinctively looks for their salvage, and one landmark reads better
+-- than two. The ship only has five inventory slots, so its default cargo -- 8
+-- firearm magazines -- is stripped to make room; Cindra has no biters at start,
+-- so the ammo was dead weight anyway. Stocked once, via on_player_created + an
+-- on_nth_tick(30) poll (APS creates the crash site inside its own
+-- on_player_created handler, so the ship may not exist yet when ours runs).
 --
 -- All of this is GATED on the Cindra start being the chosen one, so it never
 -- touches a normal game: with APS absent the `aps-planet` setting does not exist,
@@ -88,22 +93,29 @@ script.on_event(defines.events.on_force_created, function(event)
 end)
 
 -- ===========================================================================
--- Bootstrap starting KIT (ci-8wu). MINIMAL by design: the two machines that are
--- genuinely painful to hand-bootstrap on a from-scratch Cindra start (a foundry
--- -- a Vulcanus-only machine you would otherwise import -- and the lava caster
--- that feeds it), plus enough basic power to run them. The pre-research above
--- unlocks the RECIPES; this hands over the first physical MACHINES so the opening
--- is playable from tick zero instead of a hand-craft grind. Everything here is a
--- vanilla or Cindra item obtained through the normal runtime API -- no prototype
--- is mutated, so no other planet is touched.
+-- Bootstrap starting KIT (ci-8wu; moved into the crashed ship by ci-q6nh).
+-- MINIMAL by design: the two machines that are genuinely painful to
+-- hand-bootstrap on a from-scratch Cindra start (a foundry -- a Vulcanus-only
+-- machine you would otherwise import -- and the lava caster that feeds it), plus
+-- enough basic power to run them. The pre-research above unlocks the RECIPES;
+-- this hands over the first physical MACHINES so the opening is playable from
+-- tick zero instead of a hand-craft grind. Everything here is a vanilla or
+-- Cindra item obtained through the normal runtime API -- no prototype is
+-- mutated, so no other planet is touched.
 -- ===========================================================================
 
--- The container the kit lands in (a plain steel chest is our "supply capsule").
-local KIT_CHEST = "steel-chest"
+-- The wreck APS lands on the start surface. Its container inventory is where the
+-- kit goes, so the player finds their salvage where they look for it.
+local KIT_SHIP = "crash-site-spaceship"
 
 -- The kit itself. Keep this SHORT -- it eases the opening, it is not an economy.
 -- One foundry + one lava caster is the whole point (the metal spine you cannot
 -- easily hand-build); the rest is just enough solar to power them past nightfall.
+--
+-- HARD CONSTRAINT: `crash-site-spaceship` has FIVE inventory slots, so the kit is
+-- at most five stacks (and the ship's default ammo has to go, see strip_ammo).
+-- Anything past that is silently dropped on insert, hence the test that every
+-- entry below actually arrives.
 local KIT = {
   { name = "foundry",                  count = 1 },
   { name = "cindra-lava-manufacturer", count = 1 },
@@ -112,43 +124,92 @@ local KIT = {
   { name = "small-electric-pole",      count = 8 },
 }
 
--- Place the kit chest near `position` on `surface` and stock it. Returns the
--- chest (or nil if it could not be placed). This is the single source of truth
--- for the kit -- both the runtime drop below and the test seam call it, so the
--- tested code path IS the shipped one.
-local function place_kit_chest(surface, position, force)
-  local pos = surface.find_non_colliding_position(KIT_CHEST, position, 30, 1) or position
-  local chest = surface.create_entity({ name = KIT_CHEST, position = pos, force = force })
-  if not chest then return nil end
-  local inv = chest.get_inventory(defines.inventory.chest)
+-- The crashed ship arrives holding 8 firearm magazines (base freeplay's ship
+-- cargo, which APS forwards). Cindra's opening has nothing to shoot, and those
+-- magazines occupy a slot the kit needs -- so every ammo stack comes out. Written
+-- against the item TYPE rather than the magazine's name so a mod that swaps the
+-- ship's ammo cannot quietly eat a kit slot.
+local function strip_ammo(inv)
+  for _, item in pairs(inv.get_contents()) do
+    local proto = prototypes.item[item.name]
+    if proto and proto.type == "ammo" then
+      inv.remove({ name = item.name, count = item.count, quality = item.quality })
+    end
+  end
+end
+
+-- Load the kit into `ship`. Returns true when the ship was stocked. This is the
+-- single source of truth for the kit -- both the runtime path below and the test
+-- seam call it, so the tested code path IS the shipped one.
+local function stock_ship(ship)
+  if not (ship and ship.valid) then return false end
+  local inv = ship.get_inventory(defines.inventory.chest)
+  if not inv then return false end
+  strip_ammo(inv)
   for _, stack in ipairs(KIT) do
     inv.insert({ name = stack.name, count = stack.count })
   end
-  return chest
-end
-
--- Drop the kit for a freshly-landed player. Idempotent (storage.cindra_kit_given
--- guards against a second capsule) and defensive: APS drops the player through a
--- cargo-pod cutscene where `character` is briefly nil and the surface is not yet
--- Cindra, so we bail out (returning false = "retry later") until both are ready.
--- Returns true when there is nothing more to do (dropped, or not applicable).
-local function try_give_kit(player)
-  if storage.cindra_kit_given then return true end
-  if not (player and player.valid) then return true end
-  local character = player.character
-  if not character then return false end            -- still in the cutscene
-  local surface = player.surface
-  if surface.name ~= "cindra" then return false end -- not landed on Cindra yet
-  place_kit_chest(surface, character.position, player.force)
-  storage.cindra_kit_given = true
   return true
 end
 
--- On a Cindra start, try to drop the kit as soon as the player is created; if the
--- character is not ready yet, remember the player and let the poll below finish.
+local function find_kit_ship(surface)
+  return surface.find_entities_filtered({ name = KIT_SHIP, limit = 1 })[1]
+end
+
+-- Fallback for a start with the crash site turned OFF (freeplay's
+-- `disable_crashsite`, which APS honours): there is no ship to stock, so hand the
+-- kit straight to the player rather than strand a from-scratch start with nothing.
+-- Still no chest entity -- the kit is never a separate landmark.
+local function give_kit_to_player(player)
+  local inv = player.get_main_inventory()
+  if not inv then return false end
+  for _, stack in ipairs(KIT) do
+    inv.insert({ name = stack.name, count = stack.count })
+  end
+  return true
+end
+
+-- How long to wait for APS to create the crash site before falling back to the
+-- player's inventory. APS builds it inside its own on_player_created handler, so
+-- in practice the ship is there on the first or second poll; this is only the
+-- "there will never be a ship" escape hatch.
+local KIT_SHIP_GRACE_TICKS = 300
+
+-- Hand the kit to a freshly-landed player. Idempotent (storage.cindra_kit_given
+-- guards against a second helping) and defensive: the Cindra surface and the
+-- wreck on it are both created during APS's own on_player_created handler, so we
+-- bail out (returning false = "retry later") until the ship actually exists.
+-- Returns true when there is nothing more to do (stocked, or not applicable).
+local function try_give_kit(player)
+  if storage.cindra_kit_given then return true end
+  if not (player and player.valid) then return true end
+
+  local surface = game.get_surface("cindra")
+  if surface then
+    local ship = find_kit_ship(surface)
+    if ship then
+      stock_ship(ship)
+      storage.cindra_kit_given = true
+      return true
+    end
+  end
+
+  -- Only bank the fallback once it actually landed: mid-cutscene the player has no
+  -- character, so there is no main inventory to insert into yet. Keep retrying
+  -- rather than marking the kit "given" into thin air.
+  if game.tick >= (storage.cindra_kit_deadline or 0) and give_kit_to_player(player) then
+    storage.cindra_kit_given = true
+    return true
+  end
+  return false
+end
+
+-- On a Cindra start, stock the wreck as soon as the player is created; if the
+-- ship is not there yet, remember the player and let the poll below finish.
 script.on_event(defines.events.on_player_created, function(event)
   if not is_cindra_start() then return end
   local player = game.get_player(event.player_index)
+  storage.cindra_kit_deadline = storage.cindra_kit_deadline or (game.tick + KIT_SHIP_GRACE_TICKS)
   if try_give_kit(player) == false then
     storage.cindra_kit_pending = event.player_index
   end
@@ -166,16 +227,27 @@ script.on_nth_tick(30, function()
   end
 end)
 
--- Test seam: stock a kit chest on a chosen surface/position and return where it
--- landed. Drives the SAME place_kit_chest as the runtime drop, so the APS suite
--- can prove the kit contents on a headless Cindra surface without faking the
--- cargo-pod cutscene (the in-game drop/feel stays a PLAYTEST item). Returns the
--- chest position (LuaEntity cannot cross the remote boundary).
+-- Test seams. They drive the SAME stock_ship / give_kit_to_player / KIT as the
+-- runtime path, so the APS suite can prove the kit contents on a headless Cindra
+-- surface without faking the cargo-pod cutscene (the in-game feel of opening the
+-- wreck stays a PLAYTEST item).
 remote.add_interface("cindra-start", {
-  spawn_bootstrap_kit = function(surface_index, position, force_name)
+  -- Load the kit into the crash-site spaceship on `surface_index` (stripping its
+  -- ammo first). Returns true when a ship was found and stocked.
+  stock_bootstrap_ship = function(surface_index)
     local surface = game.get_surface(surface_index)
-    if not surface then return nil end
-    local chest = place_kit_chest(surface, position, force_name or "player")
-    return chest and chest.position or nil
+    if not surface then return false end
+    return stock_ship(find_kit_ship(surface))
+  end,
+  -- The no-crash-site fallback: the kit goes straight into the player's inventory.
+  give_bootstrap_kit_to_player = function(player_index)
+    local player = game.get_player(player_index)
+    if not (player and player.valid) then return false end
+    return give_kit_to_player(player)
+  end,
+  -- The kit manifest, so the suite can assert the whole thing survives the ship's
+  -- five slots instead of hard-coding a second copy of the list.
+  get_bootstrap_kit = function()
+    return KIT
   end,
 })

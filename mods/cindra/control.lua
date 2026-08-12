@@ -159,8 +159,9 @@ if script.active_mods["factorio-test"] then
       -- ci-arw: the pre-researched foundry path is a Cindra-start guarantee, so
       -- it is only meaningful (and only asserted) when the APS chain is loaded.
       test_files[#test_files + 1] = "tests/test_aps_foundry"
-      -- ci-8wu: the MINIMAL bootstrap kit (a stocked supply capsule) a Cindra
-      -- start lands with; likewise only meaningful under the APS chain.
+      -- ci-8wu: the MINIMAL bootstrap kit a Cindra start lands with, stocked
+      -- into the crash-site spaceship itself since ci-q6nh (no chest capsule);
+      -- likewise only meaningful under the APS chain.
       test_files[#test_files + 1] = "tests/test_aps_kit"
       -- ci-7p6: the END-TO-END from-nothing bootstrap -- drives a start-on-Cindra
       -- run reaching a foundry + the lava->metal economy (and reproducing foundries)
