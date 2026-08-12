@@ -179,6 +179,42 @@ recommendation — both **IMPLEMENTED (item 2)**:
     umbilical nightward" pressure, now the engine's real freeze rather than scripted
     `cindra-cold` machine damage. (Player-facing `cindra-cold` tile damage on the deep
     ice, `scripts/tile-damage.lua`, is unchanged.)
+  - **🚨 NOTHING CINDRA ADDS IS IMMUNE (invariant, ci-qha1).** Human ruling: *"It
+    should not be immune, I don't think anything should be."* `heating_energy > 0`
+    IS the engine's freeze switch, not merely a power cost, so a Cindra entity with
+    the field cleared silently opts out of the planet's core mechanic — which the
+    glass furnace did for two releases (ci-6qyk), running forever in the dark while
+    an arc furnace beside it froze solid. Every Cindra-added entity therefore either
+    carries a heat draw or is exempt for a reason **written down in code**
+    (`scripts/frost-audit.lua`), and the load FAILS otherwise
+    (`prototypes/frost-audit.lua`). Behaviour is measured in-engine every run
+    (`tests/test_frost.lua`), never inferred from the prototype tree — which lies
+    about this in both directions (see below).
+    - **Freezes, has a draw:** arc furnace, glass furnace / lava manufacturer,
+      oxidizer / electrolysis cell (100 kW each, matching `electric-furnace` /
+      `assembling-machine-3`), mass driver (300 kW, `rocket-silo`), power diode
+      (20 kW, `power-switch`).
+    - **Exempt BY DESIGN, one entry:** the **electric heater**. It is the THAW
+      SOURCE; a frozen heater draws no power and emits no heat, so it cannot thaw
+      itself and the first one placed on the deep nightside would be dead on
+      arrival — the nightside would be permanently unrecoverable. Vanilla reactors
+      (incl. the heating tower) are exempt for the same reason. This one really is
+      our choice: `reactor` IS a freezable type.
+    - **Exempt because THE ENGINE REFUSES the type** (measured ci-qha1: the field is
+      accepted at the data stage and then ignored) — `accumulator` (capacitor,
+      molten-salt battery), `solar-panel` (the sunward output bands),
+      `electric-energy-interface` (dissipator + the diode's hidden buffers),
+      `electric-pole` (the diode's hidden taps), `heat-pipe` (the ambient emitter,
+      which *is* the thaw mechanism anyway), `constant-combinator` (the env-scanner
+      radio station, ci-u92y), plus scenery/ore/effects (`simple-entity`,
+      `resource`, `explosion`) which are not buildings. Space Age agrees: it assigns
+      `heating_energy` to 26 types and to none of these, and vanilla Aquilo runs
+      accumulators and solar panels fine. **Whether Cindra should script its own
+      freeze for these is open: ci-de55.**
+    - **The prototype tree lies in both directions**, which is why the audit is
+      measured: `is_freezable` reports TRUE for an entity whose `heating_energy` is 0
+      (it never freezes), and a declared draw on one of the refused types above is a
+      pure no-op that *reads* as protection. The guard errors on that no-op too.
 
 ## 4. Planet prototype decisions — IMPLEMENTED (item 1)
 

@@ -161,5 +161,143 @@ test("skip prefixes exclude a machine whose art is mid-rework", function()
   assert_eq(1, #audit.discover(raw, {}), "without the skip it would be audited")
 end)
 
+-- ============================================================================
+-- FREEZE IMMUNITY (ci-qha1): the guard must FAIL the load on an immune entity
+-- ============================================================================
+-- The guard's whole value is that it FAILS, so these tests prove the failure --
+-- not merely that today's prototypes happen to pass. A guard that has never been
+-- seen to reject anything is indistinguishable from no guard.
+
+local function machine(heating)
+  return { heating_energy = heating, graphics_set = { frozen_patch = FROST, reset_animation_when_frozen = true } }
+end
+
+test("a NEW Cindra entity of a freezable type with NO heat draw FAILS the guard", function()
+  local raw = {
+    ["assembling-machine"] = {
+      ["cindra-arc-furnace"] = machine("100kW"),
+      ["cindra-brand-new-machine"] = machine(nil), -- immune: nothing to freeze
+    },
+  }
+  local bad = audit.freeze_immune(raw)
+  assert_eq(1, #bad, "exactly the immune entity is reported")
+  assert_true(bad[1]:find("cindra-brand-new-machine", 1, true) ~= nil,
+    "the offender must be NAMED so the error says what to fix, got: " .. tostring(bad[1]))
+  assert_true(bad[1]:find("assembling-machine", 1, true) ~= nil,
+    "the offender's type must be reported too, got: " .. tostring(bad[1]))
+end)
+
+test("a heat draw of ZERO is still immune -- the exact glass-furnace shape", function()
+  -- prototypes/lava.lua cleared the foundry's draw to shed its Aquilo-sized power
+  -- cost, not knowing that field is also the freeze switch (ci-6qyk). A literal
+  -- "0kW" reads as "configured" to a human skimming the file, which is why it must
+  -- be caught rather than trusted.
+  for _, dead in ipairs({ "0kW", 0, "0W" }) do
+    local raw = { ["furnace"] = { ["cindra-glass-furnace"] = machine(dead) } }
+    assert_eq(1, #audit.freeze_immune(raw), "heating_energy=" .. tostring(dead) .. " must not pass")
+  end
+end)
+
+test("giving it a draw clears the guard", function()
+  local raw = { ["assembling-machine"] = { ["cindra-brand-new-machine"] = machine("100kW") } }
+  assert_eq(0, #audit.freeze_immune(raw))
+end)
+
+test("vanilla prototypes are not ours to police", function()
+  -- The invariant is about entities CINDRA ADDS; vanilla keeps vanilla behaviour.
+  local raw = { ["assembling-machine"] = { ["assembling-machine-3"] = machine(nil) } }
+  assert_eq(0, #audit.freeze_immune(raw))
+end)
+
+test("an entity of a type the ENGINE REFUSES to freeze is excused", function()
+  -- Measured in ci-qha1: heating_energy is accepted at the data stage and then
+  -- ignored on these types, so demanding one would be a lie, not a fix.
+  local raw = {
+    ["accumulator"] = { ["cindra-capacitor"] = {} },
+    ["solar-panel"] = { ["cindra-solar-band-b05"] = {} },
+    ["electric-energy-interface"] = { ["cindra-dissipator"] = {} },
+    ["resource"] = { ["cindra-ice"] = {} },
+    ["simple-entity"] = { ["cindra-rock"] = {} },
+  }
+  assert_eq(0, #audit.freeze_immune(raw), "engine-refused types carry no requirement")
+end)
+
+test("a NAMED exemption is excused, and only by name", function()
+  local raw = { ["reactor"] = { ["cindra-electric-heater"] = { heating_energy = nil } } }
+  assert_eq(0, #audit.freeze_immune(raw), "the thaw source is exempt (reason in FREEZE_EXEMPT)")
+  -- A reactor that is NOT the named heater gets no free ride: `reactor` is a
+  -- freezable type (measured: cindra-electric-heater reports is_freezable=true).
+  local other = { ["reactor"] = { ["cindra-second-heater"] = { heating_energy = nil } } }
+  assert_eq(1, #audit.freeze_immune(other),
+    "exemptions are per-entity, never per-type -- a second reactor must argue its own case")
+end)
+
+test("the guard FAILS CLOSED on an entity of an unrecognised type", function()
+  -- The one way this guard could rot silently is by not recognising a new entity
+  -- kind at all. An unknown bucket is therefore assumed to be a freezable entity:
+  -- worst case someone must classify it, versus worst case something ships immune.
+  local raw = { ["some-type-nobody-listed"] = { ["cindra-mystery-building"] = {} } }
+  assert_eq(1, #audit.freeze_immune(raw),
+    "an unknown entity type must be REQUIRED to freeze, not quietly skipped")
+end)
+
+test("non-entity prototypes are not entities", function()
+  -- Items, recipes and technologies share the "cindra-" prefix and obviously
+  -- cannot freeze; the discovery must not drag them in.
+  local raw = {
+    ["item"] = { ["cindra-aluminium"] = {} },
+    ["recipe"] = { ["cindra-lava"] = {} },
+    ["technology"] = { ["cindra-science"] = {} },
+    ["tile"] = { ["cindra-ice-smooth"] = {} },
+    ["optimized-decorative"] = { ["cindra-ice-decal"] = {} },
+  }
+  assert_eq(0, #audit.entity_specs(raw), "no entities here")
+  assert_eq(0, #audit.freeze_immune(raw))
+end)
+
+test("a heat draw on a type the engine IGNORES is reported as a dead field", function()
+  -- The subtler offence: it freezes nothing AND it reads as protection to the next
+  -- person who greps for heating_energy.
+  local raw = { ["accumulator"] = { ["cindra-capacitor"] = { heating_energy = "100kW" } } }
+  local dead = audit.dead_heating(raw)
+  assert_eq(1, #dead, "the no-op draw must be reported")
+  assert_true(dead[1]:find("cindra-capacitor", 1, true) ~= nil, "named, got: " .. tostring(dead[1]))
+  assert_eq(0, #audit.dead_heating({ ["accumulator"] = { ["cindra-capacitor"] = {} } }),
+    "no draw declared, nothing to report")
+  assert_eq(0, #audit.dead_heating({ ["furnace"] = { ["cindra-x"] = { heating_energy = "100kW" } } }),
+    "a draw on a type the engine DOES honour is the correct state, not an offence")
+end)
+
+test("entity_specs enumerates the class LIVE and in a stable order", function()
+  local raw = {
+    ["furnace"] = { ["cindra-electrolysis-cell"] = {} },
+    ["assembling-machine"] = { ["cindra-arc-furnace"] = {}, ["assembling-machine-3"] = {} },
+    ["accumulator"] = { ["cindra-capacitor"] = {} },
+    ["item"] = { ["cindra-aluminium"] = {} },
+  }
+  local specs = audit.entity_specs(raw)
+  assert_eq(3, #specs, "three Cindra entities, no items, no vanilla")
+  assert_eq("cindra-arc-furnace", specs[1].name, "sorted, so load errors are deterministic")
+  assert_eq("cindra-capacitor", specs[2].name)
+  assert_eq("cindra-electrolysis-cell", specs[3].name)
+  assert_eq("accumulator", specs[2].type, "the type travels with the name")
+end)
+
+test("EVERY exemption carries a written reason", function()
+  -- The ci-qha1 rule: an exemption is a sentence someone had to write, not a flag.
+  -- An empty reason is how an accident would dress itself up as a decision.
+  local n = 0
+  for name, reason in pairs(audit.FREEZE_EXEMPT) do
+    n = n + 1
+    assert_eq("string", type(reason), name .. " must state WHY it is exempt")
+    assert_true(#reason > 30, name .. "'s reason must be a real explanation, not a word")
+  end
+  assert_true(n <= 3, "the design-exemption list must stay SHORT; got " .. n .. " entries")
+  for t, reason in pairs(audit.UNFREEZABLE_TYPES) do
+    assert_eq("string", type(reason), t .. " must state why the engine refuses it")
+    assert_true(#reason > 30, t .. "'s reason must be a real explanation, not a word")
+  end
+end)
+
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

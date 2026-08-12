@@ -693,6 +693,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   working visualisation, which changes the idle look too, so it is out of scope
   here).
 
+- [ ] **[LANDED] The mass driver + power diode freeze BARE, and the storage tier
+  never freezes at all (ci-qha1).** The mod-wide freeze audit measured every
+  Cindra-added entity in-engine for the first time, and turned up two things a
+  headless test cannot judge. **(A) Two entities freeze with NO frost sheen.** The
+  mass driver (a rocket-silo) and the power diode (a power-switch) both really do
+  freeze past the onset (newly measured: `frozen == true`), but neither has a frost
+  layer, and neither type is covered by the frost-art audit -- a rocket-silo takes no
+  `graphics_set.frozen_patch` and the power switch's is a TOP-LEVEL field. So they
+  stop dead while looking perfectly alive, which is exactly the ci-z7nu/ci-u92y read
+  ("frozen machine looks like it is working"). *Repro:* build a mass driver and a
+  power diode in the thawed band, walk them nightward past the freeze onset, leave
+  them. *Look for:* whether the lack of frost actually misleads -- a silo that has
+  visibly stopped animating may read as frozen without art, in which case nothing is
+  needed; if it reads as merely idle, it wants a created layer
+  (`scripts/gen-frost-layer.py`) and the audit's FROST_FIELDS extended to those two
+  types. **(B) The whole storage/solar tier keeps working in the deep dark.** The
+  capacitor, molten-salt battery, dissipator and the sunward solar bands CANNOT
+  freeze: the engine accepts `heating_energy` on an accumulator / solar-panel /
+  electric-energy-interface and then ignores it (measured), and vanilla Aquilo is the
+  same. *Look for:* whether a battery bank humming away on the frozen nightside with
+  no heat anywhere reads as WRONG. If it does, that is the ci-de55 design question
+  (script Cindra's own freeze for those types) and wants your verdict there, not a
+  fix here.
+
 - [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
   decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the
   hot (west) rocky/lava half, **ice + light-snow** decals on the cold (east) icy
