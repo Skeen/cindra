@@ -275,3 +275,14 @@ merge queue.
   the authoritative materials graph in DESIGN §8, tracked by the ci-6vj epic above.
 - **Flare-response circuit building (§12-8).** Power-grid sensor / priority-switch
   for first-class flare automation.
+- **PlanetsLib.** Evaluated at 1.23.5 (`ci-810e`, see
+  [`docs/planetslib-evaluation.md`](docs/planetslib-evaluation.md)). Verdict:
+  **partially adopt, optional dependency only** — the orbit hierarchy buys a
+  moonless star-orbiting planet nothing, and a hard dep would drag PlanetsLib's
+  vanilla mutations (centrifuge, ~100 item rocket weights, tech-tree prereq
+  unlinking) into every player's game, violating the never-touch-other-planets
+  invariant. Cindra stays a good *citizen*: `tests/test_planetslib_compat.lua`
+  pins the preconditions PlanetsLib's `data-final-fixes` imposes. Staged
+  follow-ups (`ci-gg3x` in-engine co-load check, `ci-ndm9` guarded
+  surface-condition helpers, `ci-dza6` optional dep, `ci-82ib` prototype
+  migration); the last two need human sign-off.

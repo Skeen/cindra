@@ -52,6 +52,7 @@ and is not runnable on a bare rig; it is exercised where APS is available.
 | Companion APS start (with / without APS) | `test_aps_start.lua`, `test_aps_absent.lua`, `test_aps_foundry.lua`, `unit-tests/test_aps_locale.lua` | both |
 | env-scanner (buildable scanner + forecast readings) | `test_env_scanner.lua`, `mods/env-scanner/tests` + `unit-tests` | both |
 | Misc: feedback tint / decoratives / no-paving / space art / graphics-audit / rock-tint / locale / branding | `test_feedback.lua`, `test_decoratives.lua`, `test_paving.lua`, `test_space_appearance.lua`, `unit-tests/*` | both |
+| PlanetsLib interop (planet-str length, missing-parent placeholder, gas-percentage assert) | `test_planetslib_compat.lua` (see `docs/planetslib-evaluation.md`) | integration |
 
 ## Gap register (filed as ci- beads, discovered-from ci-d7x)
 

@@ -103,6 +103,11 @@ if script.active_mods["factorio-test"] then
     "tests/test_freeze",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
+    -- ci-810e: PlanetsLib interop guards. Cindra takes NO dependency on PlanetsLib
+    -- (see docs/planetslib-evaluation.md), but players install it alongside planet
+    -- mods and its data-final-fixes imposes hard preconditions -- including a gas-
+    -- percentage assert that REFUSES TO LOAD the game. Pinned from our own side.
+    "tests/test_planetslib_compat",
     -- Power system (§15 items 7-9), integrated from the flare-poc (ci-zg3):
     -- flare cycle, disposal-deficit panel damage, storage + dissipator sinks.
     "tests/test_flare",
