@@ -205,6 +205,11 @@ M.NON_ENTITY_TYPES = {
   ["ammo-item"] = true, ["autoplace-control"] = true, ["capsule"] = true,
   ["damage-type"] = true, ["fluid"] = true, ["fuel-category"] = true,
   ["item"] = true, ["item-group"] = true, ["item-subgroup"] = true,
+  -- A `mod-data` prototype is an inert record the data stage leaves behind for
+  -- the runtime to read (prototypes.mod_data), with no position, no health and
+  -- nothing to stop working. Cindra's is the surface-condition backend marker
+  -- (prototypes/surface-conditions.lua, ci-ndm9).
+  ["mod-data"] = true,
   ["module"] = true, ["noise-expression"] = true, ["noise-function"] = true,
   -- Decoratives are their OWN prototype class (LuaDecorativePrototype), not
   -- entities: they have no owner, no health and no freeze.

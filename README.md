@@ -151,6 +151,14 @@ only when PlanetsLib is actually loaded, so the default run runs its mirror,
 mutations are present); `test_planetslib_compat` guards the interop edges from our
 own side in both configs.
 
+It is also the only place the **delegated** half of
+`scripts/surface-conditions.lua` runs in an engine. Cindra edits surface
+conditions through that shim, which hands the work to PlanetsLib's helpers when
+the library is present and runs its own implementation otherwise. The co-load
+suite reads the backend the data stage recorded (so it knows the delegation
+really happened) and pins that both paths produce the same gates. Off-engine,
+`npm run test:unit` drives both branches with a stub library.
+
 PlanetsLib is not vendored. Download it from the
 [mod portal](https://mods.factorio.com/mod/PlanetsLib) and drop the zip (or an
 unpacked copy) into the data dir:

@@ -159,6 +159,12 @@ require("prototypes.power-diode")
 -- data stage, so this cannot be a factorio-test. Loads after resources.lua.
 require("prototypes.rock-models")
 
+-- ci-ndm9: record which surface-condition backend edited the prototypes above --
+-- PlanetsLib's helpers when the library is loaded before us, our own otherwise
+-- (scripts/surface-conditions.lua). Loads after every file that edits a condition
+-- so it reports what they actually saw. Observes only; adds no gameplay.
+require("prototypes.surface-conditions")
+
 -- Graphics guard (ci-sop): MUST be last -- audits every registered Cindra entity
 -- for a wired render sprite and errors the load on any invisible building. Catches
 -- the class of bug the runtime API cannot see (LuaEntityPrototype has no graphics
