@@ -132,6 +132,55 @@ describe("power-diode (ci-8l4 power-switch-style one-way device)", function()
     dev.destroy({ raise_destroy = true })
   end)
 
+  -- ci-ntgh, the OBSERVABLE half of the stray-model audit. The helpers are clones
+  -- of the vanilla accumulator-interface / small-electric-pole, so they inherited
+  -- those prototypes' WRECKAGE: kill one and the engine dropped a battery or a
+  -- power-pole remnant on the ground TAP_DX tiles off the building -- a model the
+  -- player can walk up to, long after the invisible thing that made it was gone.
+  -- What the player sees is the assertion: after the guts die, the field around
+  -- the diode is empty.
+  it("leaves no wreckage lying off to the side when its hidden guts are killed", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    diode.reset()
+
+    local dev = place_device(s, { 0, 0 })
+    local d = diode.registry()[dev.unit_number]
+    local box = { { -C.TAP_DX - 4, -6 }, { C.TAP_DX + 4, 6 } }
+    for _, e in ipairs({ d.input, d.output, d.input_tap, d.output_tap }) do
+      e.die()
+    end
+
+    local corpses = s.find_entities_filtered({ area = box, type = "corpse" })
+    assert.are.equal(0, #corpses,
+      "a dead hidden gut must leave NO battery/pole wreckage beside the diode")
+    -- Same for the "remnants" the engine registers as simple-entities in some
+    -- cases: nothing new may appear where the guts stood.
+    local left = s.find_entities_filtered({ area = box, name = { C.INPUT, C.OUTPUT, C.INPUT_TAP, C.OUTPUT_TAP } })
+    assert.are.equal(0, #left, "the killed guts must be gone, not lingering")
+
+    dev.destroy({ raise_destroy = true })
+  end)
+
+  -- Same audit, the part the player meets with the mouse: the guts are phantoms
+  -- that draw nothing, so they must claim no footprint out beside the building
+  -- either. A helper carrying its source's 2x2-ish selection box put a selectable
+  -- -sized claim TAP_DX tiles off a device the player thinks is one power switch.
+  it("its hidden guts claim no footprint beside the building", function()
+    for _, name in ipairs({ C.INPUT, C.OUTPUT, C.INPUT_TAP, C.OUTPUT_TAP }) do
+      local p = prototypes.entity[name]
+      assert.is_false(p.selectable_in_game, name .. " must not be selectable")
+      local sb = p.selection_box
+      assert.are.equal(0, sb.left_top.x, name .. " selection box must collapse to a point")
+      assert.are.equal(0, sb.left_top.y, name .. " selection box must collapse to a point")
+      assert.are.equal(0, sb.right_bottom.x, name .. " selection box must collapse to a point")
+      assert.are.equal(0, sb.right_bottom.y, name .. " selection box must collapse to a point")
+    end
+    -- The DEVICE keeps its real, power-switch-sized box: it is the building.
+    local dev_box = prototypes.entity[C.DEVICE].selection_box
+    assert.is_true(dev_box.right_bottom.x > 0, "the device must keep a real selection box")
+  end)
+
   it("spawns + wires its hidden guts on build, and tears them down on removal", function()
     local s = H.cindra_surface()
     H.power_reset()
