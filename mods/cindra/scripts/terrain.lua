@@ -257,6 +257,23 @@ M.MOLTEN_FLOOR = (function()
   return lo
 end)()
 
+-- The FROZEN CEILING: the highest field value the ramp still paints as the smooth-ice
+-- OCEAN SHEET (i.e. the upper bound of the coldest ramp member's band). At or below it the
+-- ground is the frozen sea itself; just above it is the rough-ice / snow SHORE. Anything
+-- that has to read as OPEN ocean gates on this value's contour -- the cold decal thinning
+-- in scripts/decorative-field.lua (ci-10ze), which is what stops the sea being buried in
+-- ground clutter. The cold-side counterpart of M.MOLTEN_FLOOR, derived the same way (from
+-- the ramp plus the named ocean core), so retuning the ramp moves it.
+local FROZEN_OCEAN = { ["ice-smooth"] = true }
+M.FROZEN_CEILING = (function()
+  local prev_lo = RAMP_BIG
+  for _, r in ipairs(M.VALUE_RAMP) do
+    if FROZEN_OCEAN[r.vanilla] then return prev_lo end
+    prev_lo = r.lo
+  end
+end)()
+if M.FROZEN_CEILING == nil then error("terrain: the value ramp paints no smooth-ice ocean core") end
+
 M.NO_PAVE = {}
 for _, vanilla in ipairs(M.NO_PAVE_VANILLA) do M.NO_PAVE[cindra_name(vanilla)] = true end
 
