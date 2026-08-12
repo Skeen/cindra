@@ -306,10 +306,13 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (a rectangle, not a ribbon) and the fire sat at the BOTTOM. Fixed: the map-gen now
   states both axes (`terrain.map_gen_bounds` — perpendicular = the ribbon width, long =
   0/infinite) and the sunward coordinate is `-y`, so the lava ocean is NORTH and the ice
-  ocean SOUTH. A test run can only load ONE startup orientation, so the live horizontal
-  world is playtest-only; the mapping and bounds for both orientations are covered in
-  `unit-tests/test_axis.lua` + `unit-tests/test_terrain.lua`, and `tests/test_orientation.lua`
-  proves the live surface obeys them in whichever orientation the run is configured with.
+  ocean SOUTH. One test run can only load ONE startup orientation — so since ci-vjc the
+  horizontal world gets its OWN run (`npm run test:integration:horizontal`, part of `npm
+  test`), and what is left here is the LOOK of it, not the layout: the geometry, oceans,
+  resource bands and lethal belts of the rotated world are asserted in raw x/y by
+  `tests/test_worldgen_horizontal.lua`, on top of `unit-tests/test_axis.lua` +
+  `unit-tests/test_terrain.lua` (the mapping) and `tests/test_orientation.lua` (the live
+  surface obeys it in whichever orientation the run is configured with).
   *Repro:* Settings → Mod settings → Startup → set **Ribbon orientation = Horizontal
   (east-west, hot to the north)**, then start a NEW game on Cindra. *Look for:* (1) the
   **lava ocean is at the TOP** of the screen (walk north into the heat) and the **ice

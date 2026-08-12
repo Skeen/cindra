@@ -9,6 +9,12 @@
 #
 # Extra args are forwarded to the CLI (e.g. a suite filter, or the companion
 # mods: `cindra-test cindra-start cindra-dev-default`).
+#
+# CINDRA_ORIENTATION=horizontal runs the whole thing against the E-W ribbon
+# instead of the default N-S one (ci-vjc). The orientation is a STARTUP setting
+# baked into the tile/resource noise expressions at the DATA stage, so it can
+# only be proven end-to-end by a SECOND engine run configured horizontal -- see
+# mods/cindra-dev-horizontal and `npm run test:integration:horizontal`.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,6 +57,32 @@ ln -sfn "$ft_mod" "$data_dir/mods/factorio-test_$version"
 # the data dir like factorio-test; cindra's ~ dep then auto-enables it.
 ln -sfn "$repo/mods/env-scanner" "$data_dir/mods/env-scanner"
 
+# ORIENTATION (ci-vjc). The ribbon's orientation is a startup setting, so one
+# engine run = one orientation: nothing at runtime can rotate a world whose tile
+# and resource noise expressions were already built vertical. The horizontal
+# (E-W) ribbon is therefore proven by re-running the suite with the dev mod that
+# flips the setting's DEFAULT (mods/cindra-dev-horizontal); the mod-settings.dat
+# deletion above is what makes a changed default take effect.
+#
+# The seed is added ONLY for a horizontal run and REMOVED otherwise: the data
+# dir is reused between runs, and Factorio enables a mod it finds there but does
+# not know about, so a leftover symlink would silently rotate the NEXT default
+# run's world.
+orientation_mods=()
+case "${CINDRA_ORIENTATION:-vertical}" in
+  horizontal)
+    ln -sfn "$repo/mods/cindra-dev-horizontal" "$data_dir/mods/cindra-dev-horizontal"
+    orientation_mods=(cindra-dev-horizontal)
+    ;;
+  vertical)
+    rm -f "$data_dir/mods/cindra-dev-horizontal"
+    ;;
+  *)
+    echo "error: CINDRA_ORIENTATION must be 'vertical' or 'horizontal', got '$CINDRA_ORIENTATION'." >&2
+    exit 1
+    ;;
+esac
+
 cli="$repo/node_modules/.bin/factorio-test"
 if [ ! -x "$cli" ]; then
   echo "error: factorio-test-cli not installed; run 'npm install' first (see SETUP.md)." >&2
@@ -61,4 +93,4 @@ exec "$cli" run \
   --factorio-path "$factorio_path" \
   --data-directory "$data_dir" \
   --mod-path "$repo/mods/cindra" \
-  --mods space-age quality elevated-rails recycler "$@"
+  --mods space-age quality elevated-rails recycler ${orientation_mods[@]+"${orientation_mods[@]}"} "$@"

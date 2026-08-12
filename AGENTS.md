@@ -149,6 +149,19 @@ recycler" line is a harmless warning — recycler loads from the Factorio
 install's bundled DLC data. Extra args are forwarded to the CLI (e.g.
 `cindra-test cindra-start cindra-dev-default` for the companion suite).
 
+The ribbon ORIENTATION is a startup setting read at the DATA stage (tile
+probability expressions, resource band masks), so one run = one orientation.
+The E-W ribbon has its own run, wired into `npm test`:
+
+```sh
+npm run test:integration:horizontal   # == CINDRA_ORIENTATION=horizontal cindra-test
+```
+
+It seeds + enables `mods/cindra-dev-horizontal` (flips the setting default) and
+swaps the suite for `tests/test_worldgen_horizontal` (the rotated world in raw
+x/y) plus the orientation-agnostic `tests/test_orientation`. Anything you change
+in worldgen, resources or edge damage should be re-checked with it (ci-vjc).
+
 **🚨 "Could not verify in-engine" is a claim you must EARN.** Check with
 `./scripts/resolve-factorio.sh` (prints the binary it found, or explains and
 exits 1) before ever writing that in a commit, bead or MR. Agents have shipped
