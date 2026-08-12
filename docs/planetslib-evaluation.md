@@ -265,7 +265,7 @@ need human sign-off** because they change what a player is forced to install.
 | 0 | *(this spike)* | `tests/test_planetslib_compat.lua` — pin the preconditions PlanetsLib's `data-final-fixes` imposes on Cindra, with **no** dependency on PlanetsLib | none | — |
 | 1 | `ci-gg3x` | ~~Verify in-engine that Cindra + PlanetsLib load clean together and Cindra does not move on the starmap~~ **DONE** — clean, see §5.1; kept as `tests/test_planetslib_coload.lua` | low | — |
 | 2 | `ci-ndm9` | Adopt `PlanetsLib.relax_surface_conditions` / `remove_surface_condition` behind `mods["PlanetsLib"]`, keeping the hand-rolled path as the default | low | — |
-| 3 | `ci-dza6` | Declare `"? PlanetsLib"` in `info.json` (optional dep — load order only, forces nothing on the player) | medium | **human** |
+| 3 | `ci-dza6` | ~~Declare `"? PlanetsLib"` in `info.json` (optional dep — load order only, forces nothing on the player)~~ **DONE** — human sign-off granted 2026-08-12; guarded by `unit-tests/test_dependencies.lua` (the text) and `tests/test_planetslib_absent.lua` (the consequence) | medium | **human** |
 | 4 | `ci-82ib` | Migrate the planet prototype to `PlanetsLib:extend{ orbit = { parent = star, ... } }` | medium | **human** — only worth doing if Cindra gains a moon/satellite |
 | — | — | *Not planned:* hard dependency; entity-variant migration; starmap/orbit-sprite migration | — | — |
 
@@ -278,7 +278,8 @@ need human sign-off** because they change what a player is forced to install.
 - **Do** keep Cindra provably compatible with PlanetsLib as an installed sibling
   (stage 0 landed; stage 1 verified in-engine — clean, §5.1).
 - **Do** consider `"? PlanetsLib"` plus the guarded surface-condition helpers
-  (stages 2–3) — cheap, reversible, invariant-preserving.
+  (stages 2–3) — cheap, reversible, invariant-preserving. The optional dependency
+  itself **landed** in stage 3 (`ci-dza6`), with human sign-off.
 - **Do not** take a hard dependency. It would make installing Cindra silently
   rewrite the vanilla centrifuge, ~100 vanilla item rocket weights, and every
   mod's technology tree — a direct violation of the mod's load-bearing invariant,

@@ -1,21 +1,24 @@
 -- Guard: Cindra stays a well-behaved PlanetsLib CITIZEN without depending on it.
 --
--- ci-810e evaluated PlanetsLib 1.23.5 (commit ba3dd7a) and recommended NOT taking
--- a dependency on it -- see docs/planetslib-evaluation.md for the full read. But
--- players DO install it alongside planet mods, and its `data-final-fixes` imposes
--- hard preconditions on every planet in `data.raw.planet`, Cindra included. Two of
+-- ci-810e evaluated PlanetsLib 1.23.5 (commit ba3dd7a) and recommended against a
+-- HARD dependency; ci-dza6 landed the OPTIONAL `? PlanetsLib` (load order only)
+-- -- see docs/planetslib-evaluation.md for the full read. So the library may or
+-- may not be installed, and when it is, its `data-final-fixes` imposes hard
+-- preconditions on every planet in `data.raw.planet`, Cindra included. Two of
 -- those preconditions can be violated by an innocent-looking edit to
--- prototypes/planet.lua, and neither would ever be caught by our own suite,
--- because our suite does not (and should not) ship PlanetsLib.
+-- prototypes/planet.lua, and neither would be caught by the default run, because
+-- that run does not (and should not) ship PlanetsLib.
 --
 -- So: pin the preconditions here, from OUR side of the fence. Every assertion
 -- below reads only Cindra's own prototype. Nothing here requires PlanetsLib to be
--- installed, nothing here adds a dependency, and nothing here constrains any
--- other planet.
+-- installed, nothing here strengthens the dependency, and nothing here constrains
+-- any other planet.
 --
 -- Sibling coverage: tests/test_planet.lua already pins the tuned star-map
 -- position itself (distance 5, sunward of Vulcanus, the tidal-lock quarter turn).
--- This file guards the LIBRARY-INTEROP edges that file does not.
+-- tests/test_planetslib_absent.lua and tests/test_planetslib_coload.lua take the
+-- two halves of "is the library installed". This file guards the LIBRARY-INTEROP
+-- edges none of them do.
 
 local H = require("tests.helpers")
 

@@ -11,14 +11,17 @@
 --                                        canonical run (no PlanetsLib).
 --   * tests/test_planetslib_compat.lua -- the preconditions PlanetsLib's
 --                                        data-final-fixes imposes on us, asserted
---                                        from OUR side with PlanetsLib ABSENT.
+--                                        from OUR side in either config.
+--   * tests/test_planetslib_absent.lua -- the mirror of this file: the library
+--                                        uninstalled, Cindra plays anyway.
 --   * this file                        -- the co-load itself: both mods loaded,
 --                                        nothing moved.
 --
 -- Runs ONLY when PlanetsLib is loaded (control.lua registers it conditionally,
--- the same way the APS suites are registered). Cindra takes NO dependency on
--- PlanetsLib and the library is not vendored, so the default `cindra-test` run
--- never executes this. See README ("PlanetsLib co-load") for the invocation.
+-- the same way the APS suites are registered). Cindra's dependency on PlanetsLib
+-- is OPTIONAL (`? PlanetsLib`, ci-dza6) and the library is not vendored, so the
+-- default `cindra-test` run never installs it and never executes this. See README
+-- ("PlanetsLib co-load") for the invocation.
 --
 -- Everything here is player-observable: where the planet is drawn in the star
 -- map, which way its baked globe faces, and whether the route to it still exists.
