@@ -295,7 +295,10 @@ merge queue.
   vanilla mutations (centrifuge, ~100 item rocket weights, tech-tree prereq
   unlinking) into every player's game, violating the never-touch-other-planets
   invariant. Cindra stays a good *citizen*: `tests/test_planetslib_compat.lua`
-  pins the preconditions PlanetsLib's `data-final-fixes` imposes. Staged
-  follow-ups (`ci-gg3x` in-engine co-load check, `ci-ndm9` guarded
-  surface-condition helpers, `ci-dza6` optional dep, `ci-82ib` prototype
-  migration); the last two need human sign-off.
+  pins the preconditions PlanetsLib's `data-final-fixes` imposes. The co-load is
+  now **confirmed in-engine** (`ci-gg3x`, evaluation §5.1): both mods load, and
+  PlanetsLib's only effect on Cindra is additive (retro-fitted orbit at the same
+  coordinates, `is-freezing`, `planet-str`) — `tests/test_planetslib_coload.lua`
+  keeps it that way. Remaining follow-ups: `ci-ndm9` guarded surface-condition
+  helpers, `ci-dza6` optional dep, `ci-82ib` prototype migration; the last two
+  need human sign-off.
