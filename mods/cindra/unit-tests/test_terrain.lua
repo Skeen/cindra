@@ -550,5 +550,42 @@ test("the world is finite perpendicular via the map-gen = the total width", func
   assert_eq(1080, terrain.finite_dimension({ middle = 400 }).value, "tracks the widths")
 end)
 
+test("the map-gen bounds ONE axis and states the long axis INFINITE (ci-65p)", function()
+  -- A ribbon is bounded across, not along. Emitting only the finite key let a world
+  -- keep an inherited bound on the long axis and box the player in on BOTH -- the
+  -- horizontal ribbon's "completely broken" report. 0 = infinite in Factorio, and
+  -- stating it is what un-boxes such a world.
+  local b = terrain.map_gen_bounds()
+  assert_eq(800, b.width, "vertical: the perpendicular (X) axis carries the ribbon width")
+  assert_eq(0, b.height, "vertical: the long (Y) axis is explicitly INFINITE")
+  assert_eq("height", terrain.infinite_dimension_key(), "vertical: the free key is height")
+
+  -- Whatever the orientation, exactly one axis is finite and it is the one the tile
+  -- bands run across (axis.perp_expr names the same axis).
+  local finite = terrain.finite_dimension()
+  local free = terrain.infinite_dimension_key()
+  assert_true(finite.key ~= free, "the finite and free axes are different axes")
+  assert_true(b[finite.key] > 0 and b[free] == 0, "exactly one axis is bounded")
+  assert_eq(b[finite.key], terrain.map_gen_bounds({ middle = 400 })[finite.key] - 280,
+    "the bound tracks the zone widths")
+end)
+
+test("the HOT ocean sits at the negative side of the perpendicular axis, both orientations", function()
+  -- Where the fire lands in the WORLD: axis.world maps the hot ocean's band to the
+  -- LEFT (-x) when vertical and to the TOP (-y) when horizontal (ci-65p), and the ice
+  -- ocean to the opposite edge. Same convention, quarter turn apart.
+  local hot, cold = terrain.role_band("hot_ocean"), terrain.role_band("cold_ocean")
+  local hx, hy = axis.world(0, hot.hi, "vertical")
+  local cx, cy = axis.world(0, cold.lo, "vertical")
+  assert_true(hx < 0 and cx > 0, "vertical: fire west (-x), ice east (+x)")
+  assert_eq(0, hy, "vertical: the long axis is untouched")
+
+  hx, hy = axis.world(0, hot.hi, "horizontal")
+  cx, cy = axis.world(0, cold.lo, "horizontal")
+  assert_true(hy < 0, "horizontal: FIRE AT THE TOP (-y)")
+  assert_true(cy > 0, "horizontal: ice at the bottom (+y)")
+  assert_eq(0, hx, "horizontal: the long axis is untouched")
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

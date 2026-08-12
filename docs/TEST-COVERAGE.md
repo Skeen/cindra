@@ -22,7 +22,7 @@ and is not runnable on a bare rig; it is exercised where APS is available.
 |---|---|---|
 | Planet reachable (gated after Vulcanus) | `test_planet.lua` (space-connection + discovery-tech prereq) | integration |
 | Planet **landable** (spawn + pad safe, zero landing damage) | `test_worldgen.lua` "LANDABLE:" (spawn tile, 17x17 pad, live tile-damage sweep on a character) | integration |
-| Ribbon + orientation (E-W & N-S mapping) | `test_axis.lua`, `test_nightward_freeze_spike.lua` (orientation-independent) | unit |
+| Ribbon + orientation (E-W & N-S mapping) | `test_axis.lua`, `test_terrain.lua` (both orientations' bounds + fire side), `test_orientation.lua` (live surface, orientation-agnostic), `test_nightward_freeze_spike.lua` (orientation-independent) | both |
 | Terrain gradient bands (11 zones, organic, hot rings) | `test_worldgen.lua`, `test_terrain.lua` | both |
 | Smooth fire/freeze damage, ramps with depth | `test_tile_damage.lua`, `test_terrain.lua` (intensity ramp), `test_ribbon.lua` | both |
 | Impassable ice wall | `test_worldgen.lua`, `test_terrain.lua` (walkability) | both |
@@ -64,7 +64,7 @@ and is not runnable on a bare rig; it is exercised where APS is available.
 | ci-zcx | Mass driver launch->catch has no runtime delivery test (only proto + hub-exists). | P2 |
 | ~~ci-eao~~ | RESOLVED: the three orphaned PoC mods (`flare-poc`, `mass-driver`, `freeze-radius-poc`) were deleted -- the first two duplicate shipped `mods/cindra` coverage, freeze-radius-poc was a concluded, un-adopted spike (findings live in PLAYTEST.md / ci-b5i). `tests/no-orphan-suites.test.sh` now guards against a `mods/*/tests/` suite that no runner executes. | P2 |
 | ci-y19 | Stone/Ice map-gen slider EFFECT untested (only existence). | P3 |
-| ci-vjc | Horizontal (E-W) orientation has no full-worldgen integration test (mapping-only). | P3 |
+| ci-vjc | Horizontal (E-W) orientation has no full-worldgen integration test in a HORIZONTAL run. `test_orientation.lua` (ci-65p) is written through `axis.world`, so it proves the live ribbon in whichever orientation the run is configured with; a run is one startup orientation, so exercising the horizontal one needs a second suite pass with `cindra-ribbon-orientation=horizontal`. Bounds + fire side for both orientations are covered off-game in `test_axis`/`test_terrain`. | P3 |
 | ci-xs6 | Minor polish: dissipator rated draw, freeze-temp override, graph exhaustiveness, cindra-start MP force path. | P3 |
 
 ## Notes
