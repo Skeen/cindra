@@ -230,6 +230,19 @@ M.NO_PAVE_VANILLA = {
 -- Impassable tiles: only the two lava tiles (molten fluid). smooth-ice is WALKABLE.
 local IMPASSABLE = { ["lava-hot"] = true, ["lava"] = true }
 
+-- The MOLTEN FLOOR: the lowest field value the ramp paints as MOLTEN (an impassable lava
+-- tile). At or above it the ground is liquid rock, so nothing can lie ON it -- any ground
+-- clutter (the rock / crater decals, scripts/decorative-field.lua) has to stay strictly
+-- below this value or it floats on the lava. Derived from the ramp + the impassable set,
+-- so retuning either moves it.
+M.MOLTEN_FLOOR = (function()
+  local lo
+  for _, r in ipairs(M.VALUE_RAMP) do
+    if IMPASSABLE[r.vanilla] and (lo == nil or r.lo < lo) then lo = r.lo end
+  end
+  return lo
+end)()
+
 M.NO_PAVE = {}
 for _, vanilla in ipairs(M.NO_PAVE_VANILLA) do M.NO_PAVE[cindra_name(vanilla)] = true end
 
@@ -431,6 +444,31 @@ end
 -- The field value H at perpendicular position `p` (0 = cold extreme .. 1 = hot extreme).
 function M.field(p, cfg)
   return pwl(p, M.field_anchors(cfg))
+end
+
+-- The INVERSE of M.field: the perpendicular position where the field reaches value `h`.
+-- The field is monotonic ascending in p, so that crossing is UNIQUE (the property the whole
+-- ci-oe83 model rests on) and this is well defined; values at/past the pinned extremes
+-- clamp to the map edges.
+--
+-- This is how a system that must land ON a particular tile family turns a TILE boundary in
+-- the value ramp into the WORLD position of that tile's contour. A zone band edge is NOT a
+-- tile boundary: with the default widths the molten contour (H = MOLTEN_FLOOR) sits ~35
+-- tiles INSIDE the hot-ocean band, so gating ground clutter on the band edge would still
+-- drop it on lava (that was the ci-mk5y decal bug). Gate on the crossing instead.
+function M.field_crossing(h, cfg)
+  local anchors = M.field_anchors(cfg)
+  local n = #anchors
+  if h <= anchors[1].h then return anchors[1].p end
+  if h >= anchors[n].h then return anchors[n].p end
+  for i = 2, n do
+    local a, b = anchors[i - 1], anchors[i]
+    if h <= b.h then
+      if b.h == a.h then return a.p end
+      return a.p + (b.p - a.p) * (h - a.h) / (b.h - a.h)
+    end
+  end
+  return anchors[n].p
 end
 
 -- The environmental damage (intensity, kind) at perpendicular position `p`: the value
@@ -637,6 +675,19 @@ function M.tile_names()
   return out
 end
 
+-- The set of ramp tiles the ground can be painted with between two field VALUES: every
+-- ramp member (both hot-slope families included) whose value band overlaps [h_lo, h_hi].
+-- The value-space counterpart of M.zone_tiles below, which asks the same question for a
+-- POSITION band. Ground clutter gated on a value segment (the rock/crater decals) reads
+-- this to name the tiles it may sit on, and its tests read it to prove it did.
+function M.value_range_tiles(h_lo, h_hi)
+  local out = {}
+  for name, vb in pairs(VALUE_BAND) do
+    if vb.hi > h_lo and vb.lo < h_hi then out[name] = true end
+  end
+  return out
+end
+
 -- The Cindra tiles whose GROUND does `kind` damage ("heat" / "cold"), or -- with kind
 -- nil -- the tiles that do none. Derived from M.tile_damage, so it tracks the value
 -- ramp instead of restating it, and a retuned band moves these lists with it.
@@ -672,9 +723,7 @@ function M.zone_tiles(role)
   local h_lo = M.field(band.lo)
   local h_hi = M.field(band.hi)
   if h_lo > h_hi then h_lo, h_hi = h_hi, h_lo end
-  for name, vb in pairs(VALUE_BAND) do
-    if vb.hi > h_lo and vb.lo < h_hi then out[name] = true end
-  end
+  out = M.value_range_tiles(h_lo, h_hi)
   if role == M.BUILDING_ROLE then
     for _, r in ipairs(M.SOIL_RING_ORDER) do out[cindra_name(r.vanilla)] = true end
   end

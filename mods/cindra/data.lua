@@ -97,6 +97,11 @@ require("prototypes.resources")
 -- adds nothing to any entity and applies no damage.
 require("prototypes.feedback")
 
+-- ci-mk5y icy-side snowfall: the flake sprite the runtime (scripts/snowfall.lua) draws as
+-- drifting snow over the FROZEN half of the ribbon only -- the ci-wly epic's "snow-fall
+-- only on the icy side". A plain sprite prototype; adds nothing to any entity.
+require("prototypes.snowfall")
+
 -- Power system (§15 items 7-9), integrated from the proven flare-poc (ci-zg3):
 --   * flare   §15-7  the sunward-band solar variants (ci-8al: Cindra uses the
 --                    plain vanilla panel; only the reduced position bands are new

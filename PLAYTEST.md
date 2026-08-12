@@ -616,14 +616,31 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   clipped badly. If the frost's scale/shift needs a nudge to seat on the bulbous
   oxidizer or the tall glass-furnace body, that is a cosmetic tune, not a v1 bug.
 
-  > **Correction from ci-u92y (measured in-engine):** the **glass furnace never
-  > freezes**, so the foundry patch wired onto it above can never render. It
-  > deliberately clears the foundry's heating draw (`heating_energy = nil`,
-  > `prototypes/lava.lua`) and freezing needs `heating_energy > 0`, so it stays
-  > bare and working in the deep cold while the oxidizer beside it freezes. Only
-  > the **oxidizer** half of this entry is checkable. Whether a Cindra machine
-  > should be immune to the planet's own freeze mechanic is a design question
-  > filed separately (**ci-6qyk**) -- do not "fix" the art here.
+  > **~~Correction from ci-u92y~~ -- RESOLVED by ci-6qyk; BOTH halves are checkable
+  > again.** ci-u92y measured in-engine that the **glass furnace never froze**, so the
+  > foundry patch wired onto it above could never render, and narrowed this entry to the
+  > oxidizer half. The cause was an ACCIDENT, not a design: `prototypes/lava.lua` cleared
+  > `heating_energy` to shed the foundry's Aquilo power cost, not knowing the engine also
+  > uses that field as the freeze switch. ci-6qyk restored the draw (100kW), so the glass
+  > furnace now freezes like every other Cindra machine and its `frozen_patch` renders
+  > for the first time. **Check the glass furnace here too** -- its frost has never been
+  > seen on screen, so it is the more interesting half of this entry, not the safe one.
+
+- [ ] **[LANDED] Nightside glass furnaces now need HEAT -- cost + pacing (ci-6qyk).**
+  The glass furnace (lava-manufacturer) was accidentally exempt from the planet's core
+  freeze mechanic and could run forever in the dark with no heating infrastructure. It
+  now carries a **100kW** heating draw, level with its siblings (the arc furnace and the
+  electrolysis cell), so it freezes on the nightside like everything else. That it
+  freezes in the dark and thaws beside heat is asserted headless for EVERY Cindra
+  machine (`tests/test_frost.lua`, the ci-6qyk class-wide guard); what needs a human is
+  whether the resulting COST and PACING feel right. *Repro:* run a glass-furnace line
+  out past the freeze onset with no heat and leave it, then run heaters back to it.
+  *Look for:* (1) the heat infrastructure a nightside lava chain now demands feels like
+  a real but fair tax, not a wall that makes nightside glass production pointless;
+  (2) 100kW reads as proportionate beside the machine's 40 MW crafting draw (it is
+  deliberately a CUT from the 300kW the vanilla foundry carries for Aquilo). The mayor
+  called 100kW a starting point for tuning, not a locked constant, so a number change
+  here is tuning, not a v1 bug.
 
 - [ ] **[LANDED] Arc-furnace frost layer reads right (ci-u92y).** The arc furnace
   freezes for real past the onset (measured: `frozen == true`, status `frozen`),
@@ -663,6 +680,47 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   rocks read too sparse/dense). *Fallback:* `tests/test_decoratives.lua` proves the
   zone placement + purity (rocks only on the hot half, ice/snow only on the cold
   half, none on the terminator) on the live map; only the *look* is the playtest.
+
+- [ ] **[LANDED] Rocks + craters sit on the volcanic slope, never on lava (ci-mk5y).**
+  The hot decals were still gated on the ribbon safe band (perp > 24) with no outer
+  bound at all, a line with nothing to do with the ci-wly heightmap: rocks and craters
+  were strewn across the brown ash MIDDLE and on out over the molten lava. They are now
+  gated to the volcanic slope + crust, derived from the field's own tile contours
+  (`terrain.field_crossing`, from the ash convergence up to the molten floor) with a
+  margin for the terrain's boundary wiggle. *Repro:* walk west from spawn across the
+  brown middle, onto the cracked/folded slope, and on toward the lava shore. *Look for:*
+  (1) the brown ash middle carries NO rocks or craters — it starts to read as volcanic
+  litter only once the ground turns cracked/folded; (2) the litter continues over the
+  glowing hot crust so the burning shore does not read bare; (3) the lava itself is
+  CLEAN — no rock or crater floats on the molten surface, and none is cut in half at
+  the shoreline; (4) the transition at each end reads organic (the decals thin out
+  along a wobbly contour, not a straight stamped line). *Fallback:*
+  `tests/test_decoratives.lua` proves on the live map that every rock/crater lies inside
+  the slope band on solid volcanic ground (zero on molten tiles) and that the crust
+  still gets its share; `unit-tests/test_decorative_field.lua` pins the geometry. Only
+  the look/density is the playtest — if the slope now reads too sparse, tune the biases
+  in `scripts/decorative-field.lua`.
+
+- [ ] **[LANDED] Icy-side SNOWFALL reads as weather (ci-mk5y, the ci-wly idea).** The
+  frozen half now SNOWS: a drifting field of small pale flakes drawn around the player
+  (`scripts/snowfall.lua`), gated per FLAKE on the perpendicular axis so it snows
+  nightward of the icy-ground edge and NOWHERE else. v1 flake art is the stock white
+  square, tinted and scaled small (no bespoke asset yet). *Repro:* walk east from spawn
+  across the dust band into the frost/ice belt, stop right at the boundary, then walk on
+  out to the ice ocean; also walk west to the lava to confirm it is dry there.
+  *Look for:* (1) it reads as gentle falling SNOW (fine flakes drifting down with a
+  little sideways wind), not as dots or as rain; (2) standing at the boundary, the snow
+  falls on your nightward side ONLY — the brown band beside you stays clear, and the
+  edge is not a hard curtain; (3) the density/speed feel right against the frozen ground
+  (tune `FLAKES` / `FALL_SPEED` / `DRIFT` / `SCALE_*` / `ALPHA_*` in
+  `scripts/snowfall.lua`); (4) flakes read in front of buildings without hiding
+  alerts/icons; (5) no stutter with the flake field up (it moves at most 48 sprites
+  every 3 ticks per player). **Art follow-up:** a bespoke soft flake sprite (a real
+  flake shape rather than a square) — file if the square reads badly at high zoom.
+  *Fallback:* `tests/test_snowfall.lua` proves against a live player that it snows on
+  the ice, never on the habitable band / hot side / another planet, that at the boundary
+  every visible flake is over icy ground, and that the flakes actually fall; only the
+  LOOK is the playtest.
 
 ## Bootstrap from nothing
 

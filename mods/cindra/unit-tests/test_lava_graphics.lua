@@ -389,6 +389,23 @@ test("frozen glass furnace wears a frost overlay (graphics_set.frozen_patch)", f
     "reset_animation_when_frozen halts the molten cycle so a frozen furnace reads as stopped")
 end)
 
+-- The frost patch above is only ever DRAWN if the machine can reach the frozen state,
+-- and for two releases it could not: the prototype cleared `heating_energy`, which the
+-- engine also uses as the freeze switch, so the art above was unreachable (ci-6qyk).
+-- This is a data-stage SUPPLEMENT that pins the switch right where it was cleared; the
+-- invariant a player observes -- the machine actually freezing in the dark and thawing
+-- beside heat -- is measured in the engine by the class-wide guard in
+-- tests/test_freeze.lua, and that is the test that matters.
+test("the glass furnace keeps a heating draw, so it can freeze at all (ci-6qyk)", function()
+  local m = proto("assembling-machine", MACHINE)
+  assert_true(m.heating_energy ~= nil,
+    "heating_energy must NOT be cleared: it is the engine's freeze switch, and clearing it "
+      .. "makes the glass furnace immune to Cindra's nightside mechanic and its frost art dead")
+  local kw = tostring(m.heating_energy):match("^(%d+)kW$")
+  assert_true(kw ~= nil and tonumber(kw) > 0,
+    "heating_energy must be a positive kW draw, got: " .. tostring(m.heating_energy))
+end)
+
 -- === Item + entity icon =====================================================
 test("entity and item share the glass-furnace icon at icon_size 64", function()
   local e = proto("assembling-machine", MACHINE)

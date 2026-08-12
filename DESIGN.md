@@ -192,7 +192,7 @@ recommendation — both **IMPLEMENTED (item 2)**:
   expression keyed to the perpendicular axis (`scripts/terrain.lua`) with a
   `basis_noise` wiggle so band boundaries are organic, never straight. ONLY Cindra
   tiles are candidates → no grass, no water, zero Nauvis leakage. No trees /
-  enemies / decoratives; elevation is pinned flat (`prototypes/noise.lua`).
+  enemies; elevation is pinned flat (`prototypes/noise.lua`).
   **NO cliffs** (ci-qqt): ci-da2 grew Vulcanus-style cliffs in the volcanic zones,
   but the thin 128-tile ribbon has no room — a cliff walls the narrow traversable
   band, and Factorio strips any cliff that would block passage through it (they only
@@ -202,6 +202,19 @@ recommendation — both **IMPLEMENTED (item 2)**:
   thin-ribbon cliff treatment and the deferred zone-11 ice-mountain cliff are ci-70r;
   the impassable smooth-ice cap is the cold wall.) Resources are native autoplace
   (see §4a).
+- **Decals & weather (ci-6fq, ci-tizx, ci-mk5y):** cosmetic scatter gated to the
+  GROUND it belongs on, both sides read off the one heightmap field
+  (`scripts/decorative-field.lua`; Cindra-owned clones only, never a mutated vanilla
+  decorative). Volcanic **rocks / pebbles / craters** ride the volcanic slope + crust —
+  the value segment from the ash convergence up to (never onto) the molten floor, via
+  `terrain.field_crossing`, because a zone band edge is not a tile boundary. **Ice /
+  snow** decals start where the ground turns snow/ice, fade in nightward and stay
+  thinned so the tiles read through. The whole brown habitable band — including the
+  terminator centre, a clean landing spawn — carries no decal at all. On top of the
+  lying snow, the icy half **snows** (`scripts/snowfall.lua`): a drifting per-player
+  flake field gated PER FLAKE on the perpendicular axis, so it snows nightward of the
+  icy edge and nowhere else (one surface holds fire and ice, so a per-surface weather
+  effect would snow on the lava).
 - **Surface properties:** heavy gravity (20), thin atmosphere (pressure 500), no
   biology. `solar-power` = 400 is a **placeholder baseline**; §15 item 7 sets the
   real ~10000%-of-Nauvis surface multiplier + dark-weighted daylight curve that

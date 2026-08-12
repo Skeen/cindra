@@ -142,6 +142,13 @@ local LAVA_CATEGORY = "cindra-lava-manufacturing"
 local MANUFACTURER_SPEED = 2
 local MANUFACTURER_DRAW = "40000kW" -- 40 MW, ruinous; power is the real cost.
 
+-- 🚨 `heating_energy` IS THE FREEZE SWITCH, not merely a power cost. The engine
+-- freezes an entity on an `entities_require_heating` surface (which Cindra is) ONLY
+-- when heating_energy > 0. So this knob decides whether the glass furnace obeys the
+-- planet's core nightside mechanic at all -- see the ci-6qyk warning at its
+-- assignment below before touching it.
+local MANUFACTURER_HEATING = "100kW"
+
 -- THROUGHPUT (the ci-4ee spazz fix, resolved). Per-machine lava output is
 --     LAVA_OUT * crafting_speed / energy_required = 320 * 2 / 30 = 21.3 lava/s,
 -- identical to the pre-fix 10 * 64 / 30. Energy-per-lava is
@@ -166,9 +173,20 @@ manufacturer.next_upgrade = nil
 manufacturer.crafting_categories = { LAVA_CATEGORY }
 manufacturer.crafting_speed = MANUFACTURER_SPEED
 manufacturer.energy_usage = MANUFACTURER_DRAW
--- Drop the Aquilo cold-planet heating draw carried by the foundry art: this is a
--- Cindra ground machine, not a heated one.
-manufacturer.heating_energy = nil
+-- 🚨 HEATING DRAW -- AND THE FREEZE SWITCH. Do NOT clear this to shed a power cost.
+-- `heating_energy` does double duty: the engine will freeze this machine on Cindra
+-- ONLY while heating_energy > 0. Setting it to nil does not make a cheap machine, it
+-- makes a machine IMMUNE to the planet's core nightside mechanic, and that is exactly
+-- what this line used to do (ci-6qyk): the glass furnace ran forever in the dark on
+-- never-heated ground while an arc furnace on the same slab froze solid, and the
+-- frozen_patch frost art wired up below could never render because the machine never
+-- entered the frozen state. The comment that shipped it said only "drop the Aquilo
+-- cold-planet heating draw", which is why the consequence went unnoticed.
+-- The intent behind that comment survives here, without the freeze immunity: 100kW
+-- IS a cut, down from the 300kW the vanilla foundry carries for Aquilo, and it lands
+-- level with the sibling Cindra machines (the arc furnace and the electrolysis cell
+-- both inherit 100kW and both freeze). A playtest tuning knob, not a locked constant.
+manufacturer.heating_energy = MANUFACTURER_HEATING
 -- Drop the foundry's inherited +50% base productivity. The lava recipe disallows
 -- productivity (ci-9yg), so base prod is moot -- but clearing it makes the fixed
 -- 320-lava-per-craft output (the stone-negativity invariant) unambiguous: nothing
