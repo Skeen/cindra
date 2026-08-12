@@ -34,6 +34,7 @@ local axis = require("scripts.axis")
 local flare = require("scripts.flare")
 local sinks = require("scripts.sinks")
 local panel_solar = require("scripts.panel-solar")
+local zone_scale = require("scripts.zone-scale")
 
 local M = {}
 
@@ -51,6 +52,8 @@ function M.panels(surface, network_id)
     end
   end
   local orient = axis.orientation()
+  -- The RAW perpendicular is enough here: this is an ORDERING, and the geometry-slider
+  -- warp (ci-i4z) is monotonic, so warping every panel would rank them identically.
   table.sort(list, function(a, b)
     local ta = ribbon.temperature(axis.perp(a.position.x, a.position.y, orient))
     local tb = ribbon.temperature(axis.perp(b.position.x, b.position.y, orient))
@@ -91,8 +94,13 @@ function M.reconcile_variants(surface)
   if surface.name ~= C.SURFACE then return 0 end
   local todo = {}
   local orient = axis.orientation()
+  -- The output band is a ZONE lookup (the solar curve's anchors are zone edges), so it
+  -- reads the NOMINAL axis: a panel keeps the output its position on the gradient
+  -- earns, whatever the world-gen-screen geometry sliders stretched (ci-i4z).
+  local scales = zone_scale.for_surface(surface)
   for _, p in pairs(surface.find_entities_filtered({ name = panel_solar.all_names() })) do
-    local target = panel_solar.variant_for_y(axis.perp(p.position.x, p.position.y, orient))
+    local target = panel_solar.variant_for_y(
+      zone_scale.nominal_perp(p.position.x, p.position.y, orient, scales))
     if p.name ~= target then todo[#todo + 1] = { entity = p, target = target } end
   end
   local morphed = 0

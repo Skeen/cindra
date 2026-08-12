@@ -98,10 +98,16 @@ into the data dir and invokes the CLI with the DLC set the suite needs
 (`recycler` is a required built-in DLC in 2.1). From inside `nix develop`:
 
 ```sh
-cindra-test               # full integration suite
+cindra-test               # full integration suite (default N-S ribbon)
 npm run test:unit         # plain-Lua unit tests
-npm test                  # both
+npm run test:integration:horizontal   # the E-W ribbon, in its own run
+npm test                  # all of it
 ```
+
+The orientation is a startup setting read at the data stage, so the horizontal
+ribbon needs a separate run: `CINDRA_ORIENTATION=horizontal cindra-test` seeds
+and enables `mods/cindra-dev-horizontal` (which flips the setting default) and
+runs the rotated-world suite. See the README section for what it asserts.
 
 Point it at a shared Factorio without touching the repo:
 

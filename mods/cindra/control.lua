@@ -98,6 +98,11 @@ if script.active_mods["factorio-test"] then
     -- ci-65p: the ribbon is bounded ACROSS its hot-cold axis only and runs forever
     -- along its long axis, with the fire on the sunward side, in EITHER orientation.
     "tests/test_orientation",
+    -- ci-i4z: the ribbon GEOMETRY sliders on the new-game map-gen screen (playable
+    -- width + hot/cold zone depths). Generates surfaces with a slider moved and
+    -- measures the ground a player would walk: wider safe band, relocated lethal
+    -- belts, same map size, oceans still walling both edges.
+    "tests/test_worldgen_sliders",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",
@@ -217,6 +222,26 @@ if script.active_mods["factorio-test"] then
     test_files[#test_files + 1] = "tests/test_planetslib_coload"
   else
     test_files[#test_files + 1] = "tests/test_planetslib_absent"
+  end
+  -- ci-vjc: the HORIZONTAL (E-W) ribbon. The orientation is a STARTUP setting baked
+  -- into the tile probability expressions and the resource band masks at the DATA
+  -- stage, so one engine run generates exactly one orientation -- no runtime override
+  -- can rotate a world that already generated vertical. A horizontal world therefore
+  -- needs its OWN run (`npm run test:integration:horizontal`, which flips the setting
+  -- default via mods/cindra-dev-horizontal), and that run swaps the suite:
+  --   * tests/test_worldgen_horizontal states, in RAW x/y, where the rotated world
+  --     puts fire, ice, resources and lethal ground -- the end-to-end proof the
+  --     ci-d7x audit found missing (the maths was covered, the world never was).
+  --   * tests/test_orientation is orientation-agnostic (every position read through
+  --     scripts/axis.lua), so re-running it rotated is a second, independent pass.
+  -- The REST of the suite is written against the default vertical layout in hard-coded
+  -- x bands (tests/test_worldgen and friends), so it is deliberately NOT re-run
+  -- rotated: it would fail on geometry it never claimed to describe.
+  if require("scripts.axis").orientation() == "horizontal" then
+    test_files = {
+      "tests/test_orientation",
+      "tests/test_worldgen_horizontal",
+    }
   end
   require("__factorio-test__/init")(test_files, {
     load_luassert = true,

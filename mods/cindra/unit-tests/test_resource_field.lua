@@ -12,6 +12,18 @@
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local field = require("scripts.resource-field")
 local terrain = require("scripts.terrain")
+local axis = require("scripts.axis")
+
+-- The perpendicular axis the masks band on, read from the ONE source of truth
+-- (scripts/axis.lua) rather than spelled out: it is the NOMINAL axis, i.e. the
+-- world-gen-screen zone sliders' warp (ci-i4z), so a mask written against a raw x/y
+-- would silently stop following the sliders.
+local PERP = axis.perp_expr()
+-- Numbers as the emitters format them (integral values keep no ".0").
+local function num(v)
+  if v == math.floor(v) then return string.format("%d", v) end
+  return string.format("%.6g", v)
+end
 
 local passed, failed = 0, 0
 
@@ -202,30 +214,33 @@ test("bands honour a per-zone-width override (settings-driven tuning)", function
 end)
 
 -- The native-autoplace band masks (emitted as noise-expression DSL strings) MUST
--- describe the same boundaries as the numeric richness_* fns. Default orientation is
--- vertical (hot on the LEFT), so the sunward-positive perpendicular axis is "(0 - x)".
+-- describe the same boundaries as the numeric richness_* fns, on the nominal
+-- perpendicular axis (PERP above).
 
 test("stone mask spans the middle + survivable hot margin, short of the heat cap", function()
-  assert_eq("((0 - x) >= -60) * ((0 - x) < 120.5)", field.stone_mask_expr(), "default stone band")
+  assert_eq("(" .. PERP .. " >= -60) * (" .. PERP .. " < 120.5)", field.stone_mask_expr(),
+    "default stone band")
 end)
 
 test("ice mask covers the survivable cold margin, short of the cold cap", function()
-  assert_eq("((0 - x) < -60) * ((0 - x) > -120.5)", field.ice_mask_expr(), "default ice band")
+  assert_eq("(" .. PERP .. " < -60) * (" .. PERP .. " > -120.5)", field.ice_mask_expr(),
+    "default ice band")
 end)
 
 test("sandy-rock autoplace masks to the WARM middle across the WHOLE ribbon (ci-18n)", function()
   local expr = field.rock_probability_expr()
-  assert_true(expr:find("(0 - x) <= 60", 1, true) ~= nil, "capped at the hot edge of the middle")
-  assert_true(expr:find("(0 - x) >= -55", 1, true) ~= nil, "cold edge pulled warm of the ice divider")
-  assert_true(expr:find("(0 - x) >= -60", 1, true) == nil, "no longer reaches the middle's cold edge")
+  assert_true(expr:find(PERP .. " <= 60", 1, true) ~= nil, "capped at the hot edge of the middle")
+  assert_true(expr:find(PERP .. " >= -55", 1, true) ~= nil, "cold edge pulled warm of the ice divider")
+  assert_true(expr:find(PERP .. " >= -60", 1, true) == nil, "no longer reaches the middle's cold edge")
   assert_true(expr:find("distance", 1, true) == nil, "no spawn-radius cutoff (rocks span the whole ribbon)")
 end)
 
 test("ice-rock autoplace masks to the safe cold band, never the lethal cold zone (ci-18n)", function()
   local expr = field.ice_rock_probability_expr()
   local d = terrain.damage_bounds()
-  assert_true(expr:find("(0 - x) <= -60", 1, true) ~= nil, "starts at the cold edge of the middle (divider)")
-  assert_true(expr:find("(0 - x) > " .. d.cold_from, 1, true) ~= nil, "capped warm of the lethal cold zone")
+  assert_true(expr:find(PERP .. " <= -60", 1, true) ~= nil, "starts at the cold edge of the middle (divider)")
+  assert_true(expr:find(PERP .. " > " .. num(d.cold_from), 1, true) ~= nil,
+    "capped warm of the lethal cold zone")
   assert_true(expr:find("distance", 1, true) == nil, "no spawn-radius cutoff (ice-rocks span the whole cold cap)")
 end)
 
@@ -262,8 +277,8 @@ end)
 test("burned-rock autoplace masks to the volcanic band and clusters toward the lava", function()
   local expr = field.burned_rock_probability_expr()
   local v = terrain.cliff_band()
-  assert_true(expr:find("(0 - x) > " .. v.lo, 1, true) ~= nil, "starts at the volcanic band's cold edge")
-  assert_true(expr:find("(0 - x) <= " .. v.hi, 1, true) ~= nil, "capped at the walkable hot edge")
+  assert_true(expr:find(PERP .. " > " .. num(v.lo), 1, true) ~= nil, "starts at the volcanic band's cold edge")
+  assert_true(expr:find(PERP .. " <= " .. num(v.hi), 1, true) ~= nil, "capped at the walkable hot edge")
   assert_true(expr:find("lerp(0.003, 0.02,", 1, true) ~= nil, "ramps MIN -> MAX toward the lava")
   assert_true(expr:find("clamp(", 1, true) ~= nil, "ramp fraction is clamped to the band")
   assert_true(expr:find("> -", 1, true) == nil, "no nightward (cold) bound (hot region only)")
@@ -342,7 +357,7 @@ test("splitting the volcanic family does NOT change the band or its density (ci-
   -- the hot region carries exactly the rock it carried before the split.
   local expr = field.burned_rock_probability_expr()
   local v = terrain.cliff_band()
-  assert_true(expr:find("(0 - x) > " .. v.lo, 1, true) ~= nil, "still the volcanic band")
+  assert_true(expr:find(PERP .. " > " .. num(v.lo), 1, true) ~= nil, "still the volcanic band")
   assert_true(expr:find("lerp(0.003, 0.02,", 1, true) ~= nil, "still the full density ramp")
   assert_true(expr:find(tostring(field.lava_edge()), 1, true) == nil,
     "the lava edge must NOT appear as a position gate -- the tile decides the model")
@@ -366,8 +381,8 @@ test("each ice-rock size autoplaces in the SAME safe cold band, at its share (ci
   local whole = field.ice_rock_probability_expr()
   for _, name in ipairs(field.ice_rock_names()) do
     local expr = field.ice_rock_probability_expr(nil, name)
-    assert_true(expr:find("(0 - x) <= -60", 1, true) ~= nil, name .. " starts at the divider")
-    assert_true(expr:find("(0 - x) > " .. d.cold_from, 1, true) ~= nil,
+    assert_true(expr:find(PERP .. " <= -60", 1, true) ~= nil, name .. " starts at the divider")
+    assert_true(expr:find(PERP .. " > " .. num(d.cold_from), 1, true) ~= nil,
       name .. " stays warm of the lethal cold zone")
     -- Same band as the un-split expression: only the trailing probability differs.
     local band = expr:match("^(.-)%s%*%s[%d%.]+$")

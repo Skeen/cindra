@@ -294,6 +294,31 @@ merge queue.
   glows. Maps + bake + star-map sprite + icon + thumbnail regenerated. Guarded by
   `unit-tests/test_terrain_ramp_lockstep.py` (runs the real Lua module and the Python
   replay side by side), plus the extended `test_planet_maps.py` / `test_starmap_lighting.py`.
+- [x] **Worldgen sliders on the new-game map-gen screen.** `ci-i4z` — DONE. `ci-i8a`
+  landed stone + ice DENSITY as autoplace-control sliders; this adds the ribbon
+  GEOMETRY: **Habitable band**, **Hot zone**, **Cold zone** on the Terrain tab, whose
+  *Size* multiplier scales the playable middle band and the two zone depths. The engine
+  has no custom scalar map-gen slider, so the encoding is a `terrain`
+  autoplace-control's Size read from the noise system (`control:<name>:size`) and
+  applied as ONE warp of the perpendicular coordinate every band is read against
+  (`scripts/zone-scale.lua`, the `cindra_perp` named expression that `axis.perp_expr`
+  now returns) — so tiles, resources, decoratives, the freeze line and the solar curve
+  all follow with no per-system change, and the tile-keyed damage follows the tiles for
+  free. The two oceans absorb the difference, so the map's finite width and void
+  backstop never move; off Cindra (and at default sliders) the warp is the identity.
+  Startup zone widths stay the NOMINAL geometry the sliders multiply. Gated by
+  `unit-tests/test_zone_scale.lua` (including an evaluation of the emitted map-gen
+  expression against the runtime warp) + `tests/test_worldgen_sliders.lua`; the
+  screen's look/feel is a PLAYTEST entry.
+- [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
+  snowfall on the cold side only. PARTIALLY DONE by `ci-tizx` for the COLD side: the
+  ice/snow decals now start at the icy-ground edge (`terrain.damage_bounds().cold_from`)
+  instead of the safe band, fade in over 40 tiles, and are thinned to a fraction of the
+  mirrored Aquilo density, so the tiles read through them (see
+  `docs/verification/ci-tizx-cold-decal-density.png`). Still open here: the HOT-side
+  re-gate (rocks/craters still key off the ribbon safe band) and the snowfall effect.
+- [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
+  `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
 - **SEQUENCE NOTE:** native freeze (`ci-bvk`) is DONE and aligned onto this tile layout:
   its onset ties to the cold-side gradient (the middle's cold edge, ~p −60), not a wall.
   NB the emitter had to become a 1×1 heat-pipe (a heat-interface ignores `heating_radius`)

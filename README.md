@@ -70,6 +70,25 @@ npm run test:unit                    # all unit-tests/test_*.lua
 cd mods/cindra && lua unit-tests/test_ribbon.lua
 ```
 
+### The horizontal (E-W) ribbon run
+
+The ribbon orientation (`cindra-ribbon-orientation`) is a **startup** setting
+baked into the tile probability expressions and the resource band masks at the
+data stage, so one engine run generates exactly one orientation — nothing at
+runtime can rotate a world that already generated vertical. The E-W ribbon
+therefore gets its own run:
+
+```sh
+npm run test:integration:horizontal   # == CINDRA_ORIENTATION=horizontal cindra-test
+```
+
+`CINDRA_ORIENTATION=horizontal` seeds `mods/cindra-dev-horizontal` (a dev-only
+mod that flips the setting's *default*) into the data dir and enables it; the
+default run removes that seed again. That run swaps the suite for the two that
+describe a rotated world — `test_worldgen_horizontal` (fire at the top, ice at
+the bottom, resources and lethal ground banded on Y, all in raw coordinates) and
+the orientation-agnostic `test_orientation`. `npm test` runs both orientations.
+
 ### Companion mods (Any-Planet-Start chain)
 
 `any-planet-start` (APS) is an **optional** dependency (`? any-planet-start`), so

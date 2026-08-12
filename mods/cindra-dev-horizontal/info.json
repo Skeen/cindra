@@ -1,0 +1,13 @@
+{
+  "name": "cindra-dev-horizontal",
+  "version": "0.1.0",
+  "title": "Cindra — dev: horizontal (E-W) ribbon",
+  "author": "Vuza",
+  "factorio_version": "2.1",
+  "description": "DEV/TEST-ONLY: flips the cindra-ribbon-orientation startup DEFAULT to \"horizontal\", so a run generates the E-W ribbon (fire at the top, ice at the bottom) without hand-editing mod settings. Exists so the integration suite can generate a real horizontal world (`npm run test:integration:horizontal`). Ships nothing; disable it to get the default vertical ribbon back.",
+  "dependencies": [
+    "base >= 2.1",
+    "space-age >= 2.1",
+    "cindra"
+  ]
+}

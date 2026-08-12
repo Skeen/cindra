@@ -155,5 +155,30 @@ test("the neutral band tracks the LIVE zone widths, not a hard-coded number", fu
   assert_eq("warm", (select(1, grade.grade_at(p, narrow))), "tinted under the narrow middle")
 end)
 
+-- ci-i4z: the grade's anchors are ZONE edges, so a WORLD position must be warped onto the
+-- nominal axis by the world-gen-screen geometry sliders before it is graded. Otherwise the
+-- wash would sit at a fixed tile count while the ground it explains has moved -- warm air
+-- over the habitable band, neutral out on the lethal slope.
+test("the grade follows the world-gen-screen geometry sliders (ci-i4z)", function()
+  local zone_scale = require("scripts.zone-scale")
+  local orient = "vertical" -- perp = -x, so a sunward (hot) position is at negative x
+  local sliders = zone_scale.default_scales()
+  sliders.middle = 3 -- a habitable band three times as wide
+
+  -- A spot just sunward of the default temperate band: warm at default sliders...
+  local p = MID_HOT + 20
+  local x = -p
+  assert_eq("warm", (select(1, grade.grade_at_world(x, 0, orient, zone_scale.default_scales()))),
+    "warm on the default world")
+  -- ...and NEUTRAL once the habitable band has been widened past it, because that ground is
+  -- now the temperate middle a player builds on.
+  assert_eq(nil, (select(1, grade.grade_at_world(x, 0, orient, sliders))),
+    "neutral once the habitable band reaches out there")
+  -- The landing spot is neutral either way.
+  for _, sc in ipairs({ zone_scale.default_scales(), sliders }) do
+    assert_eq(nil, (select(1, grade.grade_at_world(0, 0, orient, sc))), "spawn is never washed")
+  end
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

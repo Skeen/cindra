@@ -32,6 +32,7 @@
 
 local axis = require("scripts.axis")
 local terrain = require("scripts.terrain")
+local zone_scale = require("scripts.zone-scale")
 
 local M = {}
 
@@ -73,6 +74,14 @@ M.ALPHA_MIN, M.ALPHA_MAX = 0.35, 0.8
 -- ice/snow decals gate on the same line).
 function M.snow_start(cfg)
   return terrain.damage_bounds(cfg).cold_from
+end
+
+-- The same line in WORLD tiles, for the geometry sliders in force on a surface (ci-i4z):
+-- the icy ground moves when the cold zone is stretched, and the snow must move with it.
+-- Because the warp is monotonic, converting the LINE once is exactly equivalent to
+-- warping every flake -- and a great deal cheaper.
+function M.world_snow_start(scales, cfg)
+  return zone_scale.to_world(M.snow_start(cfg), scales, cfg)
 end
 
 -- PURE: does snow fall at perpendicular position `p`? Only nightward of the icy-ground
@@ -178,10 +187,13 @@ local function refresh(player)
   end
   local origin = player.position
   local orient = axis.orientation()
+  -- The snow line in WORLD tiles for THIS surface's geometry sliders (ci-i4z), resolved
+  -- once: a stretched cold zone moves the icy ground, and the snow moves with it.
+  local snow_line = M.world_snow_start(zone_scale.for_surface(surface))
   for i, f in ipairs(s.flakes) do
     M.step(f)
     local x, y = origin.x + f.dx, origin.y + f.dy
-    if M.falls_at(axis.perp(x, y, orient)) then
+    if axis.perp(x, y, orient) < snow_line then
       local id = s.ids[i]
       local obj = id and rendering.get_object_by_id(id)
       if obj and obj.valid then
