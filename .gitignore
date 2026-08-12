@@ -26,6 +26,10 @@ mods-bundle/
 # Regenerable; never committed (an auto-checkpoint once swept it in, ci-6y9).
 .orbit-render/
 .orbit-render
+# Same, for the in-engine GROUND render harness (scripts/render-mapgen.sh,
+# ci-tizx): a throwaway Factorio data dir + worldgen screenshots. Regenerable.
+.mapgen-render/
+.mapgen-render
 # Mods play.sh fetches from the portal (any-planet-start, helmod) are cached
 # here so we download each at most once. Never committed.
 .play-cache/

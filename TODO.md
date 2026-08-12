@@ -257,7 +257,12 @@ merge queue.
 - [ ] **Hot-side folds BRANCH.** `ci-72bw` — the alternate volcanic-folds / ash-cracks
   / pumice texture family after cracks-hot (additive to the hot heightmap).
 - [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
-  snowfall on the cold side only.
+  snowfall on the cold side only. PARTIALLY DONE by `ci-tizx` for the COLD side: the
+  ice/snow decals now start at the icy-ground edge (`terrain.damage_bounds().cold_from`)
+  instead of the safe band, fade in over 40 tiles, and are thinned to a fraction of the
+  mirrored Aquilo density, so the tiles read through them (see
+  `docs/verification/ci-tizx-cold-decal-density.png`). Still open here: the HOT-side
+  re-gate (rocks/craters still key off the ribbon safe band) and the snowfall effect.
 - [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
   `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
 - **SEQUENCE NOTE:** native freeze (`ci-bvk`) is DONE and aligned onto this tile layout:

@@ -190,3 +190,45 @@ To regenerate:
 ```bash
 scripts/render-orbit.sh   # -> .orbit-render/script-output/orbit-{close,wide}.png
 ```
+
+## Cold-side decal density: the ground reads through the frost (ci-tizx)
+
+![Cold-side frost density, before and after](ci-tizx-cold-decal-density.png)
+
+`ci-tizx-cold-decal-density.png` is a real in-engine before/after capture of the
+LIVE Cindra ground, from `scripts/render-mapgen.sh` (same Xvfb + EGL/llvmpipe path
+as the orbital renders, driving `scenarios/mapgen-shot`). Both halves are the same
+fixed seed (2468) and the same camera positions; only the decal/scatter tuning
+differs.
+
+### What it verifies
+
+The playtest report was that the snow/ice decals were so thick you could barely
+see the terrain tiles, and that they bled deep into the brown habitable band. Both
+are visible in the BEFORE frames: at x = 90 -- squarely in the brown dust band --
+the ground is a near-solid sheet of snow and ice decals, and the wide shot shows
+that carpet running from the safe band all the way to the ice.
+
+The cause was a boundary mismatch. The cold decals were gated at the ribbon's SAFE
+band (perp -24), but the habitable BROWNS (ash, then dust) run out to the icy edge
+at perp -130 -- so ~100 tiles of brown ground sat inside the "icy" decal zone. The
+fix (`scripts/decorative-field.lua`) reads the terrain's own brown->snow boundary
+(`terrain.damage_bounds().cold_from`) as the decal gate, fades the frost in over 40
+tiles from there, and scales each cold decal by a density multiplier (the huge
+snow-drift art the sparsest). The ice-rock chunk scatter that shares the same band
+was halved. Measured on the fixed test seed: 0.182 -> 0.059 decals per tile.
+
+In the AFTER frames the dust band is bare ground with the odd ice-rock, the frost
+thickens gradually across the snow tiles, and the deep ice still reads frozen with
+the TILES, not the decals, doing the work.
+
+Guarded by `unit-tests/test_decorative_field.lua` (the gate tracks the terrain
+boundary, the fade ramps, every cold decal is thinned) and on a live surface by
+`tests/test_decoratives.lua` + `tests/test_worldgen.lua` (density ceilings that
+fail at the old values).
+
+To regenerate:
+
+```bash
+scripts/render-mapgen.sh  # -> .mapgen-render/script-output/mapgen-*.png
+```
