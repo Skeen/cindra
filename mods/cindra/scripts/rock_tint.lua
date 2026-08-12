@@ -27,13 +27,11 @@ local M = {}
 -- (matching prototypes/resources.lua's colour style); alpha left at 1 (opaque).
 M.STONE_TINT = { r = 1.0, g = 0.93, b = 0.62, a = 1.0 }
 
--- Cold "frost-ice" multiply-tint for the ice-rocks (ci-18n), the mirror of
--- STONE_TINT: blue stays full and green high while red is pulled well down, which
--- shifts the same brown-grey huge-rock art toward a pale frost-blue so it reads as
--- an ICY boulder against the cold-cap terrain (distinct from the warm sandy rock).
--- Matches the pale frost-blue the ice RESOURCE stages use (prototypes/resources.lua
--- ICE_STAGE_TINT). 0..1 RGB, alpha opaque.
-M.ICE_TINT = { r = 0.62, g = 0.82, b = 1.0, a = 1.0 }
+-- (There is deliberately NO ice tint here any more. ci-18n gave the cold-side rocks a
+-- pale frost-blue multiply over the same huge-rock art; the playtest read the result as
+-- exactly that -- "blue-tinted normal rocks" -- because recolouring rubble cannot give
+-- it the faceted silhouette of ice. ci-w87 replaced the art with Aquilo's real
+-- lithium-iceberg models, so the tint has no user and is gone rather than left dead.)
 
 -- Apply `tint` to every sprite variation in a `pictures` table, in place, and
 -- return it. Handles the two shapes a SpriteVariations can take: a flat array of

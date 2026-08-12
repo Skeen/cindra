@@ -4,10 +4,13 @@
 -- The planet's two halves get the decorative set of the vanilla world they echo
 -- (per the mayor's zone->source-planet mapping):
 --
---   HOT half  (sunward margin + lava edge)  ->  do as VULCANUS does:
---       volcanic ROCKS + PEBBLES + CRATERS scattered across the rocky/lava zone.
+--   HOT half  (the volcanic slope + crust)  ->  do as VULCANUS does:
+--       volcanic ROCKS + PEBBLES + CRATERS scattered across the solid volcanic ground,
+--       stopping short of the molten lava (nothing lies on liquid rock).
 --   COLD half (nightward frost + deep ice)  ->  do as AQUILO does:
---       ICE decals + LIGHT-SNOW decals + snow drifts scattered across the icy zone.
+--       ICE decals + LIGHT-SNOW decals + snow drifts scattered across the icy zone,
+--       plus the small end of the LITHIUM-ICEBERG family (ci-w87), whose big/huge
+--       members are the cold-side ROCKS in prototypes/resources.lua.
 --
 -- This is a PURE module (no game.* / prototypes.*): it maps a ribbon perpendicular
 -- coordinate to a placement zone, and emits the Factorio NOISE-EXPRESSION strings
@@ -17,12 +20,14 @@
 --
 -- ONE axis, ONE divider (the ci-7w0 purity idea, reused). Every mask reads the SAME
 -- perpendicular axis (scripts/axis.lua) as the terrain bands, the resource bands and
--- the runtime damage. The hot decoratives are gated to perp > +safe_half_width and
--- the cold decoratives to perp < -safe_half_width; the two zones share the safe band
--- as a neutral divider and NEVER overlap, so a rock can never appear on the ice and
--- snow can never appear in the lava region -- the "no decals in the wrong zone"
--- acceptance is pure geometry, not a hope. The temperate terminator centre stays
--- decal-free (a clean landing spawn).
+-- the runtime damage. Both sides are gated to the GROUND they belong on, read off the one
+-- heightmap: the rock/crater decals to the volcanic slope + crust band (M.hot_band,
+-- ci-mk5y) and the ice/snow decals to the icy ground (M.cold_start, ci-tizx). The whole
+-- habitable band between them -- the brown ash + dust, including the terminator centre
+-- (a clean landing spawn) -- carries no decal at all, so the two zones can never overlap:
+-- a rock can never appear on the ice, snow can never appear in the lava region, and
+-- neither can appear in the middle. The "no decals in the wrong zone" acceptance is pure
+-- geometry, not a hope.
 --
 -- WHY WE MIRROR, NOT LITERALLY REUSE, THE NATIVE AUTOPLACE (per the mayor's
 -- "copy the vanilla decorative autoplace and re-gate it to the zone"): a decorative's
@@ -51,9 +56,30 @@
 --     gradient, not a stamped line, and the decals are thickest near the ice wall;
 --   * each cold decal carries a `density` multiplier well below 1 (the big
 --     snow-drift art the sparsest), so the ground dominates the decals.
--- The hot side is untouched: this bead is the cold-side read only.
+-- ci-tizx left the hot side untouched (it was the cold-side read only); the section below
+-- re-gates it.
+--
+-- HOT-SIDE RE-GATE ONTO THE HEIGHTMAP TILES (ci-mk5y). The hot gate was still the one
+-- ci-6fq shipped against the OLD three-band world: `perp > safe_half_width` (+24), a line
+-- with no relation to the ci-wly heightmap, and with NO outer bound at all. On the ci-oe83
+-- field that strewed rocks, pebbles and craters across the hot half of the brown ash
+-- MIDDLE (the clean landing band) and then straight on out over the molten LAVA, where
+-- nothing can lie. The rock decals now ride the volcanic SLOPE + CRUST, i.e. the value
+-- segment of the ONE field from the ash convergence (terrain.BRANCH_SPAN.lo, where the
+-- cracks / folds families bottom out into volcanic-ash-dark) up to the molten floor
+-- (terrain.MOLTEN_FLOOR, where the ground turns to liquid rock) -- so a rock sits on
+-- volcanic ground and nowhere else. The cold side keeps its ci-tizx gate.
+--
+-- WHY VALUE CROSSINGS, NOT A ZONE BAND (the same trap the first gate fell into): a zone
+-- band edge is NOT a tile boundary. With the default widths the molten contour sits ~35
+-- tiles INSIDE the hot-ocean band, and the slope's ash boundary ~12 tiles outside the
+-- middle band -- so we convert the value segment into two perpendicular gate lines with
+-- terrain.field_crossing (the inverse of the field the tiles are painted from) instead of
+-- reaching for a band edge. Unlike the burned-rock ENTITIES (scripts/resource-field.lua),
+-- which the engine's own collision check keeps off the lava however loose their band is, a
+-- DECAL goes wherever its probability is positive: the mask is the only thing standing
+-- between a crater and the lava, so it has to be the tile boundary itself.
 
-local ribbon = require("scripts.ribbon")
 local axis = require("scripts.axis")
 local terrain = require("scripts.terrain")
 
@@ -104,8 +130,8 @@ end
 -- resulting probability -- the fraction of the mirrored vanilla density we keep.
 --   name                          clone_from             side    scatter   density
 M.DECORATIVES = {
-  -- HOT half -- Vulcanus rocks + pebbles + craters (the rocky/lava zone). Occasional
-  -- scatter (negative biases), sparsest for the biggest decals.
+  -- HOT half -- Vulcanus rocks + pebbles + craters, confined to the solid volcanic slope +
+  -- crust (ci-mk5y). Occasional scatter (negative biases), sparsest for the biggest decals.
   { name = "cindra-volcanic-rock-tiny",   clone_from = "tiny-volcanic-rock",   side = "hot",  scatter = scatter(5, 0.5, -0.5) },
   { name = "cindra-volcanic-rock-small",  clone_from = "small-volcanic-rock",  side = "hot",  scatter = scatter(4, 0.5, -0.6) },
   { name = "cindra-volcanic-rock-medium", clone_from = "medium-volcanic-rock", side = "hot",  scatter = scatter(3, 0.5, -0.75) },
@@ -118,7 +144,65 @@ M.DECORATIVES = {
   { name = "cindra-ice-decal",            clone_from = "aqulio-ice-decal-blue", side = "cold", scatter = scatter(1, 0.5, 0.0),  density = 0.4 },
   { name = "cindra-snowy-decal",          clone_from = "aqulio-snowy-decal",    side = "cold", scatter = scatter(1, -0.5, 0.3), density = 0.4 },
   { name = "cindra-snow-drift-decal",     clone_from = "snow-drift-decal",      side = "cold", scatter = scatter(2, -0.5, 0.3), density = 0.15 },
+  -- The small end of the ICEBERG family (ci-w87). The cold-side rocks are Aquilo's
+  -- lithium-iceberg models now (prototypes/resources.lua), and that family's
+  -- medium/small/tiny members are DECORATIVES rather than entities -- so they belong
+  -- here, scattered among the frost decals, and the icy ground reads as one material
+  -- from pebble to landmark instead of two unrelated art sets.
+  --
+  -- Their densities are deliberately a fraction of the frost decals'. The cold half
+  -- already spends most of its ci-tizx coverage budget on ice/snow decals, and the
+  -- point of that bead was that the GROUND must dominate; three more families at frost
+  -- density would put the carpet straight back. These add a sparse chip-scatter on top.
+  { name = "cindra-lithium-iceberg-medium", clone_from = "lithium-iceberg-medium", side = "cold", scatter = scatter(8, 0.5, 0.0), density = 0.10 },
+  { name = "cindra-lithium-iceberg-small",  clone_from = "lithium-iceberg-small",  side = "cold", scatter = scatter(9, 0.5, 0.0), density = 0.14 },
+  { name = "cindra-lithium-iceberg-tiny",   clone_from = "lithium-iceberg-tiny",   side = "cold", scatter = scatter(10, 0.5, 0.0), density = 0.18 },
 }
+
+-- The MARGIN, in field-VALUE units, each hot gate line is pulled INSIDE the tile contour it
+-- must not cross (ci-mk5y). A tile's visible contour breathes around its nominal position,
+-- and a decal does not land exactly where its probability was sampled, so the budget is:
+--   * the boundary WIGGLE: the field is sampled on a wiggled perpendicular coordinate
+--     (terrain.NOISE_AMPLITUDE = 2 tiles), worth <= 0.007 H at the steepest part of the crust;
+--   * the per-tile SPECKLE in the value itself: terrain.SPECKLE_H = 0.012 H;
+--   * a tile of placement granularity (the engine stores a decal within the tile it sampled),
+--     worth <= 0.004 H.
+-- That is ~0.023 H worst case; THREE times the speckle amplitude (0.036) clears it with room
+-- to spare, so no wiggle, speckle or placement offset can put a rock on the lava or off the
+-- slope onto the ash middle. The band is still ~64 tiles wide and still reaches well past the
+-- heat-damage boundary onto the glowing crust.
+--
+-- The margin is in VALUE, not tiles, deliberately: the field's slope differs by a factor of
+-- ~2 between the shallow safe slope and the steeper crust, so a fixed tile margin would be
+-- generous at one contour and too thin at the other. Derived from the terrain constant, so
+-- it tracks a noise retune.
+M.HOT_MARGIN_H = 3 * terrain.SPECKLE_H
+
+-- The value segment the rock / crater decals ride: the volcanic slope + crust, from the ash
+-- convergence up to (but never reaching) the molten floor.
+function M.hot_value_span()
+  return { lo = terrain.BRANCH_SPAN.lo, hi = terrain.MOLTEN_FLOOR }
+end
+
+-- Where the hot (rock / crater) decals live, in perpendicular tiles: the two field
+-- crossings of the value segment above, each pulled M.HOT_MARGIN_H inside its contour.
+-- `lo` is the middle-ward (ash) line, `hi` the sunward (lava) line.
+function M.hot_band(cfg)
+  local span = M.hot_value_span()
+  return {
+    lo = terrain.field_crossing(span.lo + M.HOT_MARGIN_H, cfg),
+    hi = terrain.field_crossing(span.hi - M.HOT_MARGIN_H, cfg),
+  }
+end
+
+-- The GROUND a rock / crater decal may sit on: every tile whose value band overlaps the hot
+-- value segment (both hot-slope texture families included). Excludes the two lava tiles,
+-- the ash middle and the whole cold side by construction -- tests read this to prove each
+-- generated decal really did land on volcanic slope / crust ground.
+function M.hot_ground_tiles()
+  local span = M.hot_value_span()
+  return terrain.value_range_tiles(span.lo, span.hi)
+end
 
 -- How far nightward of the icy-ground edge the cold decals reach FULL density: they
 -- fade in linearly across this span, so the frost thickens toward the ice wall
@@ -135,13 +219,14 @@ function M.cold_start(cfg)
 end
 
 -- Numeric zone predicates (unit-testable off the game). `y` is the signed
--- perpendicular coordinate (sunward-positive). The hot (rocky/lava) zone is beyond
--- the safe band sunward; the cold (icy) zone starts only where the ground itself
--- turns icy (M.cold_start), far nightward of the safe band -- so the two never
--- overlap and the whole habitable band is free of ice/snow decals.
+-- perpendicular coordinate (sunward-positive). The hot (rock/crater) zone is the volcanic
+-- slope + crust band (M.hot_band, bounded on BOTH sides: no rocks on the ash middle,
+-- none on the lava); the cold (icy) zone starts only where the ground itself turns icy
+-- (M.cold_start), far nightward of the safe band -- so the two never overlap and the whole
+-- habitable band is free of decals.
 function M.hot_zone(y, cfg)
-  cfg = ribbon.resolve(cfg)
-  return y > cfg.safe_half_width
+  local b = M.hot_band(cfg)
+  return y > b.lo and y < b.hi
 end
 
 function M.cold_zone(y, cfg)
@@ -164,9 +249,13 @@ end
 -- comparison in the DSL yields 1/0, so multiplying a decal's scatter by it zeroes
 -- placement outside the zone. Encodes M.hot_zone / M.cold_zone on the perpendicular
 -- axis, so the emitted decals land exactly where the pure geometry says they should.
+-- The hot mask is TWO-SIDED (ci-mk5y): the volcanic slope + crust band, so a rock can
+-- neither drift middle-ward onto the ash nor sunward onto the lava. A comparison yields
+-- 1/0, so the product is a logical AND (the same shape resource-field.lua bands with).
 function M.hot_mask_expr(cfg)
-  cfg = ribbon.resolve(cfg)
-  return "(" .. M.PERP .. " > " .. num(cfg.safe_half_width) .. ")"
+  local b = M.hot_band(cfg)
+  return "(" .. M.PERP .. " > " .. num(b.lo) .. ")" ..
+         " * (" .. M.PERP .. " < " .. num(b.hi) .. ")"
 end
 
 -- The cold mask starts at the icy-ground edge (M.cold_start), NOT at the safe band:

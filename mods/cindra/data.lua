@@ -97,6 +97,11 @@ require("prototypes.resources")
 -- adds nothing to any entity and applies no damage.
 require("prototypes.feedback")
 
+-- ci-mk5y icy-side snowfall: the flake sprite the runtime (scripts/snowfall.lua) draws as
+-- drifting snow over the FROZEN half of the ribbon only -- the ci-wly epic's "snow-fall
+-- only on the icy side". A plain sprite prototype; adds nothing to any entity.
+require("prototypes.snowfall")
+
 -- Power system (§15 items 7-9), integrated from the proven flare-poc (ci-zg3):
 --   * flare   §15-7  the sunward-band solar variants (ci-8al: Cindra uses the
 --                    plain vanilla panel; only the reduced position bands are new
@@ -142,6 +147,12 @@ require("prototypes.red-mud")
 -- never B->A. An ISOLATED feasibility spike: wired into NO recipe / tech /
 -- worldgen, so it loads here without touching the main economy chain.
 require("prototypes.power-diode")
+
+-- Rock-model guard (ci-w87): every Cindra worldgen rock must draw the vanilla model it
+-- declares (icebergs on the cold side, glowing volcanic rocks inside the lava area),
+-- and no rock may generate with an undeclared model. Sprites are only visible at the
+-- data stage, so this cannot be a factorio-test. Loads after resources.lua.
+require("prototypes.rock-models")
 
 -- Graphics guard (ci-sop): MUST be last -- audits every registered Cindra entity
 -- for a wired render sprite and errors the load on any invisible building. Catches

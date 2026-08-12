@@ -510,18 +510,35 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   is a pixel-faithful before/after; this entry is only the "does it feel like stone
   against live terrain + lighting" confirmation a still cannot judge.
 
-- [ ] **[LANDED] Ice-rocks read as ICY and land in the safe cold band (ci-18n).**
-  *Repro:* explore the cold/ice side of the ribbon (east of the terminator, before
-  the lethal deep-ice cap) and look at the scattered hand-minable **ice-rocks**.
-  *Look for:* (1) a pale frost-blue **icy** boulder (the vanilla `huge-rock` under a
-  `{0.62, 0.82, 1.0}` cool multiply-tint) that reads as ice/frost, clearly distinct
-  from the warm yellow-tan sandy rocks on the other side; (2) it sits sensibly on the
-  cold-dust / rough-ice ground (not washed into it, not on bare sand); (3) mining one
-  gives an early **ice + stone** trickle. *Fallback:* `unit-tests/test_rock_tint.lua`
-  proves the tint is a cool blue multiply distinct from the stone tint, and
-  `tests/test_worldgen.lua` proves ice-rocks generate only in the safe cold band
-  (never the lethal deep-ice zone or the warm side) and yield ice + stone; only the
-  "does the frost tint read icy against live cold terrain + lighting" is the playtest.
+- [ ] **[LANDED] Ice-rocks read as ICY and land in the safe cold band (ci-18n,
+  re-modelled ci-w87).** *Repro:* explore the cold/ice side of the ribbon (east of
+  the terminator, before the lethal deep-ice cap) and look at the scattered
+  hand-minable **ice-rocks**. *Look for:* (1) a faceted, translucent **ice
+  formation** (Aquilo's `lithium-iceberg` big/huge models, drawn as authored -- NOT
+  a recoloured brown boulder, which is what ci-18n's blue multiply-tint shipped and
+  the playtest rejected); (2) the medium/small/tiny members of the same family
+  scattered around them as chips and grit, so the icy ground reads as one substance
+  from grit to landmark; (3) the rocks sit sensibly on the cold-dust / rough-ice
+  ground; (4) mining one gives an early **ice + stone** trickle. *Fallback:*
+  `unit-tests/test_rock_models.lua` + the data-stage guard prove the cold rocks draw
+  the ice-formation art and carry no tint (sprites are invisible to the runtime API,
+  so this cannot be a factorio-test), and `tests/test_worldgen.lua` proves both sizes
+  generate only in the safe cold band (never the lethal deep-ice zone or the warm
+  side) and yield ice + stone; only "does the ice art read as ice against live cold
+  terrain + lighting" is the playtest.
+
+- [ ] **[LANDED] Volcanic rocks GLOW inside the lava area (ci-w87).** *Repro:* walk
+  west from the terminator across the hot slope and on into the heat-damage band
+  (the glowing-cracks ground), looking at the **volcanic rocks** as you cross.
+  *Look for:* (1) on the safe hot slope the boulders are plain charred rock; (2) once
+  the ground starts burning they are the same boulders with a live **emissive glow**,
+  so a glowing rock is a visual warning that the ground under it hurts; (3) the change
+  happens where the TILES change, with no stripe of glowing rocks sitting on cool
+  ground or vice versa; (4) both sizes appear in both models. *Fallback:*
+  `tests/test_worldgen.lua` proves on the live surface that every rock's model matches
+  its side of the lava edge and that a glowing rock really does stand on heat-damaging
+  tile; only "does the emissive glow actually read at night / in daylight" is the
+  playtest.
 
 - [ ] **[LANDED] Cold-side frost decals are SPARSE and stay off the brown band (ci-tizx).**
   The human reported the snow/ice decal scatter was so thick you could barely see the
@@ -640,6 +657,47 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   rocks read too sparse/dense). *Fallback:* `tests/test_decoratives.lua` proves the
   zone placement + purity (rocks only on the hot half, ice/snow only on the cold
   half, none on the terminator) on the live map; only the *look* is the playtest.
+
+- [ ] **[LANDED] Rocks + craters sit on the volcanic slope, never on lava (ci-mk5y).**
+  The hot decals were still gated on the ribbon safe band (perp > 24) with no outer
+  bound at all, a line with nothing to do with the ci-wly heightmap: rocks and craters
+  were strewn across the brown ash MIDDLE and on out over the molten lava. They are now
+  gated to the volcanic slope + crust, derived from the field's own tile contours
+  (`terrain.field_crossing`, from the ash convergence up to the molten floor) with a
+  margin for the terrain's boundary wiggle. *Repro:* walk west from spawn across the
+  brown middle, onto the cracked/folded slope, and on toward the lava shore. *Look for:*
+  (1) the brown ash middle carries NO rocks or craters — it starts to read as volcanic
+  litter only once the ground turns cracked/folded; (2) the litter continues over the
+  glowing hot crust so the burning shore does not read bare; (3) the lava itself is
+  CLEAN — no rock or crater floats on the molten surface, and none is cut in half at
+  the shoreline; (4) the transition at each end reads organic (the decals thin out
+  along a wobbly contour, not a straight stamped line). *Fallback:*
+  `tests/test_decoratives.lua` proves on the live map that every rock/crater lies inside
+  the slope band on solid volcanic ground (zero on molten tiles) and that the crust
+  still gets its share; `unit-tests/test_decorative_field.lua` pins the geometry. Only
+  the look/density is the playtest — if the slope now reads too sparse, tune the biases
+  in `scripts/decorative-field.lua`.
+
+- [ ] **[LANDED] Icy-side SNOWFALL reads as weather (ci-mk5y, the ci-wly idea).** The
+  frozen half now SNOWS: a drifting field of small pale flakes drawn around the player
+  (`scripts/snowfall.lua`), gated per FLAKE on the perpendicular axis so it snows
+  nightward of the icy-ground edge and NOWHERE else. v1 flake art is the stock white
+  square, tinted and scaled small (no bespoke asset yet). *Repro:* walk east from spawn
+  across the dust band into the frost/ice belt, stop right at the boundary, then walk on
+  out to the ice ocean; also walk west to the lava to confirm it is dry there.
+  *Look for:* (1) it reads as gentle falling SNOW (fine flakes drifting down with a
+  little sideways wind), not as dots or as rain; (2) standing at the boundary, the snow
+  falls on your nightward side ONLY — the brown band beside you stays clear, and the
+  edge is not a hard curtain; (3) the density/speed feel right against the frozen ground
+  (tune `FLAKES` / `FALL_SPEED` / `DRIFT` / `SCALE_*` / `ALPHA_*` in
+  `scripts/snowfall.lua`); (4) flakes read in front of buildings without hiding
+  alerts/icons; (5) no stutter with the flake field up (it moves at most 48 sprites
+  every 3 ticks per player). **Art follow-up:** a bespoke soft flake sprite (a real
+  flake shape rather than a square) — file if the square reads badly at high zoom.
+  *Fallback:* `tests/test_snowfall.lua` proves against a live player that it snows on
+  the ice, never on the habitable band / hot side / another planet, that at the boundary
+  every visible flake is over icy ground, and that the flakes actually fall; only the
+  LOOK is the playtest.
 
 ## Bootstrap from nothing
 

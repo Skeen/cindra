@@ -193,6 +193,78 @@ test("the field is MONOTONIC: it rises steadily from the ice edge to the lava ed
   assert_true(terrain.field(0) > terrain.field(-200), "colder nightward")
 end)
 
+-- field_crossing is the INVERSE of the field: "at which perpendicular position does the
+-- ground reach this value" -- the way a system that must land ON a tile family (the ci-mk5y
+-- rock decals) finds that tile's contour instead of guessing a zone band edge.
+test("field_crossing inverts the field: it finds the position of a value's contour", function()
+  for _, h in ipairs({ 0.05, 0.2, terrain.COLD_DMG, 0.4, 0.5, 0.6, terrain.HOT_DMG, 0.85, 0.97 }) do
+    local p = terrain.field_crossing(h)
+    assert_near(h, terrain.field(p), 1e-9, "round-trips value " .. h .. " (at p=" .. p .. ")")
+  end
+  -- The damage thresholds cross exactly at the damage bounds, by construction.
+  local db = terrain.damage_bounds()
+  assert_near(db.hot_from, terrain.field_crossing(terrain.HOT_DMG), 1e-9, "heat threshold at hot_from")
+  assert_near(db.cold_from, terrain.field_crossing(terrain.COLD_DMG), 1e-9, "cold threshold at cold_from")
+  -- Monotonic in h, and clamped at the pinned extremes (the ocean plateaus).
+  local prev = terrain.field_crossing(0)
+  for i = 1, 100 do
+    local p = terrain.field_crossing(i / 100)
+    assert_true(p >= prev - 1e-9, "the crossing moves sunward as the value rises")
+    prev = p
+  end
+  assert_eq(-400, terrain.field_crossing(0), "the ice extreme is the nightward map edge")
+  assert_eq(400, terrain.field_crossing(1), "the lava extreme is the sunward map edge")
+  assert_eq(400, terrain.field_crossing(2), "past the extreme clamps to the edge")
+  -- It tracks the widths, like every other geometry read.
+  local cfg = { middle = 400 }
+  assert_near(terrain.damage_bounds(cfg).hot_from, terrain.field_crossing(terrain.HOT_DMG, cfg),
+    1e-9, "the crossing moves with the zone widths")
+end)
+
+-- A zone band edge is NOT a tile boundary: the MOLTEN contour sits well inside the hot-ocean
+-- band, which is exactly why ground clutter has to gate on the crossing (ci-mk5y).
+test("the molten floor is the lava tiles' value, and its contour sits inside the ocean band", function()
+  assert_eq(0.82, terrain.MOLTEN_FLOOR, "the lowest molten (impassable) ramp value")
+  assert_eq(false, terrain.is_walkable(terrain.value_tile(terrain.MOLTEN_FLOOR)),
+    "at the molten floor the ground is impassable lava")
+  assert_eq(true, terrain.is_walkable(terrain.value_tile(terrain.MOLTEN_FLOOR - 1e-6)),
+    "just below it the ground is solid (walkable) crust")
+  local molten_at = terrain.field_crossing(terrain.MOLTEN_FLOOR)
+  local ocean = terrain.role_band("hot_ocean")
+  assert_true(molten_at < ocean.lo,
+    "the lava starts sunward of the ocean band's inner edge (" .. molten_at .. " < " .. ocean.lo .. ")")
+  assert_true(ocean.lo - molten_at > 20,
+    "and by a wide margin -- a band-edge gate would drop clutter on lava")
+end)
+
+test("value_range_tiles names the tiles the ground can be painted with between two values", function()
+  -- The volcanic slope + crust segment: the cracks main line, the folds branch and the two
+  -- crust tiles -- but never the lava, the ash middle or anything on the cold side.
+  local ground = terrain.value_range_tiles(terrain.BRANCH_SPAN.lo, terrain.MOLTEN_FLOOR)
+  for _, v in ipairs({ "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone",
+                       "volcanic-cracks-hot", "volcanic-smooth-stone-warm",
+                       "volcanic-folds-warm", "volcanic-pumice-stones" }) do
+    assert_true(ground["cindra-" .. v], "cindra-" .. v .. " paints the slope/crust segment")
+  end
+  for _, v in ipairs({ "lava", "lava-hot", "volcanic-ash-dark", "volcanic-ash-flats",
+                       "dust-flat", "snow-flat", "ice-smooth" }) do
+    assert_true(not ground["cindra-" .. v], "cindra-" .. v .. " does NOT paint that segment")
+  end
+  -- Degenerate + full ranges behave: a single value names exactly the tile it paints.
+  local one = terrain.value_range_tiles(0.5, 0.5)
+  assert_true(one[terrain.value_tile(0.5)], "a single value names the tile it paints")
+  local count = 0
+  for _ in pairs(one) do count = count + 1 end
+  assert_eq(1, count, "and only that tile")
+  local all = terrain.value_range_tiles(0, 1)
+  for _, name in ipairs(terrain.tile_names()) do
+    -- Every ramp tile is in the full range (the soil overlay is not a ramp member).
+    if terrain.tile_damage(name) ~= nil and all[name] == nil then
+      assert_true(name:find("soil", 1, true) ~= nil, name .. " missing from the full value range")
+    end
+  end
+end)
+
 test("value_tile maps a field value to its ramp tile (lava-hot -> ice-smooth)", function()
   assert_eq("cindra-lava-hot", terrain.value_tile(1.0), "peak value is the molten core")
   assert_eq("cindra-lava-hot", terrain.value_tile(0.95), "deep ocean is lava-hot")
