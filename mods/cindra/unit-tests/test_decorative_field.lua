@@ -343,10 +343,14 @@ end)
 -- sees the string), on every cold decal and on no hot one.
 test("every cold decal's emitted probability carries the ocean thinning (ci-10ze)", function()
   local thin = field.ocean_thin_expr()
-  assert_eq("(1 - 0.88 * clamp((-188.333 - (0 - x)) / 24, 0, 1))", thin, "default thinning expression")
-  -- It reads the SAME perpendicular axis as every other gate, and the same contour the
-  -- numeric mirror uses (a hand-typed number here would drift from the geometry).
-  assert_true(thin:find(field.PERP, 1, true) ~= nil, "the thinning reads the perpendicular axis")
+  -- It reads the SAME perpendicular axis as every other gate -- the NOMINAL, slider-warped
+  -- one (ci-i4z), so the thinning follows the zone sliders instead of a raw coordinate --
+  -- and the same contour the numeric mirror uses (a hand-typed number would drift).
+  assert_eq("(1 - " .. num(1 - field.OCEAN_DENSITY) .. " * clamp((" .. num(SHEET_START) ..
+    " - " .. PERP .. ") / " .. num(field.OCEAN_FADE_SPAN) .. ", 0, 1))",
+    thin, "default thinning expression")
+  assert_true(thin:find(PERP, 1, true) ~= nil, "the thinning reads the perpendicular axis")
+  assert_eq(PERP, field.PERP, "and it is the module's one axis expression")
   local cfg = { middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
                 hot_outer = 30, hot_inner = 30, hot_ocean = 100 }
   assert_true(field.ocean_thin_expr(cfg):find(string.format("%.6g", field.ice_ocean_start(cfg)), 1, true) ~= nil,
