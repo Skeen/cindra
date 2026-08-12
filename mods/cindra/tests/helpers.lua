@@ -41,6 +41,41 @@ function H.cindra_surface()
   return s
 end
 
+-- A clean, buildable surface that is NOT Cindra: the "somewhere else" a
+-- planet-locked recipe (the science pack, ci-gk4u) must refuse to be crafted on.
+--
+-- It is a scratch surface, so it carries the engine's DEFAULT surface properties
+-- -- which are exactly Nauvis's set (gravity 10, pressure 1000, magnetic-field 90,
+-- solar-power 100; base/prototypes/planet/surface-property.lua), i.e. the home
+-- base a player would ship Cindra intermediates back to. Surface-condition
+-- checking is ON here exactly as it is on a real planet
+-- (`ignore_surface_conditions` defaults to false), so a recipe the engine refuses
+-- here is a recipe it refuses for the player.
+--
+-- Building our own instead of on the real nauvis keeps every test off the other
+-- planets' maps entirely (the never-mutate-other-planets invariant).
+function H.offworld_surface()
+  local s = game.surfaces["cindra-offworld"]
+  if not s then
+    s = game.create_surface("cindra-offworld", { width = 256, height = 256 })
+    s.request_to_generate_chunks({ 0, 0 }, 4)
+    s.force_generate_chunk_requests()
+  end
+
+  for _, e in pairs(s.find_entities_filtered({ area = { { -60, -60 }, { 60, 60 } } })) do
+    if e.type ~= "character" then e.destroy() end
+  end
+
+  local tiles = {}
+  for x = -45, 45 do
+    for y = -45, 45 do
+      tiles[#tiles + 1] = { name = "refined-concrete", position = { x, y } }
+    end
+  end
+  s.set_tiles(tiles)
+  return s
+end
+
 -- ===========================================================================
 -- Power-system helpers (§15 items 7-9). The flare tests build panels + sinks on
 -- the Cindra surface and drive the flare / damage sweeps EXPLICITLY, so the
