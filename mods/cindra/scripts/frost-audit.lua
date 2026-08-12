@@ -51,13 +51,20 @@ M.FROST_FIELDS = {
 -- DATA stage (space-age/data.lua requires base-data-updates), so a Cindra clone
 -- inherits it unless the clone deliberately clears it.
 --
--- Measured in-engine (tests/test_frost.lua): the arc furnace and the oxidizer
--- carry 100kW and freeze on the nightside; the glass furnace clears it
--- (prototypes/lava.lua drops "the Aquilo cold-planet heating draw"; whether that
--- exemption is intended is ci-6qyk) and NEVER freezes, though it still reports
--- is_freezable true. So freezability of the TYPE is
--- not enough -- requiring frost from a machine that cannot freeze would demand
--- art no player can ever see. This is the honest predicate.
+-- Measured in-engine (tests/test_frost.lua): today EVERY Cindra crafting machine
+-- carries a draw and freezes on the nightside, so this predicate passes them all.
+-- It is kept as a predicate rather than hard-coded true because freezability of the
+-- TYPE is not enough: `is_freezable` reports true even for a machine whose
+-- heating_energy is cleared, and demanding frost art from a machine that can never
+-- show it would be busywork. This is the honest predicate.
+--
+-- It is NOT an invitation to clear the field. The glass furnace did exactly that for
+-- two releases -- prototypes/lava.lua dropped "the Aquilo cold-planet heating draw",
+-- not realising it was also switching off the planet's core nightside mechanic for
+-- that machine -- and this audit dutifully stopped requiring the frost art it was
+-- already wearing. That is fixed (ci-6qyk), and tests/test_frost.lua now requires
+-- every machine in this class to actually freeze, so the two guards can no longer
+-- agree with each other about a machine that quietly opted out.
 function M.freezes(proto)
   if type(proto) ~= "table" then return false end
   local e = proto.heating_energy

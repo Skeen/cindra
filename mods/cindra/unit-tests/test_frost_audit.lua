@@ -92,10 +92,12 @@ test("a frozen machine must also halt its animation (reset_animation_when_frozen
 end)
 
 -- === Only machines that ACTUALLY freeze need art ============================
--- Freezing needs heating_energy > 0 (the prototype API rule, measured in-engine
--- in tests/test_frost.lua: the arc furnace and oxidizer inherit 100kW and freeze;
--- the glass furnace clears it and never does). Demanding a frost layer from a
--- machine that cannot freeze would be art no player can ever see.
+-- Freezing needs heating_energy > 0 (the prototype API rule, measured in-engine in
+-- tests/test_frost.lua, where every Cindra machine now carries a draw and freezes).
+-- Demanding a frost layer from a machine that cannot freeze would be art no player can
+-- ever see, so the predicate stays -- but note that clearing the field is a way to
+-- switch OFF the planet's core mechanic for a machine, which is the ci-6qyk bug the
+-- glass furnace shipped with; test_frost.lua is what stops that recurring.
 test("heating_energy decides whether a machine can freeze at all", function()
   assert_true(audit.freezes({ heating_energy = "100kW" }))
   assert_true(audit.freezes({ heating_energy = "1MW" }))
@@ -106,7 +108,9 @@ test("heating_energy decides whether a machine can freeze at all", function()
 end)
 
 test("a machine that never freezes is NOT required to carry frost art", function()
-  -- The glass-furnace case: bespoke art, no frost patch, heating draw cleared.
+  -- A synthetic machine only: bespoke art, no frost patch, heating draw cleared. No
+  -- Cindra machine is shaped like this any more (the glass furnace was, until ci-6qyk),
+  -- and tests/test_frost.lua now fails if one ever is again.
   local unheated = bespoke(nil, nil)
   unheated.heating_energy = nil
   local raw = { ["assembling-machine"] = { ["cindra-unheated-machine"] = unheated } }

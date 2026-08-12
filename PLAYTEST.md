@@ -575,6 +575,27 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (2) the frost sits centred on each body and reads as frost, not floating off or
   clipped badly. If the frost's scale/shift needs a nudge to seat on the bulbous
   oxidizer or the tall glass-furnace body, that is a cosmetic tune, not a v1 bug.
+  NOTE (ci-6qyk): the glass-furnace half of this entry was UNCHECKABLE until ci-6qyk.
+  That machine was freeze-IMMUNE -- its prototype had cleared `heating_energy`, which
+  the engine also uses as the freeze switch -- so it never entered the frozen state and
+  its `frozen_patch` could never draw. Restoring the draw makes both halves reachable,
+  so check the glass furnace here too.
+
+- [ ] **[LANDED] Nightside glass furnaces now need HEAT -- cost + pacing (ci-6qyk).**
+  The glass furnace (lava-manufacturer) was accidentally exempt from the planet's core
+  freeze mechanic and could run forever in the dark with no heating infrastructure. It
+  now carries a **100kW** heating draw, level with its siblings (the arc furnace and the
+  electrolysis cell), so it freezes on the nightside like everything else. That it
+  freezes in the dark and thaws beside heat is asserted headless for EVERY Cindra
+  machine (`tests/test_freeze.lua`, the ci-6qyk class-wide guard); what needs a human is
+  whether the resulting COST and PACING feel right. *Repro:* run a glass-furnace line
+  out past the freeze onset with no heat and leave it, then run heaters back to it.
+  *Look for:* (1) the heat infrastructure a nightside lava chain now demands feels like
+  a real but fair tax, not a wall that makes nightside glass production pointless;
+  (2) 100kW reads as proportionate beside the machine's 40 MW crafting draw (it is
+  deliberately a CUT from the 300kW the vanilla foundry carries for Aquilo). The mayor
+  called 100kW a starting point for tuning, not a locked constant, so a number change
+  here is tuning, not a v1 bug.
 
   > **Correction from ci-u92y (measured in-engine):** the **glass furnace never
   > freezes**, so the foundry patch wired onto it above can never render. It
