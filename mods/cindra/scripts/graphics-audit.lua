@@ -59,6 +59,79 @@ function M.is_visible(proto, proto_type)
   return false
 end
 
+-- === Animated-state audit (ci-z94) =========================================
+-- A SECOND class of invisible-to-the-player bug: an entity that renders fine but
+-- never MOVES. Cindra's flare-storage kit (capacitor / molten-salt battery /
+-- dissipator) is read at a glance across a field of units -- which ones are
+-- taking the surge, which are idle -- and a static building says nothing. ci-pru
+-- shipped all three as single frames; ci-z94 animated them. This audit is what
+-- stops the next one from shipping static: the class is enumerated LIVE from
+-- data.raw, so a NEW player-placeable Cindra power building cannot load without
+-- its working animation.
+--
+-- Each entry lists field PATHS that must every one resolve to a real multi-frame
+-- animation on a member of the class.
+M.REQUIRED_ANIMATIONS = {
+  -- An accumulator shows its two states through chargable_graphics; a single
+  -- `picture` is the idle body only.
+  ["accumulator"] = {
+    { "chargable_graphics", "charge_animation" },
+    { "chargable_graphics", "discharge_animation" },
+  },
+  -- An electric-energy-interface scales `animation` to its energy consumption,
+  -- so the animation IS the load readout. A bare `picture` cannot show load.
+  ["electric-energy-interface"] = {
+    { "animation" },
+  },
+}
+
+-- Recursively true if `v` holds a real ANIMATION -- more than one frame of
+-- motion -- rather than a still image. A single-frame sprite parked in an
+-- `animation` field passes has_sprite but the player still sees nothing move.
+local function has_animation(v)
+  if type(v) ~= "table" then return false end
+  if type(v.frame_count) == "number" and v.frame_count > 1 then return true end
+  if type(v.filenames) == "table" and #v.filenames > 1 then return true end
+  if type(v.stripes) == "table" and #v.stripes > 0 then return true end
+  for _, child in pairs(v) do
+    if has_animation(child) then return true end
+  end
+  return false
+end
+M.has_animation = has_animation
+
+-- Is this prototype a building the PLAYER places and looks at? Only those owe an
+-- animated state. Hidden helper phantoms (the power diode's buffer/tap
+-- electric-energy-interfaces, which deliberately draw nothing) and unminable
+-- test rigs (the flare measurement sink) are not part of the class.
+function M.is_player_building(proto)
+  if type(proto) ~= "table" then return false end
+  if proto.hidden then return false end
+  return proto.minable ~= nil
+end
+
+-- Given `raw` and `specs`, return the list of "name (path)" descriptions for
+-- every player-placed entity of an animated class that is missing one.
+function M.static_offenders(raw, specs)
+  local bad = {}
+  for _, spec in ipairs(specs) do
+    local paths = M.REQUIRED_ANIMATIONS[spec.type]
+    local proto = raw[spec.type] and raw[spec.type][spec.name]
+    if paths and M.is_player_building(proto) then
+      for _, path in ipairs(paths) do
+        local node = proto
+        for _, key in ipairs(path) do
+          node = type(node) == "table" and node[key] or nil
+        end
+        if not has_animation(node) then
+          bad[#bad + 1] = spec.name .. " (" .. table.concat(path, ".") .. ")"
+        end
+      end
+    end
+  end
+  return bad
+end
+
 -- Given `raw` (a data.raw-like table) and `specs` (list of {type=, name=}),
 -- return the list of spec names whose entity is absent or renders nothing.
 function M.offenders(raw, specs)

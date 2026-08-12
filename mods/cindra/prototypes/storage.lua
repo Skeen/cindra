@@ -27,20 +27,67 @@ local C = require("scripts.flare-config")
 local function watts(w) return string.format("%dW", math.floor(w)) end
 local function joules(j) return string.format("%dJ", math.floor(j)) end
 
--- Wire a delivered entity sprite (ART-MANIFEST) onto a cloned entity.
-local function entity_art(name)
+-- === Art (ART-MANIFEST; idle body ci-pru, working lights ci-z94) =============
+-- ONE geometry for the idle body, its shadow and every animated glow layer. The
+-- glow strips are painted in the body's own roof space (scripts/gen-entity-anim.py
+-- reuses gen-entity-art's `top_quad`), so they register at the body's own
+-- scale/shift with no per-layer tuning -- and a change here moves body and glow
+-- together instead of sliding them apart.
+local ART_PX, ART_SCALE = 256, 0.5
+local BODY_SHIFT, SHADOW_SHIFT = { 0, -0.1 }, { 0.3, 0 }
+
+-- Sheet geometry of scripts/gen-entity-anim.py. These MUST match the shipped
+-- strips: a wrong frame_count/line_length does not error, it just draws sliced
+-- or repeated garbage in world. unit-tests/test_storage_graphics.lua checks
+-- these numbers against the actual PNG dimensions on disk.
+local ANIM_FRAMES, ANIM_LINE_LENGTH = 16, 4
+
+local function art_path(name, suffix)
+  return "__cindra__/graphics/entity/" .. name .. "/" .. name .. suffix .. ".png"
+end
+
+-- The idle body + its ground shadow. `repeat_count` is set only when these are
+-- layers of an Animation: every layer of a layered Animation must run the same
+-- number of frames, so the two single-frame images are held for the whole cycle
+-- (the vanilla accumulator does exactly this in accumulator_charge()).
+local function body_layers(name, repeat_count)
   return {
-    layers = {
-      {
-        filename = "__cindra__/graphics/entity/" .. name .. "/" .. name .. ".png",
-        width = 256, height = 256, scale = 0.5, shift = { 0, -0.1 },
-      },
-      {
-        filename = "__cindra__/graphics/entity/" .. name .. "/" .. name .. "-shadow.png",
-        width = 256, height = 256, scale = 0.5, shift = { 0.3, 0 }, draw_as_shadow = true,
-      },
+    {
+      filename = art_path(name, ""),
+      width = ART_PX, height = ART_PX, scale = ART_SCALE, shift = BODY_SHIFT,
+      repeat_count = repeat_count,
+    },
+    {
+      filename = art_path(name, "-shadow"),
+      width = ART_PX, height = ART_PX, scale = ART_SCALE, shift = SHADOW_SHIFT,
+      draw_as_shadow = true, repeat_count = repeat_count,
     },
   }
+end
+
+-- Wire a delivered entity sprite (ART-MANIFEST) onto a cloned entity: the idle,
+-- doing-nothing state.
+local function entity_art(name)
+  return { layers = body_layers(name) }
+end
+
+-- The idle body with an ADDITIVE emissive glow strip over it: the WORKING state.
+-- The engine chooses when to play it (charge/discharge on an accumulator, energy
+-- consumption on the dissipator), which is the whole point -- a field of flare
+-- storage has to show at a glance which units are taking the surge.
+local function working_art(name, state, speed)
+  local layers = body_layers(name, ANIM_FRAMES)
+  layers[#layers + 1] = {
+    filename = art_path(name, "-" .. state),
+    width = ART_PX, height = ART_PX, scale = ART_SCALE, shift = BODY_SHIFT,
+    frame_count = ANIM_FRAMES, line_length = ANIM_LINE_LENGTH,
+    animation_speed = speed,
+    -- draw_as_glow alone does NOT change the blend op (the ci-036 glass-furnace
+    -- regression): without "additive" the glow frame is painted OVER the body
+    -- instead of lighting it up.
+    draw_as_glow = true, blend_mode = "additive",
+  }
+  return { layers = layers }
 end
 
 local function set_icon(proto, name)
@@ -62,10 +109,22 @@ capacitor.energy_source = {
   input_flow_limit = watts(C.CAPACITOR_FLOW_W),
   output_flow_limit = watts(C.CAPACITOR_FLOW_W),
 }
--- Accumulator art lives in `chargable_graphics.picture` -- a top-level `picture`
--- is silently ignored by the engine (that made the capacitor INVISIBLE, ci-sop).
--- v1 static art: a single picture, no charge/discharge lamp animation.
-capacitor.chargable_graphics = { picture = entity_art("capacitor") }
+-- Accumulator art lives in `chargable_graphics` -- a top-level `picture` is
+-- silently ignored by the engine (that made the capacitor INVISIBLE, ci-sop).
+-- ci-z94: the v1 static picture is now only the IDLE state. Charging runs arc
+-- filaments crawling the plates; discharging strobes a core flash and a shock
+-- ring. The cooldowns are short because the capacitor's identity is speed -- it
+-- catches the leading edge of a flare and dumps it again, so its light should
+-- snap on and off rather than linger (contrast the battery below).
+capacitor.chargable_graphics = {
+  picture = entity_art("capacitor"),
+  charge_animation = working_art("capacitor", "charge", 0.6),
+  charge_cooldown = 12,
+  charge_light = { intensity = 0.45, size = 5, color = { r = 0.60, g = 0.38, b = 1.0 } },
+  discharge_animation = working_art("capacitor", "discharge", 1.0),
+  discharge_cooldown = 20,
+  discharge_light = { intensity = 0.7, size = 6, color = { r = 0.78, g = 0.62, b = 1.0 } },
+}
 set_icon(capacitor, "capacitor")
 capacitor.localised_name = { "entity-name." .. C.CAPACITOR }
 capacitor.localised_description = { "entity-description." .. C.CAPACITOR }
@@ -117,8 +176,22 @@ battery.energy_source = {
   output_flow_limit = watts(C.BATTERY_FLOW_W),
 }
 -- Same accumulator-graphics rule as the capacitor: art must go in
--- `chargable_graphics.picture`, not a top-level `picture` (ci-sop).
-battery.chargable_graphics = { picture = entity_art("molten-salt-battery") }
+-- `chargable_graphics`, not a top-level `picture` (ci-sop).
+-- ci-z94: the salt pool heats while charging (convection rolling under a slow
+-- swell) and drains outward in rings while discharging. Everything about it is
+-- SLOW next to the capacitor -- quarter-speed animation and long cooldowns -- so
+-- the two read as different machines at a glance across a field of them. The
+-- long cooldown is also honest thermal mass: molten salt does not stop glowing
+-- the tick the flare ends.
+battery.chargable_graphics = {
+  picture = entity_art("molten-salt-battery"),
+  charge_animation = working_art("molten-salt-battery", "charge", 0.25),
+  charge_cooldown = 90,
+  charge_light = { intensity = 0.4, size = 6, color = { r = 1.0, g = 0.48, b = 0.16 } },
+  discharge_animation = working_art("molten-salt-battery", "discharge", 0.25),
+  discharge_cooldown = 120,
+  discharge_light = { intensity = 0.5, size = 7, color = { r = 1.0, g = 0.58, b = 0.22 } },
+}
 set_icon(battery, "molten-salt-battery")
 battery.localised_name = { "entity-name." .. C.BATTERY }
 battery.localised_description = { "entity-description." .. C.BATTERY }
@@ -175,7 +248,15 @@ local dissipator = {
   energy_production = "0W",
   energy_usage = watts(C.DISSIPATOR_DRAW_W),
   gui_mode = "none",
-  picture = entity_art("dissipator"),
+  -- ci-z94: the fins glow under a heat wave sweeping across them. An
+  -- electric-energy-interface scales its `animation` to what it is actually
+  -- consuming (that is the default; `continuous_animation` would override it),
+  -- so this is a LOAD READOUT, not decoration: a dissipator with nothing to burn
+  -- sits dark and still, and one eating a flare runs hot. `picture` is dropped
+  -- rather than kept alongside -- the engine renders one or the other, and the
+  -- animation's first layer IS the idle body, so nothing is lost.
+  animation = working_art("dissipator", "heat", 0.6),
+  light = { intensity = 0.55, size = 6, color = { r = 1.0, g = 0.52, b = 0.18 } },
   localised_name = { "entity-name." .. C.DISSIPATOR },
   localised_description = { "entity-description." .. C.DISSIPATOR },
 }

@@ -56,9 +56,9 @@ picture = {
 | Cindra stone (item)        | `icons/cindra-stone.png`          | —             | **ci-l72** (§15-3 resources) |
 | Electric heater            | `icons/electric-heater.png`       | —             | **ci-f5l** (§15-10 heater) |
 | Mass driver                | `icons/mass-driver.png`           | ✔ `entity/mass-driver/`         | **ci-r10** (§15-11); PoC **ci-epp** |
-| Capacitor (fast storage)   | `icons/capacitor.png`             | ✔ `entity/capacitor/`           | **ci-tii** (§15-9 storage) |
-| Molten-salt battery (bulk) | `icons/molten-salt-battery.png`   | ✔ `entity/molten-salt-battery/` | **ci-tii** |
-| Dissipator (heat sink)     | `icons/dissipator.png`            | ✔ `entity/dissipator/`          | **ci-tii** / **ci-9ay** (panel damage) |
+| Capacitor (fast storage)   | `icons/capacitor.png`             | ✔ `entity/capacitor/` + charge/discharge (ci-z94) | **ci-tii** (§15-9 storage) |
+| Molten-salt battery (bulk) | `icons/molten-salt-battery.png`   | ✔ `entity/molten-salt-battery/` + charge/discharge (ci-z94) | **ci-tii** |
+| Dissipator (heat sink)     | `icons/dissipator.png`            | ✔ `entity/dissipator/` + heat loop (ci-z94) | **ci-tii** / **ci-9ay** (panel damage) |
 | Cindra science pack        | `icons/cindra-science-pack.png`   | —             | **ci-3or** (§15-12 science/tech) |
 
 ⭐ = signature building (the aluminium electrolysis cell, ci-84s pivot; bespoke
@@ -139,12 +139,66 @@ glow), fully replacing the assembling-machine-3 art, so no vanilla sprite leaks
 through. The slag vent recipe and the red-mud tech reuse the two new item icons
 (slag / red-mud respectively).
 
+## Animated working lights — the flare-storage kit (ci-z94)
+
+The three flare-surplus buildings no longer stand still. ci-pru delivered them as
+single static frames and filed the upgrade; this is that upgrade, done the way
+the manifest's own scope note proposed — the ci-pru frame stays as the **idle
+base layer** and an **emissive glow strip** is animated over it, so no delivered
+art was thrown away.
+
+Why it matters beyond looks: the flare loop (DESIGN.md §5) is *played* by reading,
+across a field of storage, which units are taking the surge and which are idle.
+The engine already chooses the state for you, so the motion is a readout:
+
+| Building | State | Sheet | What the player sees |
+|---|---|---|---|
+| Capacitor | charging | `entity/capacitor/capacitor-charge.png` | arc filaments crawling the plates, surging brighter |
+| Capacitor | discharging | `entity/capacitor/capacitor-discharge.png` | a core flash and an expanding shock ring — it strobes |
+| Molten-salt battery | charging | `entity/molten-salt-battery/molten-salt-battery-charge.png` | the salt pool heating, convection rolling under a slow swell |
+| Molten-salt battery | discharging | `entity/molten-salt-battery/molten-salt-battery-discharge.png` | heat draining outward in slow rings |
+| Dissipator | under load | `entity/dissipator/dissipator-heat.png` | the radiator fins glowing under a sweeping heat wave |
+
+Everything about the battery is **slow** next to the capacitor (quarter-speed
+animation, long cooldowns), so the two read as different machines at a glance —
+which is also honest: molten salt does not stop glowing the tick a flare ends.
+The dissipator is an `electric-energy-interface`, whose `animation` the engine
+scales to actual consumption, so an idle one sits dark and still.
+
+**Format.** Each sheet is a 16-frame RGBA strip, 4 frames per row, each cell the
+same 256×256 geometry as the idle body — the glow is painted in the *body's own
+roof space* (`gen-entity-anim.py` reuses `gen-entity-art.top_quad`) and
+hard-masked to the body silhouette, so it wires at the body's own `scale`/`shift`
+with no tuning and nothing glows off the machine. The off-body aura is the
+prototype's `charge_light` / `discharge_light` / `light`.
+
+```lua
+{ filename = "__cindra__/graphics/entity/<b>/<b>-<state>.png",
+  width = 256, height = 256, scale = 0.5, shift = { 0, -0.1 },
+  frame_count = 16, line_length = 4,
+  draw_as_glow = true, blend_mode = "additive" }   -- glow alone does NOT blend (ci-036)
+```
+
+Regenerate with `./scripts/render-entity-anim.sh` (deterministic: the generator
+is purely analytic, no RNG). Wired by `prototypes/storage.lua`; guarded by
+`unit-tests/test_entity_anim.py` (the frames move, the cycle loops, nothing glows
+off the body) and `unit-tests/test_storage_graphics.lua` (the declared frame grid
+matches the real PNG, the glow blends additive, the body holds for the cycle).
+
+**No Cindra power building can ship static again.** `prototypes/graphics-audit.lua`
+enumerates the class live from `data.raw` and fails the load if a player-placed
+Cindra accumulator or electric-energy-interface has no working animation.
+
 ## Scope / known limits (honest first pass)
 
-- **Entity sprites are single static frames**, not directional or animated.
-  Machines that want a working animation (e.g. electrolysis glow, driver charge
-  cycle) should treat this as the idle base layer and add emission/animation
-  layers later, or commission bespoke art. Filed as follow-up: see the bead.
+- **Entity sprites are single static frames**, not directional or animated —
+  ~~for every building~~ **except the flare-storage kit** (capacitor,
+  molten-salt battery, dissipator), which got animated working lights in ci-z94;
+  see the section above. The remaining static procedural sprites are for
+  buildings whose owning tracks reskinned them anyway: the electrolysis cell,
+  arc furnace and lava manufacturer wear bespoke animated sets, and the mass
+  driver reuses the vanilla rocket-silo animation. **Still open:** no entity
+  sprite in this set is DIRECTIONAL (the procedural block has one orientation).
 - **Naming is provisional.** Rename files to match final prototype names before
   wiring if a track chooses different ids; the manifest maps intent, not a
   frozen contract.
