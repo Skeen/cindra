@@ -623,6 +623,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Economy: lava, ice, aluminium
 
+- [ ] **[LANDED] The fire-edge lava reads as scenery/hazard, never a well (ci-8vu).**
+  Cindra's lava tiles no longer declare a `fluid`, so an offshore pump aimed at the
+  lava sea produces **nothing** (lava is manufactured from stone). *Repro:* walk to
+  the hot ocean shore, put an **offshore pump** in the cursor and aim it at the lava.
+  *Look for:* (1) the lava still LOOKS molten and still burns/blocks exactly as
+  before (the strip is fluid-only, not visual); (2) you get no lava out of it. Then
+  the *judgement call this is here for*: what does the attempt FEEL like -- does the
+  game refuse the placement outright (green/red build preview), or does the pump
+  place and then sit idle forever? If it places and idles with no hint of why, that
+  reads as a bug to a player; **file a follow-up bead** for build-time feedback (a
+  refusal or a flying-text "Cindra's lava cannot be pumped -- melt stone instead").
+  *(Structurally tested: `tests/test_lava_tap.lua` proves a pump on natural Cindra
+  lava draws zero while the same pump on vanilla lava fills, that no Cindra tile
+  declares a fluid, and that the shared vanilla tiles keep theirs. What a test cannot
+  judge is the placement UX above.)*
+
 - [ ] **[LANDED] Mixed ice field: sort + backpressure feel (§15-4, ci-9l6).**
   *Repro:* drop an electric mining drill on an ice field and belt its output; the
   drill emits a fixed **ice + calcite mix** (currently 2:1). Split the two apart,

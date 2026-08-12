@@ -19,6 +19,12 @@
 -- runtime (scripts/tile-damage.lua reads terrain.tile_damage for the tile(s) under
 -- an entity), so a machine sitting on hot ground or the ice cap burns/freezes and
 -- one overlapping a lava tile burns -- keyed to the actual tile, not a coordinate.
+--
+-- NO FLUID ON ANY CINDRA TILE (ci-8vu): an offshore pump produces the fluid its
+-- intake TILE declares, so a tile carrying `fluid` is a free well. Neither branch
+-- below keeps one -- walkable clones are stripped to solid ground, and the lava
+-- clones are stripped so the fire-edge lava is scenery-and-hazard, never a tap.
+-- Lava is MANUFACTURED on Cindra (prototypes/lava.lua); see tests/test_lava_tap.lua.
 
 local util = require("util")
 local terrain = require("scripts.terrain")
@@ -67,14 +73,23 @@ for i, spec in ipairs(terrain.TILES) do
     t.destroys_dropped_items = nil
     t.default_destroyed_dropped_item_trigger = nil
   else
-    -- Impassable tiles: the two lava tiles (hot-lava, lava) AND the smooth deep-ice
-    -- cap (ci-qqt). Give each the lava() collision mask so it is unbuildable and
-    -- blocks movement exactly like Vulcanus lava -- the lava sea is the hot backstop,
-    -- the smooth-ice cap the cold ICE WALL. The lava tiles keep their cloned fluid
-    -- (a liquid surface); smooth-ice is already a solid tile (no fluid), so its lava()
-    -- collision mask alone makes the wall -- no fluid to strip.
+    -- Impassable tiles: the two lava tiles (lava-hot, lava). Give each the lava()
+    -- collision mask so it is unbuildable and blocks movement exactly like Vulcanus
+    -- lava -- the lava sea is the hot backstop of the ribbon.
     t.collision_mask = tile_collision_masks.lava()
     t.allowed_neighbors = nil
+    -- 🚨 NATURAL LAVA IS NOT A TAP (ci-8vu). In 2.0 an offshore pump produces
+    -- whatever fluid the TILE under its intake declares -- the pump itself names no
+    -- fluid. The cloned `fluid = "lava"` therefore made Cindra's fire-edge lava a
+    -- free lava well: stand on the shore, drop a vanilla offshore pump, and tap the
+    -- sea straight past the manufactured-lava chain (stone melted with ruinous
+    -- power, prototypes/lava.lua) and its flare-timed power sink -- the exact thing
+    -- lava.lua says cannot happen here ("Cindra has no lava lakes to pump").
+    -- Strip the fluid and the well is dry. The tile still LOOKS molten (that is
+    -- `effect`/`variants`) and still BURNS and blocks (collision mask +
+    -- terrain.tile_damage); none of that reads `fluid`. On Cindra lava is MADE,
+    -- never found. Only our clone is touched, so Vulcanus keeps pumping its lakes.
+    t.fluid = nil
   end
 
   tiles[#tiles + 1] = t

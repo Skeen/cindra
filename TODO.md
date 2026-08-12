@@ -239,7 +239,8 @@ merge queue.
   oceans.** `ci-wly` — replaced the old 11-zone gradient with a THREE-PART,
   TWO-HEIGHTMAP world (HOT ocean+slope / habitable ash MIDDLE / COLD ocean+slope).
   Both oceans folded into the heightmap (never stamped); smooth-ice now WALKABLE (no
-  ice wall); per-tile damage scaling; no-pave hazard tiles (closes `ci-8vu`). Supersedes
+  ice wall); per-tile damage scaling; no-pave hazard tiles (HALF of `ci-8vu` -- the
+  walkway; the tap itself was closed later by stripping the lava tiles' fluid). Supersedes
   `ci-4kz` (ice wall dropped), subsumes `ci-7jc` (ocean/heightmap integration) and
   `ci-70r` (bespoke gradient tiles). `scripts/terrain.lua`; tested in
   `unit-tests/test_terrain.lua` + `tests/test_worldgen.lua`.

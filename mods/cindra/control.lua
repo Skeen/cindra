@@ -69,6 +69,9 @@ if script.active_mods["factorio-test"] then
     "tests/test_heater",
     "tests/test_ice_processing",
     "tests/test_lava",
+    -- ci-8vu: the fire-edge lava is scenery + hazard, NEVER a tap -- an offshore
+    -- pump aimed at it draws nothing (lava is manufactured from stone, never found).
+    "tests/test_lava_tap",
     "tests/test_sulfur", -- ci-eat: stone -> roast -> sulfur -> sulfuric acid
     "tests/test_aluminium",
     -- ci-400 Calcite-To-Olefins: the petrochemical-free plastic chain (water

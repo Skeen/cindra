@@ -99,8 +99,12 @@ straddles spawn). Walkability is per-TILE: **only the two lava tiles are impassa
 ice-wall**. Damage is **per-tile**, scaling with depth: `hot-lava(1) > lava >
 smooth-stone-warm > cracks-hot > cracks-warm`; `smooth-ice(1) > rough-ice >
 snow-patchy`; everything else safe (`scripts/tile-damage.lua`). You **cannot pave**
-atop the hottest/iciest hazard tiles (`scripts/no-paving.lua`, closing the ci-8vu
-lava-pump exploit). Boundaries carry a `basis_noise` wiggle + a per-tile speckle, so
+atop the hottest/iciest hazard tiles (`scripts/no-paving.lua`). And the fire-edge
+lava is **not a tap**: no Cindra tile declares a `fluid`, so an offshore pump aimed
+at the lava sea draws **nothing**. Lava is MANUFACTURED from stone (§ economy),
+never found (`prototypes/tiles.lua` + `tests/test_lava_tap.lua`, closing the ci-8vu
+lava-pump exploit; only our clones are stripped, so Vulcanus still pumps its lakes).
+Boundaries carry a `basis_noise` wiggle + a per-tile speckle, so
 they are organic curves with a real mix, never raw stripes.
 
 `mods/cindra/scripts/ribbon.lua` is the **single source of truth** for the
