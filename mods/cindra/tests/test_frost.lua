@@ -263,18 +263,20 @@ describe("freeze coverage, mod-wide (ci-qha1)", function()
 
   it("the load guard's entity classification matches the engine's own registry", function()
     -- The data-stage guard cannot ask the engine what an entity is, so it decides
-    -- from data.raw bucket names (NON_ENTITY_TYPES). This is the cross-check that
-    -- keeps that list honest: at RUNTIME prototypes.entity IS the authoritative
-    -- set of entities, so no type carrying a Cindra entity may be sitting in
-    -- NON_ENTITY_TYPES -- otherwise the guard would silently skip it and an immune
-    -- entity could ship.
+    -- from data.raw bucket names (ENTITY_TYPES / NON_ENTITY_TYPES). This is the
+    -- cross-check that keeps those lists honest: at RUNTIME prototypes.entity IS
+    -- the authoritative set of entities, so every type carrying a Cindra entity
+    -- must classify as "entity" -- if it is misfiled as a non-entity, or in
+    -- neither list, the guard cannot audit the entity's freeze behaviour and an
+    -- immune entity could ship.
     local seen = {}
     for _, name in ipairs(cindra_entities()) do
       local t = prototypes.entity[name].type
-      assert.is_falsy(audit.NON_ENTITY_TYPES[t],
-        name .. " is a real entity of type '" .. t .. "', but that type is listed in"
-        .. " NON_ENTITY_TYPES in scripts/frost-audit.lua -- the load guard would skip"
-        .. " it entirely, so it could ship immune to the freeze. Remove the type.")
+      assert.equals("entity", audit.classify(t),
+        name .. " is a real entity of type '" .. t .. "', but scripts/frost-audit.lua"
+        .. " classifies that type as '" .. audit.classify(t) .. "' -- the load guard"
+        .. " cannot audit its freeze behaviour, so it could ship immune. Put '" .. t
+        .. "' in ENTITY_TYPES (and remove it from NON_ENTITY_TYPES if it is there).")
       seen[t] = true
     end
     -- And the tables must not rot the other way either: an entry describing a type
@@ -290,6 +292,45 @@ describe("freeze coverage, mod-wide (ci-qha1)", function()
       assert.is_not_nil(prototypes.entity[name],
         "FREEZE_EXEMPT excuses '" .. name .. "' but no such entity exists any more"
         .. " -- drop the stale exemption")
+    end
+  end)
+
+  it("ENTITY_TYPES is COMPLETE against every entity type the engine defines (ci-3ed3)", function()
+    -- The other half of ci-3ed3. Classification is now two POSITIVE lists with an
+    -- "unrecognised" third state that stops the load, which fixes the misleading
+    -- message -- but only completeness stops the load from stopping needlessly.
+    -- Both lists were enumerated in ONE PASS from this registry rather than grown
+    -- one load failure at a time, and THIS is the assertion that keeps them
+    -- complete: prototypes.entity is the engine's own authoritative list of entity
+    -- prototypes, so every type appearing in it must already be classified as an
+    -- entity. If Factorio (or a mod in the test set) introduces a new entity type,
+    -- this fails here -- in a test naming the type -- instead of at some future
+    -- author's data stage when they first ship a prototype of it.
+    local missing = {}
+    for _, proto in pairs(prototypes.entity) do
+      if audit.classify(proto.type) ~= "entity" then missing[proto.type] = true end
+    end
+    local names = {}
+    for t in pairs(missing) do names[#names + 1] = t end
+    table.sort(names)
+    assert.equals("", table.concat(names, ", "),
+      "the engine defines entity prototype type(s) that scripts/frost-audit.lua does"
+      .. " not classify as entities. Add each to ENTITY_TYPES (removing it from"
+      .. " NON_ENTITY_TYPES if it is misfiled there): a Cindra entity of such a type"
+      .. " would stop the load asking to be classified.")
+  end)
+
+  it("no type the engine calls an entity is filed as a NON-entity (ci-3ed3)", function()
+    -- The dangerous misclassification, checked mod-wide rather than only over the
+    -- types Cindra happens to ship today: a real entity type sitting in
+    -- NON_ENTITY_TYPES would make the guard skip that entity silently, and silence
+    -- is exactly how the glass furnace stayed immune for two releases (ci-6qyk).
+    for _, proto in pairs(prototypes.entity) do
+      assert.is_falsy(audit.NON_ENTITY_TYPES[proto.type],
+        "'" .. proto.type .. "' is a real entity prototype type (e.g. " .. proto.name
+        .. ") but is listed in NON_ENTITY_TYPES in scripts/frost-audit.lua -- a Cindra"
+        .. " entity of that type would be skipped by the freeze guard entirely."
+        .. " Move it to ENTITY_TYPES.")
     end
   end)
 end)

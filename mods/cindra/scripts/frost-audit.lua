@@ -1,4 +1,5 @@
--- Pure freeze/frost auditor for Cindra's custom entities (ci-u92y, ci-qha1).
+-- Pure freeze/frost auditor for Cindra's custom entities (ci-u92y, ci-qha1,
+-- ci-3ed3).
 --
 -- TWO invariants live here, one per half of the file:
 --   1. FREEZE COVERAGE (ci-qha1, bottom half) -- no Cindra-added entity may be
@@ -9,6 +10,13 @@
 -- Both are enforced as a load-time guard (prototypes/frost-audit.lua) over the
 -- class discovered LIVE from the registry, so a new entity cannot ship immune or
 -- bare by accident.
+--
+-- Between them sits the question BOTH depend on and neither can duck: is a given
+-- data.raw bucket an ENTITY bucket at all? The data stage cannot ask the engine,
+-- so it is answered by two positive lists plus an explicit "unrecognised" state
+-- (M.classify, ci-3ed3). And because a load failure's whole value is the sentence
+-- it prints, the report is returned as DATA (M.problems) rather than assembled
+-- inside the guard -- so the text a developer reads is itself under test.
 --
 -- WHY THIS EXISTS: Cindra's planet carries `entities_require_heating`, so its
 -- machines FREEZE for real on the nightside, and the engine draws the frost
@@ -186,36 +194,196 @@ end
 -- (so it never actually freezes), and the engine silently IGNORES heating_energy
 -- on some prototype types altogether (so a draw is no protection at all).
 
--- data.raw buckets that are NOT entity prototypes. Everything else holding a
--- "cindra-" prototype is treated as an entity and must satisfy the freeze
--- invariant -- so the audit FAILS CLOSED: a Cindra entity of a brand-new type
--- cannot slip past because nobody remembered to list its type. The cost is that
--- adding a "cindra-" prototype of a new DATA-only category errors the load until
--- its type is added here, which is a one-line, obvious fix (and the error says
--- so). tests/test_frost.lua cross-checks this table against the engine's own
--- entity registry, so a misclassification is caught rather than silently
--- excusing an entity.
+-- === PROTOTYPE CLASSIFICATION (ci-3ed3) =====================================
+-- "Is this data.raw bucket an ENTITY bucket?" is answered by TWO POSITIVE lists,
+-- and a bucket in neither is UNRECOGNISED -- a third state, not a default.
+--
+-- WHY IT IS SHAPED THIS WAY. This started as a single DENY-list: every bucket was
+-- an entity bucket unless its type was listed as non-entity. That is fail-closed,
+-- which is right -- but it lies about the SIZE of the mistake it caught. A brand
+-- new NON-entity type (`mod-data`, a pure data-storage prototype with no owner,
+-- no health and no freeze) was audited as an entity, found to carry no
+-- heating_energy, and hard-failed the load with
+--
+--   entity/entities IMMUNE to the planet's freeze mechanic:
+--   cindra-surface-conditions (mod-data, heating_energy=nil)
+--
+-- which is false in every clause and sends the reader off to add a heat draw to a
+-- prototype that has nothing to heat (ci-3ed3, observed live; it blocked ci-ndm9).
+-- The deny-list's polarity GUARANTEED that recurrence: the default classification
+-- for a type nobody had thought about was "entity".
+--
+-- The fail-closed intent is preserved and in fact strengthened. An unrecognised
+-- type STILL fails the load -- see M.unclassified + the guard in
+-- prototypes/frost-audit.lua -- it just fails with the true statement ("classify
+-- this type") instead of a fabricated one ("this entity is immune"). And it now
+-- fails even when the mystery prototype happens to carry a heating_energy, which
+-- the deny-list waved through. So there is no path by which a new Cindra ENTITY
+-- ships immune: either its type is in ENTITY_TYPES and the freeze audit below
+-- applies to it, or the load stops until someone classifies it.
+--
+-- Both lists were enumerated in ONE PASS from the running engine (Factorio 2.1
+-- base + Space Age: 132 entity types, and every remaining data.raw bucket), so
+-- they are COMPLETE rather than discovered one load failure at a time.
+-- tests/test_frost.lua re-derives the entity set from the engine's own registry
+-- every run and fails if a type is missing or misfiled, so completeness is
+-- checked rather than claimed.
 --
 -- Scope note: the guard runs at the END of cindra's own data stage, so it sees
 -- every Cindra prototype and nothing added later. The sibling mods (cindra-start,
 -- cindra-dev-default) and third-party libraries (PlanetsLib) reach us from
 -- data-updates / data-final-fixes, i.e. AFTER this -- deliberately out of scope,
 -- since policing another mod's prototypes is not this guard's job.
+
+-- data.raw buckets that ARE entity prototypes (LuaEntityPrototype). A Cindra
+-- prototype in one of these must satisfy the freeze invariant below.
+M.ENTITY_TYPES = {
+  ["accumulator"] = true, ["agricultural-tower"] = true,
+  ["ammo-turret"] = true, ["arithmetic-combinator"] = true,
+  ["arrow"] = true, ["artillery-flare"] = true,
+  ["artillery-projectile"] = true, ["artillery-turret"] = true,
+  ["artillery-wagon"] = true, ["assembling-machine"] = true,
+  ["asteroid"] = true, ["asteroid-collector"] = true, ["beacon"] = true,
+  ["beam"] = true, ["boiler"] = true, ["burner-generator"] = true,
+  ["capture-robot"] = true, ["car"] = true, ["cargo-bay"] = true,
+  ["cargo-landing-pad"] = true, ["cargo-pod"] = true,
+  ["cargo-wagon"] = true, ["character"] = true,
+  ["character-corpse"] = true, ["cliff"] = true, ["combat-robot"] = true,
+  ["constant-combinator"] = true, ["construction-robot"] = true,
+  ["container"] = true, ["corpse"] = true, ["curved-rail-a"] = true,
+  ["curved-rail-b"] = true, ["decider-combinator"] = true,
+  ["deconstructible-tile-proxy"] = true, ["display-panel"] = true,
+  ["electric-energy-interface"] = true, ["electric-pole"] = true,
+  ["electric-turret"] = true, ["elevated-curved-rail-a"] = true,
+  ["elevated-curved-rail-b"] = true,
+  ["elevated-half-diagonal-rail"] = true,
+  ["elevated-straight-rail"] = true, ["entity-ghost"] = true,
+  ["explosion"] = true, ["fire"] = true, ["fish"] = true,
+  ["fluid-turret"] = true, ["fluid-wagon"] = true, ["furnace"] = true,
+  ["fusion-generator"] = true, ["fusion-reactor"] = true, ["gate"] = true,
+  ["generator"] = true, ["half-diagonal-rail"] = true,
+  ["heat-interface"] = true, ["heat-pipe"] = true,
+  ["highlight-box"] = true, ["infinity-cargo-wagon"] = true,
+  ["infinity-container"] = true, ["infinity-pipe"] = true,
+  ["inserter"] = true, ["item-entity"] = true,
+  ["item-request-proxy"] = true, ["lab"] = true, ["lamp"] = true,
+  ["land-mine"] = true, ["lane-splitter"] = true,
+  ["legacy-curved-rail"] = true, ["legacy-straight-rail"] = true,
+  ["lightning"] = true, ["lightning-attractor"] = true,
+  ["linked-belt"] = true, ["linked-container"] = true, ["loader"] = true,
+  ["loader-1x1"] = true, ["locomotive"] = true,
+  ["logistic-container"] = true, ["logistic-robot"] = true,
+  ["market"] = true, ["mining-drill"] = true, ["offshore-pump"] = true,
+  ["particle-source"] = true, ["pipe"] = true, ["pipe-to-ground"] = true,
+  ["plant"] = true, ["power-switch"] = true,
+  ["programmable-speaker"] = true, ["projectile"] = true,
+  ["proxy-container"] = true, ["pump"] = true, ["radar"] = true,
+  ["rail-chain-signal"] = true, ["rail-ramp"] = true,
+  ["rail-remnants"] = true, ["rail-signal"] = true,
+  ["rail-support"] = true, ["reactor"] = true, ["resource"] = true,
+  ["roboport"] = true, ["rocket-silo"] = true,
+  ["rocket-silo-rocket"] = true, ["rocket-silo-rocket-shadow"] = true,
+  ["segment"] = true, ["segmented-unit"] = true,
+  ["selector-combinator"] = true, ["simple-entity"] = true,
+  ["simple-entity-with-force"] = true, ["simple-entity-with-owner"] = true,
+  ["smoke-with-trigger"] = true, ["solar-panel"] = true,
+  ["space-platform-hub"] = true, ["speech-bubble"] = true,
+  ["spider-leg"] = true, ["spider-unit"] = true, ["spider-vehicle"] = true,
+  ["splitter"] = true, ["sticker"] = true, ["storage-tank"] = true,
+  ["straight-rail"] = true, ["stream"] = true,
+  ["temporary-container"] = true, ["thruster"] = true,
+  ["tile-ghost"] = true, ["train-stop"] = true, ["transport-belt"] = true,
+  ["tree"] = true, ["turret"] = true, ["underground-belt"] = true,
+  ["unit"] = true, ["unit-spawner"] = true, ["valve"] = true,
+  ["wall"] = true,
+}
+
+-- data.raw buckets that are NOT entity prototypes: items, recipes, achievements,
+-- equipment, GUI/utility singletons, and the data-only prototypes. A Cindra
+-- prototype here has no owner, no health and no freeze, so the freeze invariant
+-- does not apply and must not be reported against it.
+--
+-- Two entries earn a note, because they are the ones that have actually bitten:
+--   * `optimized-decorative` -- decoratives are their OWN prototype class
+--     (LuaDecorativePrototype), not entities. It reads like an entity type and is
+--     not one.
+--   * `mod-data` -- a pure data-storage prototype (ci-3ed3): the type whose
+--     misclassification is the reason this file now has two lists instead of one.
 M.NON_ENTITY_TYPES = {
-  ["ammo-item"] = true, ["autoplace-control"] = true, ["capsule"] = true,
-  ["damage-type"] = true, ["fluid"] = true, ["fuel-category"] = true,
-  ["item"] = true, ["item-group"] = true, ["item-subgroup"] = true,
-  ["module"] = true, ["noise-expression"] = true, ["noise-function"] = true,
-  -- Decoratives are their OWN prototype class (LuaDecorativePrototype), not
-  -- entities: they have no owner, no health and no freeze.
-  ["optimized-decorative"] = true,
-  ["planet"] = true, ["quality"] = true, ["recipe"] = true,
-  ["recipe-category"] = true, ["shortcut"] = true, ["sound"] = true,
-  ["space-connection"] = true, ["space-location"] = true, ["sprite"] = true,
-  ["surface-property"] = true, ["technology"] = true, ["tile"] = true,
-  ["tips-and-tricks-item"] = true, ["tool"] = true, ["trigger-target-type"] = true,
+  ["achievement"] = true, ["active-defense-equipment"] = true,
+  ["airborne-pollutant"] = true, ["ambient-sound"] = true, ["ammo"] = true,
+  ["ammo-category"] = true, ["armor"] = true, ["asteroid-chunk"] = true,
+  ["autoplace-control"] = true, ["battery-equipment"] = true,
+  ["belt-immunity-equipment"] = true, ["blueprint"] = true,
+  ["blueprint-book"] = true, ["build-entity-achievement"] = true,
+  ["burner-usage"] = true, ["capsule"] = true,
+  ["chain-active-trigger"] = true, ["change-surface-achievement"] = true,
+  ["collision-layer"] = true, ["combat-robot-count-achievement"] = true,
+  ["complete-objective-achievement"] = true,
+  ["construct-with-robots-achievement"] = true, ["copy-paste-tool"] = true,
+  ["create-platform-achievement"] = true, ["custom-input"] = true,
+  ["damage-type"] = true, ["deconstruct-with-robots-achievement"] = true,
+  ["deconstruction-item"] = true, ["delayed-active-trigger"] = true,
+  ["deliver-by-robots-achievement"] = true, ["deliver-category"] = true,
+  ["deliver-impact-combination"] = true,
+  ["deplete-resource-achievement"] = true,
+  ["destroy-cliff-achievement"] = true,
+  ["dont-build-entity-achievement"] = true,
+  ["dont-craft-manually-achievement"] = true,
+  ["dont-kill-manually-achievement"] = true,
+  ["dont-research-before-researching-achievement"] = true,
+  ["dont-use-entity-in-energy-production-achievement"] = true,
+  ["editor-controller"] = true,
+  ["electric-energy-interface-equipment"] = true,
+  ["energy-shield-equipment"] = true, ["equip-armor-achievement"] = true,
+  ["equipment-category"] = true, ["equipment-ghost"] = true,
+  ["equipment-grid"] = true, ["fluid"] = true, ["font"] = true,
+  ["fuel-category"] = true, ["generator-equipment"] = true,
+  ["god-controller"] = true, ["group-attack-achievement"] = true,
+  ["gui-style"] = true, ["gun"] = true, ["impact-category"] = true,
+  ["inventory-bonus-equipment"] = true, ["item"] = true,
+  ["item-group"] = true, ["item-subgroup"] = true,
+  ["item-with-entity-data"] = true, ["kill-achievement"] = true,
+  ["map-gen-presets"] = true, ["map-settings"] = true, ["mod-data"] = true,
+  ["module"] = true, ["module-category"] = true,
+  ["module-transfer-achievement"] = true, ["mouse-cursor"] = true,
+  ["movement-bonus-equipment"] = true, ["night-vision-equipment"] = true,
+  ["noise-expression"] = true, ["noise-function"] = true,
+  ["optimized-decorative"] = true, ["optimized-particle"] = true,
+  ["place-equipment-achievement"] = true, ["planet"] = true,
+  ["player-damaged-achievement"] = true, ["procession"] = true,
+  ["procession-layer-inheritance-group"] = true,
+  ["produce-achievement"] = true, ["produce-per-hour-achievement"] = true,
+  ["quality"] = true, ["rail-planner"] = true, ["recipe"] = true,
+  ["recipe-category"] = true, ["remote-controller"] = true,
+  ["repair-tool"] = true, ["research-achievement"] = true,
+  ["research-with-science-pack-achievement"] = true,
+  ["resource-category"] = true, ["roboport-equipment"] = true,
+  ["selection-tool"] = true, ["shoot-achievement"] = true,
+  ["shortcut"] = true, ["solar-panel-equipment"] = true, ["sound"] = true,
+  ["space-connection"] = true,
+  ["space-connection-distance-traveled-achievement"] = true,
+  ["space-location"] = true, ["space-platform-starter-pack"] = true,
+  ["spectator-controller"] = true, ["spidertron-remote"] = true,
+  ["sprite"] = true, ["surface"] = true, ["surface-property"] = true,
+  ["technology"] = true, ["tile"] = true, ["tile-effect"] = true,
+  ["tips-and-tricks-item"] = true,
+  ["tips-and-tricks-item-category"] = true, ["tool"] = true,
+  ["train-path-achievement"] = true, ["trigger-target-type"] = true,
+  ["trivial-smoke"] = true, ["tutorial"] = true, ["upgrade-item"] = true,
+  ["use-entity-in-energy-production-achievement"] = true,
+  ["use-item-achievement"] = true, ["utility-constants"] = true,
+  ["utility-sounds"] = true, ["utility-sprites"] = true,
   ["virtual-signal"] = true,
 }
+
+-- "entity" | "non-entity" | "unknown". The third answer is the point: it is what
+-- lets the guard demand a CLASSIFICATION instead of inventing a freeze problem.
+function M.classify(proto_type)
+  if M.ENTITY_TYPES[proto_type] then return "entity" end
+  if M.NON_ENTITY_TYPES[proto_type] then return "non-entity" end
+  return "unknown"
+end
 
 -- Prototype types the ENGINE REFUSES TO FREEZE -- exemption (a), and by far the
 -- largest group. Each was MEASURED (ci-qha1): heating_energy = "100kW" was set on
@@ -286,14 +454,14 @@ M.FREEZE_EXEMPT = {
     .. " reactors (incl. the heating tower) are exempt for the same reason",
 }
 
--- Every Cindra-added ENTITY in `raw`, as a sorted list of {type=, name=}. Sorted
--- so a load error lists offenders deterministically. Discovering the class LIVE
--- (rather than from a hand-kept list) is what makes a NEW entity unable to ship
--- immune.
-function M.entity_specs(raw)
+-- Every Cindra-added prototype in `raw` whose type classifies as `want`, as a
+-- sorted list of {type=, name=}. Sorted so a load error lists offenders
+-- deterministically. Enumerating from the registry LIVE (rather than from a
+-- hand-kept list of names) is what makes a NEW entity unable to ship immune.
+local function specs_classified(raw, want)
   local specs = {}
   for proto_type, bucket in pairs(raw) do
-    if not M.NON_ENTITY_TYPES[proto_type] and type(bucket) == "table" then
+    if type(bucket) == "table" and M.classify(proto_type) == want then
       for name in pairs(bucket) do
         if name:sub(1, 7) == "cindra-" then
           specs[#specs + 1] = { type = proto_type, name = name }
@@ -306,6 +474,23 @@ function M.entity_specs(raw)
     return a.type < b.type
   end)
   return specs
+end
+
+-- Every Cindra-added ENTITY in `raw` -- the class the freeze invariant governs.
+function M.entity_specs(raw)
+  return specs_classified(raw, "entity")
+end
+
+-- Cindra prototypes of a type in NEITHER list: the audit does not know whether
+-- they are entities, so it refuses to guess in either direction. This is the
+-- fail-closed half, relocated out of the freeze report: the load still stops (see
+-- M.problems), but what it asks for is a CLASSIFICATION rather than a heat draw.
+function M.unclassified(raw)
+  local bad = {}
+  for _, spec in ipairs(specs_classified(raw, "unknown")) do
+    bad[#bad + 1] = string.format("%s (type '%s')", spec.name, spec.type)
+  end
+  return bad
 end
 
 -- Is this entity REQUIRED to carry a heat draw? False only when the engine cannot
@@ -344,6 +529,77 @@ function M.dead_heating(raw)
     end
   end
   return bad
+end
+
+-- ============================================================================
+-- THE OPERATOR-FACING REPORT (ci-3ed3)
+-- ============================================================================
+-- The messages live HERE, not in the data-stage guard, for one reason: the error
+-- text IS the deliverable. What a load failure tells the reader to do is the part
+-- that went wrong in ci-3ed3 -- a `mod-data` prototype was announced as an
+-- "entity IMMUNE to the planet's freeze mechanic", so the honest fix (classify
+-- the type) was the one thing the message did not mention. Text nobody can assert
+-- on is text that drifts back to lying, so it is returned as data and pinned by
+-- unit-tests/test_frost_audit.lua.
+--
+-- Returns an ordered list of {kind=, message=}; empty means the load is clean.
+-- CLASSIFICATION IS REPORTED FIRST because it decides whether the other three
+-- audits even apply to a prototype -- reporting a freeze verdict on a type we
+-- cannot classify is exactly the bug.
+function M.problems(raw, skip_prefixes)
+  local out = {}
+  local function add(kind, message) out[#out + 1] = { kind = kind, message = message } end
+
+  local unknown = M.unclassified(raw)
+  if #unknown > 0 then
+    add("unclassified", "cindra: UNRECOGNISED prototype type(s) carrying a Cindra"
+      .. " prototype: " .. table.concat(unknown, ", ")
+      .. " -- this audit cannot tell whether these are entities, so it will not"
+      .. " guess. CLASSIFY THE TYPE in scripts/frost-audit.lua: add it to"
+      .. " ENTITY_TYPES if it really is an entity prototype (the freeze invariant"
+      .. " then applies to it, so expect a follow-up error asking for a"
+      .. " heating_energy), or to NON_ENTITY_TYPES if it is not an entity at all"
+      .. " (items, recipes, equipment, mod-data and other data-only prototypes"
+      .. " have no owner, no health and no freeze -- there is NOTHING to add to"
+      .. " them here). Do NOT add a heating_energy to make this go away. See"
+      .. " ci-3ed3.")
+  end
+
+  local immune = M.freeze_immune(raw)
+  if #immune > 0 then
+    add("immune", "cindra: entity/entities IMMUNE to the planet's freeze mechanic: "
+      .. table.concat(immune, ", ")
+      .. " -- give each a heating_energy > 0 (that field IS the engine's freeze"
+      .. " switch, not merely a power cost; match the vanilla sibling it was cloned"
+      .. " from, e.g. 100kW for a machine, 300kW for a rocket-silo, 20kW for a"
+      .. " power-switch). If it must NOT freeze, add it to FREEZE_EXEMPT in"
+      .. " scripts/frost-audit.lua WITH A WRITTEN REASON, and extend"
+      .. " tests/test_frost.lua. If the engine ignores heating_energy on its"
+      .. " prototype type, MEASURE that and add the type to UNFREEZABLE_TYPES."
+      .. " Every name above is of a type listed in ENTITY_TYPES, so it IS an"
+      .. " entity -- if that classification is wrong, fix it there. See ci-qha1.")
+  end
+
+  local dead = M.dead_heating(raw)
+  if #dead > 0 then
+    add("dead-heating", "cindra: heating_energy declared on prototype type(s) the"
+      .. " ENGINE IGNORES, so it freezes nothing and only LOOKS like protection: "
+      .. table.concat(dead, ", ")
+      .. " -- either drop the dead field (the type's exemption in UNFREEZABLE_TYPES"
+      .. " already covers it) or re-type the entity to something the engine freezes."
+      .. " See ci-qha1 / ci-de55.")
+  end
+
+  local bare = M.offenders(raw, M.discover(raw, skip_prefixes))
+  if #bare > 0 then
+    add("bare-frost", "cindra: crafting machine(s) that FREEZE with no frost sheen: "
+      .. table.concat(bare, ", ")
+      .. " -- wire graphics_set.frozen_patch + reset_animation_when_frozen"
+      .. " (create the layer with scripts/gen-frost-layer.py if the clone source"
+      .. " has no fitting vanilla frost sprite). See prototypes/frost-audit.lua")
+  end
+
+  return out
 end
 
 return M

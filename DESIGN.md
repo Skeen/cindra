@@ -223,6 +223,22 @@ the map-gen's own `out-of-map`:
       measured: `is_freezable` reports TRUE for an entity whose `heating_energy` is 0
       (it never freezes), and a declared draw on one of the refused types above is a
       pure no-op that *reads* as protection. The guard errors on that no-op too.
+    - **"Is this an entity?" is answered by TWO POSITIVE lists (ci-3ed3).** The guard
+      runs at the data stage, where the engine offers no way to ask what class a
+      prototype type belongs to, so `scripts/frost-audit.lua` enumerates both
+      `ENTITY_TYPES` and `NON_ENTITY_TYPES` — in one pass from the live registry
+      (Factorio 2.1 base + Space Age: 132 entity types, 119 other buckets), not grown
+      one load failure at a time. A type in **neither** list is `unknown`: a third
+      state that still **stops the load** (fail-closed is the ci-qha1 ruling and is
+      preserved), but asks to be *classified* rather than inventing a freeze verdict.
+      This replaced a single deny-list whose polarity made "entity" the default for
+      any unlisted type, so a `mod-data` prototype — pure data storage, no owner, no
+      health, no freeze — was announced as an *"entity IMMUNE to the planet's freeze
+      mechanic"* and hard-failed the load of every mod version that registered one.
+      The report is data (`M.problems`), not inline `error` strings, so the text a
+      developer reads is itself asserted (`unit-tests/test_frost_audit.lua`); the
+      enumeration is re-derived from `prototypes.entity` every run and goes red if
+      the engine grows a type nobody classified (`tests/test_frost.lua`).
 
 ## 4. Planet prototype decisions — IMPLEMENTED (item 1)
 

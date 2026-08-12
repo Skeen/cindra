@@ -232,13 +232,29 @@ test("a NAMED exemption is excused, and only by name", function()
     "exemptions are per-entity, never per-type -- a second reactor must argue its own case")
 end)
 
-test("the guard FAILS CLOSED on an entity of an unrecognised type", function()
-  -- The one way this guard could rot silently is by not recognising a new entity
-  -- kind at all. An unknown bucket is therefore assumed to be a freezable entity:
-  -- worst case someone must classify it, versus worst case something ships immune.
+test("the guard FAILS CLOSED on a prototype of an unrecognised type", function()
+  -- The one way this guard could rot silently is by not recognising a new
+  -- prototype kind at all, so an unknown type MUST still stop the load. What
+  -- changed in ci-3ed3 is only WHAT IT ASKS FOR: a classification, not a heat
+  -- draw. It is reported as unclassified rather than as an immune entity, because
+  -- the audit does not know that it is an entity.
   local raw = { ["some-type-nobody-listed"] = { ["cindra-mystery-building"] = {} } }
-  assert_eq(1, #audit.freeze_immune(raw),
-    "an unknown entity type must be REQUIRED to freeze, not quietly skipped")
+  assert_eq("unknown", audit.classify("some-type-nobody-listed"))
+  assert_eq(1, #audit.unclassified(raw),
+    "an unknown type must be REPORTED, not quietly skipped")
+  local problems = audit.problems(raw, {})
+  assert_true(#problems > 0, "the load must still FAIL on an unclassified prototype")
+  assert_eq("unclassified", problems[1].kind, "and fail on the classification first")
+end)
+
+test("fail-closed survives a mystery prototype that HAPPENS to carry a heat draw", function()
+  -- The deny-list waved this exact shape through: unknown type + heating_energy > 0
+  -- read as a correctly configured entity, so nobody ever classified it. The
+  -- positive lists cannot: the type is still unknown, so the load still stops.
+  local raw = { ["some-type-nobody-listed"] = { ["cindra-mystery-building"] = { heating_energy = "100kW" } } }
+  local problems = audit.problems(raw, {})
+  assert_true(#problems > 0, "a heat draw must not buy a pass on classification")
+  assert_eq("unclassified", problems[1].kind)
 end)
 
 test("non-entity prototypes are not entities", function()
@@ -253,6 +269,118 @@ test("non-entity prototypes are not entities", function()
   }
   assert_eq(0, #audit.entity_specs(raw), "no entities here")
   assert_eq(0, #audit.freeze_immune(raw))
+end)
+
+-- === ci-3ed3: a data-only prototype is not an immune entity =================
+-- The regression, exactly as it happened: ci-ndm9 registered `cindra-surface-
+-- conditions`, a `mod-data` prototype (pure data storage: no owner, no health, no
+-- freeze), and the load died with "entity/entities IMMUNE to the planet's freeze
+-- mechanic: cindra-surface-conditions (mod-data, heating_energy=nil)". Every
+-- clause of that was false, and it told the reader to add a heat draw to a
+-- prototype with nothing to heat.
+test("a mod-data prototype does not fail the load at all", function()
+  local raw = { ["mod-data"] = { ["cindra-surface-conditions"] = { data = { x = 1 } } } }
+  assert_eq("non-entity", audit.classify("mod-data"),
+    "mod-data is a data-storage prototype, not an entity")
+  assert_eq(0, #audit.entity_specs(raw), "a mod-data prototype is not an entity")
+  assert_eq(0, #audit.freeze_immune(raw))
+  assert_eq(0, #audit.unclassified(raw))
+  assert_eq(0, #audit.problems(raw, {}),
+    "registering a data-only prototype must not be a load failure")
+end)
+
+-- === ci-3ed3: the MESSAGE is the deliverable ================================
+-- The bug was half classification and half TEXT: the failure asserted the
+-- prototype was an immune ENTITY and demanded a heating_energy. So the text is
+-- pinned here -- an assertion nobody can make is an assertion that drifts back.
+test("an unclassified prototype is NOT described as an immune entity", function()
+  local raw = { ["some-brand-new-type"] = { ["cindra-mystery-thing"] = {} } }
+  local msg = audit.problems(raw, {})[1].message
+  assert_true(msg:find("UNRECOGNISED", 1, true) ~= nil,
+    "the reader must be told the TYPE is unrecognised, got: " .. msg)
+  assert_true(msg:find("some-brand-new-type", 1, true) ~= nil,
+    "the unrecognised type must be named, got: " .. msg)
+  assert_true(msg:find("cindra-mystery-thing", 1, true) ~= nil,
+    "the prototype must be named, got: " .. msg)
+  assert_true(msg:find("IMMUNE", 1, true) == nil,
+    "it must NOT be called immune -- we do not know it is an entity: " .. msg)
+  assert_true(msg:find("ENTITY_TYPES", 1, true) ~= nil
+    and msg:find("NON_ENTITY_TYPES", 1, true) ~= nil,
+    "both classification homes must be offered, got: " .. msg)
+end)
+
+test("a genuinely immune entity still gets the heating_energy message", function()
+  -- The other half of the same coin: when the audit DOES know it is an entity, the
+  -- old, correct advice must survive intact.
+  local raw = { ["assembling-machine"] = { ["cindra-brand-new-machine"] = machine(nil) } }
+  local problems = audit.problems(raw, {})
+  assert_eq("immune", problems[1].kind)
+  local msg = problems[1].message
+  assert_true(msg:find("IMMUNE", 1, true) ~= nil, "got: " .. msg)
+  assert_true(msg:find("heating_energy", 1, true) ~= nil, "got: " .. msg)
+  assert_true(msg:find("cindra-brand-new-machine", 1, true) ~= nil, "got: " .. msg)
+end)
+
+test("problems() reports nothing for a clean prototype set", function()
+  local raw = {
+    ["assembling-machine"] = { ["cindra-arc-furnace"] = machine("100kW") },
+    ["accumulator"] = { ["cindra-capacitor"] = {} },
+    ["item"] = { ["cindra-aluminium"] = {} },
+    ["mod-data"] = { ["cindra-surface-conditions"] = {} },
+  }
+  assert_eq(0, #audit.problems(raw, {}), "a clean set must load")
+end)
+
+test("problems() covers every audit, so the guard cannot drop one", function()
+  -- The data-stage guard is now one call. If a future refactor loses an audit
+  -- inside problems(), nothing else would notice -- so each kind is proven
+  -- reachable here.
+  local function kinds_of(raw)
+    local seen = {}
+    for _, p in ipairs(audit.problems(raw, {})) do seen[p.kind] = true end
+    return seen
+  end
+  assert_true(kinds_of({ ["zzz-unknown-type"] = { ["cindra-x"] = {} } })["unclassified"])
+  assert_true(kinds_of({ ["furnace"] = { ["cindra-x"] = machine(nil) } })["immune"])
+  assert_true(kinds_of({ ["accumulator"] = { ["cindra-x"] = { heating_energy = "100kW" } } })["dead-heating"])
+  assert_true(kinds_of({ ["furnace"] = { ["cindra-x"] = bespoke(nil, true) } })["bare-frost"])
+end)
+
+test("the two classification lists are POSITIVE, complete-ish and disjoint", function()
+  -- Enumerated in one pass from the live engine (ci-3ed3), not grown one load
+  -- failure at a time. A type in both lists is a contradiction the guard would
+  -- resolve silently (ENTITY_TYPES wins in M.classify), so it must be impossible.
+  local n_entity, n_non = 0, 0
+  for t in pairs(audit.ENTITY_TYPES) do
+    n_entity = n_entity + 1
+    assert_false(audit.NON_ENTITY_TYPES[t], t .. " is classified BOTH ways")
+    assert_eq("entity", audit.classify(t))
+  end
+  for t in pairs(audit.NON_ENTITY_TYPES) do
+    n_non = n_non + 1
+    assert_eq("non-entity", audit.classify(t))
+  end
+  -- Factorio 2.1 base + Space Age exposes 132 entity types and 119 other buckets;
+  -- a list that has collapsed to a handful is a list someone truncated.
+  assert_true(n_entity >= 130, "ENTITY_TYPES must stay the full enumeration, got " .. n_entity)
+  assert_true(n_non >= 119, "NON_ENTITY_TYPES must stay the full enumeration, got " .. n_non)
+  -- The types Cindra actually ships entities of, spot-checked so a bulk edit
+  -- cannot quietly drop one and turn a real entity into an unclassified mystery.
+  for _, t in ipairs({ "assembling-machine", "furnace", "accumulator", "solar-panel",
+                       "electric-energy-interface", "electric-pole", "heat-pipe",
+                       "constant-combinator", "explosion", "simple-entity", "resource",
+                       "reactor", "rocket-silo", "power-switch", "container" }) do
+    assert_eq("entity", audit.classify(t), t .. " is an entity type Cindra ships")
+  end
+end)
+
+test("every UNFREEZABLE_TYPES entry is a classified ENTITY type", function()
+  -- An exemption for a type the audit does not even consider an entity would be
+  -- dead code that reads as a live measurement.
+  for t in pairs(audit.UNFREEZABLE_TYPES) do
+    assert_eq("entity", audit.classify(t),
+      "UNFREEZABLE_TYPES excuses '" .. t .. "', which must be in ENTITY_TYPES")
+  end
 end)
 
 test("a heat draw on a type the engine IGNORES is reported as a dead field", function()
