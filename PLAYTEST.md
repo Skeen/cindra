@@ -611,6 +611,29 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   fade ramps, the deep-ice density stays under the ceiling; `tests/test_worldgen.lua`
   for the ice-rock density). Only "does the cold half still FEEL cold" is the playtest.
 
+- [ ] **[LANDED] The ice OCEAN reads as an ocean (ci-10ze).** The human reported the ice
+  ocean was too cluttered to see that it IS an ice ocean. It was: ci-tizx's fade-in
+  reaches FULL strength at perp −170, but the smooth-ice sheet only begins at perp
+  −188 and then runs ~212 tiles to the map edge, so the biggest region on the cold
+  half carried the densest clutter on the planet. The cold decals now fade back OUT
+  offshore — full strength at the smooth-ice contour, down to 12% over 24 tiles
+  (`decorative-field.OCEAN_DENSITY` / `OCEAN_FADE_SPAN`), gated on the smooth-ice TILE
+  contour (`terrain.FROZEN_CEILING`) rather than the ocean band edge. Measured on the
+  test seed: 0.090 → 0.010 decals per tile out on the open sheet. In-engine
+  before/after proof: `docs/verification/ci-10ze-ice-ocean-decals.png` (regenerate with
+  `scripts/render-mapgen.sh`). *Repro:* walk east from spawn across the frost belt and
+  out onto the frozen sea (or `scripts/render-mapgen.sh`). *Look for:* (1) the open
+  sheet reads as one flat expanse of ice — a SEA — with the odd drift for scale, not a
+  field of snow lumps; (2) the frost shore just inside it still carries its detail, so
+  the sheet reads smooth BY CONTRAST; (3) no stamped line where the thinning starts —
+  the clutter thins out over a couple of screens; (4) the sheet does not read EMPTY
+  either (if it feels dead, raise `OCEAN_DENSITY`; if it still reads as ground, lower
+  it). *Fallback:* the geometry + thinning are guarded off-game
+  (`unit-tests/test_decorative_field.lua`, `unit-tests/test_terrain.lua`) and on a live
+  surface (`tests/test_decoratives.lua`: the open sheet carries a small fraction of the
+  shore's coverage and the drop is a ramp). Only "does it FEEL like an ocean" is the
+  playtest.
+
 - [ ] **[LANDED] Nightside NATIVE freeze (ci-bvk) — feel + VISUALS.** The nightside
   now uses the ENGINE's real Aquilo-style freeze (`entities_require_heating` + an
   invisible worldgen lava-heat emitter line keeping the habitable band thawed), which
@@ -1102,17 +1125,49 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   reuses heating-tower art with the burner glow removed, so it reads electric, not
   a furnace). Prototype fields + runtime are tested (`test_heater.lua`,
   `test_storage`/`test_disposal`); the visual read + the leak *feel* are the
-  playtest. Bespoke animated art for these is a later pass, not a bug.
+  playtest. The animated working lights landed in ci-z94 (see below).
 
 - [ ] **[LANDED] Power buildings reuse first-pass Cindra art (§15-9, ci-sop).** The
   capacitor, molten-salt battery, and dissipator use delivered first-pass sprites
-  (`graphics/ART-MANIFEST.md`, ci-pru): single static frames, no charge-lamp/working
-  animation. *Look for:* scale/shift/tint look right and every building is actually
-  VISIBLE in world (ci-sop fixed the capacitor + molten-salt battery, which were
-  invisible because accumulator art must live in `chargable_graphics.picture`, not
-  `picture`; a data-stage audit `prototypes/graphics-audit.lua` now fails the load
-  if any custom Cindra entity lacks a wired sprite). This playtest is only the
-  visual read, not presence.
+  (`graphics/ART-MANIFEST.md`, ci-pru) as their IDLE state; ci-z94 added the
+  animated working layers over them. *Look for:* scale/shift/tint look right and
+  every building is actually VISIBLE in world (ci-sop fixed the capacitor +
+  molten-salt battery, which were invisible because accumulator art must live in
+  `chargable_graphics.picture`, not `picture`; a data-stage audit
+  `prototypes/graphics-audit.lua` now fails the load if any custom Cindra entity
+  lacks a wired sprite). This playtest is only the visual read, not presence.
+
+- [ ] **[LANDED] Flare storage SHOWS what it is doing (ci-z94).** The three
+  flare-surplus buildings stopped being still images: charging, discharging and
+  burning surplus each have their own animated emissive layer over the ci-pru idle
+  body, plus a coloured light. *Repro:* build a bank of capacitors, a bank of
+  molten-salt batteries and a couple of dissipators on one flare-riding grid, then
+  stand back far enough to see all of them at once and watch a full flare cycle
+  (calm -> ramp -> plateau -> decay). *Look for:*
+  (1) **the read works at a glance** - during the ramp you can tell which units are
+  charging without opening a single GUI, and during the calm you can tell which are
+  giving power back;
+  (2) **the capacitor and the battery are not the same machine** - violet arc
+  filaments crawling fast on the capacitor vs a slow ember pool on the battery, and
+  the capacitor's light snaps off after a surge while the battery's lingers
+  (deliberate: thermal mass, `charge_cooldown` 12 vs 90 ticks);
+  (3) **the capacitor's dump strobes** - a flash and an outward shock ring, not a
+  steady glow;
+  (4) **the dissipator tracks load** - dark and still when there is no surplus to
+  burn, fins running hot under a flare (the engine scales an
+  electric-energy-interface's animation to its actual consumption);
+  (5) **nothing is broken by the glow** - no black box over any body (the ci-036
+  additive-blend trap), no light hanging in the air beside a machine, no flicker or
+  blank frame at the loop wrap, and the shadow stays put for the whole cycle;
+  (6) **it is not too loud** - a big bank should read, not strobe the screen; the
+  animation speeds and light intensities in `prototypes/storage.lua` are the knobs.
+  *Fallback:* everything measurable is already tested off-game - the frames move,
+  the cycles loop, no emission falls outside the body silhouette, the light lands on
+  the roof, and the sheets are byte-identical to the generator's output
+  (`unit-tests/test_entity_anim.py`); the declared frame grid matches the real PNG,
+  the glow blends additive, and the body holds for the whole cycle
+  (`unit-tests/test_storage_graphics.lua`). Only the *look and feel in motion* is
+  this entry.
 
 ## Mass driver (space export)
 
@@ -1291,8 +1346,12 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   heater and mass driver still reuse vanilla-derived sprites/icons (see
   `graphics/ART-MANIFEST.md`); the lava manufacturer (glass furnace, ci-oi8) and
   the aluminium electrolysis cell (oxidizer, ci-a6z; was arc furnace, ci-wfv) now
-  wear bespoke Hurricane046 art. Remaining bespoke/animated art is tracked across ci-z94,
-  ci-eb9, and ci-kuu. Do not file the remaining placeholder art as a gameplay bug.
+  wear bespoke Hurricane046 art, and the flare-storage kit (capacitor,
+  molten-salt battery, dissipator) got animated working lights over its
+  first-pass bodies (ci-z94). What is still first-pass: those three bodies are
+  procedural, and **no** Cindra entity sprite is DIRECTIONAL. Remaining
+  bespoke/animated art is tracked across ci-eb9 and ci-kuu. Do not file the
+  remaining placeholder art as a gameplay bug.
 
 - [ ] **[LANDED] Red-mud subsystem art (ci-c7j → ci-zdp → ci-hs1j).** The ci-c7j
   placeholders (red mud / slag as tinted `cindra-stone`, the furnace as an

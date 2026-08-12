@@ -238,14 +238,18 @@ recommendation — both **IMPLEMENTED (item 2)**:
   thin-ribbon cliff treatment and the deferred zone-11 ice-mountain cliff are ci-70r;
   the impassable smooth-ice cap is the cold wall.) Resources are native autoplace
   (see §4a).
-- **Decals & weather (ci-6fq, ci-tizx, ci-mk5y):** cosmetic scatter gated to the
+- **Decals & weather (ci-6fq, ci-tizx, ci-mk5y, ci-10ze):** cosmetic scatter gated to the
   GROUND it belongs on, both sides read off the one heightmap field
   (`scripts/decorative-field.lua`; Cindra-owned clones only, never a mutated vanilla
   decorative). Volcanic **rocks / pebbles / craters** ride the volcanic slope + crust —
   the value segment from the ash convergence up to (never onto) the molten floor, via
   `terrain.field_crossing`, because a zone band edge is not a tile boundary. **Ice /
   snow** decals start where the ground turns snow/ice, fade in nightward and stay
-  thinned so the tiles read through. The whole brown habitable band — including the
+  thinned so the tiles read through, then fade back OUT to a trace once the ground
+  becomes the smooth-ice OCEAN SHEET (`terrain.FROZEN_CEILING`'s contour, ci-10ze), so
+  the frozen sea reads as open water rather than as the most cluttered ground on the
+  planet: the detail belongs on the SHORE, which is what makes the sheet read as smooth.
+  The whole brown habitable band — including the
   terminator centre, a clean landing spawn — carries no decal at all. On top of the
   lying snow, the icy half **snows** (`scripts/snowfall.lua`): a drifting per-player
   flake field gated PER FLAKE on the perpendicular axis, so it snows nightward of the
