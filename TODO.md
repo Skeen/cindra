@@ -310,6 +310,21 @@ merge queue.
   `unit-tests/test_zone_scale.lua` (including an evaluation of the emitted map-gen
   expression against the runtime warp) + `tests/test_worldgen_sliders.lua`; the
   screen's look/feel is a PLAYTEST entry.
+- [x] **Stone/Ice slider EFFECT measured, not just their existence.** `ci-y19` — DONE.
+  `tests/test_worldgen_resource_sliders.lua` generates fixed-seed surfaces with one
+  resource slider moved and counts the ore actually in the ground, patch by patch
+  (flood-filled clusters): Richness puts ~4x the ore in a bit-identical footprint,
+  Size fattens the patches without scattering new ones, Frequency scatters more of
+  them, Size 0 removes the resource and leaves the other one untouched, and no
+  setting pushes a field out of its band. Verified sensitive by pinning every
+  `control:*` var to 1 in `banded_autoplace`: all five effect tests fail. It turned
+  up two open bugs: `ci-l3k3` (ICE *Frequency* is inert above 0.5 -- ice asks for
+  40 spots/km2, past the engine's 21-candidate budget per region, so it is saturated
+  at the default already and ice runs at HALF its declared density) and `ci-bgpm`
+  (`FIELD_DAMAGE_MARGIN` budgets 9.5 tiles of tile bleed but the heightmap value
+  bleeds hot crust ~15 tiles, so at maxed sliders 16 stone tiles land on
+  heat-damaging crust). Both fixes shift default-world balance, so they are their own
+  beads; the suite asserts the halves that hold today.
 - [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
   snowfall on the cold side only. PARTIALLY DONE by `ci-tizx` for the COLD side: the
   ice/snow decals now start at the icy-ground edge (`terrain.damage_bounds().cold_from`)

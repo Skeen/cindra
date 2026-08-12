@@ -103,6 +103,13 @@ if script.active_mods["factorio-test"] then
     -- measures the ground a player would walk: wider safe band, relocated lethal
     -- belts, same map size, oceans still walling both edges.
     "tests/test_worldgen_sliders",
+    -- ci-y19: the STONE / ICE resource sliders on the same screen. Generates surfaces
+    -- with one slider moved and counts the ore actually in the ground: Richness puts
+    -- more ore in the same patches, Size fattens them, Frequency scatters more of
+    -- them, Size 0 removes the ore entirely and leaves the other resource untouched,
+    -- and no setting pushes a field out of its band. Found ci-l3k3 + ci-bgpm, whose
+    -- two remaining assertions are noted in the suite header.
+    "tests/test_worldgen_resource_sliders",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",
