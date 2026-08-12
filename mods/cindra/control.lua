@@ -102,6 +102,10 @@ if script.active_mods["factorio-test"] then
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",
     "tests/test_decoratives",
+    -- ci-mk5y: the icy-side SNOWFALL -- snow falls on the frozen half of the ribbon and
+    -- NOWHERE else (not on the habitable band, not on the hot side, not on other planets),
+    -- and it actually falls.
+    "tests/test_snowfall",
     -- § freeze (ci-bvk): NATIVE freeze via the entities_require_heating flag + the
     -- worldgen lava-heat emitter line. Replaces the retired scripted building-heat
     -- cold-damage model: measured reach/seam vs the real emitter, warm-band thawed /
