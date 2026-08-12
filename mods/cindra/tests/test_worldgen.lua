@@ -464,16 +464,38 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
       "no sandy rocks on the frosty cold edge (fades before ice, ci-18n)")
   end)
 
+  -- Every ice-rock SIZE is counted, not just the big one (ci-w87): the cold rocks are
+  -- an iceberg family now, and a guard that watched one member would go quiet the
+  -- moment placement regressed on the other.
+  local function count_ice_rocks(x1, x2)
+    local n = 0
+    for _, name in ipairs(field.ice_rock_names()) do
+      n = n + s.count_entities_filtered({ name = name, area = { { x1, -RY }, { x2, RY } } })
+    end
+    return n
+  end
+
   it("scatters ice-rocks across the safe cold band, never the lethal cold zone (ci-18n)", function()
     -- ice-rock band perp (-130, -60] -> x in [60, 130).
-    assert.is_true(s.count_entities_filtered({ name = field.ICE_ROCK, area = { { 62, -RY }, { 128, RY } } }) > 0,
-      "ice-rocks scatter across the safe cold band")
-    assert.are.equal(0, s.count_entities_filtered({ name = field.ICE_ROCK, area = { { 132, -RY }, { 400, RY } } }),
-      "no ice-rocks in the lethal cold damage zone")
-    local near = s.find_entities_filtered({ name = field.ICE_ROCK, area = { { -400, -RY }, { 65, RY } } })
+    assert.is_true(count_ice_rocks(62, 128) > 0, "ice-rocks scatter across the safe cold band")
+    assert.are.equal(0, count_ice_rocks(132, 400), "no ice-rocks in the lethal cold damage zone")
     local warm_leak = 0
-    for _, e in ipairs(near) do if e.position.x < 59 then warm_leak = warm_leak + 1 end end
+    for _, name in ipairs(field.ice_rock_names()) do
+      for _, e in ipairs(s.find_entities_filtered({ name = name, area = { { -400, -RY }, { 65, RY } } })) do
+        if e.position.x < 59 then warm_leak = warm_leak + 1 end
+      end
+    end
     assert.are.equal(0, warm_leak, "no ice-rocks centred on the warm/temperate ribbon")
+  end)
+
+  -- ci-w87: the cold side used to be one boulder model recoloured blue. It is the
+  -- lithium ice-formation family now, and BOTH entity sizes have to actually turn up --
+  -- a size that never generates is art the player never sees.
+  it("generates BOTH ice-formation sizes on the cold ground (ci-w87)", function()
+    for _, name in ipairs(field.ice_rock_names()) do
+      assert.is_true(s.count_entities_filtered({ name = name, area = { { 62, -RY }, { 128, RY } } }) > 0,
+        name .. " must generate in the safe cold band")
+    end
   end)
 
   -- ci-tizx: the ice-rock chunks share the cold outer band with the frost decals, and
@@ -481,7 +503,12 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
   -- stay THIN enough that the terrain reads through it, while still bootstrapping.
   it("keeps the ice-rock scatter thin enough to see the ground through (ci-tizx)", function()
     local x1, x2, y1, y2 = 62, 128, -300, 300
-    local n = s.count_entities_filtered({ name = field.ICE_ROCK, area = { { x1, y1 }, { x2, y2 } } })
+    -- The WHOLE family (ci-w87): splitting one scatter across two iceberg sizes must
+    -- not sneak extra rocks past this ceiling, so the total is what is measured.
+    local n = 0
+    for _, name in ipairs(field.ice_rock_names()) do
+      n = n + s.count_entities_filtered({ name = name, area = { { x1, y1 }, { x2, y2 } } })
+    end
     local per_tile = n / ((x2 - x1) * (y2 - y1))
     log("ci-tizx ice-rock density: " .. n .. " -> " .. per_tile .. " per tile")
     assert.is_true(per_tile > 0.0002, "still an ample hand-mined bootstrap scatter")
@@ -510,6 +537,64 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
   it("keeps burned rocks OUT of the middle and the cold side (ci-qy0)", function()
     assert.are.equal(0, count_burned(-55, 55), "no burned rocks in the middle")
     assert.are.equal(0, count_burned(65, 400), "no burned rocks in the cold/ice side")
+  end)
+
+  -- ci-w87: which volcanic MODEL you see is a truthful read of the ground. The glowing
+  -- (`-hot`) boulders belong inside the lava area; the plain charred ones belong on the
+  -- safe hot slope. Both halves are asserted from the LIVE surface: where the rocks
+  -- actually landed, and what the tile under each one actually does to the player.
+  local function volcanic_rocks()
+    local out = {}
+    for _, name in ipairs(field.burned_rock_names()) do
+      for _, e in ipairs(s.find_entities_filtered({ name = name, area = { { -400, -RY }, { 400, RY } } })) do
+        out[#out + 1] = e
+      end
+    end
+    return out
+  end
+
+  -- THE invariant this bead exists for, stated as what the player experiences: a rock
+  -- that GLOWS is standing on ground that burns, and a rock that does not is standing
+  -- on ground that does not. Checked on EVERY generated rock -- no sampling, no margin
+  -- around the band edge, because the model is gated on the tile itself and so cannot
+  -- disagree with it anywhere.
+  it("a GLOWING rock means the ground under it burns, a plain one means it does not (ci-w87)", function()
+    local rocks = volcanic_rocks()
+    assert.is_true(#rocks > 0, "volcanic rocks generate at all")
+    local hot_seen, cool_seen, wrong = 0, 0, {}
+    for _, e in ipairs(rocks) do
+      local intensity, kind = terrain.tile_damage(s.get_tile(e.position.x, e.position.y).name)
+      local ground_burns = intensity > 0 and kind == "heat"
+      local glows = field.is_hot_burned_rock(e.name)
+      if glows then hot_seen = hot_seen + 1 else cool_seen = cool_seen + 1 end
+      if glows ~= ground_burns and #wrong < 5 then
+        wrong[#wrong + 1] = e.name .. " at " .. string.format("%.1f,%.1f", e.position.x, e.position.y)
+          .. " on " .. s.get_tile(e.position.x, e.position.y).name
+      end
+    end
+    assert.are.equal(0, #wrong,
+      "rocks whose model lies about the ground they stand on: " .. table.concat(wrong, ", "))
+    assert.is_true(hot_seen > 0, "glowing rocks actually generate on burning ground")
+    assert.is_true(cool_seen > 0, "plain rocks actually generate on safe ground")
+  end)
+
+  it("keeps the glowing rocks in the LAVA AREA, never the habitable band (ci-w87)", function()
+    -- The burning ground only exists in the hot region, so gating on the tile also
+    -- keeps the glowing boulders out of the band the player builds in.
+    local strays = 0
+    for _, e in ipairs(volcanic_rocks()) do
+      if field.is_hot_burned_rock(e.name) and -e.position.x < field.lava_edge() - 20 then
+        strays = strays + 1
+      end
+    end
+    assert.are.equal(0, strays, "glowing rocks well warmward of the lava area")
+  end)
+
+  it("generates every volcanic size in BOTH the plain and the glowing model (ci-w87)", function()
+    for _, name in ipairs(field.burned_rock_names()) do
+      assert.is_true(s.count_entities_filtered({ name = name, area = { { -400, -RY }, { 400, RY } } }) > 0,
+        name .. " must actually generate somewhere on the hot side")
+    end
   end)
 
   it("coal is reachable SAFELY: volcanic rocks generate in the non-lethal hot margin (ci-18n)", function()

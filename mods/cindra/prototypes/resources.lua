@@ -37,6 +37,26 @@ local util = require("util")
 local resource_autoplace = require("resource-autoplace")
 local field = require("scripts.resource-field")
 local rock_tint = require("scripts.rock_tint")
+-- Which vanilla MODEL each rock wears (ci-w87). Every rock below clones its source
+-- from here rather than naming it inline, so the load-time audit
+-- (prototypes/rock-models.lua) can never be checking a different intention than the
+-- one the rocks were actually built from.
+local rock_models = require("scripts.rock-models")
+
+-- The vanilla simple-entity a Cindra rock wears, from the model catalogue. Errors
+-- loudly rather than silently building a rock with no art.
+local function model_source(name)
+  local clone_from = rock_models.clone_from(name)
+  if not clone_from then
+    error("cindra resources: no declared model for rock " .. tostring(name)
+      .. " (add it to scripts/rock-models.lua)")
+  end
+  local src = data.raw["simple-entity"][clone_from]
+  if not src then
+    error("cindra resources: missing rock model source " .. tostring(clone_from))
+  end
+  return src
+end
 
 -- The ribbon geometry (startup settings, available at data stage). The band masks
 -- read these so the autoplace bands line up exactly with the damage axis.
@@ -231,7 +251,7 @@ data:extend({
 -- in the lava region below), so the sandy rocks keep only stone + the iron/copper
 -- trickle. The amounts are a bootstrap-balance decision (§15-13, coordinate with
 -- ci-arw / ci-uex); kept small and finite so they can never replace the main loop.
-local rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
+local rock = util.table.deepcopy(model_source(field.ROCK))
 -- Player-facing name is just "Rock" (locale entity-name.cindra-rock); the
 -- prototype id carries no "bootstrap" either (ci-d2h). The bootstrap ROLE
 -- (finite landing-tier metal) is unchanged -- only the name is plain.
@@ -243,7 +263,13 @@ rock.name = "cindra-rock"
 -- each rock is one-shot and can never become a per-craft supply of the main loop
 -- (the §6 no-soft-lock rule holds because the drop stays off every loop recipe --
 -- see test_bootstrap.lua). No on_chunk_generated script; the map-gen places them.
-rock.autoplace = { probability_expression = field.rock_probability_expr(CFG) }
+-- The autoplace `order` is its own random stream (see scripts/rock-models.lua): rocks
+-- that share one succeed on identical tiles and all but the first silently never
+-- generate.
+rock.autoplace = {
+  order = rock_models.place_order(field.ROCK),
+  probability_expression = field.rock_probability_expr(CFG),
+}
 rock.order = "a[cindra]-a[rock]"
 rock.map_color = { 0.55, 0.45, 0.35 }
 -- Warm the stock huge-rock art toward a vanilla-STONE look (ci-jvc): a warm
@@ -272,25 +298,59 @@ data:extend({ rock })
 -- is a one-shot trickle, never a per-craft input of the main loop -- the sustaining
 -- water supply is still the renewable ICE FIELD (crush -> ice -> melt), per §6.
 --
--- Cloned from the vanilla huge-rock (like the sandy rock) purely for the rock art;
--- we never mutate the shared vanilla prototype (that would leak onto Nauvis), only
--- deep-copy it. A pale frost-blue multiply-tint (rock_tint.ICE_TINT) shifts the warm
--- rubble art toward an ICY boulder so it reads correctly on the cold cap.
-local ice_rock = util.table.deepcopy(data.raw["simple-entity"]["huge-rock"])
-ice_rock.name = field.ICE_ROCK
-ice_rock.order = "a[cindra]-d[ice-rock]"
-ice_rock.map_color = { 0.62, 0.82, 1.0 } -- pale frost-blue, matches the icy tint
-ice_rock.autoplace = { probability_expression = field.ice_rock_probability_expr(CFG) }
-rock_tint.apply(ice_rock.pictures, rock_tint.ICE_TINT)
-ice_rock.minable = {
-  mining_particle = "stone-particle",
-  mining_time = 2,
-  results = {
-    { type = "item", name = "ice", amount_min = 4, amount_max = 8 },
-    { type = "item", name = "stone", amount_min = 8, amount_max = 16 },
+-- ART (ci-w87): cloned from Aquilo's LITHIUM-ICEBERG models, not from the brown
+-- huge-rock. The first cut re-used the sandy rock's huge-rock art under a pale
+-- frost-blue multiply-tint, and the playtest read it exactly as what it was -- "a
+-- blue-tinted normal rock" -- because a tint recolours rubble but cannot give it the
+-- faceted, translucent silhouette of ice. Aquilo already ships that silhouette, so we
+-- reuse it (extend, don't re-implement) in TWO sizes: the common big berg and an
+-- occasional huge landmark. The medium/small/tiny members of the same family are
+-- optimized-decoratives and ride the decorative catalogue instead
+-- (scripts/decorative-field.lua), so the whole size family reads as one material.
+--
+-- We deep-copy each source and never mutate the shared vanilla prototype (that would
+-- leak onto Aquilo). The source's minable table is kept for its ice mining sounds /
+-- particles and only its RESULTS are replaced: Cindra has no lithium and no
+-- ice-platform, so the Aquilo drop would be nonsense here.
+local ICE_ROCKS = {
+  {
+    name = field.ICE_ROCK,
+    order = "a[cindra]-d[ice-rock]",
+    ice = { 4, 8 }, stone = { 8, 16 },
+  },
+  {
+    name = field.ICE_ROCK_HUGE,
+    order = "a[cindra]-e[ice-rock-huge]",
+    ice = { 6, 12 }, stone = { 12, 24 },
   },
 }
-data:extend({ ice_rock })
+
+local ice_rocks = {}
+for _, spec in ipairs(ICE_ROCKS) do
+  local src = model_source(spec.name)
+  local r = util.table.deepcopy(src)
+  r.name = spec.name
+  r.order = spec.order
+  r.map_color = { 0.62, 0.82, 1.0 } -- pale frost-blue, matches the iceberg art
+  -- Per-size share of the ONE cold-band scatter (field.ICE_ROCK_SHARE), so adding the
+  -- second size changed the look and not the coverage (the ci-tizx density budget).
+  -- The per-size autoplace ORDER is load-bearing, not cosmetic: two rocks sharing an
+  -- order share the engine's per-tile roll, and the second then generates nowhere at
+  -- all (see scripts/rock-models.lua).
+  r.autoplace = {
+    order = rock_models.place_order(spec.name),
+    probability_expression = field.ice_rock_probability_expr(CFG, spec.name),
+  }
+  -- Keep the source's mining_time / particles / ice-crunch mining_trigger; replace only
+  -- the drop with Cindra's ice + stone bootstrap trickle (no lithium, no ice-platform).
+  r.minable = util.table.deepcopy(src.minable)
+  r.minable.results = {
+    { type = "item", name = "ice", amount_min = spec.ice[1], amount_max = spec.ice[2] },
+    { type = "item", name = "stone", amount_min = spec.stone[1], amount_max = spec.stone[2] },
+  }
+  ice_rocks[#ice_rocks + 1] = r
+end
+data:extend(ice_rocks)
 
 -- Burned volcanic rocks (ci-qy0): charred Vulcanus-style boulders that generate in
 -- the HOT / lava region of the ribbon (never the temperate/building or ice zones),
@@ -308,34 +368,60 @@ data:extend({ ice_rock })
 -- simple-entities (a mined rock is destroyed), so the coal is a one-shot trickle,
 -- never a per-craft input of the main loop.
 --
--- Two size variants for visual variety; both share the hot-region autoplace and
--- the stone+coal drop, differing only in art and yield magnitude.
+-- Two size variants for visual variety, each in a COOL and a HOT model (ci-w87).
+-- Vulcanus ships every volcanic boulder twice -- a plain charred rock, and a `-hot`
+-- twin whose art layers an EMISSIVE glow over the same silhouette -- and picks between
+-- them by the tile underneath. Cindra reuses both and splits them on the ONE boundary
+-- that already decides whether the ground burns you (field.lava_edge, the heat-damage
+-- edge where the tile gradient turns to glowing crust): inside the lava area the rocks
+-- glow, on the safe hot slope they do not. So the model you see is a truthful read of
+-- the ground you are standing on, not decoration.
+--
+-- The HOT twin keeps the SAME stone+coal yield as its cool counterpart: this bead is an
+-- art change, and a richer lava-side drop would be an unasked-for balance shift.
+-- Vulcanus has no medium/small/tiny HOT decorative, so the small end of the family
+-- (scripts/decorative-field.lua) stays the plain charred art on both sides of the line.
 local BURNED_ROCKS = {
   {
-    name = field.BURNED_ROCK, clone_from = "big-volcanic-rock",
+    name = field.BURNED_ROCK,
     order = "a[cindra]-b[volcanic-rock]", map_color = { 0.35, 0.16, 0.10 },
     stone = { 4, 10 }, coal = { 2, 5 },
   },
   {
-    name = field.BURNED_ROCK_HUGE, clone_from = "huge-volcanic-rock",
+    name = field.BURNED_ROCK_HUGE,
     order = "a[cindra]-c[volcanic-rock-huge]", map_color = { 0.35, 0.16, 0.10 },
+    stone = { 8, 20 }, coal = { 4, 10 },
+  },
+  {
+    name = field.BURNED_ROCK_HOT,
+    order = "a[cindra]-b[volcanic-rock]-hot", map_color = { 0.55, 0.20, 0.08 },
+    stone = { 4, 10 }, coal = { 2, 5 },
+  },
+  {
+    name = field.BURNED_ROCK_HUGE_HOT,
+    order = "a[cindra]-c[volcanic-rock-huge]-hot", map_color = { 0.55, 0.20, 0.08 },
     stone = { 8, 20 }, coal = { 4, 10 },
   },
 }
 
 local burned_rocks = {}
 for _, spec in ipairs(BURNED_ROCKS) do
-  local src = data.raw["simple-entity"][spec.clone_from]
-  if not src then
-    error("cindra resources: missing volcanic rock clone source " .. tostring(spec.clone_from))
-  end
+  local src = model_source(spec.name)
   local r = util.table.deepcopy(src)
   r.name = spec.name
   r.order = spec.order
   r.map_color = spec.map_color
   -- Native autoplace tied to the hot end of the gradient (ci-3yl style, ci-qy0):
-  -- the map-gen scatters them across the hot region, densest toward the lava.
-  r.autoplace = { probability_expression = field.burned_rock_probability_expr(CFG) }
+  -- the map-gen scatters them across the hot region, densest toward the lava. Every
+  -- model shares that one band; the TILE RESTRICTION (ci-w87) is what decides which
+  -- model stands where, so a glowing rock can only land on ground that burns and a
+  -- plain one only on ground that does not -- no coordinate can put the two out of
+  -- step. The per-model `order` is a separate necessity: see scripts/rock-models.lua.
+  r.autoplace = {
+    order = rock_models.place_order(spec.name),
+    probability_expression = field.burned_rock_probability_expr(CFG),
+    tile_restriction = field.burned_rock_tile_restriction(spec.name),
+  }
   -- Mining yields STONE + COAL ONLY (the acceptance criterion). Drop the Vulcanus
   -- original's ore/tungsten trickle entirely.
   r.minable = {

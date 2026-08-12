@@ -23,8 +23,11 @@
 --              fading out before the frosty cold zones (ci-18n): no rock-on-ice.
 --   ice-rocks  finite bootstrap scatter across the SAFE cold band (cold of the
 --              divider, warm of the lethal deep-ice cap); yields ice + stone (ci-18n).
+--              ICEBERG art in two sizes since ci-w87.
 --   volcanic rocks  finite scatter across the volcanic-tile region, clustered toward
 --              the lava; yields stone + coal (ci-qy0, tightened to volcanic tiles ci-18n).
+--              Each size in a COOL and a HOT (glowing) model, split at the lava edge
+--              so the model matches the ground it stands on (ci-w87).
 --
 -- HARVESTABLE FIELDS NEVER SPAWN IN THE LETHAL DAMAGE ZONE (ci-fb9, margin added
 -- ci-4iw): a resource on the unreachable lethal cap/wall is visible-but-unreachable.
@@ -64,20 +67,47 @@ M.ROCK = "cindra-rock"
 -- early ICE + STONE trickle (prototypes/resources.lua). Named here with the other
 -- Cindra worldgen entity names so resources.lua, the planet.lua autoplace allow-list
 -- and the tests all read the SAME name.
+--
+-- TWO SIZES since ci-w87, because the ART is now Aquilo's LITHIUM-ICEBERG family
+-- rather than a blue-tinted brown boulder: the icebergs ship as a huge and a big
+-- entity model (plus medium/small/tiny DECORATIVES, which ride the decorative
+-- catalogue in scripts/decorative-field.lua). Both sizes share the one cold-band
+-- placement rule below; only the model and the yield magnitude differ.
 M.ICE_ROCK = "cindra-ice-rock"
+M.ICE_ROCK_HUGE = "cindra-ice-rock-huge"
+function M.ice_rock_names()
+  return { M.ICE_ROCK, M.ICE_ROCK_HUGE }
+end
 
 -- Burned volcanic rocks (ci-qy0): charred Vulcanus-style boulders that generate in
 -- the HOT / lava region only, clustered toward the lava edge so they read as "in
--- the lava areas". Two size variants for visual variety; both are finite
+-- the lava areas". Size variants for visual variety; all are finite
 -- simple-entities that yield STONE + COAL only (see prototypes/resources.lua).
 -- The names live here (with the other Cindra worldgen entity names) so
 -- prototypes/resources.lua, prototypes/planet.lua's autoplace allow-list, and the
 -- tests all read the SAME list.
+--
+-- Since ci-w87 each size comes in a COOL and a HOT model. Vulcanus draws its rocks
+-- two ways -- a plain charred boulder, and a `-hot` twin whose art carries an
+-- emissive glow layer -- and gates them BY TILE, so a rock standing on glowing crust
+-- glows too. Cindra does the same (M.burned_rock_tile_restriction): the hot model may
+-- stand only on ground that burns and the cool model only on ground that does not, so
+-- which model you see tells you what the ground under it will do to you.
 M.BURNED_ROCK = "cindra-volcanic-rock"
 M.BURNED_ROCK_HUGE = "cindra-volcanic-rock-huge"
+M.BURNED_ROCK_HOT = "cindra-volcanic-rock-hot"
+M.BURNED_ROCK_HUGE_HOT = "cindra-volcanic-rock-huge-hot"
 function M.burned_rock_names()
-  return { M.BURNED_ROCK, M.BURNED_ROCK_HUGE }
+  return { M.BURNED_ROCK, M.BURNED_ROCK_HUGE, M.BURNED_ROCK_HOT, M.BURNED_ROCK_HUGE_HOT }
 end
+
+-- The burned rocks that carry the HOT (emissive) model, i.e. the ones gated to the
+-- lava area. The complement is the cool set.
+M.BURNED_ROCK_HOT_SET = {
+  [M.BURNED_ROCK_HOT] = true,
+  [M.BURNED_ROCK_HUGE_HOT] = true,
+}
+function M.is_hot_burned_rock(name) return M.BURNED_ROCK_HOT_SET[name] == true end
 
 -- Node richness (resource `amount`) starting points, all (tune).
 M.STONE_BASE = 600
@@ -228,6 +258,16 @@ end
 -- the chunks.
 M.ICE_ROCK_PROBABILITY = 0.003
 
+-- How ICE_ROCK_PROBABILITY is SPLIT between the two iceberg sizes (ci-w87). The shares
+-- SUM TO 1, so adding the big model alongside the huge one changes only which model you
+-- see, never how much of the cold band is covered -- the ci-tizx "you can still see the
+-- ground" density budget is untouched by the art swap. Big is the common one; the huge
+-- berg is the occasional landmark.
+M.ICE_ROCK_SHARE = {
+  [M.ICE_ROCK] = 0.7,
+  [M.ICE_ROCK_HUGE] = 0.3,
+}
+
 -- Burned volcanic rocks (ci-qy0) live in the HOT region only, in the VOLCANIC-TILE
 -- region proper (terrain.cliff_band: hot_inner .. hot_outer), from the middle's hot
 -- edge out to the walkable hot margin (the hot inner-slope edge, just short of the lava
@@ -237,6 +277,38 @@ M.ICE_ROCK_PROBABILITY = 0.003
 function M.burned_rock_zone(y, cfg)
   local v = terrain.cliff_band(cfg)
   return y > v.lo and y <= v.hi
+end
+
+-- The LAVA-AREA edge (ci-w87): the warmward boundary of the heat-lethal band, i.e. the
+-- nominal perpendicular position where the field crosses HOT_DMG and the ground turns
+-- into glowing crust (scripts/terrain.lua owns it; we read it, never re-derive it).
+-- Sunward of this line the ground burns you; that is what "inside the lava areas"
+-- means. It is the PROSE boundary only -- see below for why the model gate is a tile
+-- restriction and not this number.
+function M.lava_edge(cfg)
+  return terrain.damage_bounds(cfg).hot_from
+end
+
+-- WHICH VOLCANIC MODEL GOES WHERE IS DECIDED BY THE TILE, NOT BY THE COORDINATE
+-- (ci-w87). The glowing `-hot` boulders may stand only on ground that burns, and the
+-- plain charred ones only on ground that does not, so what the player sees is always a
+-- truthful read of what they are standing on.
+--
+-- It has to be the tile. The nominal boundary is M.lava_edge, but the tile bands are
+-- painted through a boundary wiggle plus a per-tile speckle expressed in FIELD units,
+-- and on the gentle hot slope that speckle is worth roughly six TILES of bleed: glowing
+-- crust really does appear several tiles warmward of the line. A position-gated model
+-- therefore puts plain rocks on burning ground (and glowing ones on cool ground) in a
+-- band either side of the edge -- measured, not hypothetical. Gating on the tile makes
+-- the disagreement impossible instead of merely small, and it is what Vulcanus itself
+-- does with its own hot/cold rock pair.
+--
+-- The two restrictions are disjoint and together cover every Cindra tile, so wherever
+-- the band mask says "a rock here", exactly one model qualifies -- no ground is left
+-- rock-free by the split.
+function M.burned_rock_tile_restriction(name)
+  if M.is_hot_burned_rock(name) then return terrain.tiles_by_damage("heat") end
+  return terrain.tiles_by_damage(nil)
 end
 
 -- Per-tile spawn probability at the two ends of the hot region: sparse at the
@@ -305,12 +377,21 @@ end
 -- AND), masking the constant per-tile probability to the band. The mask zeroes
 -- probability across the whole hot/temperate zone AND the lethal deep-ice cap, so
 -- ice-rocks can NEVER generate there (matches M.ice_rock_zone; keep the two in step).
-function M.ice_rock_probability_expr(cfg)
+--
+-- `name` (optional, ci-w87) picks one iceberg SIZE and scales the probability by that
+-- size's share of the scatter (M.ICE_ROCK_SHARE). Omitted, it returns the band's TOTAL
+-- probability -- the sum over the sizes -- which is what the density guards measure.
+function M.ice_rock_probability_expr(cfg, name)
   local b = bounds(cfg)
   local d = terrain.damage_bounds(cfg)
+  local share = 1
+  if name ~= nil then
+    share = M.ICE_ROCK_SHARE[name]
+    assert(share, "resource-field: no ice-rock share for " .. tostring(name))
+  end
   return "(" .. Y .. " <= " .. num(b.building_lo) .. ")" ..
          " * (" .. Y .. " > " .. num(d.cold_from) .. ")" ..
-         " * " .. num(M.ICE_ROCK_PROBABILITY)
+         " * " .. num(M.ICE_ROCK_PROBABILITY * share)
 end
 
 -- Burned volcanic rocks (ci-qy0): a native simple-entity autoplace confined to the
@@ -323,6 +404,10 @@ end
 -- toward the lava and the rocks read as "in the lava areas". The mask zeroes
 -- probability across the habitable middle and the whole cold/ice side (matches
 -- M.burned_rock_zone; keep the two in lockstep).
+--
+-- Every volcanic model shares this ONE band expression: the hot/cool choice is made by
+-- the tile restriction (M.burned_rock_tile_restriction), not here, so splitting the
+-- family across models cannot change how much of the hot region carries rock.
 function M.burned_rock_probability_expr(cfg)
   local v = terrain.cliff_band(cfg)
   local S, L = v.lo, v.hi

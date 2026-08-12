@@ -104,6 +104,17 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
       + count("cindra-snow-drift-decal", COLD_X + 1, 340) > 0, "light-snow decals present")
   end)
 
+  -- ci-w87: the cold-side ROCKS are Aquilo's lithium ice-formation models now, and the
+  -- small end of that same family (medium/small/tiny) ships as decoratives. All three
+  -- must actually turn up, or the icy ground jumps straight from bare tile to boulder
+  -- with none of the chips and grit that make it read as one material.
+  it("scatters the small end of the ICE-FORMATION family on the icy ground (ci-w87)", function()
+    for _, name in ipairs({ "cindra-lithium-iceberg-medium", "cindra-lithium-iceberg-small",
+                            "cindra-lithium-iceberg-tiny" }) do
+      assert.is_true(count(name, COLD_X + 1, 340) > 0, name .. " must generate on the icy ground")
+    end
+  end)
+
   -- 3. ZONE PURITY: no bleed into the wrong zone ----------------------------------
   it("keeps rock/crater decals OUT of the entire icy (cold) zone (no pebbles on ice)", function()
     assert.are.equal(0, count_any(hot_names, 25, 128),

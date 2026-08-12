@@ -331,5 +331,36 @@ test("every string-setting value has a [string-mod-setting-*] label (ci-8yu)", f
     "string-setting values with no dropdown label:\n  " .. table.concat(missing, "\n  "))
 end)
 
+-- ci-w87: a worldgen rock or decal with no locale entry shows the raw prototype key
+-- when the player hovers it ("cindra-ice-rock-huge"). The families are multi-model
+-- now -- adding an iceberg size or a hot volcanic twin adds a prototype -- so these
+-- guards enumerate the classes LIVE from their one source of truth rather than from a
+-- list someone has to remember to extend.
+test("every worldgen rock has an [entity-name] locale entry (ci-w87)", function()
+  local rock_models = require("scripts.rock-models")
+  local names = cfg["entity-name"] or {}
+  local missing = {}
+  for _, spec in ipairs(rock_models.ROCKS) do
+    if names[spec.name] == nil or names[spec.name] == "" then
+      missing[#missing + 1] = spec.name
+    end
+  end
+  assert_true(#missing == 0,
+    "rocks with no [entity-name] (they show the raw key in-game):\n  " .. table.concat(missing, "\n  "))
+end)
+
+test("every Cindra decorative has a [decorative-name] locale entry (ci-w87)", function()
+  local decorative_field = require("scripts.decorative-field")
+  local names = cfg["decorative-name"] or {}
+  local missing = {}
+  for _, spec in ipairs(decorative_field.DECORATIVES) do
+    if names[spec.name] == nil or names[spec.name] == "" then
+      missing[#missing + 1] = spec.name
+    end
+  end
+  assert_true(#missing == 0,
+    "decoratives with no [decorative-name]:\n  " .. table.concat(missing, "\n  "))
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)
