@@ -63,12 +63,14 @@ test("positions_in_area places the nightward row (vertical): perp 41 -> x = -41"
   assert_eq(0, pos[1].y, "lattice long 0 maps to y = 0")
 end)
 
-test("positions_in_area places the nightward row (horizontal): perp 41 -> y = 41", function()
-  -- Mirror chunk for the legacy orientation: perp = y, long = x -> emitter at (0, 41).
-  local pos = emitters.positions_in_area(area(-16, 32, 16, 64), "horizontal")
+test("positions_in_area places the nightward row (horizontal): perp 41 -> y = -41", function()
+  -- Mirror chunk for the quarter-turned ribbon: perp = -y, long = x, fire at the TOP
+  -- (ci-65p) -> the row sits at y = -41, so the chunk holding y in [-64,-32] is the
+  -- one that gets the emitter.
+  local pos = emitters.positions_in_area(area(-16, -64, 16, -32), "horizontal")
   assert_eq(1, #pos, "one emitter (row 41, lattice 0) in this chunk")
   assert_eq(0, pos[1].x, "lattice long 0 maps to x = 0")
-  assert_eq(41, pos[1].y, "row perp 41 maps to y = 41 (hot = +Y)")
+  assert_eq(-41, pos[1].y, "row perp 41 maps to y = -41 (hot = the TOP)")
 end)
 
 test("a chunk straddling BOTH rows + one lattice point yields both emitters", function()

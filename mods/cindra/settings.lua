@@ -10,8 +10,8 @@ data:extend({
   -- world axis carries the hot-cold gradient (see scripts/axis.lua):
   --   "vertical"   DEFAULT -- ribbon long axis N-S (bottom-to-top); hot-cold runs
   --                LEFT<->RIGHT with HOT on the LEFT (west). perpendicular = X.
-  --   "horizontal" ribbon long axis E-W; hot-cold runs top-bottom, hot sunward
-  --                (+Y). perpendicular = Y (the legacy layout).
+  --   "horizontal" ribbon long axis E-W; hot-cold runs top-bottom with FIRE AT THE
+  --                TOP (north, -Y) and ice at the bottom. perpendicular = Y.
   {
     type = "string-setting",
     name = "cindra-ribbon-orientation",

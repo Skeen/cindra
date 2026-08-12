@@ -126,6 +126,30 @@ local FURNACE_FRAME_COUNT = 50
 local FURNACE_LINE_LENGTH = 8
 local FURNACE_SCALE = 0.45
 local FURNACE_SHIFT = { 0, 0 }
+
+-- === The CREATED frozen layer (ci-u92y) ======================================
+-- Cindra's `entities_require_heating` surface freezes this furnace for real
+-- (verified: a furnace past the onset reports frozen == true), and the engine
+-- draws the frost sheen ONLY from graphics_set.frozen_patch. Replacing the
+-- assembling-machine-3 graphics_set wholesale above dropped the assembler's own
+-- patch, so the frozen arc furnace showed NO frost while every other frozen
+-- building wore one.
+--
+-- ci-z7nu fixed the oxidizer and the glass furnace by REUSING the vanilla frost
+-- sprite of the machine each was cloned from. That is not available here: this
+-- body is Hurricane046's riveted vessel and looks nothing like an
+-- assembling-machine-3, so the vanilla patch would crust the wrong shapes. The
+-- layer had to be CREATED -- scripts/gen-frost-layer.py derives it from THIS
+-- body's own frozen frame (rime on the up-facing domes, rims and ledges; bare
+-- metal on the down-faces), so it registers on the real geometry. Regenerate
+-- with ./scripts/render-frost-layer.sh; pixel invariants are guarded in
+-- unit-tests/test_frost_layer.py.
+--
+-- Same frame geometry, scale and shift as the body animation, so the patch lands
+-- pixel-for-pixel over the frame the frozen machine shows. reset_animation_when
+-- _frozen halts the arc cycle on frame 0 -- which is also the frame the patch was
+-- derived from -- so a frozen furnace reads as stopped, matching vanilla.
+local FURNACE_FROST = "arc-furnace-hr-frozen.png"
 local function furnace_animation()
   local dir = "__cindra__/graphics/entity/" .. FURNACE_ART .. "/"
   return {
@@ -151,6 +175,19 @@ local function furnace_animation()
         scale = FURNACE_SCALE, shift = FURNACE_SHIFT, animation_speed = 0.5,
         draw_as_glow = true, blend_mode = "additive" },
     },
+  }
+end
+
+-- The created frost patch as a plain Sprite (a valid Sprite4Way: one sprite reads
+-- from every direction, exactly as vanilla wires the electric-furnace patch).
+-- Spelled out explicitly rather than via util.sprite_load so the plain-Lua
+-- graphics unit test needs no companion-metadata read (the ci-z7nu convention).
+local function furnace_frozen_patch()
+  return {
+    filename = "__cindra__/graphics/entity/" .. FURNACE_ART .. "/" .. FURNACE_FROST,
+    width = FRAME_W, height = FRAME_H,
+    scale = FURNACE_SCALE, shift = FURNACE_SHIFT,
+    priority = "high",
   }
 end
 
@@ -216,7 +253,11 @@ furnace.crafting_categories = { CATEGORY }
 furnace.energy_usage = FURNACE_DRAW           -- the ruinous draw (far above a stock assembler)
 furnace.fast_replaceable_group = nil          -- not interchangeable with the assembler
 furnace.next_upgrade = nil
-furnace.graphics_set = { animation = furnace_animation() } -- arc-furnace set, drops AM3 art
+furnace.graphics_set = {
+  animation = furnace_animation(),           -- arc-furnace set, drops AM3 art
+  frozen_patch = furnace_frozen_patch(),     -- the CREATED frost layer (ci-u92y)
+  reset_animation_when_frozen = true,        -- a frozen furnace halts on frame 0
+}
 furnace.graphics_set_flipped = nil            -- no flipped variant for this single set
 set_furnace_icon(furnace)
 furnace.localised_name = { "entity-name." .. FURNACE }

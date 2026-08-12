@@ -95,6 +95,9 @@ if script.active_mods["factorio-test"] then
     -- deepening warm/cool toward each extreme), cosmetic and independent of damage.
     "tests/test_feedback",
     "tests/test_worldgen",
+    -- ci-65p: the ribbon is bounded ACROSS its hot-cold axis only and runs forever
+    -- along its long axis, with the fire on the sunward side, in EITHER orientation.
+    "tests/test_orientation",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",
@@ -105,6 +108,11 @@ if script.active_mods["factorio-test"] then
     -- nightward frozen, both orientations, ci-f5l heater extends the warm pocket, no
     -- other-planet mutation.
     "tests/test_freeze",
+    -- ci-u92y: the claim the frost-layer art + the data-stage frost audit rest on
+    -- -- EVERY Cindra crafting machine really freezes in the cold (so it needs a
+    -- frost layer) and thaws beside heat (so the sheen is never always-on). The
+    -- class is enumerated live, so a new machine is measured without being listed.
+    "tests/test_frost",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
     -- ci-810e: PlanetsLib interop guards. Cindra takes NO dependency on PlanetsLib
@@ -189,6 +197,14 @@ if script.active_mods["factorio-test"] then
     else
       test_files[#test_files + 1] = "tests/test_aps_absent"
     end
+  end
+  -- ci-gg3x (stage 1 of the ci-810e PlanetsLib plan): the CO-LOAD proof. Cindra
+  -- takes no dependency on PlanetsLib and the library is not vendored, so this
+  -- only registers when a player-like mod set actually has it installed (see
+  -- README "PlanetsLib co-load"). tests/test_planetslib_compat runs in EVERY
+  -- config and guards the same edges from our own side.
+  if script.active_mods["PlanetsLib"] then
+    test_files[#test_files + 1] = "tests/test_planetslib_coload"
   end
   require("__factorio-test__/init")(test_files, {
     load_luassert = true,

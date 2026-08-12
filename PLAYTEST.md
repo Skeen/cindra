@@ -279,6 +279,26 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Ribbon & terrain
 
+- [ ] **[LANDED] HORIZONTAL ribbon orientation: fire at the TOP, endless east-west (ci-65p).**
+  The non-default orientation was broken two ways: the world was boxed in on BOTH axes
+  (a rectangle, not a ribbon) and the fire sat at the BOTTOM. Fixed: the map-gen now
+  states both axes (`terrain.map_gen_bounds` — perpendicular = the ribbon width, long =
+  0/infinite) and the sunward coordinate is `-y`, so the lava ocean is NORTH and the ice
+  ocean SOUTH. A test run can only load ONE startup orientation, so the live horizontal
+  world is playtest-only; the mapping and bounds for both orientations are covered in
+  `unit-tests/test_axis.lua` + `unit-tests/test_terrain.lua`, and `tests/test_orientation.lua`
+  proves the live surface obeys them in whichever orientation the run is configured with.
+  *Repro:* Settings → Mod settings → Startup → set **Ribbon orientation = Horizontal
+  (east-west, hot to the north)**, then start a NEW game on Cindra. *Look for:* (1) the
+  **lava ocean is at the TOP** of the screen (walk north into the heat) and the **ice
+  ocean at the bottom**; (2) walking EAST or WEST along the ribbon never hits a void
+  wall — the ash middle runs on for thousands of tiles; (3) the void backstop appears
+  only past the lava (north) and past the ice (south); (4) the map view reads as a
+  horizontal band, not a square. *Caveat (expected, not a bug):* flipping the setting on
+  an EXISTING save re-opens the long axis for chunks not yet generated, but any chunk
+  already generated as void under the old orientation stays void — a straight void scar
+  along the old boundary. Start a new world to see the clean ribbon.
+
 - [ ] **[LANDED] THREE-PART TWO-HEIGHTMAP terrain redesign (ci-wly) — MAYOR MUST SCREENSHOT.**
   The whole planet was rebuilt into three regions across the hot-cold axis: a **HOT**
   side, a habitable **MIDDLE**, and a **COLD** side (sides ~equal width). Each side is an
@@ -555,6 +575,39 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (2) the frost sits centred on each body and reads as frost, not floating off or
   clipped badly. If the frost's scale/shift needs a nudge to seat on the bulbous
   oxidizer or the tall glass-furnace body, that is a cosmetic tune, not a v1 bug.
+
+  > **Correction from ci-u92y (measured in-engine):** the **glass furnace never
+  > freezes**, so the foundry patch wired onto it above can never render. It
+  > deliberately clears the foundry's heating draw (`heating_energy = nil`,
+  > `prototypes/lava.lua`) and freezing needs `heating_energy > 0`, so it stays
+  > bare and working in the deep cold while the oxidizer beside it freezes. Only
+  > the **oxidizer** half of this entry is checkable. Whether a Cindra machine
+  > should be immune to the planet's own freeze mechanic is a design question
+  > filed separately (**ci-6qyk**) -- do not "fix" the art here.
+
+- [ ] **[LANDED] Arc-furnace frost layer reads right (ci-u92y).** The arc furnace
+  freezes for real past the onset (measured: `frozen == true`, status `frozen`),
+  but Hurricane046's set ships NO frozen layer and its riveted vessel looks
+  nothing like the assembling-machine-3 it clones, so unlike ci-z7nu there was no
+  vanilla frost sprite to borrow -- the layer was **created**
+  (`scripts/gen-frost-layer.py` derives it from the furnace's own frozen frame:
+  rime on the up-facing domes, rims and ledges; bare metal on the down-faces).
+  Geometry, colour, coverage, silhouette masking and byte-determinism are all
+  asserted headless (`unit-tests/test_frost_layer.py`), the wiring in
+  `unit-tests/test_red_mud.lua`, and a data-stage audit fails the load if any
+  freezing Cindra crafting machine lacks a patch. What no headless test can see is
+  how it reads on screen. *Repro:* build an arc furnace in the thawed band, walk
+  it nightward past the freeze onset, leave it to freeze. *Look for:* (1) it grows
+  a pale ice crust that follows the vessel's domes and rims, matching the other
+  frozen buildings; (2) the crust sits ON the body -- no ice floating off the
+  silhouette, no visible offset; (3) the machine still reads as an arc furnace
+  through the ice, not as a white blob; (4) the arc animation HALTS on frame 0 so
+  it reads as stopped. **(5) Known open question:** the body's emissive molten-arc
+  glow is a layer of the base animation, so a frozen furnace may still glow orange
+  under the frost. If it does, that is a real "frozen machine still running" read
+  -- report it and it gets its own bead (the fix is moving the emission into a
+  working visualisation, which changes the idle look too, so it is out of scope
+  here).
 
 - [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
   decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the

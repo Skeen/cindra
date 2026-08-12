@@ -37,17 +37,30 @@ local M = {}
 -- beyond +/- dim/2 with out-of-map (the void backstop), exactly the vanilla
 -- ribbon-world mechanism. This is a ONE-TIME structural config of the map-gen, not
 -- per-chunk void surgery -- no chunk is deleted, no tile is scripted.
+-- Both axes are written, not just the finite one: the LONG axis is explicitly
+-- reopened to 0 (infinite). A ribbon is bounded on ONE axis; a surface that
+-- arrives carrying a bound on the long axis too (a world generated under the other
+-- orientation, or any settings source with a size in it) would otherwise stay boxed
+-- in on both axes -- the ci-65p horizontal-ribbon bug.
 local function enforce_finite(surface)
   if not (surface and surface.valid) or surface.name ~= "cindra" then return end
   -- The total ribbon width is the SUM of the per-zone widths (ci-da2); terrain
   -- reads the per-zone width settings itself, so no cfg is needed here.
-  local d = terrain.finite_dimension()
+  local bounds = terrain.map_gen_bounds()
   local mg = surface.map_gen_settings
-  if mg[d.key] ~= d.value then
-    mg[d.key] = d.value
-    surface.map_gen_settings = mg
+  local changed = false
+  for key, value in pairs(bounds) do
+    if mg[key] ~= value then
+      mg[key] = value
+      changed = true
+    end
   end
+  if changed then surface.map_gen_settings = mg end
 end
+
+-- Exposed so the orientation regression test can drive the real bounding code on a
+-- live surface (tests/test_orientation.lua) instead of restating it.
+M.enforce_finite = enforce_finite
 
 -- Tests set storage.cindra_driver_enabled = false to keep the periodic sweeps
 -- from firing during unrelated deterministic tests. Default (nil) = enabled.

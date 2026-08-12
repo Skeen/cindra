@@ -14,8 +14,11 @@
 -- on the LEFT (west, -X) and cold on the right (east, +X). The sunward-positive
 -- perpendicular coordinate is therefore p = -x (west is hotter).
 --
--- "horizontal" keeps the legacy layout: long axis EAST-WEST (X), gradient
--- NORTH-SOUTH (Y), sunward = +Y, so p = y.
+-- "horizontal" rotates that a quarter turn: long axis EAST-WEST (X), gradient
+-- NORTH-SOUTH (Y), with FIRE AT THE TOP -- the hot band is the NORTH (-Y) edge and
+-- the ice is the SOUTH (+Y) edge, so the sunward-positive coordinate is p = -y
+-- (ci-65p). Both orientations therefore put the fire on the same side of the
+-- screen the player is looking at: left for vertical, top for horizontal.
 --
 -- This module is safe to require in BOTH the data stage (resource band masks read
 -- perp_expr) and the control stage (runtime sweeps read perp); it reads only the
@@ -40,10 +43,10 @@ end
 -- `orient` is optional; when omitted it is resolved from the setting. Callers in
 -- tight loops (worldgen, sweeps) resolve it ONCE and pass it in.
 --   vertical  (default): p = -x  (hot on the left / west)
---   horizontal:          p =  y  (hot sunward / +Y, the legacy layout)
+--   horizontal:          p = -y  (hot at the TOP / north)
 function M.perp(x, y, orient)
   orient = orient or M.orientation()
-  if orient == M.HORIZONTAL then return y end
+  if orient == M.HORIZONTAL then return -y end
   return -x
 end
 
@@ -52,7 +55,7 @@ end
 -- native autoplace patches band on the SAME axis the runtime damage reads).
 function M.perp_expr(orient)
   orient = orient or M.orientation()
-  if orient == M.HORIZONTAL then return "y" end
+  if orient == M.HORIZONTAL then return "(0 - y)" end
   return "(0 - x)"
 end
 
@@ -61,10 +64,10 @@ end
 -- is this. Kept as a first-class emitter (rather than negating perp_expr, which
 -- would double the unary minus) so both orientations stay clean:
 --   vertical  : perp = -x  ->  -perp =  x   -> "x"
---   horizontal: perp =  y  ->  -perp = -y   -> "(0 - y)"
+--   horizontal: perp = -y  ->  -perp =  y   -> "y"
 function M.perp_neg_expr(orient)
   orient = orient or M.orientation()
-  if orient == M.HORIZONTAL then return "(0 - y)" end
+  if orient == M.HORIZONTAL then return "y" end
   return "x"
 end
 
@@ -83,11 +86,11 @@ end
 -- lattice point (long = k*spacing, perp = a row centre) back into a world position,
 -- correctly for BOTH orientations. Round-trips perp()/long():
 --   vertical  (default): perp = -x, long = y  ->  x = -perp, y = long
---   horizontal:          perp =  y, long = x  ->  x =  long, y = perp
+--   horizontal:          perp = -y, long = x  ->  x =  long, y = -perp
 -- Returns two numbers (x, y).
 function M.world(long, perp, orient)
   orient = orient or M.orientation()
-  if orient == M.HORIZONTAL then return long, perp end
+  if orient == M.HORIZONTAL then return long, -perp end
   return -perp, long
 end
 

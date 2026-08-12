@@ -118,6 +118,32 @@ That mod set rewrites Cindra's discovery tech (APS treats it as the start
 planet), so it is deliberately kept out of the default run. The actual in-game
 start (cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
 
+### PlanetsLib co-load
+
+Cindra takes **no** dependency on PlanetsLib (see
+[`docs/planetslib-evaluation.md`](docs/planetslib-evaluation.md)), but plenty of
+players install it alongside planet mods, and its `data-final-fixes` reaches into
+every planet in `data.raw.planet`. `test_planetslib_coload` proves the co-load is
+harmless — the game loads and Cindra does not move on the star map. It registers
+only when PlanetsLib is actually loaded, so the default run never executes it;
+`test_planetslib_compat` guards the same edges from our own side in every run.
+
+PlanetsLib is not vendored. Download it from the
+[mod portal](https://mods.factorio.com/mod/PlanetsLib) and drop the zip (or an
+unpacked copy) into the data dir:
+
+```sh
+mkdir -p factorio-test-data-dir/mods
+cp -f ~/Downloads/PlanetsLib_*.zip factorio-test-data-dir/mods/
+
+cindra-test PlanetsLib
+```
+
+Mind the engine version: PlanetsLib ≥ 1.23.5 requires `base >= 2.1.13`, and
+Factorio refuses to enable a mod whose dependency bound the install does not
+meet. On an older install, use the newest release that still declares
+`base >= 2.1.7` (1.23.4 was verified in `ci-gg3x`).
+
 See [`AGENTS.md`](AGENTS.md) for development conventions and the test-first
 workflow.
 

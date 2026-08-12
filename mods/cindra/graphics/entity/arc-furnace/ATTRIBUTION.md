@@ -28,6 +28,22 @@ grey+alpha (type 4); both render as a black box in Factorio. They were converted
 to truecolour RGBA (type 6) with no other pixel edit (the same fix the
 lava-manufacturer's glass-furnace set needed, ci-8r6).
 
+## Derived work in this directory (ci-u92y)
+
+`arc-furnace-hr-frozen.png` is **not** part of Hurricane's original set: the set
+ships no frozen layer, and the furnace freezes for real on Cindra's nightside, so
+one had to be authored. It is a **DERIVATIVE** of the body render above --
+`scripts/gen-frost-layer.py` reads frame 0 of `arc-furnace-hr-animation-1.png`
+and computes where rime would settle on it (up-facing surfaces, silhouette top
+edges, patchy accretion), emitting a pale-blue ice patch masked to that body's
+own silhouette. The generator is deterministic (`./scripts/render-frost-layer.sh`
+reproduces it byte-for-byte).
+
+CC-BY explicitly permits adaptations, provided the original author is credited --
+which the credit line below does for this file too. The derived layer therefore
+carries the SAME attribution and the SAME CC-BY terms as the body it is derived
+from; it is not independent work and must not be re-credited as such.
+
 ## Required credit (include verbatim)
 
 > Thank you to Hurricane for the incredible custom graphics made for LL: core
