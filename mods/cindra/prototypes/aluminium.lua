@@ -171,29 +171,32 @@ cell.tile_height = 4
 cell.collision_box = { { -1.9, -1.9 }, { 1.9, 1.9 } }
 cell.selection_box = { { -2.0, -2.0 }, { 2.0, 2.0 } }
 
--- === Circuit-wire connection point: bottom-right (ci-a6z) ====================
--- The inherited electric-furnace connector attaches the circuit wire near the
--- machine's centre-top, which reads badly floating over the tall oxidizer body.
--- Re-anchor the wire to the BOTTOM-RIGHT of the 4x4 footprint, seated on the
--- lower-right body mass. +x = east (right), +y = south (down), so bottom-right
--- is (+,+); the green pin sits just right of the red one, per the vanilla
--- convention. We drop the inherited connector SPRITES and give a points-only
--- connector (CircuitConnectorDefinition.sprites is optional): a stale centre LED
--- with the wire attaching at the far corner would look broken, and the wire
--- POINT is the load-bearing bit. LuaEntityPrototype does not expose the connector
--- offset at runtime, so the plain-Lua unit test asserts this at the data layer.
-local function wire_br()
-  return {
-    points = {
-      wire = { red = { 1.3, 1.1 }, green = { 1.65, 1.1 } },
-      -- shadow is required by the engine; cast it down-right of the wire pins.
-      shadow = { red = { 1.55, 1.35 }, green = { 1.9, 1.35 } },
-    },
+-- === Circuit connector: a VISIBLE connector at the bottom-right (ci-sz0k) =====
+-- ci-a6z re-anchored the wire to the bottom-right but gave a POINTS-ONLY
+-- connector (no sprites), reasoning a stale centre LED with the wire at the far
+-- corner would look broken. The playtest verdict is that points-only means
+-- NOTHING renders: the machine shows no circuit connector at all. Rebuild the
+-- connector from the core `universal_connector_template` via
+-- `circuit_connector_definitions.create_vector` (exactly as the lava-manufacturer
+-- does, ci-cge): create_vector builds BOTH the connector sprite AND the wire
+-- endpoints, co-located at the offset, so the LED pin and the wire land together
+-- on the lower-right body mass (no centre/corner mismatch). +x = east (right),
+-- +y = south (down), so bottom-right is (+,+). The furnace is not rotatable, so
+-- all four directions share the offset (the vanilla furnace convention). These
+-- are core globals present for every base/space-age machine, so this loads
+-- whenever the game does. LuaEntityPrototype exposes neither the connector sprite
+-- nor its offset at runtime, so the plain-Lua unit test asserts this at the data
+-- layer.
+local CONNECTOR_OFFSET = util.by_pixel(40, 34) -- +x right, +y down -> bottom-right
+cell.circuit_connector = circuit_connector_definitions.create_vector(
+  universal_connector_template,
+  {
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(56, 34), show_shadow = false },
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(56, 34), show_shadow = false },
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(56, 34), show_shadow = false },
+    { variation = 27, main_offset = CONNECTOR_OFFSET, shadow_offset = util.by_pixel(56, 34), show_shadow = false },
   }
-end
--- Furnaces are not rotatable, but the connector is a per-direction vector; supply
--- four identical entries (matching the vanilla furnace convention).
-cell.circuit_connector = { wire_br(), wire_br(), wire_br(), wire_br() }
+)
 -- Keep it circuit-connectable (the inherited furnace wire distance, defaulted for
 -- the unit-test stub which clones a connector-less electric furnace).
 cell.circuit_wire_max_distance = cell.circuit_wire_max_distance or 9
@@ -226,11 +229,14 @@ local LINE_LENGTH = 8
 -- The footprint is now 4x4 (see the box block above). The 320px-tall frame at
 -- scale 0.45 renders ~144 px (~4.5 tiles) tall and ~126 px (~3.9 tiles) wide, a
 -- modest overhang that reads as a grand signature machine over its 4x4 box
--- without swamping neighbours. shift 0 centres the body and seats it on the
--- ground. Final scale/shift are pending an in-engine render (PLAYTEST.md) exactly
--- as the arc-furnace/glass-furnace sets were tuned.
+-- without swamping neighbours. Final scale/shift are pending an in-engine render
+-- (PLAYTEST.md) exactly as the arc-furnace/glass-furnace sets were tuned.
+-- ci-sz0k (playtest): at shift 0 the body sat a touch too LOW in its 4x4
+-- selection box. Nudge the whole model UP a smidge (north = -y) so it centres.
+-- The lift is tiny (-6 px, well short of the -0.2-tile float guard): the body,
+-- glow, and shadow still seat on the tiles, they just ride up together.
 local BODY_SCALE = 0.45
-local BODY_SHIFT = { 0, 0 }
+local BODY_SHIFT = util.by_pixel(0, -6)
 
 -- Body + shadow + emissive glow. The emission sheet is opaque black (bright glow
 -- openings on a black background), so it MUST blend "additive" with draw_as_glow
