@@ -143,6 +143,11 @@ if script.active_mods["factorio-test"] then
     -- ci-gcd one-way power transfer PoC: energy flows A->B up to a rate cap,
     -- never B->A; the two networks stay isolated.
     "tests/test_power_diode",
+    -- ci-m96z MOD-WIDE POWER POLICY: the player-observable conservation invariants
+    -- (nothing mints energy, a dead/unplugged source delivers nothing, the sun is
+    -- the only generation) plus the coverage guard that fails when a new Cindra
+    -- power entity ships without one.
+    "tests/test_power_conservation",
     -- ci-xor: the standalone env-scanner mod (the radio tower) loads alongside
     -- cindra via a required (~ env-scanner) dependency, so its buildable scanner
     -- exists in every Cindra playtest instead of silently going missing.
@@ -168,8 +173,9 @@ if script.active_mods["factorio-test"] then
       -- ci-arw: the pre-researched foundry path is a Cindra-start guarantee, so
       -- it is only meaningful (and only asserted) when the APS chain is loaded.
       test_files[#test_files + 1] = "tests/test_aps_foundry"
-      -- ci-8wu: the MINIMAL bootstrap kit (a stocked supply capsule) a Cindra
-      -- start lands with; likewise only meaningful under the APS chain.
+      -- ci-8wu: the MINIMAL bootstrap kit a Cindra start lands with, stocked
+      -- into the crash-site spaceship itself since ci-q6nh (no chest capsule);
+      -- likewise only meaningful under the APS chain.
       test_files[#test_files + 1] = "tests/test_aps_kit"
       -- ci-7p6: the END-TO-END from-nothing bootstrap -- drives a start-on-Cindra
       -- run reaching a foundry + the lava->metal economy (and reproducing foundries)
