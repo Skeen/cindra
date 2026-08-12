@@ -187,6 +187,14 @@ if script.active_mods["factorio-test"] then
       test_files[#test_files + 1] = "tests/test_aps_absent"
     end
   end
+  -- ci-gg3x (stage 1 of the ci-810e PlanetsLib plan): the CO-LOAD proof. Cindra
+  -- takes no dependency on PlanetsLib and the library is not vendored, so this
+  -- only registers when a player-like mod set actually has it installed (see
+  -- README "PlanetsLib co-load"). tests/test_planetslib_compat runs in EVERY
+  -- config and guards the same edges from our own side.
+  if script.active_mods["PlanetsLib"] then
+    test_files[#test_files + 1] = "tests/test_planetslib_coload"
+  end
   require("__factorio-test__/init")(test_files, {
     load_luassert = true,
   })
