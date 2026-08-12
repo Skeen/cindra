@@ -575,11 +575,16 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (2) the frost sits centred on each body and reads as frost, not floating off or
   clipped badly. If the frost's scale/shift needs a nudge to seat on the bulbous
   oxidizer or the tall glass-furnace body, that is a cosmetic tune, not a v1 bug.
-  NOTE (ci-6qyk): the glass-furnace half of this entry was UNCHECKABLE until ci-6qyk.
-  That machine was freeze-IMMUNE -- its prototype had cleared `heating_energy`, which
-  the engine also uses as the freeze switch -- so it never entered the frozen state and
-  its `frozen_patch` could never draw. Restoring the draw makes both halves reachable,
-  so check the glass furnace here too.
+
+  > **~~Correction from ci-u92y~~ -- RESOLVED by ci-6qyk; BOTH halves are checkable
+  > again.** ci-u92y measured in-engine that the **glass furnace never froze**, so the
+  > foundry patch wired onto it above could never render, and narrowed this entry to the
+  > oxidizer half. The cause was an ACCIDENT, not a design: `prototypes/lava.lua` cleared
+  > `heating_energy` to shed the foundry's Aquilo power cost, not knowing the engine also
+  > uses that field as the freeze switch. ci-6qyk restored the draw (100kW), so the glass
+  > furnace now freezes like every other Cindra machine and its `frozen_patch` renders
+  > for the first time. **Check the glass furnace here too** -- its frost has never been
+  > seen on screen, so it is the more interesting half of this entry, not the safe one.
 
 - [ ] **[LANDED] Nightside glass furnaces now need HEAT -- cost + pacing (ci-6qyk).**
   The glass furnace (lava-manufacturer) was accidentally exempt from the planet's core
@@ -587,7 +592,7 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   now carries a **100kW** heating draw, level with its siblings (the arc furnace and the
   electrolysis cell), so it freezes on the nightside like everything else. That it
   freezes in the dark and thaws beside heat is asserted headless for EVERY Cindra
-  machine (`tests/test_freeze.lua`, the ci-6qyk class-wide guard); what needs a human is
+  machine (`tests/test_frost.lua`, the ci-6qyk class-wide guard); what needs a human is
   whether the resulting COST and PACING feel right. *Repro:* run a glass-furnace line
   out past the freeze onset with no heat and leave it, then run heaters back to it.
   *Look for:* (1) the heat infrastructure a nightside lava chain now demands feels like
@@ -596,15 +601,6 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   deliberately a CUT from the 300kW the vanilla foundry carries for Aquilo). The mayor
   called 100kW a starting point for tuning, not a locked constant, so a number change
   here is tuning, not a v1 bug.
-
-  > **Correction from ci-u92y (measured in-engine):** the **glass furnace never
-  > freezes**, so the foundry patch wired onto it above can never render. It
-  > deliberately clears the foundry's heating draw (`heating_energy = nil`,
-  > `prototypes/lava.lua`) and freezing needs `heating_energy > 0`, so it stays
-  > bare and working in the deep cold while the oxidizer beside it freezes. Only
-  > the **oxidizer** half of this entry is checkable. Whether a Cindra machine
-  > should be immune to the planet's own freeze mechanic is a design question
-  > filed separately (**ci-6qyk**) -- do not "fix" the art here.
 
 - [ ] **[LANDED] Arc-furnace frost layer reads right (ci-u92y).** The arc furnace
   freezes for real past the onset (measured: `frozen == true`, status `frozen`),
