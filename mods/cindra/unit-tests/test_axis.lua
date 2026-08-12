@@ -63,17 +63,27 @@ test("both orientations put the fire on the SAME screen side convention", functi
   end
 end)
 
-test("perp_expr emits the sunward-positive axis for the noise DSL", function()
-  assert_eq("(0 - x)", axis.perp_expr("vertical"), "vertical bands on -x (hot left)")
-  assert_eq("(0 - y)", axis.perp_expr("horizontal"), "horizontal bands on -y (hot top)")
-  assert_eq("(0 - x)", axis.perp_expr(), "default resolves to vertical")
+test("raw_perp_expr emits the sunward-positive WORLD axis for the noise DSL", function()
+  assert_eq("(0 - x)", axis.raw_perp_expr("vertical"), "vertical bands on -x (hot left)")
+  assert_eq("(0 - y)", axis.raw_perp_expr("horizontal"), "horizontal bands on -y (hot top)")
+  assert_eq("(0 - x)", axis.raw_perp_expr(), "default resolves to vertical")
 end)
 
-test("perp_neg_expr is exactly -perp_expr for both orientations", function()
+test("raw_perp_neg_expr is exactly -raw_perp_expr for both orientations", function()
   -- The cold-side band masks read "how deep nightward am I". Emitted separately to
-  -- keep the expression clean, so it MUST stay the negation of perp_expr.
-  assert_eq("x", axis.perp_neg_expr("vertical"), "vertical nightward is +x (east)")
-  assert_eq("y", axis.perp_neg_expr("horizontal"), "horizontal nightward is +y (south, the bottom)")
+  -- keep the expression clean, so it MUST stay the negation of the sunward axis.
+  assert_eq("x", axis.raw_perp_neg_expr("vertical"), "vertical nightward is +x (east)")
+  assert_eq("y", axis.raw_perp_neg_expr("horizontal"), "horizontal nightward is +y (south, the bottom)")
+end)
+
+test("perp_expr is the NOMINAL axis every band mask reads (the zone-slider warp)", function()
+  -- The masks must not read the raw world axis: the world-gen-screen zone sliders
+  -- (ci-i4z) stretch the world, and the named warp expression is what maps a world
+  -- position back onto the nominal zone table every band constant is written in.
+  -- One name, so a band cannot opt out of the sliders by accident.
+  assert_eq("cindra_perp", axis.perp_expr(), "the sunward nominal axis")
+  assert_eq("cindra_perp_neg", axis.perp_neg_expr(), "the nightward nominal axis")
+  assert_true(axis.perp_expr() ~= axis.raw_perp_expr(), "and it is NOT the raw axis")
 end)
 
 test("long() is the ribbon's OTHER axis (the emitter lattice steps along it)", function()

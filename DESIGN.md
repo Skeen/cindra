@@ -252,6 +252,20 @@ banded to the ribbon by a perpendicular-axis mask emitted from
 `game.*`). The map-gen screen shows real Frequency/Size/Richness sliders for
 **Stone** and **Ice** only, grouped below Aquilo.
 
+The new-game map-gen screen also shapes the ribbon **geometry** (ci-i4z), on the
+Terrain tab: **Habitable band**, **Hot zone** and **Cold zone**, whose *Size*
+multiplier scales the playable middle band and the two zone depths. The engine has
+no custom scalar slider for that screen, so each rides on a `terrain`
+autoplace-control's Size, and the geometry follows through ONE warp of the
+perpendicular coordinate every band is read against (`scripts/zone-scale.lua`,
+published as the `cindra_perp` named noise expression): nominal zone widths stay
+exactly as the zone table / startup settings describe them, and the world is
+stretched underneath. Consequences by construction: the ribbon's **total width never
+changes** (the two oceans give up, or take back, whatever the bands need, down to a
+chunk-wide wall), spawn stays in habitable ground, the tile-keyed environmental
+damage moves with the tiles for free, and off Cindra the warp is the identity. The
+startup zone-width settings remain the nominal geometry the sliders multiply.
+
 | Resource (`cindra-*`) | Band on the axis | Richness | Yields |
 |---|---|---|---|
 | stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |

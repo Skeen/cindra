@@ -140,5 +140,29 @@ test("the snowfall tick is its own distinct N", function()
   end
 end)
 
+-- ci-i4z: the world-gen-screen zone sliders stretch the ribbon, so the icy GROUND moves.
+-- The snow line must move with it -- otherwise a stretched cold zone snows over tiles of
+-- brown habitable dust, which is exactly the ci-tizx bug the gate exists to prevent.
+test("the snow line follows the world-gen-screen cold-zone slider (ci-i4z)", function()
+  local zone_scale = require("scripts.zone-scale")
+  local nominal = snowfall.snow_start()
+  assert_eq(nominal, snowfall.world_snow_start(zone_scale.default_scales()),
+    "default sliders leave the line exactly where the terrain put it")
+
+  local deep = zone_scale.default_scales()
+  deep.cold = 2 -- twice as deep a cold zone
+  local moved = snowfall.world_snow_start(deep)
+  assert_true(moved < nominal,
+    "a deepened cold zone pushes the snow line nightward (" .. moved .. " < " .. nominal .. ")")
+  -- It lands exactly on the stretched icy-ground edge, so the snow that FALLS and the snow
+  -- that LIES still agree tile for tile.
+  assert_eq(zone_scale.to_world(nominal, deep), moved, "the line IS the stretched icy edge")
+  -- And a shrunken cold zone brings it back warmward.
+  local shallow = zone_scale.default_scales()
+  shallow.cold = 0.5
+  assert_true(snowfall.world_snow_start(shallow) > nominal,
+    "a shallow cold zone pulls the snow line warmward")
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

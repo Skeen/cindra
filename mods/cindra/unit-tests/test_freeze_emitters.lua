@@ -104,5 +104,37 @@ test("cfg overrides the zone widths, moving the onset + rows deterministically",
   assert_true(rows[#rows] + freeze.FREEZE_REACH >= hi, "rows still cover the sunward edge")
 end)
 
+-- ci-i4z: the world-gen-screen zone sliders stretch the habitable band in WORLD tiles,
+-- and an emitter's heating radius is a PHYSICAL distance -- so a wider band needs more
+-- rows or the far end of it freezes. The warm band is therefore read in world tiles.
+test("the emitter line follows the world-gen-screen zone sliders (ci-i4z)", function()
+  local zone_scale = require("scripts.zone-scale")
+  local sc = zone_scale.default_scales()
+  sc.middle = 3 -- a 360-tile habitable band instead of 120
+
+  local base_lo, base_hi = emitters.warm_band()
+  local lo, hi = emitters.warm_band(nil, sc)
+  assert_true(lo < base_lo, "the onset moves out with the widened band (" .. lo .. " < " .. base_lo .. ")")
+  assert_true(hi > base_hi, "and so does the sunward limit (" .. hi .. " > " .. base_hi .. ")")
+
+  local rows = emitters.rows(nil, sc)
+  assert_true(#rows > #emitters.rows(), "a wider band needs MORE emitter rows (" .. #rows .. ")")
+  -- Every tile of the widened warm band is within some row's reach: no frozen seam and
+  -- no frozen far end (the whole point of the line).
+  for p = lo, hi, 5 do
+    local covered = false
+    for _, row in ipairs(rows) do
+      if math.abs(p - row) <= freeze.FREEZE_REACH then covered = true break end
+    end
+    assert_true(covered, "world tile " .. p .. " of the widened band is heated")
+  end
+  assert_eq(lo, emitters.onset(nil, sc), "the freeze onset is the nightward edge of that band")
+  -- And the emitter positions land on the stretched rows, not the nominal ones.
+  local pos = emitters.positions_in_area(
+    { left_top = { x = -math.floor(rows[#rows]) - 8, y = -16 },
+      right_bottom = { x = -math.floor(rows[#rows]) + 8, y = 16 } }, "vertical", nil, sc)
+  assert_true(#pos > 0, "the sunward-most row is placed where the stretched world put it")
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

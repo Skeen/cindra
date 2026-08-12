@@ -19,6 +19,11 @@
 -- overrides, and Cindra's own terrain tiles (the noise-driven ribbon bands). Both
 -- must exist for the planet's map_gen_settings to reference them.
 require("prototypes.noise")
+-- The ribbon GEOMETRY sliders (ci-i4z): the map-gen-screen autoplace-controls for the
+-- playable width + hot/cold zone depths, and the WARPED nominal perpendicular axis
+-- (`cindra_perp`) every band mask in the mod is read against. Must load before the
+-- tiles / decoratives / resources whose autoplace expressions reference that axis.
+require("prototypes.zone-sliders")
 require("prototypes.tiles")
 
 -- Zone-appropriate decoratives (ci-6fq): cosmetic decals cloned from vanilla and

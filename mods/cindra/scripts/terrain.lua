@@ -42,6 +42,12 @@
 -- resource banding read; the field itself is derived from those anchors, so changing a
 -- width moves the field with it.
 --
+-- These widths are NOMINAL: they are also what the WORLD-GEN-SCREEN sliders (ci-i4z,
+-- scripts/zone-scale.lua) stretch. The sliders never touch this table or any band
+-- constant here -- they warp the perpendicular coordinate the bands are read against,
+-- and the two oceans absorb the difference, so the total (and the finite map dimension
+-- derived from it) is the same at every slider setting.
+--
 -- WALKABILITY is per-TILE: only the two lava tiles are impassable (molten fluid); every
 -- other tile (including smooth-ice) is walkable ground. The smooth-ice ocean is walkable
 -- (you can run on it, it just freezes you by belt position).
@@ -73,17 +79,25 @@ local M = {}
 --   wall     true => a pure impassable lava wall (the hot ocean).
 --   damage   "heat" | "cold" | nil: the environmental damage this BAND marks
 --            (positional descriptor; the field crosses its damage threshold here).
+--   scale    which WORLD-GEN-SCREEN slider stretches this band (ci-i4z,
+--            scripts/zone-scale.lua): "middle" (the playable width), "hot" / "cold"
+--            (the zone depths), or nil for the two OCEANS, which absorb whatever the
+--            sliders take so the total ribbon width never changes. A zone claiming a
+--            slider key no slider owns is a load error, so this can never drift.
 -- ---------------------------------------------------------------------------
 M.ZONES = {
   { role = "hot_ocean",  width = 200, setting = "cindra-zone-width-hot-ocean",
     ocean = true, wall = true, damage = "heat" },
   { role = "hot_inner",  width = 70,  setting = "cindra-zone-width-hot-inner",
-    damage = "heat" },
-  { role = "hot_outer",  width = 70,  setting = "cindra-zone-width-hot-outer" },
-  { role = "middle",     width = 120, setting = "cindra-zone-width-middle" },
-  { role = "cold_outer", width = 70,  setting = "cindra-zone-width-cold-outer" },
+    damage = "heat", scale = "hot" },
+  { role = "hot_outer",  width = 70,  setting = "cindra-zone-width-hot-outer",
+    scale = "hot" },
+  { role = "middle",     width = 120, setting = "cindra-zone-width-middle",
+    scale = "middle" },
+  { role = "cold_outer", width = 70,  setting = "cindra-zone-width-cold-outer",
+    scale = "cold" },
   { role = "cold_inner", width = 70,  setting = "cindra-zone-width-cold-inner",
-    damage = "cold" },
+    damage = "cold", scale = "cold" },
   { role = "cold_ocean", width = 200, setting = "cindra-zone-width-cold-ocean",
     ocean = true, damage = "cold" },
 }
