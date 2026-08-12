@@ -15,6 +15,10 @@
 --      habitable band (they start at the icy-ground edge), they fade in from that
 --      edge, and even at full strength they cover only a small fraction of the
 --      ground -- the tiles dominate, not the decals.
+--   6. HOT RE-GATE ONTO THE HEIGHTMAP TILES (ci-mk5y): every rock/crater decal lies on
+--      solid VOLCANIC ground -- inside the slope+crust band, never on the molten lava it
+--      used to float on, never on the brown ash middle it used to litter -- while the
+--      burning crust out by the lava still gets its share.
 --
 -- The pure zone geometry is proven off-game in unit-tests/test_decorative_field.lua;
 -- this proves it actually generates. The VISUAL read (do the decals look like ice vs
@@ -22,6 +26,7 @@
 
 local field = require("scripts.decorative-field")
 local terrain = require("scripts.terrain")
+local axis = require("scripts.axis")
 
 describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function()
   -- A dedicated surface cloned from the Cindra planet's own map_gen_settings at a
@@ -83,16 +88,21 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   -- Everything between is the BROWN habitable band and must carry no ice/snow decal.
   local COLD_X = -terrain.damage_bounds().cold_from -- 130: the icy-ground edge, in x
 
+  -- The rock/crater band in x (ci-mk5y): the volcanic slope + crust, i.e. the field's ash
+  -- contour out to just short of the molten one (perp 90.5 .. 154.5 by default -> x -155 .. -91).
+  local HOT_BAND = field.hot_band()
+  local HOT_X1, HOT_X2 = -HOT_BAND.hi + 1, -HOT_BAND.lo - 1
+
   -- 1. ROCKY HOT HALF -------------------------------------------------------------
-  it("scatters rock / crater / pebble decals across the hot (rocky/lava) half", function()
-    assert.is_true(count_any(hot_names, -128, -25) > 0,
-      "rock/crater/pebble decals generate on the hot (west) half")
+  it("scatters rock / crater / pebble decals across the volcanic slope", function()
+    assert.is_true(count_any(hot_names, HOT_X1, HOT_X2) > 0,
+      "rock/crater/pebble decals generate on the hot (west) volcanic ground")
     -- The specific families the bead calls for are each present.
-    assert.is_true(count("cindra-volcanic-rock-small", -128, -25)
-      + count("cindra-volcanic-rock-tiny", -128, -25)
-      + count("cindra-volcanic-rock-medium", -128, -25) > 0, "volcanic rock / pebble decals present")
-    assert.is_true(count("cindra-crater-small", -128, -25)
-      + count("cindra-crater-large", -128, -25) > 0, "crater decals present")
+    assert.is_true(count("cindra-volcanic-rock-small", HOT_X1, HOT_X2)
+      + count("cindra-volcanic-rock-tiny", HOT_X1, HOT_X2)
+      + count("cindra-volcanic-rock-medium", HOT_X1, HOT_X2) > 0, "volcanic rock / pebble decals present")
+    assert.is_true(count("cindra-crater-small", HOT_X1, HOT_X2)
+      + count("cindra-crater-large", HOT_X1, HOT_X2) > 0, "crater decals present")
   end)
 
   -- 2. ICY COLD HALF --------------------------------------------------------------
@@ -157,6 +167,71 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
     assert.is_true(per_tile > 0, "some frost survives out on the deep ice")
     assert.is_true(per_tile < 0.1,
       "cold decals must stay sparse (" .. string.format("%.4f", per_tile) .. " per tile)")
+  end)
+
+  -- 6. HOT RE-GATE ONTO THE HEIGHTMAP TILES (ci-mk5y) -----------------------------
+  -- The hot decals used to be gated on the RIBBON's safe band (perp > 24) with no outer
+  -- bound at all, so rocks and craters were strewn across the brown ash MIDDLE and out over
+  -- the molten LAVA. They now ride the volcanic slope + crust band derived from the field's
+  -- own value crossings (field.hot_band).
+  -- Every hot decal as { name, position }. A DecorativeResult carries its prototype under
+  -- `decorative`, not a `name` field, so we keep the name we filtered by.
+  local function hot_decals()
+    local out = {}
+    for _, name in ipairs(hot_names) do
+      for _, d in ipairs(s.find_decoratives_filtered({ name = name })) do
+        out[#out + 1] = { name = name, position = d.position }
+      end
+    end
+    return out
+  end
+
+  it("confines every rock/crater decal to the volcanic slope band (ci-mk5y)", function()
+    local band = field.hot_band()
+    -- One tile of slack: the mask gates the tile whose probability the engine SAMPLED, and
+    -- the decal is stored somewhere within that tile.
+    local TILE = 1
+    local all = hot_decals()
+    assert.is_true(#all > 0, "rock/crater decals generated at all")
+    for _, d in ipairs(all) do
+      local p = axis.perp(d.position.x, d.position.y)
+      assert.is_true(p > band.lo - TILE and p < band.hi + TILE,
+        d.name .. " at perp " .. p .. " is outside the slope band [" ..
+        band.lo .. ", " .. band.hi .. "]")
+    end
+  end)
+
+  it("puts every rock/crater decal on solid VOLCANIC ground -- never on lava (ci-mk5y)", function()
+    -- The tile actually under each decal. The gate is a value band, and a tile contour
+    -- breathes by a speckle, so the slope's own tiles PLUS the ash-dark convergence it
+    -- blends into are acceptable ground -- a molten tile never is.
+    local allowed = field.hot_ground_tiles()
+    allowed["cindra-volcanic-ash-dark"] = true
+    local n, molten, wrong = 0, 0, {}
+    for _, d in ipairs(hot_decals()) do
+      local tile = s.get_tile(math.floor(d.position.x), math.floor(d.position.y))
+      n = n + 1
+      if terrain.is_walkable(tile.name) == false then molten = molten + 1 end
+      if not allowed[tile.name] then wrong[tile.name] = (wrong[tile.name] or 0) + 1 end
+    end
+    assert.is_true(n > 0, "rock/crater decals generated at all")
+    assert.are.equal(0, molten, "NO rock/crater decal lies on molten lava")
+    local names = {}
+    for name, c in pairs(wrong) do names[#names + 1] = name .. " x" .. c end
+    assert.are.equal(0, #names,
+      "rock/crater decals only sit on volcanic slope/crust ground (found on: " ..
+      table.concat(names, ", ") .. ")")
+  end)
+
+  it("still scatters rocks out on the hot CRUST, not just the cool slope (ci-mk5y)", function()
+    -- The sunward gate must not be so tight that the burning crust reads bare: some decals
+    -- land beyond the heat-damage boundary (the glowing cracks / warm stone).
+    local hot_from = terrain.damage_bounds().hot_from
+    local n = 0
+    for _, d in ipairs(hot_decals()) do
+      if axis.perp(d.position.x, d.position.y) > hot_from then n = n + 1 end
+    end
+    assert.is_true(n > 0, "rocks/craters reach the lethal hot crust (" .. n .. " decals)")
   end)
 
   -- 4. CLEAN CENTRE ---------------------------------------------------------------
