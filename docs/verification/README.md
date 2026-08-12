@@ -276,3 +276,51 @@ To regenerate:
 ```bash
 scripts/render-mapgen.sh  # -> .mapgen-render/script-output/mapgen-*.png
 ```
+
+## The ice OCEAN reads as an ocean (ci-10ze)
+
+![Ice-ocean decal density, before and after](ci-10ze-ice-ocean-decals.png)
+
+`ci-10ze-ice-ocean-decals.png` is a real in-engine before/after capture of the LIVE
+Cindra ground out on the frozen sea, from `scripts/render-mapgen.sh` (the same
+Xvfb + EGL/llvmpipe path as the other renders, driving `scenarios/mapgen-shot`,
+which ci-10ze extended with the two OCEAN frames). Both rows are the same fixed
+seed (2468) and the same camera positions; only the offshore decal thinning
+differs.
+
+### What it verifies
+
+The playtest report was that the ice ocean was too cluttered to see that it WAS an
+ice ocean. The BEFORE row shows why: ci-tizx's 40-tile fade-in reaches FULL
+strength at perp -170, but the smooth-ice sheet does not begin until perp -188 and
+then runs ~212 tiles to the map edge -- so the single largest region on the cold
+half carried the densest clutter on the planet. In the BEFORE "open sheet" frame
+the sea is a mottled carpet of drifts, chips and bergs that reads as broken snowy
+GROUND, not as water.
+
+The fix (`scripts/decorative-field.lua`) fades the cold decals back OUT again once
+the ground becomes the ocean sheet: full strength at the smooth-ice contour, down
+to `OCEAN_DENSITY` (0.12) over `OCEAN_FADE_SPAN` (24) tiles offshore. The gate is
+the smooth-ice TILE contour (`terrain.FROZEN_CEILING` through
+`terrain.field_crossing`), not the cold-ocean zone band edge -- the sheet starts
+~12 tiles warmward of that edge, so a band gate would have left a carpeted strip
+of sea (the ci-mk5y lesson, applied on the other side).
+
+In the AFTER row the sheet reads as one flat open expanse with the odd drift for
+scale, while the frost SHORE on the left of the transition frame keeps all of its
+detail -- and the drop between them is a gradient, so there is no stamped line
+offshore. Measured on the fixed test seed: 0.090 decals/tile on the shore vs 0.010
+out on the open sheet (a factor of 8.6, matching the 0.12 multiplier).
+
+Guarded off-game by `unit-tests/test_decorative_field.lua` (the gate is the tile
+contour and not the band, the thinning ramps, every cold decal carries it) and
+`unit-tests/test_terrain.lua` (the frozen ceiling), and on a live surface by
+`tests/test_decoratives.lua` (the open sheet carries a small fraction of the
+shore's coverage, the ramp is a fade, and the ci-tizx ceiling now measures the
+shore -- where the decals are actually thickest).
+
+To regenerate:
+
+```bash
+scripts/render-mapgen.sh  # -> .mapgen-render/script-output/mapgen-{ocean-shore,ice-ocean}.png
+```

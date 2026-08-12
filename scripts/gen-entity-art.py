@@ -609,6 +609,22 @@ def icon_carbothermic_furnace():
 
 
 # ── In-world entity base sprites (static HR single frame + shadow) ───
+def top_quad(size, footprint=0.78):
+    """The 4 corners (N,E,S,W) of a building's top face, plus its wall height.
+
+    THE single source of the block geometry: `entity_sprite` builds the body from
+    it, and the animated emission generator (scripts/gen-entity-anim.py) paints
+    its glow in the same space, so a working-light lands pixel-for-pixel on the
+    roof motif it belongs to instead of being re-guessed against a copy of these
+    numbers.
+    """
+    cx, cy = size/2, size*0.52
+    w = size * footprint / 2
+    h = w * 0.58            # iso squash
+    height = w * 0.5        # block wall height
+    return [(cx, cy - h), (cx + w, cy), (cx, cy + h), (cx - w, cy)], height
+
+
 def entity_sprite(size, roof_painter, footprint=0.78):
     """A 3/4 industrial block: top face + two side faces, with a roof motif.
 
@@ -617,12 +633,8 @@ def entity_sprite(size, roof_painter, footprint=0.78):
     """
     img = blank(size)
     d = ImageDraw.Draw(img)
-    cx, cy = size/2, size*0.52
-    w = size * footprint / 2
-    h = w * 0.58            # iso squash
-    height = w * 0.5        # block wall height
     # Top parallelogram corners (N,E,S,W).
-    top = [(cx, cy - h), (cx + w, cy), (cx, cy + h), (cx - w, cy)]
+    top, height = top_quad(size, footprint)
     # Walls.
     left_wall = [top[3], top[2], (top[2][0], top[2][1] + height), (top[3][0], top[3][1] + height)]
     right_wall = [top[2], top[1], (top[1][0], top[1][1] + height), (top[2][0], top[2][1] + height)]

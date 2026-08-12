@@ -313,6 +313,27 @@ test("every mod setting has a [mod-setting-description] locale entry (ci-8yu)", 
     "mod settings with no [mod-setting-description]:\n  " .. table.concat(missing, "\n  "))
 end)
 
+test("no [mod-setting-*] entry survives its setting (ci-7k6)", function()
+  -- The other direction of the ci-8yu guard. When a setting is deleted its locale
+  -- lines are easy to leave behind -- `cindra-nightside-freeze-temp` sat here for
+  -- several releases after its slider went away, and the three ribbon-geometry
+  -- sliders ci-7k6 removed would have done the same. Dead strings are invisible
+  -- in-game, so nothing but this catches them, and they read to the next person as
+  -- evidence that a setting still exists.
+  local live = {}
+  for _, s in ipairs(load_settings()) do live[s.name] = true end
+  local orphans = {}
+  for _, section in ipairs({ "mod-setting-name", "mod-setting-description" }) do
+    for key in pairs(cfg[section] or {}) do
+      if not live[key] then orphans[#orphans + 1] = section .. "." .. key end
+    end
+  end
+  table.sort(orphans)
+  assert_true(#orphans == 0,
+    "locale entries for mod settings that no longer exist -- delete them:\n  "
+      .. table.concat(orphans, "\n  "))
+end)
+
 test("every string-setting value has a [string-mod-setting-*] label (ci-8yu)", function()
   -- Dropdown values (allowed_values) also render as raw keys unless the
   -- per-setting [string-mod-setting-<name>] section labels each one.

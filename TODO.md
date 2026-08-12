@@ -40,8 +40,15 @@ merge queue.
     "lava-heat" emitter line (`scripts/freeze.lua`, `scripts/freeze-emitters.lua`,
     `prototypes/freeze-emitter.lua`) keep the habitable band thawed while the
     nightside freezes for real; a nearby heat source (ci-f5l heater) thaws a pocket.
-  - Tested: `tests/test_edge_damage.lua`, `tests/test_worldgen.lua`,
-    `tests/test_freeze.lua`, `unit-tests/test_freeze.lua`, `unit-tests/test_freeze_emitters.lua`.
+  - SUPERSEDED since (`ci-oe83` / `ci-ma18` / `ci-wly`, retired by `ci-7k6`): damage
+    is keyed to the TILE under an entity (`scripts/tile-damage.lua`), the boundaries
+    come from the one heightmap's per-zone widths (`scripts/terrain.lua`), and the
+    world edge is the map-gen's finite dimension = the sum of those widths. There is
+    no `wall_at` and no hard-wall backstop; `ribbon.zone` / `ribbon.damage_per_second`
+    / `ribbon.past_wall` and the three settings that fed them are gone.
+  - Tested: `tests/test_tile_damage.lua`, `tests/test_worldgen.lua`,
+    `tests/test_settings_live.lua`, `tests/test_freeze.lua`, `unit-tests/test_freeze.lua`,
+    `unit-tests/test_freeze_emitters.lua`.
 - [x] **§15-3 — Resources.** `ci-l72` (worldgen track `ci-9nj`).
   - `prototypes/resources.lua` + `scripts/resource-field.lua` (pure band geometry)
     + runtime placement in `scripts/worldgen.lua`: stone (ribbon), ice
@@ -286,6 +293,14 @@ merge queue.
   `unit-tests/test_terrain.lua` and, on a live surface/player,
   `tests/test_decoratives.lua` + `tests/test_snowfall.lua`. The LOOK of both is a PLAYTEST
   entry.
+  * **ICE-OCEAN thinning.** `ci-10ze` — DONE. ci-tizx's fade-in reaches full strength ~18
+    tiles short of the smooth-ice sheet, which then runs ~212 tiles to the map edge, so the
+    frozen SEA carried the densest clutter on the planet and did not read as an ocean at
+    all. The cold decals now fade back OUT offshore (`OCEAN_DENSITY` 0.12 over
+    `OCEAN_FADE_SPAN` 24 tiles), gated on the smooth-ice TILE contour (the new
+    `terrain.FROZEN_CEILING` through `terrain.field_crossing`) rather than the cold-ocean
+    band edge, which sits ~12 tiles too far out. Measured 0.090 -> 0.010 decals/tile on the
+    open sheet; before/after: `docs/verification/ci-10ze-ice-ocean-decals.png`.
 - [x] **Orbital / star-map re-render.** `ci-4qyj` — DONE. The from-space art no longer
   keeps a colour ramp of its own: `scripts/terrain_ramp.py` reads `scripts/terrain.lua`
   and replays its position -> heat -> tile -> colour chain, so the globe shows the real

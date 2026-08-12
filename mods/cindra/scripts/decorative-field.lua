@@ -70,6 +70,23 @@
 -- (terrain.MOLTEN_FLOOR, where the ground turns to liquid rock) -- so a rock sits on
 -- volcanic ground and nowhere else. The cold side keeps its ci-tizx gate.
 --
+-- ICE-OCEAN THINNING (ci-10ze). ci-tizx pulled the frost off the BROWN band and faded it in
+-- over 40 tiles, then left it at FULL strength everywhere nightward of that ramp -- which,
+-- with the default widths, is an ~18-tile strip of rough-ice shore plus the ENTIRE ~212-tile
+-- smooth-ice OCEAN. So the frozen sea, the single largest region on the cold half, carried
+-- the densest clutter on the planet: chips, drifts and icebergs strewn thickly enough that
+-- the playtest could not tell it WAS an ice ocean. A sea reads as a sea by being flat and
+-- open, so the clutter now fades OUT again as it goes offshore: full strength at the
+-- smooth-ice contour, down to M.OCEAN_DENSITY over M.OCEAN_FADE_SPAN tiles. The shore keeps
+-- its frost (detail belongs at the boundary, and it is what makes the sheet read as smooth
+-- by contrast), the open sheet keeps a bare trace of it, and because the drop is a ramp
+-- there is no stamped line offshore either.
+--
+-- The thinning gates on the smooth-ice TILE contour (terrain.FROZEN_CEILING through
+-- terrain.field_crossing), NOT on the cold-ocean zone band edge -- the same lesson the hot
+-- side learned in ci-mk5y. With the default widths the sheet starts ~12 tiles WARMWARD of
+-- that band edge, so a band-edge gate would leave a carpeted strip of ocean behind.
+--
 -- WHY VALUE CROSSINGS, NOT A ZONE BAND (the same trap the first gate fell into): a zone
 -- band edge is NOT a tile boundary. With the default widths the molten contour sits ~35
 -- tiles INSIDE the hot-ocean band, and the slope's ash boundary ~12 tiles outside the
@@ -218,6 +235,22 @@ function M.cold_start(cfg)
   return terrain.damage_bounds(cfg).cold_from
 end
 
+-- How much of the cold decals' full density survives out on the OPEN smooth-ice sheet, and
+-- how many tiles offshore the thinning takes to get there (ci-10ze). A trace rather than
+-- zero: a perfectly bare sheet reads as a hole in the world rather than as ice, and the few
+-- chips left are what give the sea its scale. The span makes the shore-to-sea drop a ramp,
+-- so no stamped line appears offshore -- the mirror image of M.COLD_FADE_SPAN inshore.
+M.OCEAN_DENSITY = 0.12
+M.OCEAN_FADE_SPAN = 24
+
+-- Where the smooth-ice OCEAN SHEET begins, in perpendicular tiles: the contour of the field
+-- value at which the ramp starts painting the ocean core. scripts/terrain.lua owns that
+-- boundary (terrain.FROZEN_CEILING); we read it rather than re-deriving it, and we read the
+-- TILE contour rather than the cold-ocean band edge (the sheet begins well warmward of it).
+function M.ice_ocean_start(cfg)
+  return terrain.field_crossing(terrain.FROZEN_CEILING, cfg)
+end
+
 -- Numeric zone predicates (unit-testable off the game). `y` is the signed
 -- perpendicular coordinate (sunward-positive). The hot (rock/crater) zone is the volcanic
 -- slope + crust band (M.hot_band, bounded on BOTH sides: no rocks on the ash middle,
@@ -243,6 +276,26 @@ function M.cold_fade(y, cfg)
   if f < 0 then return 0 end
   if f > 1 then return 1 end
   return f
+end
+
+-- The ocean THINNING multiplier at perpendicular position `y` (ci-10ze): 1 everywhere
+-- warmward of the smooth-ice sheet (the snow / rough-ice shore keeps its full frost),
+-- ramping down to M.OCEAN_DENSITY across the first M.OCEAN_FADE_SPAN tiles offshore and
+-- staying there out to the map edge. The numeric mirror of M.ocean_thin_expr below.
+function M.ocean_thin(y, cfg)
+  local start = M.ice_ocean_start(cfg)
+  local f = (start - y) / M.OCEAN_FADE_SPAN
+  if f < 0 then f = 0 elseif f > 1 then f = 1 end
+  return 1 - (1 - M.OCEAN_DENSITY) * f
+end
+
+-- The whole COLD-SIDE coverage story as one positional number: the inshore fade-in times
+-- the offshore thinning. 0 on the brown habitable band, rising to 1 across the frost shore,
+-- falling back to M.OCEAN_DENSITY on the open sea. Every cold decal's scatter is multiplied
+-- by exactly this (plus its own `density`), so it is the direct answer to "how much of the
+-- ground is covered here" -- which is the question both legibility beads were about.
+function M.cold_density(y, cfg)
+  return M.cold_fade(y, cfg) * M.ocean_thin(y, cfg)
 end
 
 -- The zone mask as a noise-expression string (1 inside the zone, 0 outside): a
@@ -273,12 +326,21 @@ function M.cold_fade_expr(cfg)
          num(M.COLD_FADE_SPAN) .. ", 0, 1)"
 end
 
+-- The ocean thinning as a noise-expression string: 1 up to the smooth-ice contour, falling
+-- to M.OCEAN_DENSITY over M.OCEAN_FADE_SPAN tiles offshore. Encodes M.ocean_thin; a cold
+-- decal's probability is multiplied by it, so the open sea keeps only that fraction of the
+-- shore's coverage (ci-10ze).
+function M.ocean_thin_expr(cfg)
+  return "(1 - " .. num(1 - M.OCEAN_DENSITY) .. " * clamp((" .. num(M.ice_ocean_start(cfg)) ..
+         " - " .. M.PERP .. ") / " .. num(M.OCEAN_FADE_SPAN) .. ", 0, 1))"
+end
+
 -- The full `probability_expression` string for one decorative: its base scatter
 -- ANDed (multiplied) with its side's zone mask, then scaled by its `density`
--- multiplier and (cold side) the fade-in ramp. Outside the zone the mask is 0, so the
--- decal never generates there; inside, the scaled sparse scatter decides per tile.
--- The scale factors multiply the PROBABILITY, so halving `density` halves the covered
--- fraction of ground -- the direct, predictable knob for "how much ground shows".
+-- multiplier and (cold side) the fade-in ramp plus the offshore ocean thinning. Outside the
+-- zone the mask is 0, so the decal never generates there; inside, the scaled sparse scatter
+-- decides per tile. The scale factors multiply the PROBABILITY, so halving `density` halves
+-- the covered fraction of ground -- the direct, predictable knob for "how much ground shows".
 function M.probability_expr(spec, cfg)
   local mask = (spec.side == "hot") and M.hot_mask_expr(cfg) or M.cold_mask_expr(cfg)
   local expr = "(" .. spec.scatter .. ") * (" .. mask .. ")"
@@ -287,6 +349,7 @@ function M.probability_expr(spec, cfg)
   end
   if spec.side == "cold" then
     expr = expr .. " * (" .. M.cold_fade_expr(cfg) .. ")"
+    expr = expr .. " * " .. M.ocean_thin_expr(cfg)
   end
   return expr
 end

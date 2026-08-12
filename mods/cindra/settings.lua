@@ -1,9 +1,33 @@
 -- Cindra mod settings.
 --
--- v1 exposes the ribbon-geometry tuning knobs so the temperature axis (§4) can
--- be balanced live without editing Lua. These mirror scripts/ribbon.lua's
--- DEFAULTS; the runtime systems that consume the axis (§15 item 2 onward) read
--- these. All are (tune) starting points (§16).
+-- 🚨 EVERY SETTING HERE MUST HAVE A WORLD EFFECT. A knob a player can move that
+-- changes nothing is a lie the mod tells them, and it is worse than no knob at
+-- all: they retune it, generate a world, and see the same planet. The guard in
+-- tests/test_settings_live.lua enumerates these prototypes LIVE and fails when one
+-- has no proven consumer, so a dead knob cannot ship again (ci-7k6).
+--
+-- WHAT DIED AND WHY (ci-7k6). v1 shipped three geometry sliders --
+-- `cindra-ribbon-safe-half-width`, `cindra-ribbon-lethal-at` and
+-- `cindra-ribbon-wall-at` -- that described the ORIGINAL three-band ribbon: a safe
+-- half-width, a damage ramp saturating at a lethal distance, and a hard wall at the
+-- map edge. Every one of those three things is now derived from somewhere else:
+--   * the safe band + the lethal edges are wherever the ONE heightmap crosses its
+--     damage thresholds (scripts/terrain.lua), which is a function of the per-zone
+--     WIDTHS below -- and the damage a player takes is keyed to the TILE they stand
+--     on (scripts/tile-damage.lua, ci-ma18), not to a distance from centre;
+--   * the "wall" is gone: ci-wly dropped the impassable ice-wall (the hot-lava
+--     ocean is the only impassable ground) and the world edge is the map-gen's own
+--     finite dimension = the SUM of the zone widths (terrain.map_gen_bounds).
+-- So all three read into cfg tables that nothing downstream ever looked at. They
+-- are removed rather than re-wired: re-wiring would give the ribbon geometry a
+-- SECOND source of truth alongside the zone widths, which is exactly the invariant
+-- AGENTS.md forbids. The knob that still shapes the habitable band is
+-- `cindra-zone-width-middle` (and its siblings) at the bottom of this file.
+--
+-- The two survivors both reach the world: ORIENTATION picks which axis carries the
+-- gradient (scripts/axis.lua -> worldgen, resource masks, every sweep), and MAX-DPS
+-- is the peak damage-per-second scripts/tile-damage.lua inflicts on a full-intensity
+-- hazard tile. Both are (tune) starting points (§16).
 
 data:extend({
   -- Ribbon ORIENTATION. Which way the survivable ribbon runs, and therefore which
@@ -20,41 +44,10 @@ data:extend({
     allowed_values = { "vertical", "horizontal" },
     order = "a-orientation",
   },
-  -- Half-width (tiles) of the guaranteed-safe temperate band around the ribbon
-  -- centre. Inside this, no environmental damage.
-  {
-    type = "int-setting",
-    name = "cindra-ribbon-safe-half-width",
-    setting_type = "startup",
-    default_value = 24,
-    minimum_value = 4,
-    maximum_value = 128,
-    order = "a-safe-half-width",
-  },
-  -- Distance (tiles) from centre at which environmental damage reaches its
-  -- maximum (the lethal deep edge).
-  {
-    type = "int-setting",
-    name = "cindra-ribbon-lethal-at",
-    setting_type = "startup",
-    default_value = 96,
-    minimum_value = 16,
-    maximum_value = 512,
-    order = "b-lethal-at",
-  },
-  -- Distance (tiles) from centre of the hard-wall backstop: the player can never
-  -- walk past this into instant death or off the usable map (§15 item 2).
-  {
-    type = "int-setting",
-    name = "cindra-ribbon-wall-at",
-    setting_type = "startup",
-    default_value = 128,
-    minimum_value = 16,
-    maximum_value = 512,
-    order = "c-wall-at",
-  },
-  -- Peak environmental damage-per-second at the lethal edge. Survivable briefly
-  -- with mitigation gear so the best edge resources are reachable at a cost.
+  -- Peak environmental damage-per-second on a FULL-INTENSITY hazard tile (the
+  -- hot-lava / smooth-ice ocean cores); shallower hazard tiles scale down from it.
+  -- Survivable briefly with mitigation gear so the best edge resources are
+  -- reachable at a cost. Read by scripts/tile-damage.lua every sweep.
   {
     type = "double-setting",
     name = "cindra-ribbon-max-dps",

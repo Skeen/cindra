@@ -18,6 +18,11 @@
 -- ride the volcanic slope + crust (a band bounded on BOTH sides, derived from the field's
 -- own value crossings) instead of "everything sunward of the ribbon safe band" -- so no rock
 -- lies on the molten lava and none is strewn across the brown ash middle.
+--
+-- ci-10ze thins the cold decals back OUT again once the ground becomes the smooth-ice OCEAN
+-- SHEET, so the frozen sea reads as a sea instead of as the most cluttered ground on the
+-- planet: full frost on the snow/rough-ice shore, a trace of it offshore, and a ramp between
+-- the two (no stamped line). Gated on the smooth-ice TILE contour, not the ocean band edge.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local field = require("scripts.decorative-field")
@@ -43,6 +48,12 @@ end
 
 local function assert_true(x, msg)
   if not x then error(msg or "expected true", 2) end
+end
+
+local function assert_near(a, b, tol, msg)
+  if math.abs(a - b) > tol then
+    error((msg or "values differ") .. " (" .. tostring(a) .. " ~= " .. tostring(b) .. ")", 2)
+  end
 end
 
 -- Defaults: the zone layout puts the icy-ground edge (terrain damage cold_from) at -130 and
@@ -149,7 +160,6 @@ test("zone purity holds under a settings-driven config override too", function()
   -- volcanic slope's contours move, and both decal gates MUST move with them (one source of
   -- truth: terrain).
   local cfg = {
-    safe_half_width = 8, lethal_at = 60, wall_at = 100,
     middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
     hot_outer = 30, hot_inner = 30, hot_ocean = 100,
   }
@@ -192,6 +202,91 @@ test("cold decal density fades in from the icy edge to full near the ice wall", 
     assert_true(f >= prev, "fade must not decrease at y=" .. y)
     prev = f
   end
+end)
+
+-- ci-10ze: the frost fades back OUT once the ground becomes the open smooth-ice sheet, so
+-- the ocean reads as an ocean. The gate is the TILE contour of the frozen sea, which is a
+-- long way warmward of the cold-ocean BAND edge -- gating on the band would have left the
+-- ~12 tiles of sheet inside it carpeted (the ci-mk5y mistake, on the other side).
+local SHEET_START = terrain.field_crossing(terrain.FROZEN_CEILING)
+
+test("the ice-ocean gate is the smooth-ice TILE contour, not the ocean band edge (ci-10ze)", function()
+  assert_eq(SHEET_START, field.ice_ocean_start(), "the gate is the frozen sea's own contour")
+  -- It really is the tile boundary: the ground is the ocean sheet nightward of it and the
+  -- rough-ice / snow SHORE warmward, so "thin it on the ocean tiles" is geometry, not hope.
+  assert_eq("cindra-ice-smooth", terrain.value_tile(terrain.field(SHEET_START - 1)),
+    "the ground nightward of the gate is the smooth-ice sheet")
+  assert_eq("cindra-ice-smooth", terrain.value_tile(terrain.field(-400)), "out to the map edge")
+  assert_true(terrain.value_tile(terrain.field(SHEET_START)) ~= "cindra-ice-smooth",
+    "and the gate line itself is still the shore (boundary belongs to the shore)")
+  -- The band edge would have been the wrong gate, by a wide margin.
+  local ocean = terrain.role_band("cold_ocean")
+  assert_true(SHEET_START > ocean.hi,
+    "the sheet begins WARMWARD of the cold-ocean band edge (" .. SHEET_START .. " > " .. ocean.hi .. ")")
+  assert_true(SHEET_START - ocean.hi > 10,
+    "and by more than a rounding error -- a band-edge gate would leave carpeted ocean")
+  -- The whole thinned region lies inside the cold decal zone (it is a thinning, not a
+  -- second gate): everything nightward of the sheet edge is still eligible for frost.
+  assert_true(field.cold_zone(SHEET_START), "the sheet edge is well inside the icy zone")
+end)
+
+test("cold decal density thins from full on the shore to a trace offshore (ci-10ze)", function()
+  assert_eq(1, field.ocean_thin(SHEET_START), "full frost right at the shore line")
+  assert_eq(1, field.ocean_thin(SHEET_START + 20), "and all the way back up the shore")
+  assert_eq(1, field.ocean_thin(0), "the multiplier never touches the rest of the planet")
+  assert_near(1 - (1 - field.OCEAN_DENSITY) / 2,
+    field.ocean_thin(SHEET_START - field.OCEAN_FADE_SPAN / 2), 1e-9, "half thinned half way out")
+  assert_near(field.OCEAN_DENSITY, field.ocean_thin(SHEET_START - field.OCEAN_FADE_SPAN), 1e-9,
+    "fully thinned by the end of the span")
+  assert_near(field.OCEAN_DENSITY, field.ocean_thin(-400), 1e-9, "and still thin at the map edge")
+  -- Monotonic offshore: a ramp, never a step and never a dip.
+  local prev = 2
+  for y = SHEET_START, -420, -1 do
+    local t = field.ocean_thin(y)
+    assert_true(t <= prev, "the thinning must not increase offshore at y=" .. y)
+    prev = t
+  end
+  -- Materially thinner, or the ocean still would not read as one.
+  assert_true(field.OCEAN_DENSITY > 0, "a trace of frost survives (a bare sheet reads as a hole)")
+  assert_true(field.OCEAN_DENSITY <= 0.25, "the open sea keeps at most a quarter of the shore's frost")
+  -- And a ramp wide enough to be a gradient rather than a line.
+  assert_true(field.OCEAN_FADE_SPAN >= 8, "the drop is spread over enough tiles to read as a fade")
+end)
+
+-- The composed positional coverage: none on the brown band (ci-tizx), thickest on the frost
+-- shore, a trace on the open sea (ci-10ze). That ordering IS the legibility fix -- the
+-- densest ground must be the narrow shore, never the vast sheet.
+test("the cold half is thickest on the frost SHORE and sparsest on the open sea (ci-10ze)", function()
+  assert_eq(0, field.cold_density(-100), "the brown habitable band still carries nothing")
+  assert_eq(0, field.cold_density(COLD_START), "nor the icy edge itself")
+  assert_eq(1, field.cold_density(SHEET_START + 5), "the frost shore carries full coverage")
+  assert_near(field.OCEAN_DENSITY, field.cold_density(-300), 1e-9, "the open sea carries a trace")
+  -- The peak of the whole cold-side profile is on the shore, warmward of the sheet.
+  local peak_y, peak = nil, -1
+  for y = COLD_START, -420, -1 do
+    local d = field.cold_density(y)
+    if d > peak then peak, peak_y = d, y end
+  end
+  assert_eq(1, peak, "the profile does reach full coverage somewhere")
+  assert_true(peak_y > SHEET_START, "and it peaks on the SHORE, not out on the ocean sheet")
+  assert_true(field.cold_density(-400) < field.cold_density(SHEET_START + 1) / 4,
+    "the open sea is a small fraction of the shore's coverage")
+end)
+
+test("the ice-ocean thinning tracks the zone widths, like every other gate (ci-10ze)", function()
+  local cfg = { middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
+                hot_outer = 30, hot_inner = 30, hot_ocean = 100 }
+  local start = field.ice_ocean_start(cfg)
+  assert_eq(terrain.field_crossing(terrain.FROZEN_CEILING, cfg), start, "the moved sheet contour")
+  assert_true(start ~= SHEET_START, "the override really did move the sheet edge")
+  assert_eq("cindra-ice-smooth", terrain.value_tile(terrain.field(start - 1, cfg)),
+    "still the smooth-ice sheet nightward of the moved gate")
+  assert_eq(1, field.ocean_thin(start, cfg), "full frost at the moved shore line")
+  assert_near(field.OCEAN_DENSITY, field.ocean_thin(start - field.OCEAN_FADE_SPAN, cfg), 1e-9,
+    "thinned offshore of the moved shore line")
+  -- The default gate is meaningless under the override (i.e. we did not bake a number in).
+  assert_true(field.ocean_thin(SHEET_START, cfg) < 1,
+    "the default contour is already offshore under the narrower widths")
 end)
 
 -- The zone masks (emitted as noise-expression DSL strings) MUST describe the same
@@ -239,6 +334,32 @@ test("cold decals fade in over the ramp and are thinned by their density (ci-tiz
       -- The hot side is untouched by ci-tizx: no density scaling, no cold fade.
       assert_true(spec.density == nil, spec.name .. " (hot) keeps its native density")
       assert_true(expr:find("clamp(", 1, true) == nil, spec.name .. " (hot) has no cold fade")
+    end
+  end
+end)
+
+-- ci-10ze: the offshore thinning has to reach the EMITTED expression (the map-gen only ever
+-- sees the string), on every cold decal and on no hot one.
+test("every cold decal's emitted probability carries the ocean thinning (ci-10ze)", function()
+  local thin = field.ocean_thin_expr()
+  -- It reads the SAME perpendicular axis as every other gate -- the NOMINAL, slider-warped
+  -- one (ci-i4z), so the thinning follows the zone sliders instead of a raw coordinate --
+  -- and the same contour the numeric mirror uses (a hand-typed number would drift).
+  assert_eq("(1 - " .. num(1 - field.OCEAN_DENSITY) .. " * clamp((" .. num(SHEET_START) ..
+    " - " .. PERP .. ") / " .. num(field.OCEAN_FADE_SPAN) .. ", 0, 1))",
+    thin, "default thinning expression")
+  assert_true(thin:find(PERP, 1, true) ~= nil, "the thinning reads the perpendicular axis")
+  assert_eq(PERP, field.PERP, "and it is the module's one axis expression")
+  local cfg = { middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
+                hot_outer = 30, hot_inner = 30, hot_ocean = 100 }
+  assert_true(field.ocean_thin_expr(cfg):find(string.format("%.6g", field.ice_ocean_start(cfg)), 1, true) ~= nil,
+    "the emitted contour tracks the zone widths")
+  for _, spec in ipairs(field.DECORATIVES) do
+    local expr = field.probability_expr(spec)
+    if spec.side == "cold" then
+      assert_true(expr:find(thin, 1, true) ~= nil, spec.name .. " thins on the ocean sheet")
+    else
+      assert_true(expr:find(thin, 1, true) == nil, spec.name .. " (hot) has no ocean thinning")
     end
   end
 end)

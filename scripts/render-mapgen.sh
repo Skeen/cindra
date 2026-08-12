@@ -85,7 +85,7 @@ FACT_PID=$!
 # scenario even starts, so give it a generous budget and break as soon as the
 # last screenshot lands.
 for i in $(seq 1 180); do
-  if [ -f "$WRITE_DATA/script-output/mapgen-deep-frost.png" ]; then
+  if [ -f "$WRITE_DATA/script-output/mapgen-ice-ocean.png" ]; then
     sleep 3  # let the last flush finish
     break
   fi

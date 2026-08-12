@@ -58,17 +58,14 @@ local function model_source(name)
   return src
 end
 
--- The ribbon geometry (startup settings, available at data stage). The band masks
--- read these so the autoplace bands line up exactly with the damage axis.
-local function ribbon_cfg()
-  local s = settings.startup
-  return {
-    safe_half_width = s["cindra-ribbon-safe-half-width"].value,
-    lethal_at = s["cindra-ribbon-lethal-at"].value,
-    wall_at = s["cindra-ribbon-wall-at"].value,
-  }
-end
-local CFG = ribbon_cfg()
+-- The ribbon geometry the band masks read (so the autoplace bands line up exactly
+-- with the damage axis) is the per-zone WIDTH layout in scripts/terrain.lua, and
+-- terrain reads those startup settings itself. `nil` therefore means "the live
+-- layout" -- there is nothing to hand it. (ci-7k6 deleted the cfg table that used
+-- to be built here from the ribbon safe-half-width / lethal-at / wall-at sliders:
+-- terrain's cfg is keyed by zone ROLE, so those three keys were silently ignored
+-- all the way down, which is exactly what made the sliders dead knobs.)
+local CFG = nil
 
 -- Register the patch sets up front, in a deterministic order (mirrors vanilla
 -- base/prototypes/entity/resources.lua), so patch indices are stable. Only Stone
