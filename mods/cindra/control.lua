@@ -113,6 +113,10 @@ if script.active_mods["factorio-test"] then
     "tests/test_flare",
     "tests/test_panel_damage",
     "tests/test_panel_damage_runtime",
+    -- ci-sz8q: overload damage follows the REAL undisposed surplus (a grid that
+    -- consumes all its solar takes none), and a panel killed by overload breaks
+    -- properly instead of vanishing.
+    "tests/test_panel_overload",
     "tests/test_panel_solar",
     "tests/test_disposal",
     "tests/test_storage",

@@ -11,6 +11,12 @@
 --                      never absorb the whole spike (the catchability rule:
 --                      capture < delivery at every scale).
 --
+-- Since ci-sz8q this breakdown is the MODELLED estimate: real play sizes the
+-- panel-damage deficit from the engine's own per-network accounting instead
+-- (M.unconsumed_solar_w below), which counts these same sinks by what they
+-- ACTUALLY drew. `capture` remains the model's telemetry, the fallback when a
+-- load is simulated rather than built, and the sink web's own spec.
+--
 -- All quantities are power (W). A sink counts toward capture only if it can
 -- actually accept power THIS tick: a SATURATED accumulator (real fill at/above
 -- C.STORAGE_SATURATION_THRESHOLD) contributes 0. That real-fill read is Cindra's
@@ -25,8 +31,9 @@ local C = require("scripts.flare-config")
 
 local M = {}
 
--- Baseline factory consumption on the grid. A per-grid SCALAR for now (see the
--- flare-config NOTE); tests override it via set_consumption to model loads.
+-- Baseline factory consumption on the grid. A per-grid SCALAR fallback used by
+-- the MODELLED capture path; tests override it via set_consumption to simulate
+-- loads. Real play measures the grid instead (M.unconsumed_solar_w below).
 function M.consumption_w()
   local w = storage.cindra_consumption_w
   if w ~= nil then return w end
@@ -35,6 +42,46 @@ end
 
 function M.set_consumption(w)
   storage.cindra_consumption_w = w
+end
+
+-- The explicit consumption override, or nil when none is set. When it IS set the
+-- caller is simulating a load (tests / dev), so the deficit must come from the
+-- MODEL; when it is nil (real play) the deficit comes from the engine
+-- measurement below. One accessor so that choice is made in exactly one place.
+function M.consumption_override()
+  return storage.cindra_consumption_w
+end
+
+-- ENGINE-MEASURED unconsumed solar power (W) on `entity`'s electric network, or
+-- nil when it cannot be read (no entity, not wired to a network yet).
+--
+-- WHY (ci-sz8q): the modelled deficit (potential - capture) sizes the surplus
+-- from a panel's NAMEPLATE output minus a guessed load, so a grid that was
+-- actually drawing every watt the panels made still read as "surplus" and the
+-- panels burned. The engine already does this accounting exactly, once per
+-- network update: `solar_output` is the energy the solar producers OFFERED this
+-- tick and `solar_output_usage` the fraction of it that was actually taken away
+-- by consumers, dissipators and charging accumulators. So the power that truly
+-- had nowhere to go is offered * (1 - used) -- zero when the grid consumes 100%
+-- of what the panels provide, no matter how big the array's nameplate is.
+--
+-- Units: flow_last_tick is per network update (J/tick), so * 60 gives W, the
+-- unit the whole damage model speaks. Read-only, and scoped to the network of
+-- the entity handed in (a Cindra panel), so it never reaches off-planet.
+function M.unconsumed_solar_w(entity)
+  if not (entity and entity.valid) then return nil end
+  -- LuaEntity.electric_network is the SUB network; the flow accounting lives on
+  -- its parent (sub networks joined by power switches share one update).
+  local sub = entity.electric_network
+  local net = sub and sub.parent_network
+  local flow = net and net.flow_last_tick
+  if not flow then return nil end
+  local offered = flow.solar_output or 0
+  local used = flow.solar_output_usage or 0
+  if used > 1 then used = 1 elseif used < 0 then used = 0 end
+  local unconsumed = offered * (1 - used) * 60
+  if unconsumed < 0 then return 0 end
+  return unconsumed
 end
 
 local function in_network(entity, network_id)

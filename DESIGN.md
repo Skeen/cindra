@@ -329,7 +329,11 @@ a **warning window** (alarm + countdown) so you can react and circuit-automate a
 response per event, and the magnitude stays MW-scale so capacity sizing still
 matters. It must **never be 100%-catchable**, and undisposed surplus **damages
 the panels producing it** (self-correcting, dissipator-as-fuse,
-degrade-before-death).
+degrade-before-death). "Undisposed" means power that **actually had nowhere to
+go**, measured on the real grid — a factory drawing 100% of what its panels make
+takes **zero** overload damage, however large the array's nameplate output is
+(ci-sz8q) — and a panel that burns out **breaks like any other building** (wreck
+on the ground), it does not silently vanish.
 Storage is a two-tier puzzle: **capacitor** (fast spike, slight self-discharge
 leak) + **molten-salt battery** (bulk plateau, punishing heat-upkeep leak). Both
 bleed when idle; the capacitor only a gentle trickle (~15-20 min to empty), the
