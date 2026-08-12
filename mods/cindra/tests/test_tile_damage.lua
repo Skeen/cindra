@@ -17,6 +17,7 @@
 
 local H = require("tests.helpers")
 local td = require("scripts.tile-damage")
+local terrain = require("scripts.terrain")
 
 describe("tile-based lethal-ground damage (§15-2; ci-ma18)", function()
   local YY = 3200
@@ -81,6 +82,22 @@ describe("tile-based lethal-ground damage (§15-2; ci-ma18)", function()
     local ice  = damage_on("cindra-ice-rough")
     assert.is_true(snow > 0, "snow freezes")
     assert.is_true(ice > snow, "rough ice freezes more than snow")
+  end)
+
+  it("the FOLDS branch is as harmless as the cracks slope it alternates with (ci-72bw)", function()
+    -- The hot slope now paints two texture families over the same field values. A player
+    -- walking a folded/pumice stretch must be exactly as safe as on a cracked one -- the
+    -- branch is art, never a new hazard (and never a new safe path through a hazard).
+    local cracks_warm = damage_on("cindra-volcanic-cracks-warm", "character", -100)
+    assert.are.equal(0, cracks_warm, "the cracks slope is safe to stand on (control)")
+    for name in pairs(terrain.family_tiles("folds")) do
+      assert.are.equal(cracks_warm, damage_on(name, "character", -100),
+        name .. " must be exactly as harmless as the cracks slope it replaces")
+    end
+    -- Control that the sweep is live at that spot: the crust just uphill still burns, so
+    -- the zeros above are real safety, not a dead sweep.
+    assert.is_true(damage_on("cindra-volcanic-cracks-hot", "character", -100) > 0,
+      "the glowing crust still burns there (the sweep is live)")
   end)
 
   it("SHIELD (ci-ma18): CONCRETE over hot ground stops the burn; over cold stops the freeze", function()

@@ -298,19 +298,15 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
     assert.are.equal("heat", terrain.lethal_at(135), "the scanned hot belt is heat-lethal")
   end)
 
-  it("keeps the folds slope SAFE: folds ground deals no damage and is buildable (ci-72bw)", function()
+  it("registers every folds tile as a real Cindra tile on the hot-slope gradient (ci-72bw)", function()
+    -- That the folds ground is as HARMLESS as the cracks ground it alternates with is
+    -- proven behaviourally, through the real damage sweep, in tests/test_tile_damage.lua;
+    -- this pins the prototype side (registered, walkable, on the hot->cold colour ramp).
     for name in pairs(FOLDS) do
-      local intensity, kind = terrain.tile_damage(name)
-      assert.are.equal(0, intensity, name .. " must deal no environmental damage")
-      assert.is_nil(kind, name .. " must have no damage kind")
-      assert.is_true(terrain.is_walkable(name), name .. " must be walkable ground")
       assert.is_not_nil(prototypes.tile[name], name .. " is a real registered Cindra tile")
+      assert.is_true(terrain.is_walkable(name), name .. " must be walkable ground")
+      assert.is_not_nil(terrain.map_color(name), name .. " sits on the map-view gradient")
     end
-    -- The folds counterpart of cracks-warm carries exactly cracks-warm's (zero) heat.
-    local fi, fk = terrain.tile_damage("cindra-volcanic-folds-warm")
-    local ci, ck = terrain.tile_damage("cindra-volcanic-cracks-warm")
-    assert.are.equal(ci, fi, "folds-warm has cracks-warm's heat intensity")
-    assert.are.equal(ck, fk, "folds-warm has cracks-warm's damage kind")
   end)
 
   it("the habitable middle is a MIX of ash tiles (+ soil patches), not one flat tile", function()
@@ -359,7 +355,11 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
     assert.is_false(buildable("cindra-lava"), "lava is impassable (unbuildable)")
     assert.is_true(buildable("cindra-ice-smooth"), "smooth-ice is now WALKABLE/buildable (you can run on it)")
     for _, walk in ipairs({ "cindra-volcanic-cracks-hot", "cindra-volcanic-ash-flats",
-                            "cindra-dust-flat", "cindra-ice-rough", "cindra-snow-flat" }) do
+                            "cindra-dust-flat", "cindra-ice-rough", "cindra-snow-flat",
+                            -- the ci-72bw folds branch is ordinary buildable slope ground
+                            "cindra-volcanic-folds-warm", "cindra-volcanic-folds",
+                            "cindra-volcanic-folds-flat", "cindra-volcanic-ash-cracks",
+                            "cindra-volcanic-pumice-stones" }) do
       assert.is_true(buildable(walk), walk .. " is buildable ground")
     end
   end)
