@@ -120,13 +120,17 @@ start (cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
 
 ### PlanetsLib co-load
 
-Cindra takes **no** dependency on PlanetsLib (see
-[`docs/planetslib-evaluation.md`](docs/planetslib-evaluation.md)), but plenty of
-players install it alongside planet mods, and its `data-final-fixes` reaches into
-every planet in `data.raw.planet`. `test_planetslib_coload` proves the co-load is
-harmless — the game loads and Cindra does not move on the star map. It registers
-only when PlanetsLib is actually loaded, so the default run never executes it;
-`test_planetslib_compat` guards the same edges from our own side in every run.
+Cindra declares PlanetsLib as an **optional** dependency — `"? PlanetsLib"`, load
+order only, so it forces nothing on the player (see
+[`docs/planetslib-evaluation.md`](docs/planetslib-evaluation.md); a hard dependency
+would drag the library's vanilla-prototype rewrites into every Cindra game). Plenty
+of players do install it alongside planet mods, and its `data-final-fixes` reaches
+into every planet in `data.raw.planet`. `test_planetslib_coload` proves the co-load
+is harmless — the game loads and Cindra does not move on the star map. It registers
+only when PlanetsLib is actually loaded, so the default run runs its mirror,
+`test_planetslib_absent` (Cindra plays without the library, and none of its global
+mutations are present); `test_planetslib_compat` guards the interop edges from our
+own side in both configs.
 
 PlanetsLib is not vendored. Download it from the
 [mod portal](https://mods.factorio.com/mod/PlanetsLib) and drop the zip (or an

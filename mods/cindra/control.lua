@@ -119,10 +119,11 @@ if script.active_mods["factorio-test"] then
     "tests/test_frost",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
-    -- ci-810e: PlanetsLib interop guards. Cindra takes NO dependency on PlanetsLib
-    -- (see docs/planetslib-evaluation.md), but players install it alongside planet
-    -- mods and its data-final-fixes imposes hard preconditions -- including a gas-
-    -- percentage assert that REFUSES TO LOAD the game. Pinned from our own side.
+    -- ci-810e: PlanetsLib interop guards. Cindra declares only an OPTIONAL
+    -- `? PlanetsLib` (ci-dza6, load order only), so the library may or may not be
+    -- there; either way its data-final-fixes imposes hard preconditions on every
+    -- planet -- including a gas-percentage assert that REFUSES TO LOAD the game.
+    -- Pinned from our own side, in every config.
     "tests/test_planetslib_compat",
     -- Power system (§15 items 7-9), integrated from the flare-poc (ci-zg3):
     -- flare cycle, disposal-deficit panel damage, storage + dissipator sinks.
@@ -202,13 +203,20 @@ if script.active_mods["factorio-test"] then
       test_files[#test_files + 1] = "tests/test_aps_absent"
     end
   end
-  -- ci-gg3x (stage 1 of the ci-810e PlanetsLib plan): the CO-LOAD proof. Cindra
-  -- takes no dependency on PlanetsLib and the library is not vendored, so this
-  -- only registers when a player-like mod set actually has it installed (see
-  -- README "PlanetsLib co-load"). tests/test_planetslib_compat runs in EVERY
-  -- config and guards the same edges from our own side.
+  -- The two halves of the PlanetsLib story, split on whether the player actually
+  -- installed it. `? PlanetsLib` is OPTIONAL (ci-dza6), so both are real mod sets:
+  --   * WITH PlanetsLib    -> test_planetslib_coload (ci-gg3x, stage 1): the library
+  --     ran, and Cindra did not move on the star map. Not vendored and not in the
+  --     flake, so the default run never reaches it (README "PlanetsLib co-load").
+  --   * WITHOUT PlanetsLib -> test_planetslib_absent (ci-dza6, stage 3): Cindra
+  --     loads and plays anyway, and none of the library's global mutations reach a
+  --     player who never installed it. This is the default run.
+  -- tests/test_planetslib_compat runs in EITHER config and guards the same edges
+  -- from our own side.
   if script.active_mods["PlanetsLib"] then
     test_files[#test_files + 1] = "tests/test_planetslib_coload"
+  else
+    test_files[#test_files + 1] = "tests/test_planetslib_absent"
   end
   require("__factorio-test__/init")(test_files, {
     load_luassert = true,
