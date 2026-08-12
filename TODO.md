@@ -265,13 +265,27 @@ merge queue.
   the middle / cold side / heat belt, and damage-neutral (folds-warm == cracks-warm).
   Gated by `unit-tests/test_terrain.lua` + `tests/test_worldgen.lua`; the look is a
   PLAYTEST entry.
-- [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
-  snowfall on the cold side only. PARTIALLY DONE by `ci-tizx` for the COLD side: the
-  ice/snow decals now start at the icy-ground edge (`terrain.damage_bounds().cold_from`)
-  instead of the safe band, fade in over 40 tiles, and are thinned to a fraction of the
-  mirrored Aquilo density, so the tiles read through them (see
-  `docs/verification/ci-tizx-cold-decal-density.png`). Still open here: the HOT-side
-  re-gate (rocks/craters still key off the ribbon safe band) and the snowfall effect.
+- [x] **Decals + icy-side snowfall.** `ci-mk5y` — DONE. The COLD side landed with `ci-tizx`
+  (ice/snow decals start at the icy-ground edge `terrain.damage_bounds().cold_from` instead
+  of the safe band, fade in over 40 tiles, thinned to a fraction of the mirrored Aquilo
+  density so the tiles read through — see `docs/verification/ci-tizx-cold-decal-density.png`).
+  This bead closed the other two halves:
+  * **HOT re-gate onto the heightmap tiles.** The rock/crater decals were still gated on the
+    ribbon safe band (`perp > 24`) with NO outer bound, so they littered the brown ash middle
+    and floated out over the molten lava. They now ride the volcanic slope + crust: the value
+    segment from the ash convergence (`terrain.BRANCH_SPAN.lo`) up to the molten floor
+    (`terrain.MOLTEN_FLOOR`), converted to two gate lines by the new `terrain.field_crossing`
+    (the field's inverse) with a value margin for the terrain's own wiggle + speckle. A zone
+    band edge would NOT have worked: the lava contour sits ~35 tiles inside the hot-ocean band.
+  * **Icy-side snowfall.** `scripts/snowfall.lua` + `prototypes/snowfall.lua`: a drifting
+    per-player flake field on its own nth-tick (3), gated PER FLAKE on the perpendicular axis
+    at the same icy-ground edge the cold decals use — stand at the boundary and it snows on
+    your nightward side only. Render objects (not engine particles) so the "snow only on the
+    ice" invariant is testable; the stock white square as v1 flake art.
+  Gated by `unit-tests/test_decorative_field.lua` + `unit-tests/test_snowfall.lua` +
+  `unit-tests/test_terrain.lua` and, on a live surface/player,
+  `tests/test_decoratives.lua` + `tests/test_snowfall.lua`. The LOOK of both is a PLAYTEST
+  entry.
 - [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
   `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
 - **SEQUENCE NOTE:** native freeze (`ci-bvk`) is DONE and aligned onto this tile layout:
