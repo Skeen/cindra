@@ -121,7 +121,12 @@ describe("cindra worldgen: the ribbon geometry sliders (ci-i4z)", function()
     local mg = surfaces.base.map_gen_settings
     local bounds = terrain.map_gen_bounds()
     assert.are.equal(bounds.width, mg.width, "and the reference map width")
-    assert.are.equal(bounds.height, mg.height, "with the long axis still infinite")
+    -- The long axis stays UNBOUNDED. We ask for 0 (infinite); the engine echoes an
+    -- unbounded dimension back as its max map size, so read it the way
+    -- test_worldgen.lua does rather than pinning the engine's spelling of "infinite".
+    assert.are.equal(0, bounds.height, "the ribbon is bounded on ONE axis only")
+    assert.is_true(mg.height == 0 or mg.height > 100000,
+      "with the long axis still infinite; got height=" .. tostring(mg.height))
   end)
 
   it("Habitable band Size 2 really widens the ground you build on (~120 tiles)", function()
