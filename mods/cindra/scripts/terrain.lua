@@ -679,6 +679,30 @@ function M.value_range_tiles(h_lo, h_hi)
   return out
 end
 
+-- The Cindra tiles whose GROUND does `kind` damage ("heat" / "cold"), or -- with kind
+-- nil -- the tiles that do none. Derived from M.tile_damage, so it tracks the value
+-- ramp instead of restating it, and a retuned band moves these lists with it.
+--
+-- Exists so a placement rule can be keyed to the TILE rather than to a position
+-- (ci-w87). Positions and tiles do not agree near a band edge: the bands are drawn
+-- with a boundary wiggle plus a per-tile speckle in FIELD units, and where the field's
+-- slope is gentle that speckle is worth several tiles of bleed -- glowing crust turns
+-- up a good six tiles warmward of the nominal heat boundary. Anything that must LOOK
+-- consistent with the ground (a rock model that says "this burns") therefore has to
+-- read the tile, not the coordinate.
+function M.tiles_by_damage(kind)
+  local out = {}
+  for _, name in ipairs(M.tile_names()) do
+    local intensity, k = M.tile_damage(name)
+    if kind == nil then
+      if intensity <= 0 then out[#out + 1] = name end
+    elseif intensity > 0 and k == kind then
+      out[#out + 1] = name
+    end
+  end
+  return out
+end
+
 -- The set of value-ramp member tiles a zone's perpendicular band can be painted with: the
 -- ramp tiles whose value band overlaps the field's value range across that band (+ the
 -- soil overlay in the middle). Used by tests + art helpers that ask "what can paint here".

@@ -148,6 +148,12 @@ require("prototypes.red-mud")
 -- worldgen, so it loads here without touching the main economy chain.
 require("prototypes.power-diode")
 
+-- Rock-model guard (ci-w87): every Cindra worldgen rock must draw the vanilla model it
+-- declares (icebergs on the cold side, glowing volcanic rocks inside the lava area),
+-- and no rock may generate with an undeclared model. Sprites are only visible at the
+-- data stage, so this cannot be a factorio-test. Loads after resources.lua.
+require("prototypes.rock-models")
+
 -- Graphics guard (ci-sop): MUST be last -- audits every registered Cindra entity
 -- for a wired render sprite and errors the load on any invisible building. Catches
 -- the class of bug the runtime API cannot see (LuaEntityPrototype has no graphics

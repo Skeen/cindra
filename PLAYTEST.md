@@ -510,18 +510,35 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   is a pixel-faithful before/after; this entry is only the "does it feel like stone
   against live terrain + lighting" confirmation a still cannot judge.
 
-- [ ] **[LANDED] Ice-rocks read as ICY and land in the safe cold band (ci-18n).**
-  *Repro:* explore the cold/ice side of the ribbon (east of the terminator, before
-  the lethal deep-ice cap) and look at the scattered hand-minable **ice-rocks**.
-  *Look for:* (1) a pale frost-blue **icy** boulder (the vanilla `huge-rock` under a
-  `{0.62, 0.82, 1.0}` cool multiply-tint) that reads as ice/frost, clearly distinct
-  from the warm yellow-tan sandy rocks on the other side; (2) it sits sensibly on the
-  cold-dust / rough-ice ground (not washed into it, not on bare sand); (3) mining one
-  gives an early **ice + stone** trickle. *Fallback:* `unit-tests/test_rock_tint.lua`
-  proves the tint is a cool blue multiply distinct from the stone tint, and
-  `tests/test_worldgen.lua` proves ice-rocks generate only in the safe cold band
-  (never the lethal deep-ice zone or the warm side) and yield ice + stone; only the
-  "does the frost tint read icy against live cold terrain + lighting" is the playtest.
+- [ ] **[LANDED] Ice-rocks read as ICY and land in the safe cold band (ci-18n,
+  re-modelled ci-w87).** *Repro:* explore the cold/ice side of the ribbon (east of
+  the terminator, before the lethal deep-ice cap) and look at the scattered
+  hand-minable **ice-rocks**. *Look for:* (1) a faceted, translucent **ice
+  formation** (Aquilo's `lithium-iceberg` big/huge models, drawn as authored -- NOT
+  a recoloured brown boulder, which is what ci-18n's blue multiply-tint shipped and
+  the playtest rejected); (2) the medium/small/tiny members of the same family
+  scattered around them as chips and grit, so the icy ground reads as one substance
+  from grit to landmark; (3) the rocks sit sensibly on the cold-dust / rough-ice
+  ground; (4) mining one gives an early **ice + stone** trickle. *Fallback:*
+  `unit-tests/test_rock_models.lua` + the data-stage guard prove the cold rocks draw
+  the ice-formation art and carry no tint (sprites are invisible to the runtime API,
+  so this cannot be a factorio-test), and `tests/test_worldgen.lua` proves both sizes
+  generate only in the safe cold band (never the lethal deep-ice zone or the warm
+  side) and yield ice + stone; only "does the ice art read as ice against live cold
+  terrain + lighting" is the playtest.
+
+- [ ] **[LANDED] Volcanic rocks GLOW inside the lava area (ci-w87).** *Repro:* walk
+  west from the terminator across the hot slope and on into the heat-damage band
+  (the glowing-cracks ground), looking at the **volcanic rocks** as you cross.
+  *Look for:* (1) on the safe hot slope the boulders are plain charred rock; (2) once
+  the ground starts burning they are the same boulders with a live **emissive glow**,
+  so a glowing rock is a visual warning that the ground under it hurts; (3) the change
+  happens where the TILES change, with no stripe of glowing rocks sitting on cool
+  ground or vice versa; (4) both sizes appear in both models. *Fallback:*
+  `tests/test_worldgen.lua` proves on the live surface that every rock's model matches
+  its side of the lava edge and that a glowing rock really does stand on heat-damaging
+  tile; only "does the emissive glow actually read at night / in daylight" is the
+  playtest.
 
 - [ ] **[LANDED] Cold-side frost decals are SPARSE and stay off the brown band (ci-tizx).**
   The human reported the snow/ice decal scatter was so thick you could barely see the

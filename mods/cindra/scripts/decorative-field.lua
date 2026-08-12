@@ -8,7 +8,9 @@
 --       volcanic ROCKS + PEBBLES + CRATERS scattered across the solid volcanic ground,
 --       stopping short of the molten lava (nothing lies on liquid rock).
 --   COLD half (nightward frost + deep ice)  ->  do as AQUILO does:
---       ICE decals + LIGHT-SNOW decals + snow drifts scattered across the icy zone.
+--       ICE decals + LIGHT-SNOW decals + snow drifts scattered across the icy zone,
+--       plus the small end of the LITHIUM-ICEBERG family (ci-w87), whose big/huge
+--       members are the cold-side ROCKS in prototypes/resources.lua.
 --
 -- This is a PURE module (no game.* / prototypes.*): it maps a ribbon perpendicular
 -- coordinate to a placement zone, and emits the Factorio NOISE-EXPRESSION strings
@@ -142,6 +144,19 @@ M.DECORATIVES = {
   { name = "cindra-ice-decal",            clone_from = "aqulio-ice-decal-blue", side = "cold", scatter = scatter(1, 0.5, 0.0),  density = 0.4 },
   { name = "cindra-snowy-decal",          clone_from = "aqulio-snowy-decal",    side = "cold", scatter = scatter(1, -0.5, 0.3), density = 0.4 },
   { name = "cindra-snow-drift-decal",     clone_from = "snow-drift-decal",      side = "cold", scatter = scatter(2, -0.5, 0.3), density = 0.15 },
+  -- The small end of the ICEBERG family (ci-w87). The cold-side rocks are Aquilo's
+  -- lithium-iceberg models now (prototypes/resources.lua), and that family's
+  -- medium/small/tiny members are DECORATIVES rather than entities -- so they belong
+  -- here, scattered among the frost decals, and the icy ground reads as one material
+  -- from pebble to landmark instead of two unrelated art sets.
+  --
+  -- Their densities are deliberately a fraction of the frost decals'. The cold half
+  -- already spends most of its ci-tizx coverage budget on ice/snow decals, and the
+  -- point of that bead was that the GROUND must dominate; three more families at frost
+  -- density would put the carpet straight back. These add a sparse chip-scatter on top.
+  { name = "cindra-lithium-iceberg-medium", clone_from = "lithium-iceberg-medium", side = "cold", scatter = scatter(8, 0.5, 0.0), density = 0.10 },
+  { name = "cindra-lithium-iceberg-small",  clone_from = "lithium-iceberg-small",  side = "cold", scatter = scatter(9, 0.5, 0.0), density = 0.14 },
+  { name = "cindra-lithium-iceberg-tiny",   clone_from = "lithium-iceberg-tiny",   side = "cold", scatter = scatter(10, 0.5, 0.0), density = 0.18 },
 }
 
 -- The MARGIN, in field-VALUE units, each hot gate line is pulled INSIDE the tile contour it

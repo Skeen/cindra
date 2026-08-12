@@ -98,13 +98,17 @@ local function cindra_map_gen()
   -- treat_missing_as_default = false, an entity absent here never autoplaces). The
   -- resources + the finite bootstrap rocks (sandy warm-side + icy cold-side, ci-18n),
   -- plus the hot-region burned volcanic rocks (ci-qy0). Names come from
-  -- scripts/resource-field.lua so this list can never drift from the prototypes it gates.
+  -- scripts/resource-field.lua so this list can never drift from the prototypes it gates
+  -- -- which is why the multi-model rock families are looped, not spelled out: a new
+  -- iceberg size or a hot volcanic twin (ci-w87) is allow-listed the moment it is named.
   local entity_autoplace_settings = {
     [field.STONE] = {},
     [field.ICE] = {},
     [field.ROCK] = {},
-    [field.ICE_ROCK] = {},
   }
+  for _, name in ipairs(field.ice_rock_names()) do
+    entity_autoplace_settings[name] = {}
+  end
   for _, name in ipairs(field.burned_rock_names()) do
     entity_autoplace_settings[name] = {}
   end

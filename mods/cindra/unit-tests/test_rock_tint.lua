@@ -47,23 +47,15 @@ test("STONE_TINT is a warm yellowish multiply", function()
   assert_true(t.r <= 1.0 and t.g <= 1.0 and t.b <= 1.0, "channels within 0..1")
 end)
 
--- The ice-rock tint (ci-18n) is the COLD mirror of STONE_TINT: it must be a cool
--- bluish multiply so the shared huge-rock art reads as an icy boulder, not a warm
--- sandstone one. Guard the shape so a future edit can't neutralise it (grey) or warm
--- it (yellow), which would make the ice-rocks indistinguishable from the sandy rocks.
-test("ICE_TINT is a cool bluish multiply (the cold mirror of STONE_TINT)", function()
-  local t = rock_tint.ICE_TINT
-  assert_true(t.r > 0 and t.g > 0 and t.b > 0, "all channels present and positive")
-  -- Cool = blue high, red pulled down. blue >= green > red.
-  assert_true(t.b >= t.g, "blue not below green")
-  assert_true(t.g > t.r, "green above red (cool)")
-  -- A meaningful shift, not a rounding-error tint: red must be clearly cut.
-  assert_true(t.r <= 0.75, "red clearly reduced for a visible blue shift")
-  -- A multiply tint cannot brighten; keep every channel in the valid 0..1 range.
-  assert_true(t.r <= 1.0 and t.g <= 1.0 and t.b <= 1.0, "channels within 0..1")
-  -- It must genuinely differ from the warm stone tint (the two rocks must contrast).
-  assert_true(t.b > rock_tint.STONE_TINT.b, "the ice tint is bluer than the stone tint")
-  assert_true(t.r < rock_tint.STONE_TINT.r, "the ice tint is less red than the stone tint")
+-- ci-w87 RETIRED the ice tint. It existed to make the sandy rock's huge-rock art read
+-- as ice on the cold cap, and the playtest reported it did not ("blue-tinted normal
+-- rocks"); the cold-side rocks are Aquilo's lithium-iceberg models now, so there is no
+-- ICE_TINT to guard. The replacement guard is a PLAYER-OBSERVABLE one and lives in
+-- tests/test_rock_models.lua: the cold-side rocks must draw iceberg art and must NOT be
+-- a recoloured huge-rock. Asserting the shape of a colour constant nothing applies
+-- would pass forever while the player saw the wrong rock.
+test("no ICE_TINT survives: the cold rocks use real iceberg art, not a recolour (ci-w87)", function()
+  assert_true(rock_tint.ICE_TINT == nil, "ICE_TINT is retired, not left dead")
 end)
 
 test("apply tints every flat sprite variation", function()

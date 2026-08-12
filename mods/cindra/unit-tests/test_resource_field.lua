@@ -269,5 +269,112 @@ test("burned-rock autoplace masks to the volcanic band and clusters toward the l
   assert_true(expr:find("> -", 1, true) == nil, "no nightward (cold) bound (hot region only)")
 end)
 
+-- ---------------------------------------------------------------------------
+-- ci-w87: the volcanic band splits at the LAVA EDGE, so the rock you see tells you
+-- whether the ground under it burns. The pure geometry of that split is here; the
+-- proof that the right MODEL generates on each side is tests/test_worldgen.lua.
+-- ---------------------------------------------------------------------------
+
+test("the lava edge IS the heat-damage boundary (one shared line, ci-w87)", function()
+  assert_eq(terrain.damage_bounds().hot_from, field.lava_edge(),
+    "the model boundary must be the same line the ground starts burning at")
+  local cfg = { hot_inner = 30 }
+  assert_eq(terrain.damage_bounds(cfg).hot_from, field.lava_edge(cfg),
+    "it tracks a moved zone geometry, never a hardcoded position")
+end)
+
+-- The model is chosen by the TILE, not by the coordinate, precisely because the two
+-- disagree near the boundary: the bands are painted with a boundary wiggle plus a
+-- per-tile speckle in FIELD units, and on the gentle hot slope that speckle is worth
+-- several tiles -- glowing crust really does appear well warmward of lava_edge. A
+-- position gate would therefore stand plain rocks on burning ground.
+test("a GLOWING model may stand ONLY on ground that burns (ci-w87)", function()
+  local hot = field.burned_rock_tile_restriction(field.BURNED_ROCK_HOT)
+  assert_true(#hot > 0, "the hot models have somewhere to stand")
+  for _, name in ipairs(hot) do
+    local intensity, kind = terrain.tile_damage(name)
+    assert_eq("heat", kind, name .. " is not burning ground")
+    assert_true(intensity > 0, name .. " does no damage, so a glowing rock there lies")
+  end
+end)
+
+test("a PLAIN model may stand ONLY on ground that does not burn (ci-w87)", function()
+  local cool = field.burned_rock_tile_restriction(field.BURNED_ROCK)
+  assert_true(#cool > 0, "the cool models have somewhere to stand")
+  for _, name in ipairs(cool) do
+    local intensity = terrain.tile_damage(name)
+    assert_true(intensity <= 0, name .. " damages the player, so a plain rock there lies")
+  end
+end)
+
+test("the two volcanic restrictions PARTITION the tiles: no gap, no overlap (ci-w87)", function()
+  local hot_set = {}
+  for _, n in ipairs(field.burned_rock_tile_restriction(field.BURNED_ROCK_HOT)) do hot_set[n] = true end
+  local cool_set = {}
+  for _, n in ipairs(field.burned_rock_tile_restriction(field.BURNED_ROCK)) do cool_set[n] = true end
+  for _, name in ipairs(terrain.tile_names()) do
+    local _, kind = terrain.tile_damage(name)
+    local intensity = terrain.tile_damage(name)
+    assert_true(not (hot_set[name] and cool_set[name]), name .. " qualifies for both models")
+    -- Every tile a volcanic rock could land on takes exactly one model. Cold-damaging
+    -- ground is the one exclusion, and no volcanic rock reaches it (the band mask).
+    if not (intensity > 0 and kind == "cold") then
+      assert_true(hot_set[name] or cool_set[name], name .. " would carry no volcanic model")
+    end
+  end
+end)
+
+test("each volcanic PROTOTYPE gets the restriction its model needs (ci-w87)", function()
+  for _, name in ipairs(field.burned_rock_names()) do
+    local tiles = field.burned_rock_tile_restriction(name)
+    assert_true(#tiles > 0, name .. " must have somewhere to stand")
+    for _, t in ipairs(tiles) do
+      local intensity, kind = terrain.tile_damage(t)
+      local burns = intensity > 0 and kind == "heat"
+      assert_eq(field.is_hot_burned_rock(name), burns,
+        name .. " allowed on " .. t .. ", which is the wrong ground for its model")
+    end
+  end
+end)
+
+test("splitting the volcanic family does NOT change the band or its density (ci-w87)", function()
+  -- All four models share the one band expression; only tile_restriction differs, so
+  -- the hot region carries exactly the rock it carried before the split.
+  local expr = field.burned_rock_probability_expr()
+  local v = terrain.cliff_band()
+  assert_true(expr:find("(0 - x) > " .. v.lo, 1, true) ~= nil, "still the volcanic band")
+  assert_true(expr:find("lerp(0.003, 0.02,", 1, true) ~= nil, "still the full density ramp")
+  assert_true(expr:find(tostring(field.lava_edge()), 1, true) == nil,
+    "the lava edge must NOT appear as a position gate -- the tile decides the model")
+end)
+
+-- ci-w87: the cold rocks come in two iceberg sizes now. Adding a size must change what
+-- the player SEES, not how buried the ground is -- the ci-tizx legibility budget.
+test("the ice-rock sizes SPLIT one scatter, they do not add a second (ci-w87)", function()
+  local total = 0
+  for _, name in ipairs(field.ice_rock_names()) do
+    local share = field.ICE_ROCK_SHARE[name]
+    assert_true(share and share > 0, name .. " must declare a positive share of the scatter")
+    total = total + share
+  end
+  assert_true(math.abs(total - 1) < 1e-9,
+    "the size shares must sum to 1 (got " .. total .. "); more rock art must not mean more rocks")
+end)
+
+test("each ice-rock size autoplaces in the SAME safe cold band, at its share (ci-w87)", function()
+  local d = terrain.damage_bounds()
+  local whole = field.ice_rock_probability_expr()
+  for _, name in ipairs(field.ice_rock_names()) do
+    local expr = field.ice_rock_probability_expr(nil, name)
+    assert_true(expr:find("(0 - x) <= -60", 1, true) ~= nil, name .. " starts at the divider")
+    assert_true(expr:find("(0 - x) > " .. d.cold_from, 1, true) ~= nil,
+      name .. " stays warm of the lethal cold zone")
+    -- Same band as the un-split expression: only the trailing probability differs.
+    local band = expr:match("^(.-)%s%*%s[%d%.]+$")
+    assert_true(band ~= nil and whole:find(band, 1, true) == 1,
+      name .. " must share the whole band's mask; got " .. expr)
+  end
+end)
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)
