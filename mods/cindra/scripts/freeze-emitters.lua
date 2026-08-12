@@ -32,6 +32,7 @@
 local axis = require("scripts.axis")
 local freeze = require("scripts.freeze")
 local terrain = require("scripts.terrain")
+local zone_scale = require("scripts.zone-scale")
 
 local M = {}
 
@@ -50,21 +51,27 @@ end
 -- live ribbon geometry (settings-aware via terrain). lo (onset) = the safe middle's
 -- cold edge; hi = the lava sea edge (sunward buildable limit). `cfg` overrides the
 -- zone widths for tests. Pure.
-function M.warm_band(cfg)
+--
+-- Returned in WORLD tiles, because an emitter's reach is a PHYSICAL radius: when the
+-- world-gen-screen sliders (ci-i4z) stretch the habitable band, the band needs more
+-- rows to stay thawed, and when they shrink it, fewer. `scales` are the slider
+-- multipliers in force (zone_scale.for_surface); omitted = the unscaled geometry, so
+-- the default world is unchanged.
+function M.warm_band(cfg, scales)
   local onset = terrain.role_band("middle", cfg).lo
   local sunward = terrain.role_band("hot_ocean", cfg).lo
-  return onset, sunward
+  return zone_scale.to_world(onset, scales, cfg), zone_scale.to_world(sunward, scales, cfg)
 end
 
 -- The perpendicular row centres for the warm band (a fixed, small set). Pure.
-function M.rows(cfg)
-  local lo, hi = M.warm_band(cfg)
+function M.rows(cfg, scales)
+  local lo, hi = M.warm_band(cfg, scales)
   return freeze.perp_rows(lo, hi)
 end
 
--- The exact freeze onset (nightward edge of the warm band). Pure.
-function M.onset(cfg)
-  return freeze.onset(M.rows(cfg))
+-- The exact freeze onset (nightward edge of the warm band), in world tiles. Pure.
+function M.onset(cfg, scales)
+  return freeze.onset(M.rows(cfg, scales))
 end
 
 -- Set a freshly created emitter hot so it warms its radius. A heat-pipe emits while
@@ -94,7 +101,7 @@ end
 -- { left_top = {x,y}, right_bottom = {x,y} }. No game.* access, so the placement
 -- geometry is unit-testable for BOTH orientations off the game (orientation is a
 -- startup setting fixed per run, so the engine test only exercises one).
-function M.positions_in_area(area, orient, cfg)
+function M.positions_in_area(area, orient, cfg, scales)
   local lt = area.left_top or area[1]
   local rb = area.right_bottom or area[2]
 
@@ -113,7 +120,7 @@ function M.positions_in_area(area, orient, cfg)
 
   local out = {}
   local lattice = freeze.lattice_coords(llo, lhi)
-  for _, row in ipairs(M.rows(cfg)) do
+  for _, row in ipairs(M.rows(cfg, scales)) do
     if row >= plo and row <= phi then
       for _, long in ipairs(lattice) do
         local x, y = axis.world(long, row, orient)
@@ -130,7 +137,10 @@ end
 -- already sits (dedupe by exact position), so re-generation never duplicates.
 function M.place_in_area(s, area, cfg)
   if not is_cindra(s) then return end
-  for _, pos in ipairs(M.positions_in_area(area, axis.orientation(), cfg)) do
+  -- The surface's own geometry sliders (ci-i4z): the line must reach across the band
+  -- THIS surface actually generated, not the nominal one.
+  local scales = zone_scale.for_surface(s)
+  for _, pos in ipairs(M.positions_in_area(area, axis.orientation(), cfg, scales)) do
     if not s.find_entity(freeze.EMITTER_NAME, pos) then
       local e = s.create_entity({ name = freeze.EMITTER_NAME, position = pos, force = "player" })
       if e then

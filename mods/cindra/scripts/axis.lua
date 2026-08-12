@@ -44,31 +44,52 @@ end
 -- tight loops (worldgen, sweeps) resolve it ONCE and pass it in.
 --   vertical  (default): p = -x  (hot on the left / west)
 --   horizontal:          p = -y  (hot at the TOP / north)
+--
+-- This is the RAW world coordinate. A system that looks a ZONE up by position (which
+-- band am I in, how sunny is it here) wants the NOMINAL coordinate instead --
+-- zone-scale.nominal_perp(x, y, orient, scales) -- because the world-gen-screen zone
+-- sliders (ci-i4z) stretch the world against the nominal zone table. Order/monotone
+-- comparisons are safe on the raw coordinate (the warp is monotonic).
 function M.perp(x, y, orient)
   orient = orient or M.orientation()
   if orient == M.HORIZONTAL then return -y end
   return -x
 end
 
--- The sunward-positive perpendicular coordinate as a Factorio noise-expression
--- string (the resource-field band masks substitute this for the raw axis so the
--- native autoplace patches band on the SAME axis the runtime damage reads).
-function M.perp_expr(orient)
+-- The RAW sunward-positive perpendicular coordinate as a Factorio noise-expression
+-- string: the plain orientation mapping, in WORLD tiles. Only the zone-scale warp
+-- itself should read this -- every BAND reads the nominal axis below.
+function M.raw_perp_expr(orient)
   orient = orient or M.orientation()
   if orient == M.HORIZONTAL then return "(0 - y)" end
   return "(0 - x)"
 end
 
--- The NIGHTWARD-positive perpendicular coordinate as a noise-expression string,
--- i.e. -perp. Band masks on the cold side read "how deep nightward am I", which
--- is this. Kept as a first-class emitter (rather than negating perp_expr, which
--- would double the unary minus) so both orientations stay clean:
+-- The RAW nightward-positive perpendicular coordinate, i.e. -perp. Kept as a
+-- first-class emitter (rather than negating raw_perp_expr, which would double the
+-- unary minus) so both orientations stay clean:
 --   vertical  : perp = -x  ->  -perp =  x   -> "x"
 --   horizontal: perp = -y  ->  -perp =  y   -> "y"
-function M.perp_neg_expr(orient)
+function M.raw_perp_neg_expr(orient)
   orient = orient or M.orientation()
   if orient == M.HORIZONTAL then return "y" end
   return "x"
+end
+
+-- The sunward-positive perpendicular coordinate every BAND MASK reads: the NOMINAL
+-- axis, published as a named noise expression (prototypes/zone-sliders.lua) that
+-- warps the raw world axis through the world-gen-screen zone sliders (ci-i4z,
+-- scripts/zone-scale.lua). Because every band in the mod substitutes this for the raw
+-- axis -- tiles, resources, decoratives -- the sliders stretch the WHOLE world
+-- coherently while every band constant stays in nominal tiles. With the sliders at
+-- their defaults (and on any surface that is not Cindra) it IS the raw axis.
+function M.perp_expr()
+  return "cindra_perp"
+end
+
+-- The nightward-positive nominal coordinate (-perp), likewise a named expression.
+function M.perp_neg_expr()
+  return "cindra_perp_neg"
 end
 
 -- The LONG-axis coordinate (along the ribbon) for a world position -- the axis the

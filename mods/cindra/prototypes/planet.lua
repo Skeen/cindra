@@ -25,6 +25,7 @@ local space = require("prototypes.space-appearance")
 local terrain = require("scripts.terrain")
 local field = require("scripts.resource-field")
 local decorative_field = require("scripts.decorative-field")
+local zone_sliders = require("prototypes.zone-sliders")
 
 local minute = 60 * 60
 
@@ -120,31 +121,42 @@ local function cindra_map_gen()
   local decorative_settings = {}
   for _, name in ipairs(decorative_field.decorative_names()) do decorative_settings[name] = {} end
 
+  -- The ribbon GEOMETRY sliders (ci-i4z, prototypes/zone-sliders.lua): playable width
+  -- + hot/cold zone depth, on the map-gen screen's Terrain tab. Each override swaps a
+  -- scale variable from its global identity default to the reader that actually reads
+  -- the screen, so the sliders are live HERE and nowhere else.
+  local property_expression_names = zone_sliders.property_expression_names()
+  -- Named noise expression: flat land everywhere (no lakes), the generic
+  -- terrain property Cindra overrides (prototypes/noise.lua).
+  --
+  -- NO cliffs (ci-qqt): the ci-da2 world grew Vulcanus-style cliffs in the volcanic
+  -- zones, but the thin functional ribbon has no room for them -- a cliff walls the
+  -- narrow traversable band, so the engine strips any placed in the walkable ribbon (an
+  -- in-engine measurement found zero survive). A thin ribbon-world is cliff-free by
+  -- design; the volcanic zones stay flat and workable. (cliff_settings and
+  -- cindra_cliff_elevation are gone; terrain.cliff_band survives only as the volcanic-
+  -- tile band geometry the burned-rock autoplace reads.)
+  property_expression_names.elevation = "cindra_ribbon_elevation"
+
+  -- ONLY Cindra's own controls -> the map-gen screen shows just the ribbon geometry
+  -- sliders (Terrain tab) plus Stone and Ice (ordered below Aquilo, see
+  -- prototypes/resources.lua). No Nauvis water / moisture / starting-moisture /
+  -- terrain-type sliders.
+  local autoplace_controls = zone_sliders.autoplace_controls()
+  autoplace_controls["cindra-stone"] = {}
+  autoplace_controls["cindra-ice"] = {}
+
   local mg = {
     -- Finite perpendicular to the ribbon (the ribbon planet), infinite lateral --
     -- BOTH stated, so the long axis is never left bounded by inheritance (ci-65p).
+    -- The geometry sliders never change these: the oceans absorb what the bands take,
+    -- so the ribbon's total width -- and the void backstop -- is slider-independent
+    -- (ci-i4z).
     width = bounds.width,
     height = bounds.height,
-    -- Named noise expression: flat land everywhere (no lakes), the generic
-    -- terrain property Cindra overrides (prototypes/noise.lua).
-    property_expression_names = {
-      elevation = "cindra_ribbon_elevation",
-      -- NO cliffs (ci-qqt): the ci-da2 world grew Vulcanus-style cliffs in the volcanic
-      -- zones, but the thin 128-tile functional ribbon has no room for them -- a cliff
-      -- walls the narrow traversable band, so the engine strips any placed in the
-      -- walkable ribbon (an in-engine measurement found zero survive). A thin ribbon-
-      -- world is cliff-free by design; the volcanic zones stay flat and workable.
-      -- (cliff_settings and cindra_cliff_elevation are gone; terrain.cliff_band survives
-      -- only as the volcanic-tile band geometry the burned-rock autoplace reads.)
-    },
-    -- ONLY Cindra's own resource controls -> the map-gen screen shows just Stone
-    -- and Ice (ordered below Aquilo, see prototypes/resources.lua). No Nauvis
-    -- water / moisture / starting-moisture / terrain-type sliders.
+    property_expression_names = property_expression_names,
     default_enable_all_autoplace_controls = false,
-    autoplace_controls = {
-      ["cindra-stone"] = {},
-      ["cindra-ice"] = {},
-    },
+    autoplace_controls = autoplace_controls,
     autoplace_settings = {
       -- Tiles: ONLY Cindra tiles are candidates. No grass, no water, no Nauvis
       -- tile can ever be placed (they are not in the set).

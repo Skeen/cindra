@@ -46,6 +46,7 @@
 local axis = require("scripts.axis")
 local ribbon = require("scripts.ribbon")
 local terrain = require("scripts.terrain")
+local zone_scale = require("scripts.zone-scale")
 
 local M = {}
 
@@ -138,6 +139,14 @@ end
 -- PURE: the grade at perpendicular coordinate `p` for the live (or given) layout.
 function M.grade_at(p, widths)
   return M.grade_from(M.anchors(widths), p)
+end
+
+-- PURE: the grade at a WORLD position -- the runtime entry. The anchors are ZONE edges,
+-- so the position is warped onto the NOMINAL axis first (ci-i4z): the world-gen-screen
+-- geometry sliders stretch the world, and the wash must follow the ground, not a fixed
+-- tile count. `scales` are the surface's slider multipliers (zone_scale.for_surface).
+function M.grade_at_world(x, y, orient, scales, widths)
+  return M.grade_from(M.anchors(widths), zone_scale.nominal_perp(x, y, orient, scales, widths))
 end
 
 -- The wash alpha for a 0..1 grade depth. Zero at the temperate edge (no wash at
@@ -247,7 +256,10 @@ function M.update_all()
     local ch = player.character
     local which, t = nil, 0
     if ch and ch.valid and ch.surface.valid and ch.surface.name == "cindra" then
-      which, t = M.grade_from(a, axis.perp(ch.position.x, ch.position.y, orient))
+      -- The grade reads ZONE edges, so the character's position is warped onto the
+      -- nominal axis with THIS surface's geometry sliders (ci-i4z).
+      which, t = M.grade_from(a,
+        zone_scale.nominal_perp(ch.position.x, ch.position.y, orient, zone_scale.for_surface(ch.surface)))
     end
     if which and t > 0 then
       show(player, which, t)

@@ -98,6 +98,11 @@ if script.active_mods["factorio-test"] then
     -- ci-65p: the ribbon is bounded ACROSS its hot-cold axis only and runs forever
     -- along its long axis, with the fire on the sunward side, in EITHER orientation.
     "tests/test_orientation",
+    -- ci-i4z: the ribbon GEOMETRY sliders on the new-game map-gen screen (playable
+    -- width + hot/cold zone depths). Generates surfaces with a slider moved and
+    -- measures the ground a player would walk: wider safe band, relocated lethal
+    -- belts, same map size, oceans still walling both edges.
+    "tests/test_worldgen_sliders",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",

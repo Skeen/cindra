@@ -642,12 +642,25 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
       "the ribbon is infinite along its long (Y) axis; got height=" .. tostring(mg.height))
   end)
 
-  it("exposes real map-gen sliders (Stone + Ice only)", function()
+  it("exposes real map-gen sliders: Stone + Ice are the only RESOURCE sliders", function()
     for _, n in ipairs({ "cindra-stone", "cindra-ice" }) do
       local ctrl = prototypes.autoplace_control[n]
       assert.is_not_nil(ctrl, n .. " autoplace-control exists")
       assert.are.equal("resource", ctrl.category, n .. " is a resource slider")
     end
+    -- There is no standalone ice-derived ore (ci-3yl), so Cindra's map-gen screen must
+    -- never grow a third RESOURCE slider. (It does carry terrain-category sliders for
+    -- the ribbon geometry -- ci-i4z, tests/test_worldgen_sliders.lua.)
+    local base = game.surfaces["cindra"]
+      or (game.planets["cindra"] and game.planets["cindra"].create_surface())
+    local resource_sliders = {}
+    for name in pairs(base.map_gen_settings.autoplace_controls) do
+      local ctrl = prototypes.autoplace_control[name]
+      if ctrl and ctrl.category == "resource" then resource_sliders[#resource_sliders + 1] = name end
+    end
+    table.sort(resource_sliders)
+    assert.are.same({ "cindra-ice", "cindra-stone" }, resource_sliders,
+      "exactly two resource sliders; got " .. table.concat(resource_sliders, ", "))
   end)
 
   it("marks the danger zones on the map: hot + cold edges carry a distinct map_color (ci-4h7)", function()

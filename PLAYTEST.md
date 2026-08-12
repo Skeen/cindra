@@ -324,6 +324,30 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   already generated as void under the old orientation stays void — a straight void scar
   along the old boundary. Start a new world to see the clean ribbon.
 
+- [ ] **[LANDED] Ribbon geometry sliders on the new-game map-gen screen (ci-i4z).**
+  The map-gen screen's **Terrain** tab now carries **Habitable band**, **Hot zone** and
+  **Cold zone**; their **Size** dropdown scales the playable middle band and the two
+  zone depths (the ribbon's total width does not change — the lava/ice oceans give up or
+  take back the difference). What the world actually generates is integration-tested
+  (`tests/test_worldgen_sliders.lua`: the safe band really is ~120 tiles wider at Size 2,
+  the spot that burns you at default is safe ground when widened, both oceans still wall
+  the edges) and the warp maths is unit-tested; only the SCREEN and the FEEL are the
+  playtest. *Repro:* New Game → Cindra → Terrain tab; start once at defaults, then again
+  with **Habitable band: Size 200%** (and once with **Hot zone: 200%**). *Look for:*
+  (1) the three rows appear on the Terrain tab, grouped after the vanilla terrain
+  entries, with readable labels and NO enable/disable checkbox; (2) each row's **Size**
+  dropdown offers the usual percentages and the map PREVIEW visibly redraws as you
+  change it (a wider dark ash band at 200%); (3) starting at 200% Habitable band gives
+  an obviously roomier build zone before the ground turns lethal, still centred on the
+  landing spot; (4) 200% Hot zone puts the lava sea noticeably further west with more
+  volcanic slope to cross; (5) chunk generation while exploring feels no slower than at
+  default (the geometry warp is evaluated per map point). *Judgement calls to confirm:*
+  each row's **Frequency** dropdown is deliberately inert (nothing on a fixed ribbon
+  band for "how often" to mean) — decide whether that reads as broken; and at the very
+  top of the dropdown (400-600%) the bands cannot all fit, so they share what is left
+  and the oceans sit on their minimum wall — check that the extreme settings still read
+  as a sane planet.
+
 - [ ] **[LANDED] THREE-PART TWO-HEIGHTMAP terrain redesign (ci-wly) — MAYOR MUST SCREENSHOT.**
   The whole planet was rebuilt into three regions across the hot-cold axis: a **HOT**
   side, a habitable **MIDDLE**, and a **COLD** side (sides ~equal width). Each side is an

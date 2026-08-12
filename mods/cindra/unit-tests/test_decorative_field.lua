@@ -22,6 +22,7 @@
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local field = require("scripts.decorative-field")
 local terrain = require("scripts.terrain")
+local axis = require("scripts.axis")
 
 local passed, failed = 0, 0
 
@@ -50,6 +51,15 @@ end
 -- cold (icy) zone is y < cold_from, and everything between is decal-free habitable ground.
 local COLD_START = terrain.damage_bounds().cold_from
 local HOT = field.hot_band()
+-- The axis the masks band on, from the ONE source of truth (scripts/axis.lua): the
+-- NOMINAL axis, i.e. the world-gen-screen zone sliders' warp (ci-i4z). A mask written
+-- against a raw x/y would silently stop following the sliders.
+local PERP = axis.perp_expr()
+-- Numbers as the emitters format them (integral values keep no ".0").
+local function num(v)
+  if v == math.floor(v) then return string.format("%d", v) end
+  return string.format("%.6g", v)
+end
 
 test("rocks/craters live on the volcanic slope; ice/snow only on the icy ground", function()
   assert_true(field.hot_zone(HOT.lo + 1), "rocks from the slope's ash edge")
@@ -186,9 +196,9 @@ end)
 
 -- The zone masks (emitted as noise-expression DSL strings) MUST describe the same
 -- boundaries as the numeric predicates. Default orientation is vertical (hot on the
--- LEFT), so the sunward-positive perpendicular axis is "(0 - x)".
+-- LEFT); the emitted masks read the nominal perpendicular axis (PERP above).
 test("hot mask is the two-sided volcanic slope band, not the ribbon safe band (ci-mk5y)", function()
-  assert_eq("((0 - x) > 90.5) * ((0 - x) < 154.5)", field.hot_mask_expr(), "default hot mask")
+  assert_eq("(" .. PERP .. " > 90.5) * (" .. PERP .. " < 154.5)", field.hot_mask_expr(), "default hot mask")
   -- The RIBBON's safe band no longer has anything to do with where rocks go: only the
   -- heightmap geometry (the zone widths) moves the gate.
   assert_eq(field.hot_mask_expr(), field.hot_mask_expr({ safe_half_width = 8 }),
@@ -196,29 +206,24 @@ test("hot mask is the two-sided volcanic slope band, not the ribbon safe band (c
   local cfg = { middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
                 hot_outer = 30, hot_inner = 30, hot_ocean = 100 }
   local b = field.hot_band(cfg)
-  -- Format as the emitter does (integers clean, everything else %.6g).
-  local function n(v)
-    if v == math.floor(v) then return string.format("%d", v) end
-    return string.format("%.6g", v)
-  end
-  assert_eq("((0 - x) > " .. n(b.lo) .. ") * ((0 - x) < " .. n(b.hi) .. ")",
+  assert_eq("(" .. PERP .. " > " .. num(b.lo) .. ") * (" .. PERP .. " < " .. num(b.hi) .. ")",
     field.hot_mask_expr(cfg), "the mask tracks the zone widths")
 end)
 
 test("cold mask starts at the icy ground, not at the safe band (ci-tizx)", function()
-  assert_eq("((0 - x) < " .. COLD_START .. ")", field.cold_mask_expr(), "default cold mask")
+  assert_eq("(" .. PERP .. " < " .. num(COLD_START) .. ")", field.cold_mask_expr(), "default cold mask")
   -- The old gate (the ribbon safe band) must be gone: safe_half_width no longer
   -- controls where the frost starts.
   assert_true(field.cold_mask_expr({ safe_half_width = 8 }):find("-8", 1, true) == nil,
     "the safe band no longer gates the cold decals")
   local cfg = { middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
                 hot_outer = 30, hot_inner = 30, hot_ocean = 100 }
-  assert_eq("((0 - x) < " .. terrain.damage_bounds(cfg).cold_from .. ")",
+  assert_eq("(" .. PERP .. " < " .. num(terrain.damage_bounds(cfg).cold_from) .. ")",
     field.cold_mask_expr(cfg), "the mask tracks the zone widths")
 end)
 
 test("cold decals fade in over the ramp and are thinned by their density (ci-tizx)", function()
-  assert_eq("clamp((" .. COLD_START .. " - (0 - x)) / " .. field.COLD_FADE_SPAN .. ", 0, 1)",
+  assert_eq("clamp((" .. num(COLD_START) .. " - " .. PERP .. ") / " .. num(field.COLD_FADE_SPAN) .. ", 0, 1)",
     field.cold_fade_expr(), "fade expression")
   for _, spec in ipairs(field.DECORATIVES) do
     local expr = field.probability_expr(spec)
@@ -270,7 +275,7 @@ test("each decorative's autoplace is zone-gated and self-contained", function()
         spec.name .. " gated to the volcanic slope band (both sides)")
     elseif spec.side == "cold" then
       cold_seen = true
-      assert_true(expr:find("(0 - x) < " .. COLD_START, 1, true) ~= nil,
+      assert_true(expr:find(PERP .. " < " .. num(COLD_START), 1, true) ~= nil,
         spec.name .. " gated to the icy-ground zone")
     else
       error("decorative " .. spec.name .. " has an unknown side " .. tostring(spec.side))
