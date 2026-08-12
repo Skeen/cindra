@@ -85,71 +85,35 @@
           };
         };
 
-        # `cindra-test` — wire the flake-built factorio-test mod into the runner
-        # data dir and invoke factorio-test-cli with the DLC set the suite needs
-        # (recycler is a required 2.1 built-in that space-age/quality depend on).
-        # The Factorio binary is user-provided (FACTORIO_PATH or ./factorio).
+        # `cindra-test` — a thin wrapper around scripts/cindra-test.sh: hand it
+        # the flake-built factorio-test mod, let the repo script do the rest
+        # (seed the data dir, resolve the engine, invoke factorio-test-cli).
+        #
+        # The runner logic deliberately lives in the repo, not in this nix
+        # string: it is then readable, diffable and TESTABLE by
+        # tests/factorio-resolve.test.sh, which asserts the hard gate on a
+        # missing engine. Install discovery is shared with play.sh via
+        # scripts/resolve-factorio.sh, so the dev shell and a plain ./play.sh can
+        # never disagree about where the binary is (divergence between two copies
+        # of that logic is how ci-j340 stayed broken).
         cindra-test = pkgs.writeShellApplication {
           name = "cindra-test";
           runtimeInputs = [
             pkgs.nodejs
             pkgs.coreutils
             pkgs.gnused
+            pkgs.bash
+            pkgs.git
           ];
           text = ''
             repo="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-            ft_mod="${factorio-test-mod}"
-            # Factorio binary (gitignored ~4GB install): FACTORIO_PATH (binary)
-            # wins, else FACTORIO_DIR (install root), else the in-repo ./factorio.
-            # Mirrors play.sh so one shared install serves every clone.
-            if [ -n "''${FACTORIO_PATH:-}" ]; then
-              factorio_path="$FACTORIO_PATH"
-            elif [ -n "''${FACTORIO_DIR:-}" ]; then
-              factorio_path="$FACTORIO_DIR/bin/x64/factorio"
-            else
-              factorio_path="$repo/factorio/bin/x64/factorio"
-            fi
-            data_dir="''${FACTORIO_TEST_DATA_DIR:-$repo/factorio-test-data-dir}"
-
-            version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ft_mod/info.json" | head -1)"
-            mkdir -p "$data_dir/mods"
-            # CANONICAL settings: drop any persisted mod-settings.dat so every run
-            # regenerates it from the CURRENT settings.lua defaults. Factorio only
-            # reads a startup setting's default_value when the name is ABSENT from
-            # mod-settings.dat; once the file exists it keeps the stored value and
-            # IGNORES a changed default. A data dir reused across runs (locally, or
-            # on the refinery's persistent workspace) therefore pins STALE zone
-            # widths, so a geometry change (e.g. ci-qqt's thin 128-tile ribbon) reads
-            # green on a fresh checkout but red on a reused one -- the exact false-
-            # green/stale-red split that rejected the first ci-qqt attempt. Deleting
-            # it makes every run deterministic against the code's own defaults (the
-            # tests already assume vanilla-default settings). Custom local tuning is
-            # transient test state, not source, so nothing durable is lost.
-            rm -f "$data_dir/mods/mod-settings.dat"
-            ln -sfn "$ft_mod" "$data_dir/mods/factorio-test_$version"
-            # env-scanner is a required (~) dependency of cindra: cindra will not
-            # load without it, and its scanner must exist for the suite to assert
-            # on. It is a sibling local mod (not on the portal), so seed it into
-            # the data dir like factorio-test; cindra's ~ dep then auto-enables it.
-            ln -sfn "$repo/mods/env-scanner" "$data_dir/mods/env-scanner"
-
-            if [ ! -x "$factorio_path" ]; then
-              echo "error: Factorio binary not found at $factorio_path" >&2
-              echo "The game is a manual, local install (see SETUP.md); set FACTORIO_PATH to override." >&2
+            runner="$repo/scripts/cindra-test.sh"
+            if [ ! -x "$runner" ]; then
+              echo "error: $runner not found; run cindra-test from inside the cindra repo." >&2
               exit 1
             fi
-
-            cli="$repo/node_modules/.bin/factorio-test"
-            if [ ! -x "$cli" ]; then
-              echo "error: factorio-test-cli not installed; run 'npm install' first (see SETUP.md)." >&2
-              exit 1
-            fi
-
-            exec "$cli" run \
-              --factorio-path "$factorio_path" \
-              --data-directory "$data_dir" \
-              --mod-path "$repo/mods/cindra" \
-              --mods space-age quality elevated-rails recycler "$@"
+            export FACTORIO_TEST_MOD="${factorio-test-mod}"
+            exec "$runner" "$@"
           '';
         };
 

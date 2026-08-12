@@ -35,11 +35,30 @@ every clone at it — no 4GB copy per worktree:
 - `FACTORIO_PATH` — full path to the binary, **or**
 - `FACTORIO_DIR` — install root (binary expected at
   `$FACTORIO_DIR/bin/x64/factorio`), **or**
-- default: an in-repo `./factorio` (a real extraction or a symlink to a shared
-  install).
+- an in-repo `./factorio` (a real extraction or a symlink to a shared install),
+  **or**
+- nothing at all: a `factorio-patched/` or `factorio/` install in **any parent
+  directory** is found automatically (checked at each level, patched first).
 
-`play.sh` and `cindra-test` both honor these, in that priority order, and print
-a clear error if no binary is found.
+The upward search is what makes a fresh clone or agent worktree work with no
+setup: worktrees sit at `<workspace>/hq/<rig>/polecats/<name>/<repo>` while the
+shared install sits at `<workspace>/factorio-patched`, so it is found from any
+depth. The explicit env vars still win, so an override is always available; a
+set-but-broken one is an error rather than a silent fall-through.
+
+`scripts/resolve-factorio.sh` is the single source of truth for this, used by
+`play.sh`, the integration runner (`scripts/cindra-test.sh`, which the flake's
+`cindra-test` wraps) and the in-engine render harnesses. Run it by hand to see
+what a given directory resolves to:
+
+```sh
+./scripts/resolve-factorio.sh        # prints the binary path, or explains and exits 1
+```
+
+**A missing engine is a hard failure, never a skip.** `cindra-test` exits
+non-zero without seeding anything when no binary resolves, so an in-engine run
+that never happened can't be mistaken for a clean one. If you can't resolve an
+install, escalate or leave the work open — do not report an in-engine result.
 
 To create a fresh install:
 

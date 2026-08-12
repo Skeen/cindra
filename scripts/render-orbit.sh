@@ -14,8 +14,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
-FACTORIO_BIN="${FACTORIO_PATH:-$ROOT/factorio/bin/x64/factorio}"
-[ -x "$FACTORIO_BIN" ] || { echo "factorio binary not found at $FACTORIO_BIN" >&2; exit 1; }
+# Same install discovery as play.sh / the integration runner: FACTORIO_PATH,
+# FACTORIO_DIR, the in-repo ./factorio, then factorio-patched/ or factorio/ in
+# any parent directory. The resolver fails loudly and non-zero on its own when
+# there is no engine, so an in-engine render can never be quietly skipped.
+FACTORIO_BIN="$(scripts/resolve-factorio.sh "$ROOT")" || exit 1
 
 # --- resolve software-GL stack from nix (mesa/llvmpipe + glvnd + Xvfb) --------
 echo "== resolving GL stack ==" >&2

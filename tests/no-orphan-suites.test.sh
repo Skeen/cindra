@@ -2,11 +2,12 @@
 # Guard (ci-eao): no factorio-test integration suite may exist that NO runner
 # ever executes.
 #
-# The default `cindra-test` runner (flake.nix) only points `--mod-path` at
-# mods/cindra, so a standalone sibling mod that boots its own factorio-test
-# suite in control.lua runs in ZERO pipelines -- its it()s rot silently and give
-# false confidence. That is exactly how the flare-poc / mass-driver /
-# freeze-radius-poc spikes ended up with ~48 never-run tests (ci-eao).
+# The default `cindra-test` runner (scripts/cindra-test.sh) only points
+# `--mod-path` at mods/cindra, so a standalone sibling mod that boots its own
+# factorio-test suite in control.lua runs in ZERO pipelines -- its it()s rot
+# silently and give false confidence. That is exactly how the flare-poc /
+# mass-driver / freeze-radius-poc spikes ended up with ~48 never-run tests
+# (ci-eao).
 #
 # This test enumerates every mod that ships a tests/ directory and asserts each
 # one is in RUNNER_COVERED below -- the set of mods a runner actually executes.
@@ -25,7 +26,7 @@ cd "$REPO"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # Mods whose tests/ suite a runner actually executes.
-#   cindra      -> `cindra-test` (flake.nix: --mod-path mods/cindra), the default
+#   cindra      -> `cindra-test` (scripts/cindra-test.sh: --mod-path mods/cindra), the default
 #                  integration suite; also `npm run test:integration`.
 #   env-scanner -> documented per-MR run: factorio-test --mod-path mods/env-scanner
 #                  (cindra-test does not sweep it; env-scanner MRs run it directly).
