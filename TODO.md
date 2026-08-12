@@ -333,13 +333,12 @@ merge queue.
   them, Size 0 removes the resource and leaves the other one untouched, and no
   setting pushes a field out of its band. Verified sensitive by pinning every
   `control:*` var to 1 in `banded_autoplace`: all five effect tests fail. It turned
-  up two open bugs: `ci-l3k3` (ICE *Frequency* is inert above 0.5 -- ice asks for
+  up two bugs: `ci-l3k3` (ICE *Frequency* is inert above 0.5 -- ice asks for
   40 spots/km2, past the engine's 21-candidate budget per region, so it is saturated
-  at the default already and ice runs at HALF its declared density) and `ci-bgpm`
-  (`FIELD_DAMAGE_MARGIN` budgets 9.5 tiles of tile bleed but the heightmap value
-  bleeds hot crust ~15 tiles, so at maxed sliders 16 stone tiles land on
-  heat-damaging crust). Both fixes shift default-world balance, so they are their own
-  beads; the suite asserts the halves that hold today.
+  at the default already and ice runs at HALF its declared density), still open because
+  its fix shifts default-world balance; and `ci-bgpm` (at maxed sliders 16 stone tiles
+  landed on heat-damaging crust), FIXED below -- the suite's damaging-ground check runs
+  on the maxed-out world too now.
 - [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
   snowfall on the cold side only. PARTIALLY DONE by `ci-tizx` for the COLD side: the
   ice/snow decals now start at the icy-ground edge (`terrain.damage_bounds().cold_from`)
@@ -349,6 +348,25 @@ merge queue.
   re-gate (rocks/craters still key off the ribbon safe band) and the snowfall effect.
 - [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
   `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
+- [x] **No field ever lies on ground that damages you.** `ci-bgpm` — DONE. `ci-fb9`/`ci-4iw`
+  rested that promise on a POSITIONAL keep-back (`FIELD_DAMAGE_MARGIN`, 9.5 tiles, sized
+  off the tile-boundary noise amplitudes), and it was ~6x too small: the tile family comes
+  from the noisy heightmap VALUE, where the per-tile speckle is a 0.012 FIELD-unit
+  tie-break worth ~6 tiles per competing tile on the gentle outer slopes. Measured
+  in-engine (seed 24680, 8192 rows): heat crust reaches 18 tiles warmward of its nominal
+  boundary, cold snow 20 middle-ward — so at maxed Stone sliders 16 stone tiles (of 17681)
+  generated on `cindra-volcanic-cracks-hot` and burned you as you mined them. Fixed the
+  `ci-w87` way (gate on the TILE, not the coordinate): both field resources carry an
+  autoplace `tile_restriction` to `terrain.tiles_by_damage(nil)`. It removed exactly those
+  16 tiles and nothing else — the bands keep their full width and still reach to within
+  ~10 tiles of lethal ground, so unlike a widened margin (~24 tiles, eating the richest end
+  of both bands) it costs the edge-push reward nothing. Gated by
+  `tests/test_worldgen_field_ground.lua` (every slider at 6, plus a live coverage guard
+  over the `resource` prototypes and a no-retreat guard on the band's reach), a rotated
+  sanity pass in `tests/test_worldgen_horizontal.lua`, and the pure gate in
+  `unit-tests/test_resource_field.lua`. FOLLOW-UP: `ci-pxlz` — the ice-ROCKS have the same
+  leak (38 of 840 stand on cold-damaging snow) and no keep-back at all; fixing it thins the
+  bootstrap trickle, so it is its own balance call.
 - **SEQUENCE NOTE:** native freeze (`ci-bvk`) is DONE and aligned onto this tile layout:
   its onset ties to the cold-side gradient (the middle's cold edge, ~p −60), not a wall.
   NB the emitter had to become a 1×1 heat-pipe (a heat-interface ignores `heating_radius`)

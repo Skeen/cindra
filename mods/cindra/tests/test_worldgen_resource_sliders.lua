@@ -20,7 +20,7 @@
 --   ANY setting -- the band geometry still holds: cranking every slider to 6 can
 --     never push stone onto the cold side or ice onto the hot ribbon (the ci-fb9
 --     band invariant has to survive the map-gen screen, not just the default world),
---     and no field of the default world sits on ground that damages you (ci-4iw,
+--     and no field sits on ground that damages you at EITHER setting (ci-4iw/ci-bgpm,
 --     re-measured at this suite's own seed).
 --
 -- Measured in the strip y in [520, 2568]: regular resource patches fade in from
@@ -29,16 +29,20 @@
 -- window x in [-128, 132] spans both bands (stone (-120.5, 60], ice (60, 120.5)).
 -- Vertical orientation, like the rest of test_worldgen*.
 --
--- TWO KNOWN GAPS, both bugs this suite found and neither one asserted here, because
--- both fixes move the DEFAULT world (a balance call, not a test change):
+-- ONE KNOWN GAP, a bug this suite found and does not assert here, because the fix moves
+-- the DEFAULT world (a balance call, not a test change):
 --   ci-l3k3 -- raising ICE Frequency above 0.5 is a no-op in the engine: ice asks for
 --     40 spots/km2, past the 21-candidate spot budget per 1024x1024 region, so it is
 --     saturated at the default setting already. Ice Frequency is therefore asserted
 --     DOWNWARD here, where it demonstrably works.
---   ci-bgpm -- at maxed sliders 16 stone tiles land on heat-damaging crust, because
---     FIELD_DAMAGE_MARGIN budgets 9.5 tiles of tile bleed and the heightmap value
---     bleeds hot crust ~15. The ci-4iw check below therefore runs on the DEFAULT
---     world; the maxed-out case belongs to that bead.
+--
+-- The suite's OTHER find, ci-bgpm (at maxed sliders 16 stone tiles landed on
+-- heat-damaging crust, because FIELD_DAMAGE_MARGIN budgeted 9.5 tiles of tile bleed
+-- against a real ~20), is FIXED: the two field resources now carry an autoplace
+-- tile_restriction to the damage-free tiles, so the ground the ore lies on decides
+-- instead of the coordinate, and the bands kept their full width. The ci-4iw check below
+-- therefore runs on the maxed-out world too; tests/test_worldgen_field_ground.lua is that
+-- invariant's own home (with the band-reach and per-prototype coverage guards).
 
 local field = require("scripts.resource-field")
 local terrain = require("scripts.terrain")
@@ -301,30 +305,35 @@ describe("cindra worldgen: the Stone/Ice map-gen sliders really move the ore (ci
   -- the real damage decision (terrain.tile_damage, the tile the sweep damages from),
   -- not a hand-listed tile set.
   --
-  -- SCOPED TO THE DEFAULT WORLD ON PURPOSE -- ci-bgpm. Running the same check on the
-  -- maxed-out surface above finds 16 stone tiles (of 17681) on cindra-volcanic-cracks-hot:
-  -- the tile family is chosen from the heightmap VALUE, whose noise bleeds hot crust
-  -- up to ~15 tiles warmward of the nominal damage boundary, while
-  -- FIELD_DAMAGE_MARGIN only budgets 9.5. At default sliders ore covers so much less
-  -- of the band that nothing lands there -- which is luck, not geometry, so the fix
-  -- (a wider margin, trimming the richest end of both bands) is a balance call and
-  -- lives in ci-bgpm together with the maxed-out assertion.
-  it("keeps every field off damaging ground at default sliders (ci-4iw, second seed)", function()
-    local s = surfaces.base
-    for _, r in ipairs({ STONE, ICE }) do
-      local ents = s.find_entities_filtered({ name = r, area = { { X1, Y1 }, { X2, Y2 } } })
-      assert.is_true(#ents > 100, r .. ": sampled real fields (" .. #ents .. ")")
-      local hurts, worst = 0, nil
-      for _, e in ipairs(ents) do
-        local t = s.get_tile(e.position.x, e.position.y).name
-        if terrain.tile_damage(t) > 0 then
-          hurts = hurts + 1
-          worst = t
+  -- Checked at BOTH settings since ci-bgpm. The default world only ever passed this by
+  -- luck (ore covers so little of the band that nothing happened to land on a bled lethal
+  -- tile); the maxed-out world found 16 stone tiles of 17681 on cindra-volcanic-cracks-hot,
+  -- because the tile family comes from the noisy heightmap VALUE and hot crust reaches ~20
+  -- tiles warmward of the nominal boundary while FIELD_DAMAGE_MARGIN budgeted 9.5. The
+  -- fields carry a tile_restriction to the damage-free tiles now, so the ground decides
+  -- and the count is zero however much ore the sliders pour into the band.
+  it("keeps every field off damaging ground, at default AND maxed sliders (ci-4iw/ci-bgpm)", function()
+    local cases = {
+      { label = "default sliders", surface = surfaces.base, window = { { X1, Y1 }, { X2, Y2 } }, min = 100 },
+      { label = "every slider at 6", surface = surfaces.extreme, window = { { PX1, PY1 }, { PX2, PY2 } }, min = 500 },
+    }
+    for _, c in ipairs(cases) do
+      for _, r in ipairs({ STONE, ICE }) do
+        local ents = c.surface.find_entities_filtered({ name = r, area = c.window })
+        assert.is_true(#ents > c.min,
+          r .. " (" .. c.label .. "): sampled real fields (" .. #ents .. ")")
+        local hurts, worst = 0, nil
+        for _, e in ipairs(ents) do
+          local t = c.surface.get_tile(e.position.x, e.position.y).name
+          if terrain.tile_damage(t) > 0 then
+            hurts = hurts + 1
+            worst = t
+          end
         end
+        assert.are.equal(0, hurts,
+          r .. " (" .. c.label .. "): no field tile sits on ground that damages you ("
+          .. hurts .. " of " .. #ents .. " found, e.g. " .. tostring(worst) .. ")")
       end
-      assert.are.equal(0, hurts,
-        r .. ": no field tile sits on ground that damages you (" .. hurts
-        .. " found, e.g. " .. tostring(worst) .. ")")
     end
   end)
 

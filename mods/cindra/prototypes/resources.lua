@@ -90,6 +90,12 @@ local function banded_autoplace(name, params, mask_expr, rich_mult_expr)
     "(" .. spec.probability_expression .. ") * (" .. mask_expr .. ")"
   spec.richness_expression =
     "(" .. spec.richness_expression .. ") * (" .. mask_expr .. ") * (" .. rich_mult_expr .. ")"
+  -- ...and NEVER on ground that damages you (ci-bgpm). The band mask is positional, and a
+  -- lethal tile bleeds ~20 tiles into the nominal safe side because the tile family comes
+  -- from the noisy heightmap value -- so the band edge alone cannot keep ore off burning
+  -- crust / frozen ground. The tile restriction can, exactly, at no cost to the band's
+  -- width (scripts/resource-field.lua owns the list).
+  spec.tile_restriction = field.field_tile_restriction()
   return spec
 end
 

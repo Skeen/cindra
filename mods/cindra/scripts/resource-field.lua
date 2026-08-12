@@ -33,12 +33,19 @@
 -- ci-4iw): a resource on the unreachable lethal cap/wall is visible-but-unreachable.
 -- stone + ice are clamped to the damage-free band via field_bounds (reads
 -- terrain.damage_bounds -- the SAME positional lethal-zone boundary the design and the
--- worldgen use), and pulled a further FIELD_DAMAGE_MARGIN back so a noise-BLED lethal
--- tile (the smooth-ice cap / lava crust wandering warmward across the boundary) never
--- carries a field either -- the ci-4iw leak. Fields still reach INTO the survivable
--- edge margin (zone 4 warm-cracks, zone 10 rough-ice: "best resources reachable at a
--- cost"), which is the intended edge-push, NOT the death zone. Volcanic rocks are the
--- one deliberate exception -- they live IN the hot region as the hazard-reward.
+-- worldgen use), and pulled a further FIELD_DAMAGE_MARGIN back so the ore visibly stops
+-- before the lethal ground. Fields still reach INTO the survivable edge margin (zone 4
+-- warm-cracks, zone 10 rough-ice: "best resources reachable at a cost"), which is the
+-- intended edge-push, NOT the death zone. Volcanic rocks are the one deliberate
+-- exception -- they live IN the hot region as the hazard-reward.
+--
+-- ...and NO FIELD EVER LIES ON GROUND THAT DAMAGES YOU (ci-bgpm), which the positional
+-- margin above cannot deliver on its own: the tile family is chosen from the noisy
+-- heightmap VALUE, so a lethal tile surfaces ~20 tiles inside the nominal safe side
+-- (measured) -- ci-4iw's 9.5-tile budget was ~6x too small and only held at default
+-- sliders by luck. The guarantee is M.field_tile_restriction: the resources may generate
+-- only on tiles that deal no damage, so a bled lethal tile carries no ore however far it
+-- bled, and both bands keep their full width (the edge-push reward is untouched).
 --
 -- The zone boundaries come from scripts/terrain.lua (M.resource_bounds), the SAME
 -- geometry that lays the tile gradient, so resources and terrain share one source
@@ -130,14 +137,42 @@ local function bounds(cfg)
   return terrain.resource_bounds(cfg)
 end
 
--- Keep-back MARGIN (tiles) from the lethal-zone boundary (ci-4iw). The tile bands are
--- drawn with a boundary-noise wiggle + per-tile speckle (scripts/terrain.lua), so a
--- lethal tile (smooth-ice cap / lava crust) can wander up to NOISE_AMPLITUDE +
--- SPECKLE_AMPLITUDE (= 14) tiles past its nominal zone edge. Fields stop a WIDER
--- margin short of the damage boundary so no bled lethal tile ever carries a field --
--- the leak ci-fb9 missed by clamping EXACTLY to the boundary (same reasoning as
--- ROCK_COLD_MARGIN). Derived from the terrain amplitudes, never hardcoded.
+-- Keep-back MARGIN (tiles) from the lethal-zone boundary (ci-4iw): the bands stop this
+-- far short of the nominal damage boundary so the ore VISIBLY stops before the lethal
+-- ground rather than running right up to it. It is a COSMETIC/positional keep-back and
+-- nothing more -- the GUARANTEE that no ore lies on lethal ground is
+-- M.field_tile_restriction below, which reads the TILE.
+--
+-- It used to be the guarantee, budgeting the tile-boundary wiggle plus the per-tile
+-- speckle (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE, quoted as "= 14" from the pre-ci-qqt
+-- amplitudes and never re-derived). That budget was never the right shape (ci-bgpm): the
+-- tile FAMILY is picked from the heightmap VALUE, and the speckle that makes co-present
+-- value bands interpenetrate is SPECKLE_H (0.012) in FIELD units, which on the gentle
+-- outer slopes (~0.002 H per tile) is worth ~6 tiles for EACH of the two tiles competing
+-- at a boundary. Measured in-engine (seed 24680, 8192 rows) heat-damaging crust reaches
+-- 18 tiles warmward of its nominal boundary and cold-damaging snow 20 tiles middle-ward
+-- of its own -- twice this margin. Widening the margin to cover that would have cost the
+-- richest ~12 tiles at BOTH band edges (the edge-push reward); gating on the tile costs
+-- nothing and cannot be out-bled at all.
 M.FIELD_DAMAGE_MARGIN = terrain.NOISE_AMPLITUDE + terrain.SPECKLE_AMPLITUDE + 6
+
+-- WHICH GROUND A FIELD MAY LIE ON IS DECIDED BY THE TILE, NOT BY THE COORDINATE
+-- (ci-bgpm; the ci-w87 lesson, applied to the harvestable fields). You mine a patch by
+-- STANDING on it, so a patch tile on burning crust or on frozen ground is ore you cannot
+-- harvest without taking damage -- the visible-but-unreachable UX ci-fb9 forbids.
+--
+-- Positions and tiles do not agree near a band edge and cannot be made to: the tile is
+-- chosen from the noisy field VALUE, so a lethal tile turns up ~20 tiles inside the
+-- nominal safe side (measured; see M.FIELD_DAMAGE_MARGIN). Any positional keep-back is
+-- therefore either too narrow (ore on lethal ground) or wide enough to eat the
+-- edge-push reward. An autoplace `tile_restriction` naming exactly the Cindra tiles that
+-- deal NO damage makes the disagreement impossible instead of merely small: a bled
+-- lethal tile carries no ore however far it bled, and the bands keep their full width.
+--
+-- Derived from terrain.tiles_by_damage, so a retuned value ramp moves this list with it.
+function M.field_tile_restriction()
+  return terrain.tiles_by_damage(nil)
+end
 
 -- The damage-EXCLUDED band edges for HARVESTABLE FIELDS (ci-fb9, margin ci-4iw). A
 -- field (stone / ice patch) must NEVER generate in the LETHAL damage zone: a resource
@@ -145,11 +180,11 @@ M.FIELD_DAMAGE_MARGIN = terrain.NOISE_AMPLITUDE + terrain.SPECKLE_AMPLITUDE + 6
 -- stone band's hot edge below the heat-damage boundary and the ice band's cold edge
 -- above the cold-damage boundary (both from terrain.damage_bounds -- the SAME
 -- positional lethal-zone boundary the tile gradient and worldgen use), then pull each
--- a further FIELD_DAMAGE_MARGIN into the safe side so noise-BLED lethal tiles near the
--- boundary stay field-free too (ci-4iw: ci-fb9 clamped with no margin, so ice patches
--- landed on smooth-ice bleeding warmward across the boundary -- ice "in the frost
--- death zone"). The fields still reach INTO the survivable edge margin (zone 4 / zone
--- 10), the intended edge-push reward.
+-- a further FIELD_DAMAGE_MARGIN into the safe side so the ore stops visibly short of the
+-- lethal ground instead of at it (ci-4iw: ci-fb9 clamped EXACTLY to the boundary). The
+-- fields still reach INTO the survivable edge margin (zone 4 / zone 10), the intended
+-- edge-push reward. What keeps ore off an individual BLED lethal tile is not this margin
+-- but M.field_tile_restriction (ci-bgpm) -- see there for why it cannot be a position.
 --
 -- Only stone + ice need this. Volcanic rocks are the deliberate hazard-reward
 -- exception and keep the raw walkable hot_edge (they read as "in the lava"); the
@@ -218,17 +253,18 @@ end
 -- recipe), not of the placement (§6).
 --
 -- ci-18n: the cold edge is pulled a MARGIN warmward of the building band's cold edge
--- (building_lo) so the sandy rocks FADE OUT BEFORE the frosty cold zones and never
--- sit on ice/frost tiles. The margin is wider than the tile-boundary + speckle noise
--- bleed (scripts/terrain.lua NOISE_AMPLITUDE + SPECKLE_AMPLITUDE = 14), so even where
--- a cold-slope dust tile bleeds warmward across the middle/cold divider, no sandy rock
--- is placed on it. The hot (sunward) edge stays at the middle's hot edge -- that
--- neighbour is the cool volcanic hot outer slope, never ice, so it needs no pull.
+-- (building_lo) so the sandy rocks FADE OUT BEFORE the frosty cold zones. The hot
+-- (sunward) edge stays at the middle's hot edge -- that neighbour is the cool volcanic
+-- hot outer slope, never ice, so it needs no pull.
 --
--- Scaled down with the ci-qqt thin-ribbon compression: the building band shrank from
--- 200 to 50 tiles and the tile-boundary bleed shrank with the noise amplitudes
--- (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE = 3.5 now), so the pull-back stays a small
--- fraction of the building band (margin 5 > 3.5 bleed) rather than swallowing it.
+-- The margin is a COSMETIC fade, not a guarantee: ci-18n sized it against the noise
+-- AMPLITUDES (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE, 3.5 tiles since the ci-qqt thin-ribbon
+-- compression) and that is not what a tile family's bleed is worth -- the speckle is a
+-- FIELD-unit tie-break, so on the shallow middle slope a cold-looking dust tile reaches
+-- far further warmward than 5 tiles (ci-bgpm measured ~20 at the damage boundaries). A
+-- sandy rock on a frost-looking tile is a looks-only mismatch (both tiles are safe
+-- ground), so this stays a fade; a rule that must hold gates on the TILE instead
+-- (M.field_tile_restriction / M.burned_rock_tile_restriction).
 M.ROCK_COLD_MARGIN = 5
 function M.rock_zone(y, cfg)
   local b = bounds(cfg)
@@ -240,10 +276,17 @@ M.ROCK_PROBABILITY = 0.006
 
 -- Ice-rocks (ci-18n) scatter across the SAFE cold/ice band: cold of the building
 -- band's cold edge (building_lo, the stone/ice divider) but WARM of the lethal
--- deep-ice damage zone (zone 11, p <= damage cold_from). So they read as "on the
--- icy side" yet stay hand-gatherable with no cold damage -- the damage-zone
--- exclusion the resource-reachability rule asks for. Finite simple-entities like the
--- sandy rock (one-shot on mining), yielding an early ice + stone trickle.
+-- deep-ice damage zone (zone 11, p <= damage cold_from), so they read as "on the icy
+-- side". Finite simple-entities like the sandy rock (one-shot on mining), yielding an
+-- early ice + stone trickle.
+--
+-- ci-18n claimed this positional bound ALSO made them "hand-gatherable with no cold
+-- damage". It does not, for the ci-bgpm reason: cold-damaging snow bleeds ~20 tiles
+-- middle-ward of the nominal boundary this clamps to, and unlike the fields there is no
+-- keep-back margin here at all. Measured (default sliders, seed 24680, 8192 rows): 38 of
+-- 840 ice-rocks stand on cold-damaging ground. Tracked as ci-pxlz, which wants the same
+-- tile_restriction the fields got -- deliberately NOT changed here, because it thins the
+-- early bootstrap trickle and that is a balance call of its own.
 function M.ice_rock_zone(y, cfg)
   local b = bounds(cfg)
   local d = terrain.damage_bounds(cfg)

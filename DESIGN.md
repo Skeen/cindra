@@ -352,7 +352,16 @@ backpressure that stalls the drill when either backs up — is the nightside
 logistics puzzle (the same pressure as Fulgora scrap). Frozen volatiles
 (`cindra-volatiles`) were removed entirely (ci-ml1).
 
-The best of everything sits at the lethal margins (edge-pushing reward). Every
+The best of everything sits at the lethal margins (edge-pushing reward), but a
+harvestable field is **never placed on ground that damages you** — you mine a patch
+by standing on it, so ore on burning crust or frozen ground is ore you cannot take
+(ci-fb9). The bands stop short of the lethal zones positionally, and — because the
+tile family comes from the noisy heightmap value, so a lethal tile surfaces ~20
+tiles inside the nominal safe side — the two field resources additionally carry an
+autoplace **tile restriction** to the damage-free tiles (ci-bgpm): the ground the
+ore lies on decides, not the coordinate, so the bands keep their full reach out to
+the margin. Volcanic rocks are the one deliberate exception (the hazard-reward:
+they stand *in* the lava areas, glowing model on burning ground, ci-w87). Every
 resource is a Cindra-exclusive clone of a vanilla base (`stone` resource /
 `huge-rock`); the shared vanilla prototypes are **never mutated**. Bootstrap rocks
 are mined simple-entities (destroyed on mining → inherently finite, never a

@@ -219,6 +219,27 @@ describe("horizontal (E-W) ribbon: the generated world is rotated a quarter turn
     assert.are.equal(0, #resources(field.ICE, 131, HALF), "no ice in the southern cold belt")
   end)
 
+  -- ci-bgpm: no field tile lies on ground that damages you. The guarantee is a
+  -- tile_restriction on the two field resources, which is orientation-free by
+  -- construction (it names tiles, not coordinates); this is the rotated-world SANITY pass
+  -- on that claim, because a positional keep-back is exactly the kind of fix that could
+  -- hold on one axis and leak on the other. It is a sparse default-slider sample and
+  -- would have passed before the fix too -- the ci-bgpm reproduction (16 stone tiles on
+  -- burning crust) needs the maxed sliders of tests/test_worldgen_field_ground.lua.
+  it("puts NO stone or ice patch tile on damaging ground, rotated too (ci-bgpm)", function()
+    for _, name in ipairs({ field.STONE, field.ICE }) do
+      local ents = s.find_entities_filtered({ name = name, area = { { -FAR, -HALF }, { FAR, HALF } } })
+      assert.is_true(#ents > 0, name .. ": sampled real fields (" .. #ents .. ")")
+      local bad, worst = 0, nil
+      for _, e in ipairs(ents) do
+        local t = tile(e.position.x, e.position.y)
+        if terrain.tile_damage(t) > 0 then bad = bad + 1; worst = t end
+      end
+      assert.are.equal(0, bad, name .. ": " .. bad .. " of " .. #ents ..
+        " patch tiles sit on ground that damages you (e.g. " .. tostring(worst) .. ")")
+    end
+  end)
+
   it("lays the resource bands as LONG E-W stripes: wide along X, narrow along Y", function()
     -- The shape of the deposits is the claim: banded on the perpendicular axis means
     -- the ore stretches for kilometres along the ribbon while staying inside a thin

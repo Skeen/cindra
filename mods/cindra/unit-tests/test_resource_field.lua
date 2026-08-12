@@ -53,7 +53,9 @@ end
 -- (hot_ocean+hot_inner) and the cold band at -130 (cold_inner+cold_ocean). ci-4iw pulls
 -- the field edge a further FIELD_DAMAGE_MARGIN (9.5) into the safe side, so stone lives
 -- on [-60, 120.5) and ice on (-120.5, -60) -- reaching INTO the survivable edge margin
--- (the outer slope, "reachable at a cost") but never onto the bled lethal tiles.
+-- (the outer slope, "reachable at a cost") while stopping visibly short of the lethal
+-- ground. Keeping ore off an individual BLED lethal tile is the tile restriction's job,
+-- not this margin's (ci-bgpm, asserted further down).
 local M = 9.5 -- FIELD_DAMAGE_MARGIN (NOISE_AMPLITUDE 2 + SPECKLE_AMPLITUDE 1.5 + 6)
 local HOT_FIELD_EDGE = 130 - M  -- 120.5
 local COLD_FIELD_EDGE = -130 + M -- -120.5
@@ -211,6 +213,51 @@ test("bands honour a per-zone-width override (settings-driven tuning)", function
   local m = field.FIELD_DAMAGE_MARGIN
   assert_true(field.ice_richness(db.cold_from + m + 5, cfg) > 0, "ice on the (moved) survivable cold margin")
   assert_eq(0, field.ice_richness(db.cold_from + 1, cfg), "no ice in the keep-back margin off the (moved) cold cap (ci-4iw)")
+end)
+
+-- ci-bgpm: the positional margin above is a COSMETIC keep-back; what actually keeps ore
+-- off lethal ground is the TILE restriction, because the tile family is chosen from the
+-- noisy heightmap value and a lethal tile surfaces ~20 tiles inside the nominal safe side
+-- (measured in-engine) -- far past any margin the band can afford. The pure geometry of
+-- that gate is here; the proof that no ore tile lands on damaging ground on a real
+-- (slider-maxed) surface is tests/test_worldgen_field_ground.lua.
+
+test("a FIELD may generate ONLY on ground that deals no damage (ci-bgpm)", function()
+  local allowed = field.field_tile_restriction()
+  assert_true(#allowed > 0, "the fields must have somewhere to generate")
+  for _, name in ipairs(allowed) do
+    local intensity = terrain.tile_damage(name)
+    assert_true(intensity <= 0, name .. " damages the player, so ore there is unmineable")
+  end
+end)
+
+test("the field restriction BARS every damaging tile and no other (ci-bgpm)", function()
+  local allowed = {}
+  for _, name in ipairs(field.field_tile_restriction()) do allowed[name] = true end
+  for _, name in ipairs(terrain.tile_names()) do
+    local intensity = terrain.tile_damage(name)
+    if intensity > 0 then
+      assert_true(not allowed[name], name .. " burns/freezes you but may still carry ore")
+    else
+      -- No safe tile is barred: the fix must cost the bands NO width (the edge-push
+      -- reward lives at the very edge of the band).
+      assert_true(allowed[name], name .. " is safe ground but is barred from carrying ore")
+    end
+  end
+end)
+
+test("the field restriction tracks the value ramp, never a hand-written tile list", function()
+  -- It IS terrain's own damage-free set, so retuning the ramp (or adding a tile) moves it.
+  local a, b = field.field_tile_restriction(), terrain.tiles_by_damage(nil)
+  assert_eq(#b, #a, "the field restriction must be terrain's damage-free tile set")
+  local set = {}
+  for _, n in ipairs(a) do set[n] = true end
+  for _, n in ipairs(b) do assert_true(set[n], n .. " missing from the field restriction") end
+  -- ...and it is disjoint from the ground the GLOWING volcanic rocks stand on (ci-w87):
+  -- the rocks are the deliberate hazard-reward, the fields are never a hazard.
+  for _, n in ipairs(field.burned_rock_tile_restriction(field.BURNED_ROCK_HOT)) do
+    assert_true(not set[n], n .. " burns, so a field must not be allowed on it")
+  end
 end)
 
 -- The native-autoplace band masks (emitted as noise-expression DSL strings) MUST

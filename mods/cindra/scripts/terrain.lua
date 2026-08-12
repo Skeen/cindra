@@ -773,14 +773,27 @@ end
 -- Noise tuning. The field contours are perturbed by a boundary WIGGLE that shifts the
 -- perpendicular coordinate in TILES (so contours read organic), plus a small per-tile
 -- SPECKLE in H units that breaks ties so co-present value bands interpenetrate at their
--- boundary. NOISE_AMPLITUDE / SPECKLE_AMPLITUDE (tile-space) stay the ci-fb9/ci-4iw
--- resource keep-back reads (scripts/resource-field.lua derives its damage margin from the
--- worst-case tile bleed = NOISE_AMPLITUDE + SPECKLE_AMPLITUDE); keeping them small keeps
--- damage tiles from bleeding into the resource band.
+-- boundary.
+--
+-- HOW FAR A TILE FAMILY BLEEDS PAST ITS NOMINAL POSITION (ci-bgpm, measured). The wiggle
+-- is the small part: it shifts a contour by NOISE_AMPLITUDE tiles. The SPECKLE is the big
+-- one, and it is NOT a tile-space number -- two tiles competing at a value boundary swing
+-- the winner by up to 2 * SPECKLE_H in FIELD units, which converts to TILES through the
+-- field's local slope. On the gentle outer slopes (~0.002 H per tile with the default
+-- widths) that is ~12 tiles, so a lethal tile really does surface ~20 tiles inside the
+-- nominal safe side (measured on a generated surface, seed 24680 over 8192 rows: 18 tiles
+-- for the heat crust, 20 for the cold snow).
+--
+-- So a POSITIONAL keep-back cannot be the thing that keeps ore/clutter off lethal ground:
+-- anything that reads these amplitudes as a tile budget is off by ~6x. Placement rules
+-- that must agree with the ground gate on the TILE instead (M.tiles_by_damage --
+-- resource-field's field_tile_restriction and burned_rock_tile_restriction).
+-- SPECKLE_AMPLITUDE remains only as the nominal tile-space equivalent the cosmetic
+-- keep-back margins are sized from.
 -- ---------------------------------------------------------------------------
-M.NOISE_AMPLITUDE = 2    -- tiles: the boundary wiggle amplitude (also the resource margin)
+M.NOISE_AMPLITUDE = 2    -- tiles: the boundary wiggle amplitude
 M.NOISE_WAVELENGTH = 14
-M.SPECKLE_AMPLITUDE = 1.5 -- tiles: nominal speckle bleed the resource margin budgets for
+M.SPECKLE_AMPLITUDE = 1.5 -- tiles: NOMINAL speckle equivalent (see above: not the real bleed)
 M.SPECKLE_H = 0.012      -- H: the actual per-tile speckle amplitude in the value field
 M.SPECKLE_WAVELENGTH = 4
 M.SOIL_AMPLITUDE = 26

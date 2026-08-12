@@ -301,6 +301,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
 
 ## Ribbon & terrain
 
+- [ ] **[LANDED] Patch edges where the ore meets lethal ground (ci-bgpm).**
+  Stone and ice patches may no longer generate on any tile that damages you (an autoplace
+  tile restriction to the damage-free tiles), because the glowing crust / freezing snow
+  really does bleed ~20 tiles inside the nominal safe side, and 16 stone tiles per measured
+  strip were landing on burning crust at maxed sliders. That the ore is never on damaging
+  ground is asserted in-engine (`tests/test_worldgen_field_ground.lua`, every Stone/Ice
+  slider at 6), and the bands keep their full width — what a test cannot judge is whether
+  the resulting patch OUTLINE still reads natural. *Repro:* walk sunward along the hot
+  outer slope until stone patches sit beside glowing `volcanic-cracks-hot` crust (perp
+  ~110-120, x ≈ -110..-120 in the default vertical orientation), then the same on the icy
+  side where ice patches meet snow. *Look for:* the ore stopping AT the crust/snow with a
+  ragged organic edge, not a straight cut and not a patch full of one-tile holes; no patch
+  reduced to isolated specks. Worth a second look at maxed Stone/Ice sliders (map-gen
+  screen → Resources → Frequency/Size/Richness 6), where patches are fattest and press
+  hardest against the lethal ground.
+
 - [ ] **[LANDED] HORIZONTAL ribbon orientation: fire at the TOP, endless east-west (ci-65p).**
   The non-default orientation was broken two ways: the world was boxed in on BOTH axes
   (a rectangle, not a ribbon) and the fire sat at the BOTTOM. Fixed: the map-gen now
