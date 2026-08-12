@@ -75,6 +75,63 @@ describe("power-diode (ci-8l4 power-switch-style one-way device)", function()
     end
   end)
 
+  -- ci-ntgh: a "disconnected power" warning symbol rendered WAY OUTSIDE the
+  -- device model. The demand lives in the hidden INPUT buffer, which sits TAP_DX
+  -- (3) tiles off the device by construction -- the tap poles' supply areas must
+  -- not cross-cover the far side's buffer, or the two networks merge and the
+  -- diode stops being one -- and an electric energy source paints the engine's
+  -- no-power / no-network icon over ITS OWN entity. So the icon appeared out in
+  -- open ground, attached to nothing the player can see. The prototype opts both
+  -- buffers out; the DEVICE is the only thing that speaks for the diode.
+  --
+  -- This is the ONE part of the render the runtime API can prove: the icon flags
+  -- ARE exposed (LuaElectricEnergySourcePrototype), unlike sprites. The
+  -- data-stage half of the audit lives in unit-tests/test_power_diode_graphics.lua.
+  it("its hidden buffers raise no power-warning icon floating off the model", function()
+    for _, name in ipairs({ C.INPUT, C.OUTPUT }) do
+      local src = prototypes.entity[name].electric_energy_source_prototype
+      assert.is_truthy(src, name .. " must have an electric energy source")
+      assert.is_false(src.render_no_power_icon,
+        name .. " must not draw the 'no power' icon: it would float " .. C.TAP_DX
+        .. " tiles off the device model")
+      assert.is_false(src.render_no_network_icon,
+        name .. " must not draw the 'no network' icon (same floating position)")
+    end
+    -- The DEVICE itself is a power-switch: no energy source, so nothing to
+    -- silence, and nothing that could draw a stray icon on the model either.
+    assert.is_nil(prototypes.entity[C.DEVICE].electric_energy_source_prototype,
+      "the device must have no energy source of its own")
+  end)
+
+  -- The state that produced the report: the source side wired to a network that
+  -- cannot fill the buffer. The controller parks the input buffer with a probe of
+  -- headroom every sweep, so the demand -- and therefore the icon -- was
+  -- permanent, not a placement-time flicker. Proving the buffer really does sit
+  -- in that unmet-demand state is what makes the flag assertion above meaningful.
+  it("the input buffer really does sit in the unmet-demand state that drew the icon", function()
+    local s = H.cindra_surface()
+    H.power_reset()
+    diode.reset()
+
+    local dev = place_device(s, { 0, 0 })
+    local d = diode.registry()[dev.unit_number]
+    -- Two real but DEAD networks: substations with no generation at all.
+    copper(dev, WCID.power_switch_left_copper, substation(s, -12), WCID.pole_copper)
+    copper(dev, WCID.power_switch_right_copper, substation(s, 12), WCID.pole_copper)
+
+    diode.tick({ dt = C.TICK_INTERVAL })
+    -- The buffer is on a network (so it is not "unpowered because unwired") and
+    -- it wants more than that network can give -- exactly the no-power state.
+    assert.is_truthy(d.input.electric_network_id, "the input buffer must be on a real network")
+    assert.is_true(d.input.energy < d.input.electric_buffer_size,
+      "the input buffer must be parked with headroom, i.e. demanding power the dead source cannot supply")
+    -- And it is genuinely off the device, which is why the icon floated.
+    assert.are.equal(C.TAP_DX, math.abs(d.input.position.x - dev.position.x),
+      "the input buffer sits TAP_DX tiles off the device by construction")
+
+    dev.destroy({ raise_destroy = true })
+  end)
+
   it("spawns + wires its hidden guts on build, and tears them down on removal", function()
     local s = H.cindra_surface()
     H.power_reset()

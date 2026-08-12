@@ -17,6 +17,17 @@
 -- transparent core sprite and NO inherited battery/pole sprite survives, and its
 -- internal copper/circuit wires are suppressed. A regression that drops the blank
 -- (re-leaking the battery/pole art) fails here.
+--
+-- ci-ntgh WIDENED it. Blanking the ONE field the engine draws from is not the
+-- whole graphics set: each source prototype carries more art than that, and the
+-- leftovers drew in states the placed-and-idle view never showed -- the pole's
+-- supply-area overlay (paints whenever the player holds a pole), its water
+-- reflection, and the corpse / explosion models a killed helper left lying TAP_DX
+-- tiles off the device. So the sprite-leak scan now covers the WHOLE helper
+-- prototype, and each leftover render field is asserted cleared by name. The
+-- stubs below deliberately carry every one of those leftovers, pointing at the
+-- battery / pole sprites, so a regression that stops clearing them is caught
+-- twice: by name, and by the deep filename scan.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 
@@ -64,9 +75,14 @@ package.loaded["util"] = {
   end,
 }
 
--- The two inherited sprites the helpers MUST NOT leak.
+-- The inherited art the helpers MUST NOT leak -- the main sprites (ci-qj5k) and
+-- the secondary render surfaces around them (ci-ntgh).
 local BATTERY_PNG = "__base__/graphics/entity/accumulator/accumulator.png"
 local POLE_PNG = "__base__/graphics/entity/small-electric-pole/small-electric-pole.png"
+local POLE_RADIUS_PNG = "__base__/graphics/entity/small-electric-pole/electric-pole-radius-visualization.png"
+local POLE_REFLECTION_PNG = "__base__/graphics/entity/small-electric-pole/small-electric-pole-reflection.png"
+local BATTERY_ICON = "__base__/graphics/icons/accumulator.png"
+local POLE_ICON = "__base__/graphics/icons/small-electric-pole.png"
 local SWITCH_PNG = "__base__/graphics/entity/power-switch/power-switch.png"
 
 local registry = {}
@@ -81,28 +97,43 @@ local data = {
         power_on_animation = { layers = { { filename = SWITCH_PNG, width = 168, height = 138 } } },
       },
     },
-    -- The accumulator-interface the BUFFERS clone -- carries the battery sprite.
+    -- The accumulator-interface the BUFFERS clone -- carries the battery sprite,
+    -- plus (ci-ntgh) the secondary render surfaces vanilla ships with it.
     ["electric-energy-interface"] = {
       ["electric-energy-interface"] = {
         type = "electric-energy-interface",
         name = "electric-energy-interface",
+        icons = { { icon = BATTERY_ICON } },
         picture = { filename = BATTERY_PNG, width = 124, height = 103 },
         energy_source = { type = "electric", buffer_capacity = "10GJ", usage_priority = "dynamic" },
         energy_production = "500GW",
         energy_usage = "0kW",
+        corpse = "medium-remnants",
+        damaged_trigger_effect = { type = "create-entity", entity_name = "spark-explosion" },
+        selection_box = { { -1, -1 }, { 1, 1 } },
+        drawing_box_vertical_extension = 0.5,
       },
     },
-    -- The small pole the TAPS clone -- carries the pole sprite + wire draw.
+    -- The small pole the TAPS clone -- carries the pole sprite + wire draw, the
+    -- supply-area overlay, the water reflection, and its wreckage models.
     ["electric-pole"] = {
       ["small-electric-pole"] = {
         type = "electric-pole",
         name = "small-electric-pole",
+        icon = POLE_ICON,
         pictures = { layers = { { filename = POLE_PNG, width = 72, height = 220, direction_count = 4 } } },
         maximum_wire_distance = 7.5,
         supply_area_distance = 2.5,
         connection_points = { { wire = { copper = { 0, -2.5 } }, shadow = { copper = { 3, 0 } } } },
         draw_copper_wires = true,
         draw_circuit_wires = true,
+        radius_visualisation_picture = { filename = POLE_RADIUS_PNG, width = 12, height = 12 },
+        water_reflection = { pictures = { filename = POLE_REFLECTION_PNG, width = 12, height = 28 } },
+        corpse = "small-electric-pole-remnants",
+        dying_explosion = "small-electric-pole-explosion",
+        damaged_trigger_effect = { type = "create-entity", entity_name = "spark-explosion" },
+        selection_box = { { -0.4, -0.4 }, { 0.4, 0.4 } },
+        drawing_box_vertical_extension = 2.2,
       },
     },
     ["item"] = {
@@ -168,8 +199,31 @@ for _, name in ipairs({ "INPUT", "OUTPUT" }) do
     local buf = proto("electric-energy-interface", n)
     assert_false(has_filename(buf, BATTERY_PNG),
       n .. " must not leak the inherited accumulator/battery sprite")
+    assert_false(has_filename(buf, BATTERY_ICON),
+      n .. " must not leak the inherited accumulator/battery ICON")
     assert_eq(false, buf.draw_copper_wires, n .. " must not draw copper wires")
     assert_eq(false, buf.draw_circuit_wires, n .. " must not draw circuit wires")
+  end)
+end
+
+-- === THE FLOATING WARNING SYMBOL (ci-ntgh) =================================
+--
+-- The buffers sit TAP_DX tiles off the device (the tap poles' supply areas must
+-- not cross-cover the far side's buffer, or the two networks merge and the diode
+-- stops being one). An electric energy source draws the engine's "no power" /
+-- "no network" icon over ITS OWN entity, so the input buffer's unmet demand
+-- painted a warning symbol out in open ground, well outside the device model.
+-- A hidden internal buffer must not raise a player-facing power alert at all.
+
+for _, name in ipairs({ "INPUT", "OUTPUT" }) do
+  test("buffer " .. name .. " raises no floating power warning icon", function()
+    local buf = proto("electric-energy-interface", C[name])
+    local src = buf.energy_source
+    assert_true(src, C[name] .. " must have an electric energy source")
+    assert_eq(false, src.render_no_power_icon,
+      C[name] .. " must not draw the 'no power' icon (it would float TAP_DX tiles off the device)")
+    assert_eq(false, src.render_no_network_icon,
+      C[name] .. " must not draw the 'no network' icon (same floating position)")
   end)
 end
 
@@ -185,6 +239,61 @@ for _, name in ipairs({ "INPUT_TAP", "OUTPUT_TAP" }) do
     -- The tap<->switch link is script-made and internal; its wire must not draw.
     assert_eq(false, tap.draw_copper_wires, n .. " must not draw its internal copper wire")
     assert_eq(false, tap.draw_circuit_wires, n .. " must not draw circuit wires")
+  end)
+end
+
+-- === No STRAY models anywhere in the helper graphics sets (ci-ntgh) =========
+--
+-- Blanking the one field the engine draws from is not the whole graphics set.
+-- Each leftover below renders in a state the placed-and-idle view never showed,
+-- and each one puts the CLONED battery/pole art back on screen TAP_DX tiles off
+-- the device -- exactly the "two batteries with power poles" look ci-qj5k was
+-- supposed to have ended.
+local STRAY_FIELDS = {
+  "radius_visualisation_picture", -- pole supply-area overlay (paints on pole-in-hand)
+  "water_reflection",             -- pole reflection over water
+  "corpse",                       -- wreckage model left by a killed phantom
+  "dying_explosion",              -- explosion model on the same
+  "damaged_trigger_effect",       -- hit particles thrown from the phantom
+}
+
+local HELPERS = {
+  { kind = "electric-energy-interface", key = "INPUT" },
+  { kind = "electric-energy-interface", key = "OUTPUT" },
+  { kind = "electric-pole", key = "INPUT_TAP" },
+  { kind = "electric-pole", key = "OUTPUT_TAP" },
+}
+
+for _, h in ipairs(HELPERS) do
+  local n = C[h.key]
+  test("helper " .. h.key .. " carries no stray secondary render surfaces", function()
+    local p = proto(h.kind, n)
+    assert_true(p, n .. " prototype must exist")
+    for _, field in ipairs(STRAY_FIELDS) do
+      assert_eq(nil, p[field], n .. "." .. field .. " must be cleared (stray leftover model)")
+    end
+    assert_eq(false, p.alert_when_damaged, n .. " must not raise a damage alert at its offset position")
+  end)
+
+  test("helper " .. h.key .. " leaks NO cloned art anywhere in its prototype", function()
+    local p = proto(h.kind, n)
+    -- Deep scan of the WHOLE prototype, not just the engine's render field: any
+    -- surviving reference to the battery/pole art is a model that can still draw.
+    for _, png in ipairs({ BATTERY_PNG, POLE_PNG, POLE_RADIUS_PNG, POLE_REFLECTION_PNG, BATTERY_ICON, POLE_ICON }) do
+      assert_false(has_filename(p, png), n .. " must not reference cloned art: " .. png)
+    end
+  end)
+
+  test("helper " .. h.key .. " claims no drawing space (it draws nothing)", function()
+    local p = proto(h.kind, n)
+    local sb = p.selection_box
+    assert_true(type(sb) == "table", n .. " must declare a selection box")
+    assert_eq(0, sb[1][1], n .. " selection box must collapse to a point")
+    assert_eq(0, sb[1][2], n .. " selection box must collapse to a point")
+    assert_eq(0, sb[2][1], n .. " selection box must collapse to a point")
+    assert_eq(0, sb[2][2], n .. " selection box must collapse to a point")
+    assert_eq(0, p.drawing_box_vertical_extension,
+      n .. " must not extend its drawing box upward -- there is nothing to draw")
   end)
 end
 

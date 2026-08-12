@@ -84,6 +84,47 @@ local function make_hidden(proto, name)
   proto.collision_mask = { layers = {} }
   proto.localised_name = { "entity-name." .. C.DEVICE }
   proto.flags = { "placeable-off-grid", "not-on-map", "not-deconstructable", "not-blueprintable" }
+
+  -- The helper is a PHANTOM: it draws nothing, so it should claim no drawing
+  -- space either. The clones inherit their source's 2x2-ish selection box (and
+  -- the pole's 2.2-tile vertical drawing extension), and the drawing box is
+  -- derived from those -- a box several tiles wide, sitting TAP_DX tiles off the
+  -- device, for an entity with no sprite. Collapse it to a point. (The COLLISION
+  -- box is deliberately left alone: the tap pole powers its buffer by the
+  -- buffer's bounding box overlapping the tap's supply area, so shrinking that
+  -- one to a point would put the buffer exactly on a tile corner and make the
+  -- electrical coupling a boundary case. collision_mask is already empty, so the
+  -- box blocks nothing.)
+  proto.selection_box = { { 0, 0 }, { 0, 0 } }
+  proto.drawing_box_vertical_extension = 0
+
+  -- Every OTHER render surface the clone inherited from its vanilla source
+  -- (ci-ntgh). ci-qj5k blanked the main sprite field, but each source prototype
+  -- carries more art than that one field, and all of it drew in states the
+  -- placed-and-idle view never showed:
+  --   * radius_visualisation_picture -- the small-pole's supply-area overlay. It
+  --     paints whenever the player holds a pole or any powered entity, so the
+  --     diode sprouted two stray blue patches TAP_DX tiles either side.
+  --   * water_reflection -- the small-pole's mirrored sprite. Over water the
+  --     blanked pole still cast a POLE reflection: the leaked model again.
+  --   * corpse / dying_explosion -- wreckage + explosion models. A helper killed
+  --     by splash damage left battery / power-pole remnants sitting off to the
+  --     side of the device, long after the thing that made them was gone.
+  --   * damaged_trigger_effect -- hit particles thrown from the phantom.
+  --   * alert_when_damaged -- a map alert pinned to the phantom's offset
+  --     position rather than to the building the player actually placed.
+  -- None of these belong to a hidden internal buffer; the DEVICE is the only
+  -- thing that should ever draw, wreck, or raise an alert.
+  proto.radius_visualisation_picture = nil
+  proto.water_reflection = nil
+  proto.corpse = nil
+  proto.dying_explosion = nil
+  proto.damaged_trigger_effect = nil
+  proto.alert_when_damaged = false
+  -- Wherever a helper still reaches a list (alerts, debug views), show the
+  -- DEVICE's icon -- not the battery / pole it was cloned from.
+  proto.icon = nil
+  proto.icons = { { icon = "__base__/graphics/icons/power-switch.png", tint = DEVICE_TINT } }
   return proto
 end
 
@@ -116,6 +157,27 @@ local function hide_wires(proto)
   proto.draw_circuit_wires = false
 end
 
+-- THE FLOATING WARNING SYMBOL (ci-ntgh). An electric energy source draws the
+-- engine's "no power" bolt / "no network" plug over ITS OWN entity whenever its
+-- demand goes unmet. The diode's demand lives in the hidden INPUT buffer, and
+-- that buffer sits TAP_DX (3) tiles off the device by construction -- the two tap
+-- poles' supply areas must not cross-cover the other side's buffer, or the two
+-- networks blur into one and the diode stops being a diode. So the buffer cannot
+-- move onto the device, and the icon it raised appeared floating in open ground
+-- well outside the model, attached to nothing the player can see.
+--
+-- The fix is not an offset: it is that a hidden internal buffer has no business
+-- raising a player-facing power alert at all. Both flags exist on every energy
+-- source for exactly this case, so the buffers opt out and the DEVICE stays the
+-- only thing that speaks for the diode. The controller (scripts/diode.lua) keeps
+-- the input buffer parked with a small probe of headroom every sweep, so on a
+-- source network that cannot fill it the icon was permanent, not a flicker.
+local function silence_power_icons(source)
+  source.render_no_power_icon = false
+  source.render_no_network_icon = false
+  return source
+end
+
 -- A hidden buffer: an EEI clone with the vanilla editor knobs neutralised (fixed
 -- 0 production / usage), so energy only crosses via the network flow limits and
 -- the script. Its inherited accumulator/battery sprite is blanked (ci-qj5k).
@@ -124,7 +186,7 @@ local function make_buffer(name, source)
   buf.gui_mode = "none"
   buf.energy_production = "0W"
   buf.energy_usage = "0W"
-  buf.energy_source = source
+  buf.energy_source = silence_power_icons(source)
   buf.picture = empty_sprite()
   buf.pictures = nil
   buf.animation = nil

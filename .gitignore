@@ -30,6 +30,9 @@ mods-bundle/
 # ci-tizx): a throwaway Factorio data dir + worldgen screenshots. Regenerable.
 .mapgen-render/
 .mapgen-render
+# Same, for the in-engine entity render harness (scripts/render-diode.sh).
+.diode-render/
+.diode-render
 # Mods play.sh fetches from the portal (any-planet-start, helmod) are cached
 # here so we download each at most once. Never committed.
 .play-cache/

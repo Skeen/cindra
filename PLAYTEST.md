@@ -1087,7 +1087,7 @@ of the current build; they are listed so "not built yet" is distinguishable from
 "built and broken." Re-tag them **[LANDED]** as their beads merge.
 
 - [ ] **[IN-FLIGHT] Power diode PoC: the single power-switch-style building
-  (ci-gcd, reworked ci-8l4; render fixed ci-qj5k).** A research spike (one-way power
+  (ci-gcd, reworked ci-8l4; render fixed ci-qj5k, ci-ntgh).** A research spike (one-way power
   transfer between two networks). Its behaviour -- energy source->sink up to a rate
   cap, never back, networks isolated -- is fully test-covered
   (`tests/test_power_diode.lua`, `unit-tests/test_diode.lua`), and the helper
@@ -1106,6 +1106,21 @@ of the current build; they are listed so "not built yet" is distinguishable from
   sprite, wires suppressed) -- the player only ever sees/mines the one switch.
   Isolated PoC with no recipe/tech, so it is editor-spawn only; there is no
   crafting-tab entry yet.
+
+  **ci-ntgh follow-ups -- the three states the headless shutter cannot reach.**
+  `scripts/render-diode.sh` (scenario `cindra/diode-shot`) now takes REAL in-engine
+  shots of the placed diode, and they confirm the model is pixel-identical to a
+  vanilla power switch with nothing stray around it. But that renderer draws no
+  entity STATUS icons and no water reflections, so three things still want a human
+  eye, on a real GPU: (a) wire ONLY the source side to a network that cannot supply
+  it (poles, no generation) and confirm **no "no power" / "no network" warning
+  symbol floats out in open ground ~3 tiles to either side of the switch** -- the
+  hidden buffers now opt out of both icons, asserted in both test files, but this
+  is the reported symptom, so confirm it on screen; (b) **hold a power pole in
+  hand** near a placed diode and confirm no stray supply-area overlay patches
+  appear either side of it (the tap poles' `radius_visualisation_picture` is
+  cleared); (c) place a diode **beside water** and confirm no power-pole reflection
+  appears on it.
 
 - [ ] **[IN-FLIGHT] Worldgen v2: themed terrain + orientation + size sliders
   (ci-i8a).** A configurable ribbon (default **vertical**, temperature axis
