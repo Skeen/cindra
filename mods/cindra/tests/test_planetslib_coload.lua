@@ -123,6 +123,59 @@ describe("cindra + PlanetsLib co-load", function()
       "PlanetsLib's prerequisite pass must not strip the Vulcanus gate (§6)")
   end)
 
+  it("edits surface conditions identically through PlanetsLib's helpers (ci-ndm9)", function()
+    -- Stage 2: prototypes/electric-heater.lua and prototypes/mass-driver.lua
+    -- declare their placement gates through scripts/surface-conditions.lua, which
+    -- hands the work to PlanetsLib.restrict_surface_conditions when the library's
+    -- API is loaded before us and runs our own implementation otherwise.
+    --
+    -- THE HEADLINE CLAIM, and the reason this case is worth having: installing a
+    -- third-party library must not change how any Cindra machine is gated. The
+    -- expected numbers below are stated literally and are the same ones
+    -- tests/test_surface_conditions.lua asserts in the PlanetsLib-less run.
+    --
+    -- NON-VACUITY, and the only place it can be had: the data stage writes down
+    -- which backend it used, and in THIS run it must say PlanetsLib. Without that
+    -- check the case would pass just as happily if the delegation silently never
+    -- happened -- which is not hypothetical, it is what the engine did before the
+    -- `? PlanetsLib` dependency (ci-dza6) existed to order the library ahead of
+    -- us: PlanetsLib's data.lua ran AFTER ours, its global absent while we edited
+    -- prototypes, and an unguarded call would have crashed the load for every
+    -- player who owned both mods. So this assertion is also the tripwire on that
+    -- ordering: if the `?` is ever dropped, the delegated branch goes quietly dead
+    -- and this line says so.
+    local record = prototypes.mod_data["cindra-surface-conditions"]
+    assert.is_not_nil(record, "the backend record must exist")
+    local backend = record.data.backend
+    assert.are.equal("PlanetsLib", backend,
+      "with PlanetsLib installed its helpers must have done the work;"
+        .. " a fallback here means the library loaded after us and the delegated path is dead code")
+    local function pressure_of(name)
+      local proto = prototypes.entity[name]
+      assert.is_not_nil(proto, name .. " must exist")
+      for _, c in pairs(proto.surface_conditions or {}) do
+        if c.property == "pressure" then return c end
+      end
+    end
+
+    local heater = pressure_of("cindra-electric-heater")
+    assert.is_not_nil(heater, "the heater's pressure gate must survive a co-load (backend: " .. backend .. ")")
+    assert.are.equal(10, heater.min, "the heater is gated differently under PlanetsLib (backend: " .. backend .. ")")
+    assert.is_true(heater.max == nil or heater.max >= 4000,
+      "a ceiling appeared on the heater under PlanetsLib; got " .. tostring(heater.max))
+
+    local driver = pressure_of("cindra-mass-driver")
+    assert.is_not_nil(driver, "the mass driver's pressure gate must survive a co-load")
+    assert.are.equal(1, driver.min, "the driver is gated differently under PlanetsLib (backend: " .. backend .. ")")
+
+    -- And the point of all of it: both are still buildable on the planet.
+    local s = H.cindra_surface()
+    assert.is_true(s.can_place_entity({ name = "cindra-electric-heater", position = { -30, -30 }, force = "player" }),
+      "the heater must still be placeable on Cindra with PlanetsLib installed")
+    assert.is_true(s.can_place_entity({ name = "cindra-mass-driver", position = { 0, -30 }, force = "player" }),
+      "the mass driver must still be placeable on Cindra with PlanetsLib installed")
+  end)
+
   it("leaves Cindra's own declared surface properties alone", function()
     -- PlanetsLib is additive here (it adds is-freezing / planet-str); what it must
     -- never do is retune the world the player lands on.

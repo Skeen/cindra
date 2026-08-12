@@ -24,8 +24,14 @@
 -- TODO(ci-txh): fold the signature aluminium into the ingredient list to make
 -- the "clumsy off-world" import gate real (the old cryo-alloy plan is dropped).
 
+local SC = require("scripts.surface-conditions")
+
 local HEAT_CAP = 600 -- C, (tune) §7: below a reactor (1000), above steam boil.
 local DRAW = "40MW" -- (tune) §7: the "uncapped" electric draw (no artificial cap).
+
+-- (tune) The placement gate, in the clone source's units: an atmosphere-bearing
+-- world only. See the SC.restrict call below for why it stays.
+local MIN_PRESSURE = 10
 
 -- Clone the heating-tower reactor. table.deepcopy guarantees we never alias the
 -- shared space-age prototype or its nested tables.
@@ -42,6 +48,19 @@ heater.consumption = DRAW
 -- Capped heat output.
 heater.heat_buffer = table.deepcopy(heater.heat_buffer)
 heater.heat_buffer.max_temperature = HEAT_CAP
+
+-- PLACEMENT GATE, STATED RATHER THAN INHERITED (ci-ndm9).
+-- The clone source (the fuel-burning heating tower) carries `pressure >= 10`: it
+-- needs an atmosphere to burn in, which bans it from space platforms (pressure 0)
+-- while leaving every planet, Cindra's 500 included, buildable. Our heater is
+-- electric, so that RATIONALE no longer applies -- but the gate itself still
+-- should: dropping it would hand vanilla space platforms a brand-new heat source,
+-- which is Cindra changing gameplay somewhere it has no business changing (the
+-- never-mutate-other-planets invariant, in spirit). So we keep it, and say so.
+-- Declaring it here also means the gate is OURS: if a future Space Age release
+-- retunes the heating tower's condition, the Cindra heater does not silently
+-- follow. tests/test_surface_conditions.lua pins that it stays buildable here.
+SC.restrict(heater, { property = "pressure", min = MIN_PRESSURE })
 
 -- It no longer burns anything: drop the burner fire glow / combustion cues so
 -- the building does not read as a furnace. (Vanilla base picture is kept.)

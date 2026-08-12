@@ -383,6 +383,29 @@ test("every UNFREEZABLE_TYPES entry is a classified ENTITY type", function()
   end
 end)
 
+test("a DATA-ONLY prototype does not trip the freeze guard", function()
+  -- REGRESSION (ci-ndm9 x ci-qha1): this guard fails CLOSED, so any bucket it does
+  -- not recognise is assumed to hold entities. A `mod-data` prototype is not an
+  -- entity -- it is an inert record the data stage leaves for the runtime to read
+  -- -- but it was absent from NON_ENTITY_TYPES, so the guard classified Cindra's
+  -- backend marker as an immune building and hard-errored the whole load. The
+  -- error message even prescribed adding heating_energy, which for a data record
+  -- is nonsense: there is nothing there to freeze.
+  --
+  -- Fail-closed is the right default and stays; this pins the classification so
+  -- the specific regression cannot return.
+  local raw = {
+    ["mod-data"] = {
+      ["cindra-surface-conditions"] = { data = { backend = "cindra" } },
+    },
+  }
+  assert_eq(0, #audit.entity_specs(raw), "a mod-data record is not an entity")
+  assert_eq(0, #audit.freeze_immune(raw),
+    "a data-only prototype must not be required to carry a heat draw")
+  assert_eq(0, #audit.dead_heating(raw),
+    "and it must not be reported by the inverse guard either")
+end)
+
 test("a heat draw on a type the engine IGNORES is reported as a dead field", function()
   -- The subtler offence: it freezes nothing AND it reads as protection to the next
   -- person who greps for heating_energy.

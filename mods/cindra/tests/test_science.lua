@@ -9,6 +9,11 @@
 --   3. A REAL SCIENCE PACK -- an item a lab will actually accept as research input.
 --   4. THE FOLDED TREE -- the pack has a real downstream unlock: orbital launch now
 --      branches off `cindra-science` and is researched WITH the Cindra pack.
+--   5. PLANET-LOCKED (ci-gk4u) -- like every vanilla planet pack, it can only be
+--      made ON its own planet: shipping the (all exportable) inputs home buys you
+--      nothing. Asserted as behaviour -- a player holding every ingredient is
+--      refused off Cindra and served on it -- plus a live coverage guard over
+--      every planet in the game.
 
 local H = require("tests.helpers")
 
@@ -285,5 +290,160 @@ describe("cindra science pack runtime: a stock assembler crafts it, and it needs
       m.destroy()
       done()
     end)
+  end)
+end)
+
+-- ===========================================================================
+-- PLANET LOCK (ci-gk4u): the pack can only be made ON Cindra.
+--
+-- Every vanilla planet pack is surface-gated to its own planet, which is what
+-- forces "run a factory on that planet" instead of shipping the intermediates
+-- home. Cindra's inputs (aluminium, ice, calcite) are all exportable items, so
+-- without a gate the headline pack could be crafted anywhere -- breaking both the
+-- vanilla convention and the premise that you cannot make it without commanding
+-- both lethal edges.
+--
+-- The load-bearing claim here is BEHAVIOURAL and lives in the runtime block below:
+-- a player carrying every ingredient is REFUSED off Cindra and served on Cindra.
+-- The prototype assertions that follow are the coverage guard over the class --
+-- every planet in the game, so a planet added later cannot quietly slip inside the
+-- gate.
+-- ===========================================================================
+describe("cindra science pack: PLANET-LOCKED to Cindra (ci-gk4u)", function()
+  -- A surface property as the ENGINE sees it: the value the surface declares, or
+  -- the property's default when it declares none (that fallback is exactly why
+  -- Nauvis, which declares nothing, still reads solar-power 100).
+  local function property_of(props, name)
+    local v = props and props[name]
+    if v ~= nil then return v end
+    return prototypes.surface_property[name].default_value
+  end
+
+  -- Would a surface with these properties be allowed to craft the pack?
+  local function admits(props)
+    for _, c in pairs(prototypes.recipe[PACK].surface_conditions or {}) do
+      local v = property_of(props, c.property)
+      if c.min and v < c.min then return false end
+      if c.max and v > c.max then return false end
+    end
+    return true
+  end
+
+  it("carries a surface condition, pinned exactly -- the vanilla planet-pack idiom", function()
+    local conditions = prototypes.recipe[PACK].surface_conditions
+    assert.is_not_nil(conditions, "the pack recipe must carry a surface condition (it is planet-locked)")
+    assert.is_true(#conditions > 0, "the surface-condition list must not be empty")
+
+    -- Vanilla pins its pack gates EXACTLY (min == max) so a merely-similar planet
+    -- cannot drift inside a one-sided bound. Match that.
+    for _, c in pairs(conditions) do
+      assert.is_not_nil(c.min, "condition on '" .. c.property .. "' must have a lower bound")
+      assert.is_not_nil(c.max, "condition on '" .. c.property .. "' must have an upper bound")
+      assert.are.equal(c.min, c.max,
+        "condition on '" .. c.property .. "' must be pinned exactly, like every vanilla pack gate")
+    end
+  end)
+
+  it("admits Cindra: the gate matches the planet's own surface properties", function()
+    -- The gate must never lock the pack out of its OWN planet -- that would make
+    -- it uncraftable anywhere. Measured against the real planet prototype, so a
+    -- (tune) of Cindra's surface properties that forgot the gate fails here.
+    local cindra = game.planets["cindra"]
+    assert.is_not_nil(cindra, "the cindra planet must exist")
+    assert.is_true(admits(cindra.prototype.surface_properties),
+      "Cindra itself must satisfy the pack's surface conditions")
+  end)
+
+  it("excludes EVERY other planet in the game (live coverage guard)", function()
+    -- Enumerated live from game.planets, not from a hand-written list: a planet
+    -- added by a later Cindra change (or a mod loaded alongside) is measured
+    -- without anyone remembering to add it here.
+    local checked = 0
+    for name, planet in pairs(game.planets) do
+      if name ~= "cindra" then
+        checked = checked + 1
+        assert.is_false(admits(planet.prototype.surface_properties),
+          "planet '" .. name .. "' also satisfies the pack's gate -- the pack must be Cindra-only")
+      end
+    end
+    assert.is_true(checked >= 4,
+      "the guard must actually have measured the vanilla planets (checked " .. checked .. ")")
+
+    -- And a space platform, the other place a player can run assemblers.
+    local platform = prototypes.surface["space-platform"]
+    assert.is_not_nil(platform, "the space-platform surface prototype must exist")
+    assert.is_false(admits(platform.surface_properties),
+      "a space platform must not be able to craft the pack either")
+  end)
+end)
+
+describe("cindra science pack runtime: it CANNOT be crafted off Cindra (ci-gk4u)", function()
+  -- HOW A SURFACE GATE IS OBSERVED. The engine enforces `surface_conditions` where
+  -- a recipe is CHOSEN -- the recipe picker, and hand-crafting -- not inside the
+  -- crafting tick. A recipe forced onto a machine by script bypasses it and crafts
+  -- happily; measured in-engine, VANILLA's own space-science-pack (gravity 0/0)
+  -- behaves exactly the same way on a gravity-10 surface. So the gate is measured
+  -- here through the player's own hands, which is a path the engine really checks,
+  -- and every claim is run alongside that vanilla pack as a CONTROL: if the harness
+  -- ever stopped detecting a real gate, the control fails too and the Cindra
+  -- assertions cannot false-green.
+  local VANILLA_LOCKED = "space-science-pack" -- locked to a platform (gravity 0/0)
+
+  -- Stock the player with enough of everything for one of each pack, wherever they
+  -- are standing. Ingredients are never the reason a craft is refused.
+  local PROVISIONS = {
+    { name = ALUMINIUM, count = 4 }, { name = ICE, count = 20 }, { name = "calcite", count = 20 },
+    { name = "iron-plate", count = 10 }, { name = "carbon", count = 10 },
+  }
+  local function provision(player)
+    game.forces["player"].recipes[PACK].enabled = true
+    game.forces["player"].recipes[VANILLA_LOCKED].enabled = true
+    for _, stack in ipairs(PROVISIONS) do player.insert(stack) end
+  end
+  local function unprovision(player)
+    for _, stack in ipairs(PROVISIONS) do player.remove_item(stack) end
+  end
+
+  it("a player holding every ingredient CANNOT make the pack anywhere but Cindra", function()
+    local player = game.players[1]
+    assert.is_not_nil(player, "the test scenario must have a player to craft with")
+    assert.is_not_nil(player.character, "the player must have a character (hand-crafting needs one)")
+
+    local off = H.offworld_surface()
+    player.teleport({ 0, 20 }, off)
+    assert.are.equal(off.name, player.surface.name, "the player must actually be off Cindra")
+    provision(player)
+
+    -- The CONTROL: a vanilla planet-locked pack, refused here for the same reason.
+    assert.are.equal(0, player.begin_crafting({ count = 1, recipe = VANILLA_LOCKED, silent = true }),
+      "control: vanilla's own surface-locked pack must be refused here, or this test proves nothing")
+
+    -- The claim: you shipped the aluminium, ice and calcite home, and it bought you
+    -- nothing. The pack cannot be made off Cindra.
+    assert.are.equal(0, player.begin_crafting({ count = 1, recipe = PACK, silent = true }),
+      "the Cindra pack must be uncraftable off Cindra even with every ingredient in hand")
+
+    -- ...and back on Cindra the very same player, with the very same items, makes
+    -- it. The gate admits Cindra exactly: it locks the pack IN, it does not kill it.
+    local cindra = H.cindra_surface()
+    player.teleport({ 0, 20 }, cindra)
+    assert.are.equal(cindra.name, player.surface.name)
+    assert.are.equal(1, player.begin_crafting({ count = 1, recipe = PACK, silent = true }),
+      "on Cindra the same player with the same items must be able to craft the pack")
+
+    -- Cindra is a planet, not a platform: the vanilla platform pack stays refused
+    -- here too, so "on Cindra everything is craftable" is not what was measured.
+    assert.are.equal(0, player.begin_crafting({ count = 1, recipe = VANILLA_LOCKED, silent = true }),
+      "control: the platform-locked vanilla pack is still refused on Cindra")
+
+    -- Leave the player as we found them: drop the queued craft (which refunds its
+    -- ingredients) and take the provisions back out.
+    local queue = player.crafting_queue
+    if queue then
+      for i = #queue, 1, -1 do
+        player.cancel_crafting({ index = queue[i].index, count = queue[i].count })
+      end
+    end
+    unprovision(player)
   end)
 end)

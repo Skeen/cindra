@@ -312,7 +312,8 @@ M.ENTITY_TYPES = {
 M.NON_ENTITY_TYPES = {
   ["achievement"] = true, ["active-defense-equipment"] = true,
   ["airborne-pollutant"] = true, ["ambient-sound"] = true, ["ammo"] = true,
-  ["ammo-category"] = true, ["armor"] = true, ["asteroid-chunk"] = true,
+  ["ammo-category"] = true, ["ammo-item"] = true, ["armor"] = true,
+  ["asteroid-chunk"] = true,
   ["autoplace-control"] = true, ["battery-equipment"] = true,
   ["belt-immunity-equipment"] = true, ["blueprint"] = true,
   ["blueprint-book"] = true, ["build-entity-achievement"] = true,

@@ -60,6 +60,7 @@
 -- delivered mass-driver art. The launch consumables reuse tinted vanilla icons.
 
 local util = require("util")
+local SC = require("scripts.surface-conditions")
 
 -- Tuning knobs (all `(tune)` starting points, DESIGN.md §7). Exposed on the
 -- returned module so tests can read the same numbers.
@@ -81,6 +82,7 @@ M.CHARGE_SECONDS = 30       -- long charge craft: SILO_DRAW * CHARGE_SECONDS ~= 
 M.ALUMINIUM_PER_LAUNCH = 5  -- raw aluminium the silo assembles into the launch vehicle (was a pre-pressed can)
 M.FUEL_PER_LAUNCH = 10      -- vanilla rocket-fuel (Cindra's aluminium-made "Solid rocket fuel") per launch
 M.MODULE_SLOTS = 4          -- keep the vanilla silo's module bay (supports productivity, ci-loa)
+M.MIN_PRESSURE = 1          -- placement gate: launch from a world, never a space platform (ci-ndm9)
 
 -- === ALICE solid-rocket-fuel tune block (ci-8g1, ci-6vj S5) ==================
 -- Real ALICE propellant = nano-aluminium powder (fuel) + frozen water (oxidizer).
@@ -148,6 +150,14 @@ driver.launch_to_space_platforms = true  -- deliver cargo to platforms (Space Ag
 -- tests. Productivity discounts the LAUNCH (bonus charges), not the metal.
 driver.module_slots = M.MODULE_SLOTS
 driver.allowed_effects = { "consumption", "speed", "productivity", "pollution" }
+-- PLACEMENT GATE, STATED RATHER THAN INHERITED (ci-ndm9).
+-- The vanilla rocket-silo carries `pressure >= 1` (space-age/base-data-updates):
+-- you launch FROM a world, never from a space platform. That is exactly right for
+-- a mass driver too -- it flings payloads UP a gravity well -- and Cindra's 500
+-- clears it comfortably. Declared here so the driver's buildability is Cindra's
+-- own statement rather than a side effect of what we happened to deep-copy; a
+-- vanilla retune of the silo can no longer move it silently.
+SC.restrict(driver, { property = "pressure", min = M.MIN_PRESSURE })
 set_driver_icon(driver)
 driver.localised_name = { "entity-name.cindra-mass-driver" }
 driver.localised_description = { "entity-description.cindra-mass-driver" }

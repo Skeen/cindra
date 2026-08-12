@@ -497,9 +497,21 @@ power sink.**
   the pack itself would be a soft-lock (§15-13). Every DEEPER unlock then costs the
   Cindra pack: **orbital launch (§15-11)** is folded in as the first, now branching
   off `cindra-science` and researched with the Cindra pack.
+- **Planet-locked to Cindra (ci-gk4u).** Like every vanilla planet pack, the recipe
+  carries a `surface_conditions` entry only its own planet satisfies, so the pack
+  must be made ON Cindra: **`solar-power` pinned exactly** (min == max = 10000),
+  read straight off the planet prototype so a (tune) of the planet moves the gate
+  with it. Without this the "you cannot make it without commanding both lethal
+  edges" premise above is unenforceable — every input is an exportable item, so a
+  player could ship aluminium home and craft Cindra science on Nauvis. `solar-power`
+  is both the planet's identity (§1) and the widest available margin against a
+  future planet drifting into the gate: 10000 against Vulcanus 400, Nauvis 100,
+  Gleba 50, Fulgora 20, Aquilo 1, a platform 100.
 
 Tested end-to-end in `tests/test_science.lua`, including a powered stock assembler
-that only makes crafting progress when it has power.
+that only makes crafting progress when it has power, and a player carrying every
+ingredient who is refused the craft off Cindra and served it on Cindra (alongside a
+vanilla surface-locked pack as the control).
 
 ### 5a. Ice processing — IMPLEMENTED (item 4; mixed-yield rework, ci-9l6)
 
