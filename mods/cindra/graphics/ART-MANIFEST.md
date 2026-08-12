@@ -131,6 +131,7 @@ only; the CO2 recipe + economy are unchanged).
 | `cindra-red-mud`              | `icons/cindra-red-mud.png` (+ in-engine rust tint)                | `item/original/pile-dust-crushed-iron-ore-1.png`| `prototypes/red-mud.lua` |
 | `cindra-slag`                 | `icons/cindra-slag.png`                                           | `item/original/material-chunk-slag-1.png`       | `prototypes/red-mud.lua` |
 | `cindra-arc-furnace`          | `icons/arc-furnace-icon.png` + `entity/arc-furnace/` (animated)   | Hurricane046, CC-BY (freed by ci-a6z)           | `prototypes/red-mud.lua` |
+| `cindra-arc-furnace` (frozen) | `entity/arc-furnace/arc-furnace-hr-frozen.png` (CREATED, ci-u92y) | derived from the body render above (CC-BY adaptation) | `prototypes/red-mud.lua` |
 
 Iron is the vanilla `iron-plate` (no new icon needed). The arc furnace's set is
 wired as its `graphics_set.animation` (animated body + shadow + additive emission
@@ -149,3 +150,13 @@ through. The slag vent recipe and the red-mud tech reuse the two new item icons
   frozen contract.
 - Regenerate everything with `./scripts/render-entity-art.sh` after any edit to
   `scripts/gen-entity-art.py` (deterministic).
+- **Frozen layers (ci-u92y).** Cindra's machines freeze for real, and the engine
+  draws frost only from `graphics_set.frozen_patch`. A building whose bespoke art
+  REPLACES its clone's `graphics_set` loses the inherited patch and freezes bare
+  (ci-z7nu, then ci-u92y). Where the clone source has a fitting vanilla frost
+  sprite, reuse it (the oxidizer takes the electric-furnace's, the glass furnace
+  the foundry's). Where it does not -- the arc furnace's body is nothing like an
+  assembling-machine-3 -- CREATE the layer with `./scripts/render-frost-layer.sh`
+  (deterministic; add the building to `SPECS` in `scripts/gen-frost-layer.py`).
+  The data-stage audit `prototypes/frost-audit.lua` fails the load if a crafting
+  machine that freezes has no patch, so a new one cannot ship bare.

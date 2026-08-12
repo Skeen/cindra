@@ -556,6 +556,39 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   clipped badly. If the frost's scale/shift needs a nudge to seat on the bulbous
   oxidizer or the tall glass-furnace body, that is a cosmetic tune, not a v1 bug.
 
+  > **Correction from ci-u92y (measured in-engine):** the **glass furnace never
+  > freezes**, so the foundry patch wired onto it above can never render. It
+  > deliberately clears the foundry's heating draw (`heating_energy = nil`,
+  > `prototypes/lava.lua`) and freezing needs `heating_energy > 0`, so it stays
+  > bare and working in the deep cold while the oxidizer beside it freezes. Only
+  > the **oxidizer** half of this entry is checkable. Whether a Cindra machine
+  > should be immune to the planet's own freeze mechanic is a design question
+  > filed separately (**ci-6qyk**) -- do not "fix" the art here.
+
+- [ ] **[LANDED] Arc-furnace frost layer reads right (ci-u92y).** The arc furnace
+  freezes for real past the onset (measured: `frozen == true`, status `frozen`),
+  but Hurricane046's set ships NO frozen layer and its riveted vessel looks
+  nothing like the assembling-machine-3 it clones, so unlike ci-z7nu there was no
+  vanilla frost sprite to borrow -- the layer was **created**
+  (`scripts/gen-frost-layer.py` derives it from the furnace's own frozen frame:
+  rime on the up-facing domes, rims and ledges; bare metal on the down-faces).
+  Geometry, colour, coverage, silhouette masking and byte-determinism are all
+  asserted headless (`unit-tests/test_frost_layer.py`), the wiring in
+  `unit-tests/test_red_mud.lua`, and a data-stage audit fails the load if any
+  freezing Cindra crafting machine lacks a patch. What no headless test can see is
+  how it reads on screen. *Repro:* build an arc furnace in the thawed band, walk
+  it nightward past the freeze onset, leave it to freeze. *Look for:* (1) it grows
+  a pale ice crust that follows the vessel's domes and rims, matching the other
+  frozen buildings; (2) the crust sits ON the body -- no ice floating off the
+  silhouette, no visible offset; (3) the machine still reads as an arc furnace
+  through the ice, not as a white blob; (4) the arc animation HALTS on frame 0 so
+  it reads as stopped. **(5) Known open question:** the body's emissive molten-arc
+  glow is a layer of the base animation, so a frozen furnace may still glow orange
+  under the frost. If it does, that is a real "frozen machine still running" read
+  -- report it and it gets its own bead (the fix is moving the emission into a
+  working visualisation, which changes the idle look too, so it is out of scope
+  here).
+
 - [ ] **[IN-FLIGHT] Zone-appropriate decoratives read right (ci-6fq).** Cosmetic
   decals scattered per gradient zone: volcanic **rocks + pebbles + craters** on the
   hot (west) rocky/lava half, **ice + light-snow** decals on the cold (east) icy

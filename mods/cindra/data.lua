@@ -148,3 +148,9 @@ require("prototypes.power-diode")
 -- the class of bug the runtime API cannot see (LuaEntityPrototype has no graphics
 -- accessor). See prototypes/graphics-audit.lua + scripts/graphics-audit.lua.
 require("prototypes.graphics-audit")
+
+-- Frost guard (ci-u92y): the same shape, one layer down -- audits every Cindra
+-- CRAFTING MACHINE for a frozen_patch, so none can ship freezing bare on the
+-- nightside while its neighbours wear frost (the bug that landed twice: ci-z7nu
+-- then ci-u92y). See prototypes/frost-audit.lua + scripts/frost-audit.lua.
+require("prototypes.frost-audit")

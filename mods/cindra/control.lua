@@ -102,6 +102,11 @@ if script.active_mods["factorio-test"] then
     -- nightward frozen, both orientations, ci-f5l heater extends the warm pocket, no
     -- other-planet mutation.
     "tests/test_freeze",
+    -- ci-u92y: the claim the frost-layer art + the data-stage frost audit rest on
+    -- -- EVERY Cindra crafting machine really freezes in the cold (so it needs a
+    -- frost layer) and thaws beside heat (so the sheen is never always-on). The
+    -- class is enumerated live, so a new machine is measured without being listed.
+    "tests/test_frost",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
     -- ci-810e: PlanetsLib interop guards. Cindra takes NO dependency on PlanetsLib

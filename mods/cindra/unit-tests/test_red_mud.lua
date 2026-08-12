@@ -247,6 +247,39 @@ test("the furnace draws the arc-furnace set (no assembling-machine-3 art)", func
   assert_true(ships(glow.filename), "the furnace emission sprite must ship: " .. glow.filename)
 end)
 
+-- === The CREATED frozen layer (ci-u92y) =====================================
+-- The furnace freezes for real on the nightside (tests/test_freeze.lua measures
+-- it), and the engine draws frost ONLY from graphics_set.frozen_patch. Replacing
+-- the assembling-machine-3 graphics_set wholesale dropped the assembler's patch,
+-- so a frozen arc furnace showed NO frost while its neighbours wore one. Unlike
+-- ci-z7nu's two machines there was no fitting vanilla sprite to reuse (this body
+-- is nothing like an AM3), so the layer was CREATED from the furnace's own frozen
+-- frame. Fails on main (no frozen_patch), passes on the fix.
+test("a frozen arc furnace wears the CREATED frost layer", function()
+  local e = proto("assembling-machine", "cindra-arc-furnace")
+  local fp = e.graphics_set.frozen_patch
+  assert_true(fp ~= nil, "graphics_set.frozen_patch must exist so the frozen furnace shows frost")
+  local expected = "__cindra__/graphics/entity/arc-furnace/arc-furnace-hr-frozen.png"
+  assert_eq(expected, fp.filename, "the patch must be the frost layer created for THIS body")
+  assert_true(ships(fp.filename), "the created frost layer must ship: " .. fp.filename)
+  assert_eq(6, png_color_type(fp.filename), "the frost layer must be truecolour RGBA")
+  -- No borrowed vanilla frost: an assembling-machine-3 / foundry patch would
+  -- crust shapes this riveted vessel does not have.
+  assert_true(fp.filename:find("__space%-age__") == nil and fp.filename:find("__base__", 1, true) == nil,
+    "the arc furnace must not borrow a vanilla frost sprite")
+  -- Registration: the patch is drawn as its own sprite, so its frame geometry,
+  -- scale and shift must match the body animation or the ice lands offset.
+  local body_layer = e.graphics_set.animation.layers[1]
+  assert_eq(body_layer.width, fp.width, "frost width must match the body frame")
+  assert_eq(body_layer.height, fp.height, "frost height must match the body frame")
+  assert_eq(body_layer.scale, fp.scale, "frost scale must match the body")
+  assert_eq(body_layer.shift[1], fp.shift[1], "frost shift x must match the body")
+  assert_eq(body_layer.shift[2], fp.shift[2], "frost shift y must match the body")
+  -- The patch was derived from frame 0, so the frozen machine must SHOW frame 0.
+  assert_true(e.graphics_set.reset_animation_when_frozen == true,
+    "reset_animation_when_frozen halts the arc cycle on the frame the patch was derived from")
+end)
+
 test("the furnace item + entity carry the arc-furnace icon", function()
   local icon = "__cindra__/graphics/icons/arc-furnace-icon.png"
   for _, kind in ipairs({ "assembling-machine", "item" }) do
