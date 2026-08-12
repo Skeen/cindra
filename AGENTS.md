@@ -121,8 +121,10 @@ mods/
 flake.nix                dev/test shell: factorio-test (built from upstream, NOT
                          vendored) + art/test toolchain. any-planet-start is an
                          optional external dep, NOT provided by the flake.
-scripts/                 tooling (patchelf-factorio.sh, render-*.sh)
-factorio/                Factorio install (gitignored — see SETUP.md)
+scripts/                 tooling (resolve-factorio.sh, cindra-test.sh,
+                         patchelf-factorio.sh, render-*.sh)
+factorio/                Factorio install (gitignored, OPTIONAL — a shared
+                         install in any parent dir is found automatically)
 ```
 
 ## Run tests
@@ -139,11 +141,22 @@ cindra-test          # integration suite
 
 `cindra-test` passes the DLC set the suite needs — `recycler` is a required
 built-in DLC in 2.1 (`quality` / `space-age` depend on it). It resolves the
-Factorio binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio`, so one
-shared install serves every clone (see SETUP.md). The "Could not download mod:
+Factorio binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio`, and
+failing all of those, from a `factorio-patched/` or `factorio/` install in **any
+parent directory** — so a fresh worktree needs no setup and one shared install
+serves every clone (see SETUP.md). The "Could not download mod:
 recycler" line is a harmless warning — recycler loads from the Factorio
 install's bundled DLC data. Extra args are forwarded to the CLI (e.g.
 `cindra-test cindra-start cindra-dev-default` for the companion suite).
+
+**🚨 "Could not verify in-engine" is a claim you must EARN.** Check with
+`./scripts/resolve-factorio.sh` (prints the binary it found, or explains and
+exits 1) before ever writing that in a commit, bead or MR. Agents have shipped
+unverified work reporting no engine was reachable while a shared install sat two
+directories up. A missing engine is a HARD failure, not a skip: `cindra-test`
+exits non-zero and seeds nothing, so a suite that never ran can't read as green.
+If you genuinely cannot resolve an install, escalate or leave the bead open —
+never close it with the verification quietly skipped.
 
 Plain-Lua unit tests (pure logic) run without Factorio:
 

@@ -10,26 +10,12 @@
 set -eu
 cd "$(dirname "$0")"
 
-# Resolve the Factorio binary. The ~4GB install is gitignored, so a fresh clone
-# has none; point one of these at a SHARED install to avoid a copy per clone:
-#   FACTORIO_PATH  full path to the binary        (highest priority)
-#   FACTORIO_DIR   install root (binary at $FACTORIO_DIR/bin/x64/factorio)
-# Default is the in-repo ./factorio (real dir or symlink to a shared install).
-if [ -n "${FACTORIO_PATH:-}" ]; then
-  FACTORIO_BIN="$FACTORIO_PATH"
-elif [ -n "${FACTORIO_DIR:-}" ]; then
-  FACTORIO_BIN="$FACTORIO_DIR/bin/x64/factorio"
-else
-  FACTORIO_BIN="./factorio/bin/x64/factorio"
-fi
-
-if [ ! -x "$FACTORIO_BIN" ]; then
-  echo "Factorio binary not found at: $FACTORIO_BIN" >&2
-  echo "The game is a manual, local install (gitignored, see SETUP.md)." >&2
-  echo "Set FACTORIO_PATH (binary) or FACTORIO_DIR (install root) to a shared install," >&2
-  echo "or extract one to ./factorio." >&2
-  exit 1
-fi
+# Resolve the Factorio binary via the shared resolver (the one source of truth,
+# also used by the integration runner and the render harnesses): FACTORIO_PATH,
+# then FACTORIO_DIR, then the in-repo ./factorio, then factorio-patched/ or
+# factorio/ in any parent directory. It prints the diagnostic and exits non-zero
+# itself when there is no engine, so we just propagate that.
+FACTORIO_BIN=$(scripts/resolve-factorio.sh "$PWD") || exit 1
 
 # Resolve to an absolute, symlink-free path so the patchelf step below (and the
 # FACTORIO_ROOT derivation) work regardless of how we were pointed at the binary

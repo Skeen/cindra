@@ -32,8 +32,9 @@ or safe waste before it burns your own solar farm down.
   is NOT provided here; install it from the mod portal to use the Cindra start
   chain.
 - `scripts/` — project tooling.
-- `factorio/` — local Factorio 2.1.9 install (gitignored; shareable via
-  `FACTORIO_PATH` / `FACTORIO_DIR`, see [`SETUP.md`](SETUP.md)).
+- `factorio/` — local Factorio 2.1.9 install (gitignored; optional — a shared
+  install in any parent directory is found automatically, or point
+  `FACTORIO_PATH` / `FACTORIO_DIR` at one, see [`SETUP.md`](SETUP.md)).
 
 ## Quick start
 
@@ -58,7 +59,9 @@ cindra-test          # full integration suite
 `cindra-test` symlinks the flake-built factorio-test into the data dir and runs
 the CLI with the DLC set the suite needs — `recycler` is a required built-in DLC
 in Factorio 2.1 (`quality` / `space-age` depend on it). It resolves the Factorio
-binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio` (see
+binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio` / a
+`factorio-patched` or `factorio` install in any parent directory, and exits
+non-zero if none resolves — an in-engine run is never silently skipped (see
 [`SETUP.md`](SETUP.md)). Plain-Lua unit tests run without Factorio:
 
 ```sh
