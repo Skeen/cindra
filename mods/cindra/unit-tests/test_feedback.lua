@@ -98,15 +98,16 @@ test("warm side reads ORANGE, cold side reads BLUE", function()
   assert_eq(nil, grade.tint_at(0), "and nothing is drawn at spawn")
 end)
 
-test("the wash keeps deepening past the LEGACY wall_at, out to the real map edge", function()
-  -- ribbon's `wall_at` backstop (128 tiles) is far inside today's 800-tile ribbon. If
-  -- the grade evaluated the temperature curve over it, the curve would saturate before
-  -- the player even reached the burn belt and the whole outer ribbon would read the
-  -- same flat colour. The player must instead keep seeing it deepen all the way out.
-  local legacy = ribbon.DEFAULTS.wall_at
-  assert_true(legacy < HOT_SAT, "the legacy backstop really is inside the ribbon")
-  assert_true(alpha(HOT_SAT) > alpha(legacy), "still deepening beyond the legacy backstop")
-  assert_true(alpha(COLD_SAT) > alpha(-legacy), "same nightward")
+test("the wash keeps deepening past ribbon's DEFAULT saturation, out to the real map edge", function()
+  -- ribbon's default `saturate_at` (128 tiles) is far inside today's 800-tile ribbon.
+  -- If the grade evaluated the temperature curve over it instead of handing in the
+  -- real half-width, the curve would saturate before the player even reached the burn
+  -- belt and the whole outer ribbon would read the same flat colour. The player must
+  -- instead keep seeing it deepen all the way out.
+  local default_edge = ribbon.DEFAULTS.saturate_at
+  assert_true(default_edge < HOT_SAT, "the default saturation really is inside the ribbon")
+  assert_true(alpha(HOT_SAT) > alpha(default_edge), "still deepening beyond it")
+  assert_true(alpha(COLD_SAT) > alpha(-default_edge), "same nightward")
 end)
 
 test("POSITION drives it, not damage: safe ground outside the band is already tinted", function()

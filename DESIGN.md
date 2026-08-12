@@ -8,7 +8,7 @@ in-repo condensation plus the concrete decisions taken during implementation.
 
 > **Status: foundation + worldgen + ice processing + headline science.** §15 items 1–4 are
 > implemented and tested: the planet + surface + ribbon temperature axis (item 1),
-> the lethal edges — gradient damage, hard-wall backstop, nightside NATIVE freeze
+> the lethal edges — tile-keyed damage, impassable lava + void backstop, nightside NATIVE freeze
 > (item 2, ci-bvk), the world resources — stone / ice / bootstrap rocks
 > (item 3), and ice processing — mining the ice field for a fixed `ice` + `calcite`
 > mix (ci-9l6) and chemical-plant `ice-melting` → water (item 4, §5a).
@@ -112,46 +112,54 @@ Boundaries carry a `basis_noise` wiggle + a per-tile speckle, so
 they are organic curves with a real mix, never raw stripes.
 
 `mods/cindra/scripts/ribbon.lua` is the **single source of truth** for the
-hot–cold axis. It is a pure module (no `game.*` / `prototypes.*`) mapping a
-perpendicular coordinate to:
+hot–cold axis' two continuous **curves**. It is a pure module (no `game.*` /
+`prototypes.*`) mapping a perpendicular coordinate to:
 
 - **temperature(y)** — °C, `temp_center` (25) at Y=0, rising linearly to
   `temp_hot_max` (1500) sunward and falling to `temp_cold_min` (−270) nightward,
-  saturating at the wall.
-- **zone(y)** — `safe` | `hot_warn` | `hot_lethal` | `cold_warn` | `cold_lethal`.
-- **damage_per_second(y)** — 0 inside the safe band, ramping 0→`max_dps` (200)
-  across the margin, saturating at the lethal edge. Returns the matching damage
-  type (`heat` sunward, `cold` nightward).
-- **past_wall(y)** — the hard-wall backstop bounding the playable ribbon.
+  saturating at `saturate_at` (the caller passes the real ribbon half-width).
+  Read by `scripts/damage-feedback.lua` for the ambient thermal grade.
+- **sunward_factor(y)** — the 0–1 fraction of full output a solar panel earns
+  here, anchored to the live zone layout. Read by `scripts/panel-solar.lua`.
 
-Band layout, from centre outward on **each** side (all `(tune)`, mirrored in mod
-settings so they're editable without touching Lua):
-
-| Band | Distance (tiles) | Effect |
-|---|---|---|
-| Safe ribbon | `|Y| ≤ 24` | temperate, no damage |
-| Margin | `24 < |Y| < 96` | damage ramps 0→max (survivable briefly with gear) |
-| Lethal deep edge | `|Y| ≥ 96` | full damage; best edge resources live here |
-| Hard wall | `|Y| ≥ 128` | impassable backstop (§15-2) |
+It does **not** own the ribbon's **boundaries** — where the safe band ends, where
+the ground turns lethal, where the world stops. Those come from the one heightmap
+and its per-zone widths (`scripts/terrain.lua`), and the damage a player actually
+takes is keyed to the **tile** under them (`scripts/tile-damage.lua`). ci-7k6
+deleted the duplicate band layout that used to live in `ribbon.lua`
+(`zone` / `damage_per_second` / `past_wall` over `safe_half_width` / `lethal_at` /
+`wall_at`) together with the three mod settings that fed it: no runtime system had
+read any of it since ci-oe83/ci-ma18 moved damage to the tile and ci-wly dropped
+the ice-wall, so the sliders were **dead knobs** a player could move to no effect.
+Re-adding them would give the geometry a second, drifting source of truth. The
+geometry knobs are the **per-zone width sliders** (§ below);
+`tests/test_settings_live.lua` fails the build if any setting stops reaching the
+world.
 
 **Chosen edge model:** Implementation **A** (gradient ticking damage) as the
-teacher, plus **B** (hard wall) as the extreme-edge backstop, per the spec's
-recommendation — both **IMPLEMENTED (item 2)**:
+teacher, plus **B** (an impassable extreme edge) as the backstop, per the spec's
+recommendation — both **IMPLEMENTED (item 2)**. B is *not* a scripted wall: it is
+the molten lava ocean (the only ground you cannot walk on) and, past everything,
+the map-gen's own `out-of-map`:
 
-- **Positional lethal-zone damage** — `scripts/tile-damage.lua` reads POSITION on
-  the perpendicular axis each sweep: anything in a lethal zone takes damage — the
-  player **and** machines/entities alike. The hot zones (1+2+3) burn (heat), the
-  smooth-ice cap (zone 11) freezes (cold); the walkable middle is safe. ci-da2
-  makes the zones MIXES of tiles that also appear in safe neighbours, so lethality
-  is keyed to the axis position (`terrain.damage_bounds` / `terrain.lethal_at`),
-  not the tile under the entity; because the tiles are placed by that same axis the
-  damage still tracks the visible ribbon. Base ships no heat/cold damage type, so
-  both are new prototypes in `prototypes/damage-types.lua`. Entity resistances
-  (gear / building) mitigate, never zero, the geography — that is edge-pushing.
+- **Lethal-ground damage** — `scripts/tile-damage.lua` reads the ACTUAL TILE under
+  an entity's collision footprint each sweep and burns/freezes it — the player
+  **and** machines/entities alike. The hot naturals burn (heat), the icy ones
+  freeze (cold), scaling with how deep into the belt the tile sits; a player-laid
+  **cover** tile (concrete) shields, because a cover tile is not a hazard natural.
+  Because the ribbon is ONE monotonic heightmap (ci-oe83) the damaging tiles form
+  two contiguous edge belts, so tile-keying is corridor-safe (ci-ma18; the interim
+  position-keyed model burned through concrete AND left a stray hot crack
+  harmless). The peak dps on a full-intensity tile is the `cindra-ribbon-max-dps`
+  setting. Base ships no heat/cold damage type, so both are new prototypes in
+  `prototypes/damage-types.lua`. Entity resistances (gear / building) mitigate,
+  never zero, the geography — that is edge-pushing.
 - **Finite ribbon (the void backstop)** — the map-gen itself makes the world
   finite perpendicular to the ribbon: the Cindra surface is given a `width`
-  (vertical orientation) so the engine fills everything beyond ±`wall_at` with
-  `out-of-map`. The engine ignores width on a planet *prototype*, so
+  (vertical orientation) equal to the SUM of the per-zone widths, so the engine
+  fills everything beyond ±half that with `out-of-map`. There is no separate
+  world-edge setting; the zone sliders are the size of the planet
+  (`terrain.map_gen_bounds`). The engine ignores width on a planet *prototype*, so
   `scripts/driver.lua` sets it on the surface the instant it is created (a one-time
   map-gen config — **no** chunk deletion, **no** scripted void). Same mechanism as
   the vanilla "ribbon-world" preset.
@@ -254,9 +262,12 @@ banded to the ribbon by a perpendicular-axis mask emitted from
 
 | Resource (`cindra-*`) | Band on the axis | Richness | Yields |
 |---|---|---|---|
-| stone | ribbon + hot margin (`−safe ≤ Y ≤ lethal_at`) | richest toward the HOT edge | `stone` |
-| ice field | nightside (`Y < −safe`) | richer deeper (colder) | fixed **mix** of `ice` + `calcite` (ci-9l6; both drop from one mining action, no crush) |
-| bootstrap rock | terminator scatter across the whole ribbon band (`|Y| ≤ safe`) | n/a (finite per-rock) | `stone` + `iron-ore` + `copper-ore` + `coal` |
+| stone | building ribbon + the SAFE hot margin, stopping a noise margin short of the heat-damage boundary (`field_bounds.hot_edge`) | richest toward the HOT edge | `stone` |
+| ice field | the SAFE cold margin, stopping a noise margin short of the cold-damage boundary (`field_bounds.cold_edge`) | richer deeper (colder) | fixed **mix** of `ice` + `calcite` (ci-9l6; both drop from one mining action, no crush) |
+| bootstrap rock | terminator scatter across the whole building band (`\|p\| ≤ building_half`) | n/a (finite per-rock) | `stone` + `iron-ore` + `copper-ore` + `coal` |
+
+All three bounds come from `terrain.resource_bounds` / `terrain.damage_bounds` —
+i.e. from the per-zone widths — so retuning a zone width moves the ore with it.
 
 There is **no standalone ice-derived ore or map-gen slider** beyond stone + ice
 (ci-3yl). The ice field is a **multi-product resource**: mining it drops a FIXED
@@ -529,10 +540,8 @@ runtime drop calls); the in-game cargo-pod drop feel is a PLAYTEST item.
 
 | Value | Start | Notes |
 |---|---|---|
-| Ribbon safe half-width | 24 tiles | no-damage band |
-| Ribbon lethal-at | 96 tiles | damage saturates |
-| Ribbon wall-at | 128 tiles | hard backstop |
-| Ribbon peak dps | 200 | survivable briefly with gear |
+| Ribbon width | 800 tiles | the SUM of the seven zone-width sliders; also the world's finite dimension. The habitable middle is 120 of it |
+| Ribbon peak dps | 200 | damage on a full-intensity hazard tile; survivable briefly with gear |
 | Lava recipe | 1 stone → 5 vanilla lava (64:320 batch) | ci-9yg; power is the lever; productivity DISABLED (fixes stone-in); outputs the ONE vanilla lava fluid |
 | Lava manufacturer | crafting_speed 2, 40 MW draw | dedicated caster (ci-e8a); ci-4ee spazz fix (was speed 64, batch scaled to keep throughput); a single-digit count feeds one foundry, energy-per-lava ruinous |
 | Lava power cost | very high | rival/exceed baseline solar at scale |

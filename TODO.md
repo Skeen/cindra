@@ -40,8 +40,15 @@ merge queue.
     "lava-heat" emitter line (`scripts/freeze.lua`, `scripts/freeze-emitters.lua`,
     `prototypes/freeze-emitter.lua`) keep the habitable band thawed while the
     nightside freezes for real; a nearby heat source (ci-f5l heater) thaws a pocket.
-  - Tested: `tests/test_edge_damage.lua`, `tests/test_worldgen.lua`,
-    `tests/test_freeze.lua`, `unit-tests/test_freeze.lua`, `unit-tests/test_freeze_emitters.lua`.
+  - SUPERSEDED since (`ci-oe83` / `ci-ma18` / `ci-wly`, retired by `ci-7k6`): damage
+    is keyed to the TILE under an entity (`scripts/tile-damage.lua`), the boundaries
+    come from the one heightmap's per-zone widths (`scripts/terrain.lua`), and the
+    world edge is the map-gen's finite dimension = the sum of those widths. There is
+    no `wall_at` and no hard-wall backstop; `ribbon.zone` / `ribbon.damage_per_second`
+    / `ribbon.past_wall` and the three settings that fed them are gone.
+  - Tested: `tests/test_tile_damage.lua`, `tests/test_worldgen.lua`,
+    `tests/test_settings_live.lua`, `tests/test_freeze.lua`, `unit-tests/test_freeze.lua`,
+    `unit-tests/test_freeze_emitters.lua`.
 - [x] **§15-3 — Resources.** `ci-l72` (worldgen track `ci-9nj`).
   - `prototypes/resources.lua` + `scripts/resource-field.lua` (pure band geometry)
     + runtime placement in `scripts/worldgen.lua`: stone (ribbon), ice
