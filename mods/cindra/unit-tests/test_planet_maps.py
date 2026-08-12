@@ -2,10 +2,27 @@
 # Pixel test for the procedural planet maps (scripts/gen-planet-maps.py).
 #
 # The map generator is pure and deterministic, so its output is testable off-game
-# without Blender or Factorio. This guards the ci-i9m REDESIGN of the from-space
-# look, which SUPERSEDES the ci-fg6 painted-sandy-seam contract per the mayor,
-# and the ci-6i1 recolour of the terminator belt (dark volcanic mountains, NOT a
-# gray/tan sandy blur):
+# without Blender or Factorio.
+#
+# THE HEADLINE CONTRACT (ci-4qyj): the globe shows the THREE-PART planet the
+# ci-wly/ci-oe83 heightmap actually generates -- a broad hot LAVA OCEAN, a
+# habitable MIDDLE, and a broad cold ICE OCEAN, in that order across the disc, at
+# the widths the terrain really has. Everything the player can see about Cindra
+# before landing has to be true after landing:
+#
+#   • ORDER + BREADTH. Lava ocean -> hot belt -> habitable -> cold belt -> ice
+#     ocean, sunward to nightward, with each OCEAN a broad sheet (a quarter of the
+#     axis) rather than a thin rim at the limb.
+#   • PAINTED WITH THE GROUND. The surface colour is terrain.lua's own map colour
+#     for the tile at that point of the ribbon axis, times a greyscale relief
+#     shade -- not an independent ramp that can drift from the terrain (which is
+#     exactly what happened between ci-6i1 and ci-oe83).
+#   • THE GLOW IS THE LETHAL GROUND. What lights up from orbit is the molten
+#     ocean and its belt; the habitable middle emits NOTHING at all.
+#
+# It also guards the ci-i9m REDESIGN of the from-space look, which SUPERSEDES the
+# ci-fg6 painted-sandy-seam contract per the mayor, and the ci-6i1 recolour of the
+# terminator belt (dark volcanic rock, NOT a gray/tan sandy blur):
 #
 #   • NO PAINTED SEAM. The terminator is a SMOOTH hot->cold albedo ramp (mirroring
 #     the in-game terrain ramp), not a bright self-lit stripe down the middle.
@@ -156,6 +173,97 @@ ice_em = rgb_mean(emission, ice)
 check("ice shimmer is icy-blue (B dominant, B>R)",
       ice_em[2] > ice_em[0],
       f"emission={ice_em.round(1)}")
+
+# --- THE THREE-PART PLANET, SEEN FROM ORBIT (ci-4qyj) -----------------------
+# The regions are the ones terrain.lua partitions the ground into, so these are
+# assertions about the planet, not about the art's private idea of it.
+regions = ["lava_ocean", "hot_belt", "habitable", "cold_belt", "ice_ocean"]
+reg = {k: masks[k].astype(bool) for k in regions}
+share = {k: float(reg[k].mean()) for k in regions}
+
+check("all five terrain regions are visible on the globe",
+      all(share[k] > 0.02 for k in regions),
+      "  ".join(f"{k}={share[k]:.3f}" for k in regions))
+
+# Ordered sunward -> nightward across the disc: lava ocean on one limb, ice ocean
+# on the other, habitable dead centre. (sol is the insolation axis: +1 substellar.)
+mean_sol = [float(masks["sol"][reg[k]].mean()) for k in regions]
+check("regions run lava ocean -> hot belt -> habitable -> cold belt -> ice ocean",
+      all(a > b for a, b in zip(mean_sol, mean_sol[1:])),
+      "  ".join(f"{k}={s:+.2f}" for k, s in zip(regions, mean_sol)))
+
+# BROAD oceans, not thin rims at the limb -- the ci-wly headline. Each ocean is a
+# ~26% slab of the ribbon axis; projected onto the equirect sphere that is a
+# double-digit share of the surface, and the two are symmetric by construction.
+check("both oceans are BROAD sheets, not limb rims (each > 15% of the surface)",
+      share["lava_ocean"] > 0.15 and share["ice_ocean"] > 0.15,
+      f"lava={share['lava_ocean']:.3f} ice={share['ice_ocean']:.3f}")
+check("the two oceans are symmetric (within 2 percentage points)",
+      abs(share["lava_ocean"] - share["ice_ocean"]) < 0.02,
+      f"lava={share['lava_ocean']:.3f} ice={share['ice_ocean']:.3f}")
+check("a broad habitable middle survives between them (> 20% of the surface)",
+      share["habitable"] > 0.20, f"habitable={share['habitable']:.3f}")
+
+# Each region LOOKS like the ground it is.
+lava_alb = rgb_mean(albedo, reg["lava_ocean"])
+ice_alb = rgb_mean(albedo, reg["ice_ocean"])
+hab_alb = rgb_mean(albedo, reg["habitable"])
+check("the lava ocean is a molten orange-red sheet (R>G>B, R>200)",
+      lava_alb[0] > lava_alb[1] > lava_alb[2] and lava_alb[0] > 200,
+      f"albedo={lava_alb.round(1)}")
+check("the ice ocean is pale cyan-white (B>G>R, brightness > 150)",
+      ice_alb[2] > ice_alb[1] > ice_alb[0] and ice_alb.mean() > 150,
+      f"albedo={ice_alb.round(1)}")
+# Dark warm rock: far dimmer than the pale ice sheet, and nothing like the molten
+# sheet's red. (Compared per-channel where each ocean actually lives -- the lava
+# ocean's mean over RGB is dragged down by its near-zero blue.)
+check("the habitable middle is DARK WARM rock between two bright oceans",
+      hab_alb[0] > hab_alb[1] > hab_alb[2]
+      and hab_alb.mean() < 0.5 * ice_alb.mean()
+      and hab_alb[0] < 0.5 * lava_alb[0],
+      f"habitable={hab_alb.round(1)} lavaR={lava_alb[0]:.1f} ice={ice_alb.mean():.1f}")
+
+# --- THE GLOW IS THE LETHAL GROUND ------------------------------------------
+# A player reads danger off the globe: the radiant part is the molten ocean and
+# its belt. The band we build on must be utterly dark in the emission map, so the
+# terminator comes from the LIGHT and never from a self-lit stripe.
+check("the habitable middle emits NOTHING (max emission == 0)",
+      float(emax[reg["habitable"]].max()) == 0.0,
+      f"max emax over habitable={float(emax[reg['habitable']].max()):.1f}")
+burning = masks["heat"] >= gpm.TERRAIN.hot_dmg
+freezing = masks["heat"] <= gpm.TERRAIN.cold_dmg
+check("NOTHING on safe ground emits any light at all",
+      bool(((emax > 0) & ~(burning | freezing)).sum() == 0),
+      f"{int(((emax > 0) & ~(burning | freezing)).sum())} emitting pixels on safe ground")
+warm_lit = (emax > 40) & (emission[..., 0] > emission[..., 2])
+check("every strongly-radiant WARM pixel is heat-lethal ground",
+      bool((warm_lit & ~burning).sum() == 0),
+      f"{int((warm_lit & ~burning).sum())} warm-radiant pixels outside the heat belt")
+cool_lit = (emax > 0) & (emission[..., 2] > emission[..., 0])
+check("every icy-blue shimmer pixel is cold-lethal ground",
+      bool((cool_lit & ~freezing).sum() == 0),
+      f"{int((cool_lit & ~freezing).sum())} shimmer pixels outside the cold belt")
+check("the lava ocean is the brightest thing on the planet",
+      float(np.median(emax[reg["lava_ocean"]])) > float(np.median(emax[reg["hot_belt"]])) > 0,
+      f"ocean={np.median(emax[reg['lava_ocean']]):.1f} belt={np.median(emax[reg['hot_belt']]):.1f}")
+
+# --- PAINTED WITH THE GROUND ------------------------------------------------
+# The albedo must be terrain.lua's map colour for that spot times a GREYSCALE
+# relief shade -- i.e. the art contributes brightness, never hue. Checked across
+# the habitable middle, where no vein/frost overlay is applied, so any hue of the
+# art's own would show up immediately. (unit-tests/test_terrain_ramp_lockstep.py
+# proves the colours themselves are terrain.lua's.)
+ground = gpm.TERRAIN.color_at_heat(masks["heat"]) * 255.0
+sel = reg["habitable"]
+ratio = albedo[sel] / np.maximum(ground[sel], 1e-6)          # (n,3) per-channel scale
+spread = np.abs(ratio - ratio.mean(axis=-1, keepdims=True)).max(axis=-1)
+check("the habitable band is the TERRAIN colour under a greyscale shade "
+      "(no hue of the art's own)",
+      float(spread.max()) < 1e-4,
+      f"max per-channel hue drift={float(spread.max()):.2e}")
+check("that shade only darkens/brightens within the documented range",
+      0.5 < float(ratio.mean(axis=-1).min()) and float(ratio.mean(axis=-1).max()) < 1.2,
+      f"shade range=[{ratio.mean(axis=-1).min():.2f}, {ratio.mean(axis=-1).max():.2f}]")
 
 # --- Determinism ------------------------------------------------------------
 again = gpm.generate_maps(W=256, H=128, seed=gpm.SEED)["cindra.png"][0]

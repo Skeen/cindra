@@ -272,8 +272,14 @@ merge queue.
   mirrored Aquilo density, so the tiles read through them (see
   `docs/verification/ci-tizx-cold-decal-density.png`). Still open here: the HOT-side
   re-gate (rocks/craters still key off the ribbon safe band) and the snowfall effect.
-- [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
-  `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
+- [x] **Orbital / star-map re-render.** `ci-4qyj` — DONE. The from-space art no longer
+  keeps a colour ramp of its own: `scripts/terrain_ramp.py` reads `scripts/terrain.lua`
+  and replays its position -> heat -> tile -> colour chain, so the globe shows the real
+  three-part planet (broad lava ocean / habitable middle / broad ice ocean) at the
+  terrain's own widths, and emission is gated on the heat field so only lethal ground
+  glows. Maps + bake + star-map sprite + icon + thumbnail regenerated. Guarded by
+  `unit-tests/test_terrain_ramp_lockstep.py` (runs the real Lua module and the Python
+  replay side by side), plus the extended `test_planet_maps.py` / `test_starmap_lighting.py`.
 - **SEQUENCE NOTE:** native freeze (`ci-bvk`) is DONE and aligned onto this tile layout:
   its onset ties to the cold-side gradient (the middle's cold edge, ~p −60), not a wall.
   NB the emitter had to become a 1×1 heat-pipe (a heat-interface ignores `heating_radius`)

@@ -8,8 +8,27 @@
 #   3. downscale to the static star-map sprite (512) + a mipmapped icon (120x64).
 #
 # Deterministic: same noise seed in gen-planet-maps.py -> same art every run.
-# All external tools are pulled through nix so the pipeline is self-contained.
+#
+# TOOLS. Prefer whatever is already on PATH -- inside `nix develop` that is the
+# flake's PINNED python/blender/imagemagick, the same versions every clone gets.
+# Only when a tool is missing do we fall back to pulling it from the ambient nix
+# registry, which is NOT pinned: a different Blender there bakes a subtly
+# different sprite, which is exactly the kind of drift a deterministic art
+# pipeline must not have. Run this from `nix develop` for reproducible output.
 set -euo pipefail
+
+# Run "$@" with the named tool, from PATH if present, else via nix.
+with_tool() {
+  local tool=$1 fallback=$2
+  shift 2
+  if command -v "$tool" >/dev/null 2>&1; then
+    "$@"
+  else
+    echo "note: $tool not on PATH (run inside 'nix develop' for the pinned version)" >&2
+    # shellcheck disable=SC2086
+    nix shell $fallback -c "$@"
+  fi
+}
 
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
@@ -21,15 +40,34 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$ICONS"
 
 echo "== 1/3 generating equirectangular maps =="
-nix-shell -p "python3.withPackages(ps: with ps; [numpy pillow])" \
-  --run "python3 scripts/gen-planet-maps.py '$SPACE'"
+if python3 -c "import numpy, PIL" >/dev/null 2>&1; then
+  python3 scripts/gen-planet-maps.py "$SPACE"
+else
+  echo "note: python3 lacks numpy/pillow (run inside 'nix develop')" >&2
+  nix-shell -p "python3.withPackages(ps: with ps; [numpy pillow])" \
+    --run "python3 scripts/gen-planet-maps.py '$SPACE'"
+fi
 
 echo "== 2/3 baking star-map sphere (Blender/Cycles) =="
-nix shell nixpkgs#blender -c blender -b -P scripts/bake-starmap.py -- \
-  "$SPACE" "$TMP/starmap-1024.png"
+# Blender 5.x runs its scene compositor (our Glare bloom) on the GPU even with
+# -b, and SEGFAULTS where there is no usable GL/Vulkan -- i.e. on any headless
+# machine. Hand it Mesa's LAVAPIPE software Vulkan (exported by the flake dev
+# shell as MESA_ICD_DIR): the bake then works headless AND is reproducible,
+# since every machine composites through the same software rasteriser instead of
+# whatever GPU it happens to have.
+LVP=$(ls "${MESA_ICD_DIR:-/nonexistent}"/lvp_icd.*.json 2>/dev/null | head -1 || true)
+GPU_ARGS=()
+if [ -n "$LVP" ]; then
+  export VK_DRIVER_FILES="$LVP" VK_ICD_FILENAMES="$LVP"
+  GPU_ARGS=(--gpu-backend vulkan)
+else
+  echo "note: no lavapipe ICD (MESA_ICD_DIR unset?); Blender may crash headless" >&2
+fi
+with_tool blender nixpkgs#blender \
+  blender -b "${GPU_ARGS[@]}" -P scripts/bake-starmap.py -- "$SPACE" "$TMP/starmap-1024.png"
 
 echo "== 3/3 downscaling sprite + building icon mip strip + mod thumbnail =="
-nix shell nixpkgs#imagemagick -c bash -c '
+with_tool magick nixpkgs#imagemagick bash -c '
   set -e
   src="$1"; icons="$2"; modroot="$3"
   # Static star-map sprite: 512x512 (vanilla starmap_icon_size). 8-bit RGBA.

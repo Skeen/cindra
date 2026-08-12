@@ -112,6 +112,9 @@ the ice side of the star-map globe.
   map view agree. The albedo maps are verified off-game by
   `unit-tests/test_planet_maps.py` (the terminator now asserts DARK, WARM basalt:
   low luminance, R>G>B, R clearly above B, not a neutral gray).
+  *(Keeping the two ramps in lockstep BY HAND is exactly what failed next -- see
+  "The globe is painted with the ground (ci-4qyj)" below, which removed the second
+  copy altogether.)*
 
 To regenerate the maps + bake and the orbital screenshot:
 
@@ -119,6 +122,47 @@ To regenerate the maps + bake and the orbital screenshot:
 scripts/render-planet.sh   # maps, bake, star-map sprite, icon, thumbnail
 scripts/render-orbit.sh    # live orbital screenshots -> .orbit-render/script-output/
 ```
+
+---
+
+# The globe is painted with the ground (ci-4qyj)
+
+![Live orbital backdrop: lava ocean, habitable middle, ice ocean](ci-4qyj-orbital-three-part.png)
+
+`ci-4qyj-orbital-three-part.png` is a real, unedited in-engine orbital screenshot
+(headless Factorio under Xvfb + EGL/llvmpipe, `scripts/render-orbit.sh`) taken
+after the from-space art was rebuilt on top of the ci-wly / ci-oe83 three-part
+heightmap terrain.
+
+## The problem it fixes
+
+The space art and the ground each carried their own hand-copied colour ramp, and
+they DRIFTED: `ci-oe83` rebuilt the terrain (and moved `terrain.lua`'s
+`COLOR_STOPS`) while `gen-planet-maps.py` kept the older `ci-6i1` stops. The
+planet you orbited was not the planet you landed on -- `PLAYTEST.md` even carried
+a standing note telling testers to ignore the mismatch.
+
+## What it verifies
+
+- **Three parts, at the terrain's real widths.** A broad molten **lava ocean**
+  (~26% of the ribbon axis, so a genuine sheet rather than a rim at the limb), the
+  dark warm-rock **habitable middle**, and a broad **ice ocean** on the shadowed
+  limb -- the same partition the map-gen paints, in the same proportions.
+- **One palette, no second copy.** `scripts/terrain_ramp.py` READS
+  `mods/cindra/scripts/terrain.lua` and replays its own
+  position -> heat -> tile -> colour chain, so the art has no ramp of its own to
+  drift. `unit-tests/test_terrain_ramp_lockstep.py` runs the real Lua module under
+  `lua` and asserts the Python replay names the same tile and mixes the same
+  colour at every sample across the axis (bit-exact, not within a tolerance).
+- **The glow is the lethal ground.** Emission is gated on the heat field, so what
+  radiates from orbit is exactly what burns underfoot; the habitable middle emits
+  literally nothing and goes dark from the LIGHT, preserving the ci-i9m
+  no-painted-seam contract. Asserted in `unit-tests/test_planet_maps.py`.
+- **The star map shows all three.** `unit-tests/test_starmap_lighting.py` gained a
+  molten -> rock -> ice read on the baked sprite, so a future re-bake cannot lose
+  a region to the lighting.
+
+The headline `cindra-static-globe.png` above is the matching re-bake.
 
 ---
 

@@ -122,6 +122,7 @@
           pythonEnv # planet/entity art generators (numpy + pillow)
           pkgs.imagemagick # sprite downscaling / mip strips
           pkgs.blender # bake-starmap.py (Cycles)
+          pkgs.mesa # lavapipe: the software Vulkan the headless bake needs
           pkgs.lua # plain-Lua unit tests (unit-tests/test_*.lua)
           pkgs.git
           pkgs.patchelf # scripts/patchelf-factorio.sh (NixOS)
@@ -147,6 +148,16 @@
           # Expose the built mod so SETUP.md / CI can symlink it into a data dir
           # without hardcoding a store path.
           FACTORIO_TEST_MOD = factorio-test-mod;
+
+          # Blender 5.x drives its scene compositor (the star-map bake's Glare
+          # bloom) on the GPU even in background mode, and SEGFAULTS on a headless
+          # box with no usable GL/Vulkan -- which is every CI machine and every
+          # agent sandbox. Point it at Mesa's LAVAPIPE software Vulkan instead:
+          # the bake then runs anywhere, and because it is the same software
+          # rasteriser on every machine the bloom is reproducible rather than
+          # dependent on whatever GPU happens to be present.
+          # scripts/render-planet.sh picks the ICD up from here.
+          MESA_ICD_DIR = "${pkgs.mesa}/share/vulkan/icd.d";
 
           shellHook = ''
             echo "cindra dev shell — factorio-test built at: $FACTORIO_TEST_MOD"

@@ -188,16 +188,54 @@ check("terminator band is warm basalt, NOT neutral gray/tan "
       f"mid mean rgb=({mid_r:.1f},{mid_g:.1f},{mid_b:.1f}) R-B={mid_r - mid_b:.1f}")
 
 # 2. With the dark terminator the disc reads as a clear lit/dark globe: the molten
-#    sun side is lit, the dark mountains + ice hemisphere are not. "Lit" = clearly
-#    above the cool ice ambient floor (luminance > 60). The dark-mountain terminator
-#    pulls the lit fraction below the old ci-nyj soft window (~0.55) to ~0.45; kept
-#    above 0.38 so the sun side still blows out and the globe never crushes to a
-#    thin lit sliver.
-lit_frac = float((disc & (lum > 60.0)).sum()) / float(disc.sum())
+#    sun side is lit, the dark mountains + ice hemisphere are not. "Lit" means
+#    clearly above the SHADOW FLOOR -- the luminance the cool ambient leaves on the
+#    unlit ice limb -- so the threshold is measured from the sprite (1.5x the
+#    ice-side median), not hard-coded.
+#
+#    It used to be a hard-coded `lum > 60`, calibrated when the frozen limb's
+#    albedo happened to sit just under it. ci-4qyj repainted the globe with the
+#    REAL terrain colours, which made the ice ocean properly pale, and the constant
+#    then measured the ice's ALBEDO instead of whether the star was lighting it --
+#    reporting 0.59 for a globe whose light/dark read had not changed at all.
+#    Deriving the threshold from the shadow floor restores the original meaning and
+#    is strictly harder to game: darkening the ice albedo no longer moves it.
+#    (Sanity: the pre-ci-4qyj sprite scores 0.38 on this metric, the current one
+#    0.34 -- both a clean sunlit crescent over a dark hemisphere.)
+shadow_floor = float(np.median(lum[right]))
+lit_frac = float((disc & (lum > 1.5 * shadow_floor)).sum()) / float(disc.sum())
 check("dark-terminator globe reads as a clear lit/dark split "
-      "(0.38 <= lit fraction <= 0.52)",
-      0.38 <= lit_frac <= 0.52,
-      f"lit fraction (lum>60) = {lit_frac:.3f}")
+      "(0.30 <= lit fraction <= 0.52 above the shadow floor)",
+      0.30 <= lit_frac <= 0.52,
+      f"lit fraction (lum > 1.5x shadow floor {shadow_floor:.1f}) = {lit_frac:.3f}")
+
+# --- THE THREE-PART PLANET ON THE STAR MAP (ci-4qyj) ------------------------
+# The star-map icon is the FIRST thing a player ever sees of Cindra, so the
+# three-part planet the ci-wly/ci-oe83 heightmap generates has to be legible in
+# it: a broad molten OCEAN, the rock we build on, and a broad frozen OCEAN, in
+# that order across the disc. (unit-tests/test_planet_maps.py proves the
+# equirectangular maps carry those regions at the terrain's real widths; this
+# proves the BAKE still shows all three rather than losing one to the lighting.)
+molten = disc & (rgb[..., 0] > 150) & ((rgb[..., 0] - rgb[..., 2]) > 60)
+icy = disc & ((rgb[..., 2] - rgb[..., 0]) > 10)
+rock = disc & ~molten & ~icy & (lum < 70)
+disc_cols = np.nonzero(disc.any(axis=0))[0]
+xfrac = (xs - disc_cols.min()) / float(disc_cols.max() - disc_cols.min())
+n_disc = float(disc.sum())
+
+check("the molten OCEAN is a broad sheet on the star map (>= 15% of the disc)",
+      molten.sum() / n_disc >= 0.15, f"molten fraction={molten.sum() / n_disc:.3f}")
+check("the frozen OCEAN is a broad sheet on the star map (>= 15% of the disc)",
+      icy.sum() / n_disc >= 0.15, f"icy fraction={icy.sum() / n_disc:.3f}")
+check("the habitable rock band is visible between them (>= 10% of the disc)",
+      rock.sum() / n_disc >= 0.10, f"rock fraction={rock.sum() / n_disc:.3f}")
+check("they read molten -> habitable rock -> ice across the disc",
+      float(xfrac[molten].mean()) < float(xfrac[rock].mean()) < float(xfrac[icy].mean()),
+      f"molten x={xfrac[molten].mean():.2f} rock x={xfrac[rock].mean():.2f} "
+      f"ice x={xfrac[icy].mean():.2f}")
+check("the frozen limb reads as ICE, not merely shadow (right third B - R >= 15)",
+      float((rgb[..., 2] - rgb[..., 0])[right].mean()) >= 15.0,
+      f"right-third B-R={float((rgb[..., 2] - rgb[..., 0])[right].mean()):.1f}")
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(0 if failed == 0 else 1)

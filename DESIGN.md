@@ -209,16 +209,23 @@ recommendation — both **IMPLEMENTED (item 2)**:
 - **Art:** v1 reuses vanilla Vulcanus icons (a hot sunward world reads
   correctly). Bespoke ribbon/terminator art is a later pass — see
   [`PLAYTEST.md`](PLAYTEST.md). Gameplay does not depend on it.
-- **From-space / map-view colour ramp (ci-6i1):** the star-map sprite + live
-  orbital backdrop (`scripts/gen-planet-maps.py` `TERRAIN_STOPS`) and the in-game
-  map-view danger gradient (`scripts/terrain.lua` `COLOR_STOPS`) share ONE hot→cold
-  ramp: lava orange → molten crust → a BROAD band of DARK VOLCANIC MOUNTAINS
-  (reddish-brown / near-black basalt, no gray, no tan) across the middle third →
-  pale frost → icy white-blue. This deliberately REPLACES the earlier warm
+- **From-space / map-view colour ramp (ci-6i1, made single-source ci-4qyj):** the
+  in-game map-view danger gradient `scripts/terrain.lua` `M.COLOR_STOPS` is the
+  planet's ONE palette: lava orange → molten crust → a BROAD band of DARK VOLCANIC
+  ROCK (reddish-brown / near-black basalt, no gray, no tan) across the middle →
+  dust → pale frost → icy white-blue. This deliberately REPLACES the earlier warm
   sandy/grey terminator neutral (which read as an ugly gray/tan stripe from space).
+  The star-map sprite + live orbital backdrop do **not** keep a copy of it:
+  `scripts/terrain_ramp.py` reads `terrain.lua` and replays the same
+  position → heat value → tile → colour chain the map view uses, so the globe is
+  literally painted with the ground and cannot drift from it (it did drift once,
+  between ci-6i1 and the ci-oe83 terrain rebuild — that is the bug ci-4qyj closed).
+  Consequence: the from-space disc shows the three-part planet at its REAL widths —
+  a ~26% hot lava OCEAN, the habitable middle, a ~26% cold ice OCEAN — and the
+  emission is gated on the heat field, so only lethal ground glows from orbit.
   Note the distinction: this is the map-view / from-space COLOUR overlay, not the
-  ground TILE textures — the building band at spawn is still sandy soil tiles (§3),
-  it just paints dark on the map dot so the terminator reads as mountains, not sand.
+  ground TILE textures — the building band at spawn is still the ash/soil middle
+  (§3), it just paints dark on the map dot so the middle reads as rock, not sand.
 
 ## 4a. Resources & worldgen — IMPLEMENTED (item 3; rewritten ci-3yl)
 

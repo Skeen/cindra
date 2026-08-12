@@ -3,26 +3,33 @@
 #
 # Cindra is a TIDALLY LOCKED "ribbon planet" (DESIGN.md sections 1-4): a molten
 # dayside hemisphere (magma ocean, radiant glow), a frozen nightside hemisphere
-# (the DARKEST face, deep dark ice with icy-blue glints), and a warm SANDY
-# terminator band (the survivable ribbon) between them. The star sits perilously
-# close, so the dayside is a hot, bright, self-glowing furnace and the nightside
-# is a dark frozen vault. The signature visual tension is fire vs ice, seamed by
-# a lit sandy ribbon.
+# (the DARKEST face, deep dark ice with icy-blue glints), and the survivable
+# ribbon between them. The star sits perilously close, so the dayside is a hot,
+# bright, self-glowing furnace and the nightside is a dark frozen vault. The
+# signature visual tension is fire vs ice.
 #
-# The presented face reads FIERY (left limb) -> SANDY (centre) -> ICY (right limb)
-# via a SMOOTH albedo ramp that mirrors the in-game map-view terrain ramp (ci-i9m,
-# terrain.lua COLOR_STOPS), so the from-space planet reads as the terrain we play:
-#   • SUNWARD hemisphere  : lava, radiant molten orange/red, strong emission,
-#                           bright veins as if the crust is being blasted apart.
-#   • MIDDLE / terminator  : a smooth sandy-neutral crossover -- NOT a painted
-#                           stripe. It carries no self-glow, so it falls into
-#                           shadow naturally where the key light does not reach:
-#                           the tidal-lock terminator comes from the LIGHT, not a
-#                           seam (ci-i9m supersedes the ci-fg6 self-lit sandy band).
-#   • NIGHTWARD hemisphere : PALE ICE (frost -> icy white-blue), reading as our
-#                           frozen terrain, with a faint icy-blue frost shimmer.
-#                           It goes dark via the light falloff, not a black albedo,
-#                           so it is ICE -- not a Fulgora-electric near-black vault.
+# THE GLOBE IS PAINTED WITH THE GROUND (ci-4qyj). The surface colour is not a
+# free-hand gradient: scripts/terrain_ramp.py reads mods/cindra/scripts/terrain.lua
+# and replays its own chain -- perpendicular position -> heat value H -> tile ->
+# map colour -- so each point on the disc gets the colour that spot has on the map
+# view. The ci-wly/ci-oe83 three-part heightmap therefore shows up from orbit at
+# its REAL widths instead of an eyeballed ramp, and a future edit to the terrain
+# ramp moves the space art with it (guarded by
+# unit-tests/test_terrain_ramp_lockstep.py):
+#   • HOT LAVA OCEAN (~26% of the axis, the left limb): the field is pinned in the
+#     lava-hot band, so it is one broad molten orange-red sheet -- an OCEAN, not a
+#     thin rim -- carrying the strong self-glow.
+#   • HOT BELT: a narrow, fast ramp of molten crust and glowing cracks where the
+#     field crosses the heat-death threshold. The glow DIES at that threshold, so
+#     what lights up from orbit is exactly the lethal ground.
+#   • HABITABLE MIDDLE (~33%, the centre of the disc): the dark warm basalt/ash
+#     band we actually build on. It carries NO self-glow, so it falls into shadow
+#     where the key light does not reach: the tidal-lock terminator comes from the
+#     LIGHT, not a painted seam (ci-i9m).
+#   • COLD BELT: dust and snow through the freeze threshold.
+#   • COLD ICE OCEAN (~26%, the right limb): pale cyan-white smooth ice reading as
+#     our frozen terrain, with a faint icy-blue shimmer. It goes dark via the light
+#     falloff, not a black albedo, so it is ICE -- not a Fulgora-electric vault.
 #
 # TIDALLY LOCKED means the planet presents ONE face permanently: it must not spin
 # in either the star-map sprite or the orbital backdrop. We bake that into the
@@ -30,15 +37,18 @@
 # front hemisphere always shows the whole dramatic split:
 #
 #   insolation  sol = -cy   (cy = y component of the unit-sphere point)
-#     sol = +1  -> sub-stellar point   (hottest molten dayside)  at lon = -90
-#     sol =  0  -> terminator ribbon   (survivable sandy seam)   at lon =   0 / 180
-#     sol = -1  -> anti-stellar point  (coldest frozen nightside) at lon = +90
+#     sol = +1  -> sub-stellar point    (the hot lava ocean)      at lon = -90
+#     sol =  0  -> terminator           (the habitable middle)    at lon =   0 / 180
+#     sol = -1  -> anti-stellar point   (the cold ice ocean)      at lon = +90
+#
+# sol IS the ribbon's perpendicular axis in normalised form: sol * half_width is
+# the tile coordinate terrain.lua's field is a function of, so feeding it straight
+# into the terrain profile is what makes the globe show the real planet.
 #
 # On an orthographic disc a point at longitude near the presented centre projects
 # to screen-x ~ sin(lon), and sol ~ -sin(lon), so sol maps almost linearly to the
-# horizontal across the visible face: sol=0 (sandy) sits dead centre, fire on the
-# left limb, ice on the right. Widening the ribbon in sol-space therefore widens
-# the sandy band on the presented disc into a clear fiery|sandy|icy thirds read.
+# horizontal across the visible face: the habitable middle sits dead centre, the
+# lava ocean on the left limb, the ice ocean on the right.
 #
 # Everything is derived from 3D fractal noise sampled on the UNIT SPHERE (not on
 # the flat image plane), so the maps are seamless at the longitude wrap and free
@@ -54,14 +64,17 @@
 # Run via: scripts/render-planet.sh  (wraps the nix python env)
 #
 # Importable: generate_maps(W, H, seed) returns the raw float layers so a pixel
-# test can assert the fiery/sandy/icy split (see unit-tests/test_planet_maps.py)
-# without shelling out to the file writer.
+# test can assert the lava-ocean / habitable / ice-ocean split (see
+# unit-tests/test_planet_maps.py) without shelling out to the file writer.
 
 import os
 import sys
 import numpy as np
 # PIL is imported lazily in to_img() so generate_maps() stays importable in a
 # numpy-only environment (the pixel test needs no image encoder).
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import terrain_ramp  # noqa: E402  -- sibling module, needs the path line above
 
 W, H = 2048, 1024          # equirectangular, 2:1
 SEED = 51001                # deterministic; change for a different world
@@ -119,45 +132,13 @@ def smoothstep(a, b, x):
     return t * t * (3.0 - 2.0 * t)
 
 
-# Hot -> cold surface colour ramp, MIRRORING the in-game map-view ramp in
-# scripts/terrain.lua (COLOR_STOPS, ci-4h7): reds sunward, a BROAD DARK VOLCANIC
-# MOUNTAIN belt at the centre, pale cyan/frost nightward. Sampling the SAME ramp
-# for the from-space art is what makes the orbital/star-map planet "read as our
-# terrain" (ci-i9m): the fiery hemisphere is lava/volcanic, the frozen hemisphere
-# is PALE ICE (not a near-black Fulgora-electric vault), and the terminator is a
-# band of dark basalt mountains between fire and ice -- NOT a gray/tan sandy blur.
-# The day/night falloff is supplied by the parallel key light (bake) /
-# light_direction (orbit), not by a self-lit seam.
-#
-# ci-6i1: the old (0.50) sandy-neutral + (0.66) cool-grey-dust stops painted a
-# wide gray/tan stripe into the albedo on the tidally-locked disc. Replaced with a
-# broad band of dark reddish-brown / near-black basalt (no gray, no tan) filling
-# roughly the middle third. terrain.lua COLOR_STOPS is updated to match (space art
-# and in-game map ramp stay consistent).
-TERRAIN_STOPS = [
-    (0.00, (0.98, 0.42, 0.06)),   # lava, orange-red
-    (0.18, (0.80, 0.30, 0.10)),   # molten crust
-    (0.32, (0.55, 0.40, 0.28)),   # warm volcanic brown (fire -> mountains)
-    (0.42, (0.353, 0.208, 0.141)),  # dark volcanic mountains #5A3524
-    (0.54, (0.243, 0.165, 0.125)),  # darkest basalt #3E2A20
-    (0.64, (0.290, 0.227, 0.188)),  # cooling basalt #4A3A30 (mountains -> ice)
-    (0.74, (0.66, 0.82, 0.88)),   # pale frost
-    (1.00, (0.82, 0.95, 1.00)),   # icy white-blue
-]
-
-
-def terrain_ramp(t):
-    """Vectorised piecewise-linear lookup into TERRAIN_STOPS.
-
-    t is the normalised hot->cold position in [0,1] (0 = hottest lava,
-    1 = coldest ice). Returns an RGB array shaped t.shape + (3,).
-    """
-    xs = np.array([s[0] for s in TERRAIN_STOPS], np.float32)
-    cols = np.array([s[1] for s in TERRAIN_STOPS], np.float32)   # (K,3)
-    out = np.empty(t.shape + (3,), np.float32)
-    for ch in range(3):
-        out[..., ch] = np.interp(t, xs, cols[:, ch])
-    return out
+# The hot -> cold surface profile, READ OUT OF THE GAME (ci-4qyj). There is no
+# colour ramp, threshold or band width in this file: terrain_ramp.load() parses
+# mods/cindra/scripts/terrain.lua and hands back its own
+# position -> heat -> tile -> colour chain. The art can therefore never disagree
+# with the ground (the drift this bead exists to fix), and re-tuning the terrain
+# re-tunes the globe on the next render.
+TERRAIN = terrain_ramp.load()
 
 
 def normal_map(h, strength):
@@ -176,8 +157,10 @@ def generate_maps(W=W, H=H, seed=SEED):
     RGBA float arrays in [0,255]; scalar-derived layers (reflectivity/normal/
     cloud-normal/cloud-flow) are RGB float arrays in [0,255]. The flare
     spritesheet is built separately (build_flare_sheet). Also returned are the
-    analytic zone masks (sol/day/night/ribbon) so a test can address the fire /
-    sandy / ice regions without re-deriving the geometry.
+    zone masks so a test can address each region without re-deriving the
+    geometry: the terrain-derived heat field and its lava_ocean / hot_belt /
+    habitable / cold_belt / ice_ocean regions, plus the lighting-side
+    sol/day/night/ribbon gates.
     """
     # -- Sphere sample points for every equirectangular texel ----------------
     xs = (np.arange(W) + 0.5) / W
@@ -200,24 +183,48 @@ def generate_maps(W=W, H=H, seed=SEED):
     warp = (field(seed + 400, base_freq=3.0, octaves=4) - 0.5)
     sol = np.clip(sol + 0.06 * warp, -1.0, 1.0)
 
-    # NATURAL terminator, NOT a painted stripe (ci-i9m). The albedo below is a
-    # SMOOTH hot->cold ramp along `t` (terrain_ramp), so the fiery hemisphere melts
-    # into the frozen one through a sandy-neutral midpoint with no hard seam. The
-    # day/night light falloff is supplied by the LEFT parallel key (bake) and
-    # light_direction (orbit) -- the map no longer self-lights a sandy band.
-    #
-    # t = normalised hot->cold position in [0,1]: 0 = hottest lava, 1 = coldest ice.
-    t = np.clip(0.5 * (1.0 - sol), 0.0, 1.0)
-    # Soft masks still tag the hemispheres + the transition band so EMISSION can be
-    # gated day-side (lava self-glow) / night-side (dim ice shimmer) and tests can
-    # address the fire / terminator / ice regions. These are analytic gates, not a
-    # painted colour band. This is ART only; it does NOT touch the in-game mapgen
-    # zone widths (planet.lua / ribbon.lua, ci-da2).
-    day = smoothstep(0.05, 0.30, sol)                      # molten hemisphere
-    night = smoothstep(0.05, 0.30, -sol)                   # frozen hemisphere
+    # -- THE TERRAIN, sampled from orbit (ci-4qyj) ---------------------------
+    # sol is the ribbon's perpendicular axis in normalised form, so sol * half is
+    # the tile coordinate terrain.lua's heightmap is a function of. Sample the real
+    # field there and the disc inherits the planet's actual geometry: the two
+    # OCEANS are the pinned plateaus at the ends of the axis (each ~26% of it), the
+    # damage belts are the fast crossings on either side, and the habitable middle
+    # is the broad clamped stretch between them.
+    perp = sol * TERRAIN.half
+    # The map-gen dithers its band boundaries with a per-tile speckle in H
+    # (terrain.SPECKLE_H) so co-present tiles interpenetrate instead of drawing a
+    # clean line. Reuse the SAME amplitude here, so a contour seen from orbit
+    # breaks up exactly as far as the ground does.
+    speckle = field(seed + 700, base_freq=26.0, octaves=4) - 0.5
+    heat_field = np.clip(TERRAIN.field(perp) + 2.0 * TERRAIN.speckle_h * speckle, 0.0, 1.0)
+
+    # The five regions, straight off the field -- the same partition the game uses
+    # for lethal ground, so what glows from orbit is what burns on foot.
+    lava_ocean = TERRAIN.tile_index(heat_field) == 0
+    ice_ocean = TERRAIN.tile_index(heat_field) == len(TERRAIN.tile_names) - 1
+    hot_belt = heat_field >= TERRAIN.hot_dmg
+    cold_belt = heat_field <= TERRAIN.cold_dmg
+    habitable = ~hot_belt & ~cold_belt
+
+    # Smooth versions for shading: `molten` rises from 0 at the heat-death
+    # threshold to 1 across the lava ocean, `frozen` mirrors it on the ice side.
+    # Both are ZERO through the habitable middle, so the middle self-lights nothing
+    # and the terminator stays a LIGHT effect, never a painted seam (ci-i9m).
+    lava_lo = float(TERRAIN.value_ramp[0]["lo"])            # the lava-hot band floor
+    ice_hi = float(TERRAIN.value_ramp[-2]["lo"])            # the smooth-ice band roof
+    molten = smoothstep(TERRAIN.hot_dmg, lava_lo, heat_field)
+    frozen = smoothstep(-TERRAIN.cold_dmg, -ice_hi, -heat_field)
+    # How far past each pinned extreme: drives the white-hot core / deepest frost.
+    heat = np.clip((heat_field - TERRAIN.hot_dmg) / (1.0 - TERRAIN.hot_dmg), 0, 1)
+    cold = np.clip((TERRAIN.cold_dmg - heat_field) / TERRAIN.cold_dmg, 0, 1)
+
+    # Lighting-side gates (unchanged): which hemisphere the star actually lights.
+    # These are the LIGHT, not the surface -- the day/night falloff is supplied by
+    # the parallel key (bake) and light_direction (orbit). This is ART only; it
+    # does NOT touch the in-game mapgen zone widths (planet.lua / ribbon.lua).
+    day = smoothstep(0.05, 0.30, sol)                      # star-lit hemisphere
+    night = smoothstep(0.05, 0.30, -sol)                   # shadowed hemisphere
     ribbon = np.clip(1.0 - day - night, 0.0, 1.0)          # terminator transition
-    heat = np.clip(sol, 0.0, 1.0)                           # 0..1 toward substellar
-    cold = np.clip(-sol, 0.0, 1.0)                          # 0..1 toward antistellar
 
     # -- Height / relief field ----------------------------------------------
     height = field(seed, base_freq=2.2, octaves=7)
@@ -231,31 +238,31 @@ def generate_maps(W=W, H=H, seed=SEED):
     frost = ridged(unit, seed + 222, base_freq=4.0, octaves=5).reshape(H, W)
     frost = np.power(frost, 2.6)
 
-    D, N, R = day[..., None], night[..., None], ribbon[..., None]
-
-    # -- Albedo (RGBA): the SMOOTH hot->cold terrain ramp (ci-i9m) -----------
-    # Base colour is the in-game terrain ramp sampled along `t`, so the surface
-    # reads as OUR terrain: molten orange-red -> volcanic brown -> sandy neutral ->
-    # pale frost -> icy white-blue, with NO hard painted seam (the old bright sandy
-    # stripe is gone; the terminator is now just where the ramp -- and the light --
-    # cross over). Height gives gentle relief shading.
-    base = terrain_ramp(t)                                  # (H,W,3), the terrain look
+    # -- Albedo (RGBA): the in-game surface, seen from orbit (ci-4qyj) -------
+    # Every pixel takes the map colour terrain.lua gives the tile at that point of
+    # the ribbon axis, so the disc IS the terrain: a broad molten orange-red lava
+    # ocean, a fast crust ramp, the dark warm basalt/ash habitable middle, dust and
+    # snow, then the pale cyan-white ice ocean. No hand-painted stripe anywhere --
+    # the bands are the planet's own, at the planet's own widths. Height gives
+    # gentle relief shading on top.
+    base = TERRAIN.color_at_heat(heat_field).astype(np.float32)   # (H,W,3)
     shade = np.clip(0.80 + 0.34 * (height - 0.5) + 0.10 * (detail - 0.5), 0.55, 1.15)
     alb = base * shade[..., None]
 
-    # Hot side: brighten the lava veins toward glowing orange so the fiery limb
-    # reads as radiant molten rock even under the raw albedo (the emission map
-    # carries the actual glow on top).
-    vein = np.clip(lava * heat, 0.0, 1.0)
+    # Lava veins burn brighter INSIDE the molten region, so the ocean reads as
+    # churning liquid rock rather than flat orange paint (the emission map carries
+    # the actual glow on top). Gated on `molten`, so no vein ever strays into the
+    # habitable middle where there is no lava to see.
+    vein = np.clip(lava * molten, 0.0, 1.0)
     lava_col = np.array([1.00, 0.55, 0.14])
     alb = alb * (1.0 - 0.55 * vein[..., None]) + lava_col[None, None, :] * (0.55 * vein)[..., None]
 
-    # Cold side: a SOFT, WHITE-cyan frost sheen on the frost ridges -- a frosted ICE
-    # surface, deliberately NOT the near-black base + saturated electric-blue cracks
-    # that read as Fulgora lightning (ci-i9m). The pale ramp base already reads as
-    # ice; the sheen just adds a little sparkle. Darkness on the ice limb comes from
+    # A SOFT, WHITE-cyan frost sheen on the ice ocean's fracture ridges -- a frosted
+    # ICE surface, deliberately NOT the near-black base + saturated electric-blue
+    # cracks that read as Fulgora lightning (ci-i9m). The pale ramp base already
+    # reads as ice; the sheen just adds sparkle. Darkness on the ice limb comes from
     # the light falloff, not from a black albedo.
-    fr = np.clip(frost * cold, 0.0, 1.0)
+    fr = np.clip(frost * frozen, 0.0, 1.0)
     frost_col = np.array([0.86, 0.93, 1.00])
     alb = alb * (1.0 - 0.35 * fr[..., None]) + frost_col[None, None, :] * (0.35 * fr)[..., None]
 
@@ -263,16 +270,23 @@ def generate_maps(W=W, H=H, seed=SEED):
     albedo = np.concatenate([np.clip(alb, 0, 1) * 255.0, alpha[..., None]], -1)
 
     # -- Emission (RGBA): the identity --------------------------------------
-    # Molten dayside glow, hottest (white/yellow) at the sub-stellar point,
-    # cooling to orange and deep red toward the terminator. Pushed hotter across
-    # the whole hemisphere (ci-fg6) so the fire limb reads as a STRONGLY GLOWING
-    # magma ocean, not a dull ember: the base ocean glow is lifted and the veins
-    # burn brighter, so far more of the dayside saturates toward white-hot (which
-    # the bake's Glare node then blooms).
-    ocean = np.clip(day * (0.48 + 0.62 * heat), 0, 1)
-    veins = np.clip(lava * day * (0.55 + 1.05 * heat), 0, 1)
-    pools = np.clip((0.55 - height) / 0.55, 0, 1) * day
-    glow = np.clip(0.90 * ocean + 1.30 * veins + 0.45 * pools * heat, 0, 1)
+    # The LAVA OCEAN is what glows (ci-4qyj). The glow is gated on `molten`, which
+    # is zero below the heat-death threshold and saturates across the ocean, so the
+    # radiant part of the disc is exactly the lethal molten ground -- the player can
+    # read the danger from orbit. It is hottest (white/yellow) at the pinned
+    # sub-stellar extreme, cooling to orange and deep red toward the belt. Kept
+    # STRONGLY glowing (ci-fg6) so the ocean saturates toward white-hot, which the
+    # bake's Glare node then blooms.
+    #
+    # The base sheet is deliberately held BELOW saturation so the vein and pool
+    # structure still reads inside it. The field is PINNED flat across the ocean
+    # (that is what makes it an ocean), so a base bright enough to clip would make
+    # the whole sheet one dead flat white slab with no convection to look at --
+    # which is what a uniform ocean glow looked like before this was tuned down.
+    ocean = np.clip(molten * (0.30 + 0.42 * heat), 0, 1)
+    veins = np.clip(lava * molten * (0.55 + 1.05 * heat), 0, 1)
+    pools = np.clip((0.55 - height) / 0.55, 0, 1) * molten
+    glow = np.clip(0.90 * ocean + 0.30 * veins + 0.55 * pools * heat, 0, 1)
 
     hot_white = np.array([1.00, 0.93, 0.72])       # sub-stellar white-hot (only the peak)
     orange = np.array([1.00, 0.42, 0.06])          # magma orange (the dayside body)
@@ -283,18 +297,19 @@ def generate_maps(W=W, H=H, seed=SEED):
     warm = mid * (1 - white_t) + hot_white[None, None, :] * white_t
     em = glow[..., None] * warm
 
-    # NO sandy-seam self-glow (ci-i9m): the terminator is a NATURAL dark falloff
-    # supplied by the parallel key light, not a self-lit painted stripe. The old
-    # rib_glow injected a bright band down the centre -- exactly the "hard seam" the
-    # mayor flagged -- so it is removed. The sandy midpoint now simply goes dark
-    # where the light does not reach it, giving the tidal-lock terminator for free.
+    # NO habitable-middle self-glow (ci-i9m): the terminator is a NATURAL dark
+    # falloff supplied by the parallel key light, not a self-lit painted stripe. The
+    # old rib_glow injected a bright band down the centre -- exactly the "hard seam"
+    # the mayor flagged -- so it is removed. Because `molten` and `frozen` are both
+    # zero across the safe middle, the band we build on emits NOTHING and simply
+    # goes dark where the light does not reach it: the tidal-lock terminator, free.
 
-    # Nightside: a faint SHIMMERING ICY-BLUE self-glow on the frost ridges, kept
-    # DIM so the frozen hemisphere stays dark overall (the light falloff, not the
-    # albedo, makes it dark) yet still shimmers blue rather than reading pitch black.
-    # Whiter/cooler than the old saturated electric blue so it reads as ICE sparkle,
-    # not Fulgora lightning.
-    shimmer = np.clip(frost * night, 0, 1) * 0.22
+    # The ICE OCEAN gets a faint SHIMMERING ICY-BLUE self-glow on its fracture
+    # ridges, kept DIM so the frozen side stays dark overall (the light falloff, not
+    # the albedo, makes it dark) yet still shimmers blue rather than reading pitch
+    # black. Whiter/cooler than a saturated electric blue so it reads as ICE
+    # sparkle, not Fulgora lightning.
+    shimmer = np.clip(frost * frozen, 0, 1) * 0.22
     shimmer_col = np.array([0.55, 0.76, 1.00])
     em += shimmer[..., None] * shimmer_col[None, None, :]
 
@@ -303,30 +318,37 @@ def generate_maps(W=W, H=H, seed=SEED):
     emission = np.concatenate([em * 255.0, (em_mask * 255.0)[..., None]], -1)
 
     # -- Reflectivity (RGB) --------------------------------------------------
-    # Icy nightside glints are the only glossy patches; sandy ribbon is matte-ish;
-    # molten basalt dayside is matte.
-    refl = (0.75 * night * (0.3 + 0.7 * frost)
-            + 0.10 * day
-            + 0.25 * ribbon)
+    # The ICE OCEAN's frozen sheet is the only glossy ground; the habitable rock is
+    # matte-ish and the molten ocean is matte. Keyed to the terrain regions, so the
+    # glints land on ice rather than on "whatever the star is not lighting".
+    refl = (0.75 * frozen * (0.3 + 0.7 * frost)
+            + 0.10 * molten
+            + 0.25 * habitable)
     refl = np.clip(refl, 0, 1) * 255.0
     reflectivity = np.stack([refl, refl, refl], -1)
 
     # -- Normal map ----------------------------------------------------------
-    # Keep the TERMINATOR relief modest (ci-i9m): the old strong ribbon relief
-    # (weight 1.0) caught the grazing key light as a rocky RIDGE down the centre,
-    # re-introducing a seam-like band. A gentler terminator relief lets the
-    # fire->ice light gradient stay smooth.
-    relief = height * (0.6 * day + 0.45 * ribbon + 0.35 * night)
-    relief += 0.15 * lava * day + 0.10 * frost * night
+    # Relief follows the ground: broken crust in the belts, the flattest surfaces on
+    # the two liquid/frozen OCEANS, moderate relief across the habitable rock. Kept
+    # modest through the middle (ci-i9m) so the grazing key light does not catch a
+    # rocky RIDGE down the centre and re-introduce a seam-like band.
+    relief = height * (0.35 * molten + 0.45 * habitable + 0.30 * frozen)
+    relief += 0.15 * lava * molten + 0.10 * frost * frozen
     normal = normal_map(relief, 55.0)
 
-    # -- Clouds (global_cloud, RGBA coloured): the TERMINATOR band -----------
+    # -- Clouds (global_cloud, RGBA coloured): weather over the HABITABLE band --
+    # The only place with an atmosphere worth seeing is the temperate middle, where
+    # the lava ocean's steam meets the ice ocean's haze. Centre the band on the
+    # middle of the heat field and let it fade out over the two damage belts, so the
+    # weather sits over the ground you can stand on.
     cloudfield = field(seed + 6200, base_freq=3.2, octaves=5)
-    band = np.exp(-((sol) / 0.30) ** 2)
+    mid_h = 0.5 * (TERRAIN.hot_dmg + TERRAIN.cold_dmg)
+    band = np.exp(-((heat_field - mid_h) / (0.5 * (TERRAIN.hot_dmg - TERRAIN.cold_dmg))) ** 2)
     cloud_cov = np.clip(band * smoothstep(0.35, 0.75, cloudfield), 0, 1) * 0.85
-    steam = np.array([0.95, 0.80, 0.62])           # warm steam on the day edge
-    haze = np.array([0.70, 0.82, 1.00])            # cold haze on the night edge
-    edge = np.clip(sol / 0.3 * 0.5 + 0.5, 0, 1)[..., None]
+    steam = np.array([0.95, 0.80, 0.62])           # warm steam on the hot edge
+    haze = np.array([0.70, 0.82, 1.00])            # cold haze on the cold edge
+    edge = np.clip((heat_field - mid_h) / (TERRAIN.hot_dmg - TERRAIN.cold_dmg) + 0.5,
+                   0, 1)[..., None]
     cloud_rgb = np.clip(haze[None, None, :] * (1 - edge) + steam[None, None, :] * edge, 0, 1)
     cloud_rgb = cloud_rgb * (0.5 + 0.5 * cloud_cov[..., None])
     cloud = np.concatenate([cloud_rgb * 255.0, (cloud_cov * 255.0)[..., None]], -1)
@@ -346,8 +368,16 @@ def generate_maps(W=W, H=H, seed=SEED):
         "cindra-cloud.png": (cloud, "RGBA"),
         "cindra-cloud-normal.png": (cloud_normal, "RGB"),
         "cindra-cloud-flow.png": (cloud_flow, "RGB"),
-        # Zone masks (H,W) for tests -- not written to disk.
-        "_masks": {"sol": sol, "day": day, "night": night, "ribbon": ribbon},
+        # Zone masks (H,W) for tests -- not written to disk. `heat` is the terrain
+        # field the surface is painted from; the five region masks partition it
+        # exactly as terrain.lua does; sol/day/night/ribbon are the LIGHT geometry.
+        "_masks": {
+            "sol": sol, "day": day, "night": night, "ribbon": ribbon,
+            "heat": heat_field,
+            "lava_ocean": lava_ocean, "hot_belt": hot_belt & ~lava_ocean,
+            "habitable": habitable,
+            "cold_belt": cold_belt & ~ice_ocean, "ice_ocean": ice_ocean,
+        },
     }
 
 

@@ -454,8 +454,16 @@ end
 
 -- A hot -> cold map-view colour ramp (ci-4h7): reds sunward, a dark ash belt at the
 -- middle, pale cyan/frost nightward. `t` is the normalised gradient position (0 hottest,
--- 1 coldest). Kept in lockstep with gen-planet-maps.py.
-local COLOR_STOPS = {
+-- 1 coldest).
+--
+-- THIS TABLE IS THE PLANET'S ONE PALETTE (ci-4qyj). The from-space art no longer keeps a
+-- hand-copied twin of it: scripts/terrain_ramp.py READS this table (plus M.ZONES,
+-- M.FIELD_H and M.VALUE_RAMP) out of this file and replays the same
+-- position -> value -> tile -> colour chain, so the orbital globe and the star-map sprite
+-- are painted with the ground you actually land on. Change a stop here and the space art
+-- follows on the next render; unit-tests/test_terrain_ramp_lockstep.py runs both models
+-- and fails if they ever disagree.
+M.COLOR_STOPS = {
   { 0.00, { 0.98, 0.42, 0.06 } }, -- lava, orange-red
   { 0.18, { 0.80, 0.30, 0.10 } }, -- molten crust
   { 0.34, { 0.45, 0.32, 0.24 } }, -- warm volcanic brown (fire -> middle)
@@ -465,6 +473,7 @@ local COLOR_STOPS = {
   { 0.80, { 0.66, 0.82, 0.88 } }, -- pale frost
   { 1.00, { 0.82, 0.95, 1.00 } }, -- icy white-blue
 }
+local COLOR_STOPS = M.COLOR_STOPS
 local function ramp_color(t)
   if t <= COLOR_STOPS[1][1] then return COLOR_STOPS[1][2] end
   for i = 2, #COLOR_STOPS do

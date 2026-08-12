@@ -175,7 +175,8 @@ layer Cindra does not touch.
 
 So the fire → dark mountains → ice globe and the **no gray/tan sandy terminator
 band** veto (`ci-6i1`, `PLAYTEST.md:133`) are **not** at risk from PlanetsLib.
-That art is baked by `scripts/gen-planet-maps.py`'s `TERRAIN_STOPS` into
+That art is baked by `scripts/gen-planet-maps.py` (whose palette now comes from
+`scripts/terrain.lua` via `scripts/terrain_ramp.py`, ci-4qyj) into
 `graphics/space/` and consumed by `prototypes/space-appearance.lua` — a pipeline
 PlanetsLib has no reach into at all. The art direction is ours either way;
 nothing in the library can repaint it.

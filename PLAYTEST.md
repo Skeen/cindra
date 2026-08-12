@@ -151,6 +151,28 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   still + headless render cannot fully make (needs a display-capable operator /
   Overseer); do NOT block the map/art merge on it.
 
+- [ ] **[LANDED] The globe from orbit IS the ground you land on (ci-4qyj).**
+  Follow-up to the ci-wly / ci-oe83 terrain rebuild. The space art used to keep its own
+  hand-copied colour ramp, which drifted out of step with `terrain.lua` when the terrain
+  was rebuilt, so the orbital globe showed a planet that no longer existed. The art now
+  derives its surface straight from the terrain module (`scripts/terrain_ramp.py` reads
+  `terrain.lua` and replays position -> heat -> tile -> colour), so the disc shows the real
+  three-part planet at its real widths: a broad molten LAVA OCEAN, the dark warm-rock
+  HABITABLE middle, and a broad ICE OCEAN. Emission is gated on the heat field, so only
+  the lethal ground glows. *Repro:* `./play.sh`, open the star-map and travel to Cindra;
+  or `scripts/render-orbit.sh` for the live backdrop. *Look for:* (1) the molten side is a
+  broad OCEAN that reads as liquid rock with convection mottling, not a thin bright rim;
+  (2) a clearly readable dark rocky band between the fire and the ice — the band you
+  actually build on, matching the ash middle underfoot; (3) the shadowed limb reads as a
+  pale ICE sheet (blue-white), not a black void and not electric-blue cracks; (4) land on
+  Cindra, then look back from orbit: the ordering and rough proportions of ocean /
+  middle / ocean should match what you walked. *Fallback:* the maps, the terrain lockstep
+  and the baked sprite are all verified off-game (`unit-tests/test_planet_maps.py`,
+  `unit-tests/test_terrain_ramp_lockstep.py`, `unit-tests/test_starmap_lighting.py`), and a
+  real in-engine orbital screenshot was captured headless:
+  `docs/verification/ci-4qyj-orbital-three-part.png`. This entry is ONLY the "does the
+  orbit/ground correspondence read right to a human in the live client" judgement.
+
 - [ ] **[LANDED] Planet is STATIC in the space view: no rotate, no wobble (ci-ane).**
   The Overseer flagged the Cindra globe as ROTATING / WOBBLING in the space/starmap
   view when it should sit still (tidal lock). The spin was already frozen
@@ -315,8 +337,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   (no gaps/holes) and each thins into pools/fingers as you move toward the middle
   (heightmap, not a flat stripe); (4) the middle is a dark/pale **ash** mix with small
   **soil** patches — a clean habitable build zone at spawn; (5) organic wavy boundaries
-  everywhere, never straight stripes. NOTE: the from-orbit view / star-map still show the
-  OLD colour ramp until the ci-4qyj orbital re-render lands (expected mismatch, not a bug).
+  everywhere, never straight stripes. (The from-orbit view / star-map used to show the OLD
+  colour ramp here; `ci-4qyj` landed and the globe is now painted from this terrain, so
+  orbit and ground should AGREE — a mismatch is now a bug, not an expected gap.)
 
 - [ ] **[LANDED] ONE continuous heightmap — seamless surface + no walk-to-ocean corridor (ci-oe83).**
   The terrain is now driven by a SINGLE edge-pinned value field (not three heightmaps), and
