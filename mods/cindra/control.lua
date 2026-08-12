@@ -87,8 +87,9 @@ if script.active_mods["factorio-test"] then
     -- ci-cbn: you cannot pave over Cindra's ribbon (landfill/foundation blocked +
     -- the runtime revert/refund safety net).
     "tests/test_paving",
-    -- §15 v2 item 4 (ci-7tl): the full-screen heat/cold damage feedback tint
-    -- shows/clears in step with the tile-based lethal-zone damage above.
+    -- ci-nw0: the ambient thermal grade -- a subtle screen hue wash driven by the
+    -- player's POSITION on the temperature axis (neutral in the temperate band,
+    -- deepening warm/cool toward each extreme), cosmetic and independent of damage.
     "tests/test_feedback",
     "tests/test_worldgen",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,

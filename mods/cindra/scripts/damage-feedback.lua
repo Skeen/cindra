@@ -1,47 +1,69 @@
--- Full-screen heat/cold damage feedback (§15 v2 item 4; ci-7tl).
+-- The AMBIENT THERMAL GRADE: a subtle, continuous screen hue wash driven by WHERE
+-- the player stands on the ribbon's hot-cold axis (ci-nw0; supersedes the ci-7tl
+-- binary damage overlay).
 --
--- When a player stands where the environment is damaging them, they must
--- UNMISTAKABLY see WHY they are losing health. As a character enters a lethal HEAT
--- band we tint the whole screen warm/red; a lethal COLD band tints it frost/blue;
--- anywhere safe (or off Cindra) shows nothing. The tint clears the instant the
--- player steps back to safety, so it always reflects the CURRENT danger, and its
--- ALPHA scales with how deep into the lethal band they stand -- a deeper, redder
--- burn toward the lava; a heavier frost toward the ice cap ("scaled to intensity").
+-- Cindra's whole identity is "hot one way, cold the other". The player should FEEL
+-- that as they walk, not just when something bites them. So the screen carries a
+-- gentle colour grade that tracks position on the temperature axis:
 --
--- The tint decision reads the SAME source the damage does -- terrain.tile_damage of
--- the ACTUAL tile under the character (ci-ma18) -- so the tint lines up EXACTLY with
--- the tile-based lethal-ground damage (scripts/tile-damage.lua) it explains: never a
--- tint without damage, nor damage without a tint. In particular a character standing
--- on concrete-over-lava sees NOTHING (the cover shields), and a hot crack tints red
--- wherever it renders. for_tile is PURE and unit-tested; the presentation is a
--- render-layer screen effect (the tinted fill sprite lives in prototypes/feedback.lua)
--- proven against a live player.
+--   temperate middle band  ->  NOTHING at all (the ribbon reads neutral)
+--   sunward of the middle  ->  a warm ORANGE wash, deepening toward the lava
+--   nightward of the middle ->  a cool BLUE wash, deepening toward the ice
 --
--- This replaces the salvaged worldgen-v2 GUI-banner placeholder with a proper
--- full-screen tint, as ci-7tl asks -- the pure decision is kept, only show() moved
--- from a GUI frame to the rendering API.
+-- It is a HUE GRADE, not a vignette blackout: the alpha starts at literally zero at
+-- the temperate edge, is a whisper for the first stretch out, and tops out at
+-- M.MAX_ALPHA at the ocean cores. It is ALWAYS ON and CONTINUOUS -- there is no
+-- threshold to cross, nothing snaps in.
 --
--- 🚨 Scoped to characters on `surface.name == "cindra"`: a player on any other
--- planet never gets a tint, and only this mod's OWN render objects are ever
--- created or destroyed. No global / other-planet state is touched.
+-- WHAT CHANGED (and why the file keeps its name): v1 (ci-7tl) tinted the screen when
+-- and only when the player was TAKING lethal-ground damage, at a flat 0.18-0.55 alpha.
+-- That is a damage indicator, not a sense of place, and it died with the scripted
+-- cold-damage model (ci-bvk). The trigger is now POSITION, so the grade survives any
+-- change to the damage model. Paths are unchanged so the feature's history stays in
+-- one place.
+--
+-- 🚨 COSMETIC ONLY. This module applies NO damage and reads no damage state. The
+-- lethal-ground damage stays keyed to the ACTUAL TILE under an entity
+-- (scripts/tile-damage.lua + terrain.tile_damage, the ci-ma18 invariant): concrete
+-- over lava still shields, every hazard tile still burns. A player standing on
+-- concrete deep in the hot belt therefore sees a warm grade (they ARE somewhere hot)
+-- and takes zero damage (they are standing on cover). Those two are deliberately
+-- independent now; do not re-couple them.
+--
+-- SOURCE OF TRUTH. The grade reads ribbon.temperature at the character's
+-- perpendicular coordinate (scripts/axis.lua -> scripts/ribbon.lua) -- the same
+-- temperature axis the rest of the planet reads. The two ANCHORS (where the grade
+-- starts, where it saturates) are derived from the LIVE zone geometry
+-- (scripts/terrain.lua), exactly as ribbon.solar_anchors does for the solar curve, so
+-- retuning a zone width moves the grade with it. The temperature curve is evaluated
+-- over the real ribbon half-width rather than ribbon's legacy `wall_at` backstop
+-- (128 tiles, far inside today's 800-tile ribbon), which would otherwise saturate the
+-- curve before the player even reaches the burn belt and flatten the whole gradient.
+--
+-- 🚨 Scoped to characters on `surface.name == "cindra"`: a player on any other planet
+-- never gets a grade, and only this mod's OWN render objects are created/destroyed.
 
+local axis = require("scripts.axis")
+local ribbon = require("scripts.ribbon")
 local terrain = require("scripts.terrain")
 
 local M = {}
 
 -- The data-stage fill sprite (prototypes/feedback.lua), tinted at draw time.
-M.SPRITE = "cindra-damage-vignette"
+M.SPRITE = "cindra-thermal-grade"
 
--- Heat/cold tint colours (RGB, 0..1). Alpha is supplied per-draw from intensity.
+-- Grade hues (RGB, 0..1). Warm reads as a sunlit orange (r > g > b), cool as a
+-- frost blue (b > g > r). Alpha rides on top, per position.
 M.COLOR = {
-  heat = { r = 1.0, g = 0.25, b = 0.05 },
-  cold = { r = 0.35, g = 0.6, b = 1.0 },
+  warm = { r = 1.00, g = 0.46, b = 0.14 },
+  cool = { r = 0.32, g = 0.56, b = 1.00 },
 }
 
--- Alpha envelope: even the lethal EDGE is clearly visible (MIN), deepening toward
--- the map edge (MAX) without ever fully blacking out the view.
-M.MIN_ALPHA = 0.18
-M.MAX_ALPHA = 0.55
+-- Subtlety envelope. The wash NEVER exceeds MAX_ALPHA -- a tasteful hue shift, not
+-- an opaque overlay. GAMMA > 1 eases IN: barely anything for the first stretch out
+-- of the temperate band, deepening as you commit toward an extreme.
+M.MAX_ALPHA = 0.22
+M.GAMMA = 1.4
 
 -- Sprite is 10 px (= 10/32 tile at scale 1); this scale makes the tinted fill
 -- ~625 tiles across, centred on the character, which blankets the viewport at any
@@ -49,26 +71,101 @@ M.MAX_ALPHA = 0.55
 -- is world-scaled and simply drawn large enough to always cover the screen.)
 local FILL_SCALE = 2000
 
--- PURE: the tint a character on cindra tile `name` should see -> (which, intensity),
--- where which is "heat" | "cold" | nil and intensity is the 0..1 danger driving the
--- tint alpha (0 safe, 1 at the hottest / coldest ocean core). Delegates to
--- terrain.tile_damage, so the tint matches the tile-damage sweep tile-for-tile: a
--- cover tile (concrete) or a safe natural shows nothing.
-function M.for_tile(name)
-  return terrain.tile_damage(name)
+local function clamp01(x)
+  if x < 0 then return 0 end
+  if x > 1 then return 1 end
+  return x
 end
 
--- Alpha for a normalised intensity.
-local function alpha_for(t)
-  return M.MIN_ALPHA + (M.MAX_ALPHA - M.MIN_ALPHA) * t
+-- ---------------------------------------------------------------------------
+-- PURE: position -> grade. No game.* / prototypes.* access, so the whole decision
+-- is unit-testable off the game (unit-tests/test_feedback.lua).
+-- ---------------------------------------------------------------------------
+
+-- The grade ANCHORS for the live zone layout. `widths` is an optional terrain widths
+-- table (keyed by zone role) so tests / tuning can ask for a DIFFERENT layout.
+--   warm_from / cool_from : the temperate middle band's two edges. Inside them the
+--                           grade is exactly zero -- the ribbon reads neutral.
+--   warm_sat / cool_sat   : the inner edge of each OCEAN, where the grade reaches
+--                           full depth. Everything traversable between the middle
+--                           and the ocean therefore spans the whole alpha range;
+--                           inside an ocean it simply stays at full.
+--   half                  : the ribbon's half-width, the span the temperature curve
+--                           is evaluated over (see the header note on `wall_at`).
+-- The anchor TEMPERATURES are precomputed here so a sweep resolves the geometry once.
+function M.anchors(widths)
+  local mid = terrain.role_band("middle", widths)
+  local hot_ocean = terrain.role_band("hot_ocean", widths)
+  local cold_ocean = terrain.role_band("cold_ocean", widths)
+  local _, total = terrain.bands(widths)
+  local cfg = { wall_at = total / 2 }
+  return {
+    cfg = cfg,
+    half = total / 2,
+    warm_from = mid.hi,
+    warm_sat = hot_ocean.lo,
+    cool_from = mid.lo,
+    cool_sat = cold_ocean.hi,
+    warm_from_t = ribbon.temperature(mid.hi, cfg),
+    warm_sat_t = ribbon.temperature(hot_ocean.lo, cfg),
+    cool_from_t = ribbon.temperature(mid.lo, cfg),
+    cool_sat_t = ribbon.temperature(cold_ocean.hi, cfg),
+  }
 end
+
+-- The temperature (°C) the grade reads at perpendicular coordinate `p`, on the live
+-- ribbon geometry. The ONE temperature axis (scripts/ribbon.lua); this module only
+-- normalises it into a colour.
+function M.temperature_at(p, widths)
+  local a = M.anchors(widths)
+  return ribbon.temperature(p, a.cfg)
+end
+
+-- PURE, on precomputed anchors: the grade at perpendicular coordinate `p` ->
+-- (which, t), where which is "warm" | "cool" | nil and t is the 0..1 grade depth.
+-- t is the fraction of the way from the temperate edge TEMPERATURE to the ocean-core
+-- temperature, so the grade follows the temperature curve, not a raw tile count.
+function M.grade_from(a, p)
+  local T = ribbon.temperature(p, a.cfg)
+  if T > a.warm_from_t then
+    return "warm", clamp01((T - a.warm_from_t) / (a.warm_sat_t - a.warm_from_t))
+  elseif T < a.cool_from_t then
+    return "cool", clamp01((a.cool_from_t - T) / (a.cool_from_t - a.cool_sat_t))
+  end
+  return nil, 0
+end
+
+-- PURE: the grade at perpendicular coordinate `p` for the live (or given) layout.
+function M.grade_at(p, widths)
+  return M.grade_from(M.anchors(widths), p)
+end
+
+-- The wash alpha for a 0..1 grade depth. Zero at the temperate edge (no wash at
+-- all), easing in, capped at MAX_ALPHA at an ocean core.
+function M.alpha_for(t)
+  if t <= 0 then return 0 end
+  return M.MAX_ALPHA * (clamp01(t) ^ M.GAMMA)
+end
+
+-- PURE: the full draw tint at perpendicular coordinate `p`, or nil where the ribbon
+-- reads neutral.
+function M.tint_at(p, widths)
+  local which, t = M.grade_at(p, widths)
+  if not which then return nil end
+  local c = M.COLOR[which]
+  return { r = c.r, g = c.g, b = c.b, a = M.alpha_for(t) }
+end
+
+-- ---------------------------------------------------------------------------
+-- Runtime: draw the grade for each player.
+-- ---------------------------------------------------------------------------
 
 local function state_table()
   storage.cindra_feedback = storage.cindra_feedback or {}
   return storage.cindra_feedback
 end
 
--- Destroy a player's tint render object (if any) and forget it. Only ever touches
+-- Destroy a player's grade render object (if any) and forget it. Only ever touches
 -- the object THIS module created for that player.
 local function clear(player_index)
   local st = state_table()
@@ -80,58 +177,79 @@ local function clear(player_index)
   end
 end
 
--- Public wrapper: clear a player's tint.
+-- Public wrapper: clear a player's grade.
 function M.clear(player)
   clear(player.index)
 end
 
--- Show/refresh the `which` tint for `player` at normalised intensity `t`. The
--- render object is anchored to the character (follows it every frame) and shown
--- only to that player. Recreated on each refresh so colour + target stay correct;
--- the cadence is coarse (tile-damage rate), so this is cheap.
+-- Show/refresh the grade for `player`. The render object is anchored to the character
+-- (so it follows every frame) and shown only to that player. Because the grade is
+-- always on and changes continuously as the player walks, the existing object's COLOUR
+-- is updated in place; it is only recreated when there is no live object for the
+-- current character/surface.
 local function show(player, which, t)
   local ch = player.character
-  local color = M.COLOR[which]
+  local c = M.COLOR[which]
+  local tint = { r = c.r, g = c.g, b = c.b, a = M.alpha_for(t) }
+  local st = state_table()
+  local s = st[player.index]
+  if s and s.surface == ch.surface.index and s.unit == ch.unit_number then
+    local obj = rendering.get_object_by_id(s.id)
+    if obj and obj.valid then
+      obj.color = tint
+      s.which = which
+      return
+    end
+  end
   clear(player.index)
   local obj = rendering.draw_sprite({
     sprite = M.SPRITE,
     surface = ch.surface,
     target = ch,
     players = { player },
-    tint = { r = color.r, g = color.g, b = color.b, a = alpha_for(t) },
+    tint = tint,
     render_layer = "cursor",
     x_scale = FILL_SCALE,
     y_scale = FILL_SCALE,
     only_in_alt_mode = false,
   })
-  state_table()[player.index] = { id = obj.id, which = which }
+  st[player.index] = {
+    id = obj.id,
+    which = which,
+    surface = ch.surface.index,
+    unit = ch.unit_number,
+  }
 end
 
--- PUBLIC (tests): which tint a player is CURRENTLY showing ("heat"/"cold"/nil),
--- resolved from the live render object so a destroyed one reads as nil.
-function M.active_which(player)
+-- PUBLIC (tests): what the player is CURRENTLY seeing -> (which, alpha), read from
+-- the LIVE render object, so a destroyed/absent grade reads as (nil, 0) and the alpha
+-- is the one actually being drawn.
+function M.active(player)
   local s = state_table()[player.index]
-  if not s then return nil end
+  if not s then return nil, 0 end
   local obj = rendering.get_object_by_id(s.id)
-  if not (obj and obj.valid) then return nil end
-  return s.which
+  if not (obj and obj.valid) then return nil, 0 end
+  return s.which, obj.color.a
 end
 
--- Refresh every connected player's tint from the TILE their character stands on.
--- Call on the tile-damage cadence so the tint tracks the damage it explains: the
--- SAME terrain.tile_damage the sweep burns from, read at the character's tile.
+-- PUBLIC (tests): just the hue currently drawn ("warm"/"cool"/nil).
+function M.active_which(player)
+  return (M.active(player))
+end
+
+-- Refresh every connected player's grade from WHERE their character stands on the
+-- hot-cold axis. Called on the worldgen cadence (scripts/driver.lua). A no-op for a
+-- player off Cindra or without a character.
 function M.update_all()
+  local a = M.anchors()
+  local orient = axis.orientation()
   for _, player in pairs(game.connected_players) do
     local ch = player.character
     local which, t = nil, 0
     if ch and ch.valid and ch.surface.valid and ch.surface.name == "cindra" then
-      local tile = ch.surface.get_tile(math.floor(ch.position.x), math.floor(ch.position.y))
-      if tile and tile.valid then
-        local i, k = M.for_tile(tile.name)
-        if k and i > 0 then which, t = k, i end
-      end
+      which, t = M.grade_from(a, axis.perp(ch.position.x, ch.position.y, orient))
     end
-    if which then
+    if which and t > 0 then
       show(player, which, t)
     else
       clear(player.index)

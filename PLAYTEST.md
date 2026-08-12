@@ -344,8 +344,9 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   patchy snow mildest). You **cannot pave** (concrete/stone-path) over the lava, warm
   stone, cracks-hot, or ice tiles to neutralise them (the paving reverts). *Repro:*
   `./play.sh`, walk east onto the ice. *Look for:* you step onto the smooth ice (not
-  blocked like lava), the cold damage feedback tint rises, and it hurts more the deeper
-  you go; trying to concrete over a lava/ice tile bounces back with a "cannot pave" note.
+  blocked like lava), the cool screen grade deepens (ci-nw0), and it hurts more the
+  deeper you go; trying to concrete over a lava/ice tile bounces back with a "cannot
+  pave" note.
 
 - [ ] **[LANDED] NO cliffs on the thin ribbon (ci-qqt).** ci-da2 grew Vulcanus-style
   cliffs in the volcanic zones; the thin 128-tile ribbon dropped them (a cliff would
@@ -419,22 +420,26 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   per-tile flicker. (Damage is tested; the *feel* — is the lethal edge readable and
   fair? — is the playtest. The screen-tint feedback is the next item.)
 
-- [ ] **[LANDED] Full-screen heat/cold damage feedback tint (ci-7tl) — VISUAL.**
-  *Repro:* walk **west** into the hot zones until HP starts dropping, then walk
-  **east** across the ribbon onto the smooth deep-ice cap. *Look for:* (1) the
-  instant you enter the lethal HEAT band the whole screen gains a **warm red tint**,
-  and the lethal COLD cap gives a **frost-blue tint** — so it is unmistakable WHY
-  you are losing health; (2) the tint appears/clears **exactly** as the ticking
-  damage starts/stops (both read the same `terrain.lethal_at` bands), never a tint
-  without damage; (3) the tint **deepens** the further you push toward the lava /
-  ice edge (alpha scales with intensity); (4) it **never fully blacks out** the
-  view (max alpha ~0.55), the GUI stays usable, and it clears the moment you step
-  back to the safe ribbon. Show/hide/switch and the Cindra-only gate are
-  integration-tested (`tests/test_feedback.lua`) and the band+intensity maths is
-  unit-tested (`unit-tests/test_feedback.lua`); only the *look/feel* (is the tint
-  strength readable and not nauseating? does a flat fill suffice or is a soft
-  **radial vignette** wanted?) is the playtest. *Note:* v1 is a flat white fill
-  tinted at runtime; a bespoke soft-edged vignette sprite is an art follow-up.
+- [ ] **[LANDED] Ambient thermal grade — subtle position-driven screen hue (ci-nw0) — VISUAL.**
+  Replaces the ci-7tl binary damage overlay. *Repro:* stand at spawn, then walk
+  slowly **west** toward the lava, back through spawn, and **east** onto the ice cap.
+  *Look for:* (1) across the whole temperate middle the screen is **completely
+  untinted** — neutral, no wash at all; (2) as you leave the band the picture picks up
+  a **faint warm orange** going west and a **faint cool blue** going east, and it
+  **keeps deepening continuously** the further you commit — no threshold, nothing
+  snaps in, and it is not tied to taking damage (the wash is already there on safe
+  ground well before HP starts dropping); (3) at the deepest reachable ground (the ice
+  ocean / the lava shore) it is a clear mood colour but still a **grade, not a
+  blackout** (max alpha 0.22) — the terrain, entities and GUI all stay perfectly
+  readable; (4) walking back to the middle fades it away to nothing. The neutrality,
+  monotone deepening, cap, Cindra-only gate and the damage independence are
+  integration-tested (`tests/test_feedback.lua`) with the curve unit-tested
+  (`unit-tests/test_feedback.lua`); only the *look/feel* is the playtest — **is 0.22
+  at the extreme too much or too little? do the two hues read as heat/cold rather than
+  as a broken monitor? is the ease-in (`GAMMA = 1.4`) the right shape, or should the
+  wash arrive sooner out of the band?** Both knobs are single constants at the top of
+  `scripts/damage-feedback.lua`. *Note:* it is still a flat white fill tinted at
+  runtime; a soft-edged radial vignette remains an art follow-up.
 
 - [ ] **[LANDED] Cliffs generate in the volcanic zones only (ci-da2) — VISUAL.**
   *Repro:* land on Cindra, walk/scan the volcanic band (zones 3–6, west of the
@@ -1134,11 +1139,11 @@ of the current build; they are listed so "not built yet" is distinguishable from
   (Y) temperature axis on Nauvis-base tiles with a void wall, NOT this gradient.
   Bespoke tiles are separately tracked in ci-70r.
 
-- [ ] **[IN-FLIGHT] Burning/freezing screen feedback (ci-7tl).** Worldgen v2 ships a
-  coloured GUI banner while a character takes environmental damage; the follow-up
-  upgrades it to a full-screen warm/red (heat) and blue/frost (cold) tint/shader.
-  *Status:* on `main` there is NO on-screen damage feedback at all (the banner rides
-  in with ci-i8a). Damage still applies; you just will not see a screen cue yet.
+- [ ] **[SUPERSEDED] Burning/freezing screen feedback (ci-7tl).** The damage-triggered
+  full-screen tint shipped and has since been **replaced** by the ambient thermal
+  grade (ci-nw0, above): the screen cue now rides the player's POSITION on the
+  temperature axis, continuously and subtly, instead of snapping on when damage
+  starts. There is no longer a damage-keyed overlay to look for.
 
 - [ ] **[LANDED] Aluminium is the sole signature; cryo-quench dropped (ci-84s).**
   Aluminium (the electrolysis cell) is now Cindra's signature product + primary

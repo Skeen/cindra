@@ -2,8 +2,8 @@
 --
 -- Hooks every Cindra periodic system to the live game:
 --   * worldgen track: the tile-based lethal-edge damage sweep (lava/deep-ice
---     tiles burn everything on them, player + machines) and the full-screen heat/cold
---     feedback tint that rides the SAME tick so it tracks that damage (ci-7tl). The
+--     tiles burn everything on them, player + machines) and the ambient thermal
+--     grade, a cosmetic position-driven screen hue wash sharing that tick (ci-nw0). The
 --     nightside now freezes NATIVELY (§ freeze, ci-bvk): the planet flag
 --     `entities_require_heating` + a worldgen line of invisible lava-heat emitters
 --     (scripts/freeze-emitters.lua), placed on_chunk_generated -- this REPLACES the
@@ -61,12 +61,13 @@ local function for_each_cindra(fn)
   end
 end
 
--- The lethal-ground damage sweep AND the full-screen heat/cold feedback tint share
--- one cadence: the tint reads the SAME terrain.tile_damage of the tile under the
--- player that the sweep burns from (ci-ma18), so refreshing them together keeps the
--- "why am I losing health" cue exactly in step with the damage (ci-7tl) -- and a
--- concrete cover shows neither. feedback.update_all walks connected players and is a
--- no-op for anyone off Cindra.
+-- The lethal-ground damage sweep and the ambient THERMAL GRADE share one cadence,
+-- purely because both want refreshing as the player moves -- they are otherwise
+-- INDEPENDENT (ci-nw0). The sweep burns from the TILE under an entity (ci-ma18, so a
+-- concrete cover shields); the grade is a cosmetic screen hue wash read from the
+-- player's POSITION on the temperature axis, applying no damage and reading no damage
+-- state. feedback.update_all walks connected players and is a no-op for anyone off
+-- Cindra.
 local function on_tile_damage_tick()
   if not driver_enabled() then return end
   for_each_cindra(function(s) tile_damage.sweep(s) end)

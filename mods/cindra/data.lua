@@ -91,9 +91,10 @@ require("prototypes.mass-driver")
 require("prototypes.damage-types")
 require("prototypes.resources")
 
--- §15 v2 item 4 (ci-7tl): the tinted fill sprite for the full-screen heat/cold
--- damage feedback (drawn at runtime by scripts/damage-feedback.lua on the
--- tile-damage cadence). A plain sprite prototype; adds nothing to any entity.
+-- ci-nw0: the tinted fill sprite for the ambient thermal grade -- the subtle
+-- position-driven warm/cool screen wash (drawn at runtime by
+-- scripts/damage-feedback.lua on the worldgen cadence). A plain sprite prototype;
+-- adds nothing to any entity and applies no damage.
 require("prototypes.feedback")
 
 -- Power system (§15 items 7-9), integrated from the proven flare-poc (ci-zg3):
