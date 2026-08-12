@@ -65,6 +65,56 @@ local ICE_PER_PACK = 5
 local CALCITE_PER_PACK = 4
 local PACK_PER_CRAFT = 1
 
+-- === The PLANET LOCK (ci-gk4u) ==============================================
+-- Every vanilla planet pack is SURFACE-GATED to its own planet, via a recipe
+-- `surface_conditions` entry only that planet satisfies (metallurgic: pressure
+-- 4000/4000 = Vulcanus; agricultural: pressure 2000/2000 = Gleba; electromagnetic:
+-- magnetic-field 99/99 = Fulgora; space: gravity 0/0 = a platform). That gate is
+-- what forces "run a factory ON that planet" instead of shipping the intermediates
+-- home and crafting the pack on Nauvis.
+--
+-- Cindra's inputs (aluminium, ice, calcite) are all exportable items, so without a
+-- gate the headline pack could be made anywhere -- which breaks the vanilla
+-- convention AND the premise above that you cannot make it without commanding both
+-- lethal edges. So the pack is locked to Cindra, in vanilla's own idiom: ONE
+-- property, pinned exactly (min == max), so a merely-similar planet cannot drift
+-- inside a one-sided bound.
+--
+-- WHICH property: `solar-power`. It is the planet's whole identity ("dangerous
+-- starlight", §1) -- you cannot make Cindra science anywhere but under Cindra's
+-- own murderous sun -- and its value is off the vanilla scale, which leaves the
+-- widest possible margin against a planet (ours or another mod's) drifting into
+-- the gate: Cindra 10000, against Vulcanus 400, Nauvis / a space platform 100 (the
+-- default), Gleba 50, Fulgora 20, Aquilo 1. Nothing mutates it at runtime either:
+-- the flare swing rides the daylight curve, NOT this property or
+-- `surface.solar_power_multiplier` (see the note in scripts/flare.lua), so the gate
+-- can never flicker mid-game.
+--
+-- WHERE THE ENGINE ENFORCES IT (measured in-engine, and worth knowing before you
+-- "fix" a test): surface conditions are checked where a recipe is CHOSEN -- the
+-- recipe picker and hand-crafting -- not inside the crafting tick. A recipe forced
+-- onto a machine by script bypasses the check and crafts happily, and VANILLA's own
+-- space-science-pack behaves exactly the same way. tests/test_science.lua therefore
+-- measures the player's REFUSED CRAFT, with a vanilla surface-locked pack as the
+-- control, so this can never regress into a decorative condition.
+--
+-- SINGLE SOURCE OF TRUTH: read the value straight off the planet prototype
+-- (prototypes/planet.lua, required before this file in data.lua). A (tune) of
+-- Cindra's surface properties then moves the gate with it and can never leave the
+-- pack uncraftable on its own planet.
+local LOCK_PROPERTIES = { "solar-power" }
+local cindra_planet = data.raw.planet["cindra"]
+local cindra_properties = cindra_planet and cindra_planet.surface_properties or nil
+local lock_conditions = {}
+for _, property in ipairs(LOCK_PROPERTIES) do
+  local value = cindra_properties and cindra_properties[property]
+  if value == nil then
+    error("cindra science: the planet's '" .. property .. "' surface property must be set before "
+          .. "science.lua loads -- the pack's planet lock is derived from it")
+  end
+  lock_conditions[#lock_conditions + 1] = { property = property, min = value, max = value }
+end
+
 local function set_icon(proto, filename, size, mipmaps)
   proto.icon = filename
   proto.icon_size = size
@@ -113,6 +163,9 @@ local pack_recipe = {
   results = {
     { type = "item", name = PACK, amount = PACK_PER_CRAFT },
   },
+  -- Planet-locked (ci-gk4u): craftable ON CINDRA ONLY, exactly as every vanilla
+  -- planet pack is locked to its own planet. See the PLANET LOCK note above.
+  surface_conditions = lock_conditions,
   allow_productivity = true,
   main_product = PACK,
 }

@@ -1222,6 +1222,18 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   the former volatiles input); it was re-based off the retired cryo-hardened alloy
   by ci-84s.
 
+- [ ] **[LANDED] The planet lock READS as a planet lock in the GUI (ci-gk4u).**
+  *Repro:* with `cindra-science` researched, open an assembling machine's recipe
+  picker on **Nauvis or Vulcanus** and look for the Cindra science pack; then do the
+  same on Cindra. *Look for:* off Cindra the pack is greyed/unselectable with the
+  engine's "cannot be crafted on this surface" tooltip naming the solar-power
+  requirement, exactly the way metallurgic science reads off Vulcanus; on Cindra it
+  is selectable as normal. *Fallback:* the gate itself is fully test-covered
+  (`tests/test_science.lua`) — a player carrying every ingredient is refused the
+  craft off Cindra and served it on Cindra, with a vanilla surface-locked pack as
+  the control, plus a live guard that no other planet or platform satisfies the
+  gate. Only the picker's TOOLTIP WORDING is unreachable from a test.
+
 - [ ] **[LANDED] Environmental scanner reads well as a circuit hub (ci-3o3).** The
   standalone `env-scanner` mod adds a buildable **Environmental scanner** (a renamed
   constant combinator, currently Hurricane radio-station art) that outputs surface
