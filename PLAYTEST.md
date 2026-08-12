@@ -611,6 +611,29 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   fade ramps, the deep-ice density stays under the ceiling; `tests/test_worldgen.lua`
   for the ice-rock density). Only "does the cold half still FEEL cold" is the playtest.
 
+- [ ] **[LANDED] The ice OCEAN reads as an ocean (ci-10ze).** The human reported the ice
+  ocean was too cluttered to see that it IS an ice ocean. It was: ci-tizx's fade-in
+  reaches FULL strength at perp −170, but the smooth-ice sheet only begins at perp
+  −188 and then runs ~212 tiles to the map edge, so the biggest region on the cold
+  half carried the densest clutter on the planet. The cold decals now fade back OUT
+  offshore — full strength at the smooth-ice contour, down to 12% over 24 tiles
+  (`decorative-field.OCEAN_DENSITY` / `OCEAN_FADE_SPAN`), gated on the smooth-ice TILE
+  contour (`terrain.FROZEN_CEILING`) rather than the ocean band edge. Measured on the
+  test seed: 0.090 → 0.010 decals per tile out on the open sheet. In-engine
+  before/after proof: `docs/verification/ci-10ze-ice-ocean-decals.png` (regenerate with
+  `scripts/render-mapgen.sh`). *Repro:* walk east from spawn across the frost belt and
+  out onto the frozen sea (or `scripts/render-mapgen.sh`). *Look for:* (1) the open
+  sheet reads as one flat expanse of ice — a SEA — with the odd drift for scale, not a
+  field of snow lumps; (2) the frost shore just inside it still carries its detail, so
+  the sheet reads smooth BY CONTRAST; (3) no stamped line where the thinning starts —
+  the clutter thins out over a couple of screens; (4) the sheet does not read EMPTY
+  either (if it feels dead, raise `OCEAN_DENSITY`; if it still reads as ground, lower
+  it). *Fallback:* the geometry + thinning are guarded off-game
+  (`unit-tests/test_decorative_field.lua`, `unit-tests/test_terrain.lua`) and on a live
+  surface (`tests/test_decoratives.lua`: the open sheet carries a small fraction of the
+  shore's coverage and the drop is a ramp). Only "does it FEEL like an ocean" is the
+  playtest.
+
 - [ ] **[LANDED] Nightside NATIVE freeze (ci-bvk) — feel + VISUALS.** The nightside
   now uses the ENGINE's real Aquilo-style freeze (`entities_require_heating` + an
   invisible worldgen lava-heat emitter line keeping the habitable band thawed), which

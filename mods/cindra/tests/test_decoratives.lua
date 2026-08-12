@@ -19,6 +19,9 @@
 --      solid VOLCANIC ground -- inside the slope+crust band, never on the molten lava it
 --      used to float on, never on the brown ash middle it used to litter -- while the
 --      burning crust out by the lava still gets its share.
+--   7. THE ICE OCEAN READS AS AN OCEAN (ci-10ze): the open smooth-ice sheet carries only a
+--      small fraction of the frost shore's clutter, the drop is a fade rather than a line,
+--      and the shore keeps its detail.
 --
 -- The pure zone geometry is proven off-game in unit-tests/test_decorative_field.lua;
 -- this proves it actually generates. The VISUAL read (do the decals look like ice vs
@@ -93,6 +96,33 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   local HOT_BAND = field.hot_band()
   local HOT_X1, HOT_X2 = -HOT_BAND.hi + 1, -HOT_BAND.lo - 1
 
+  -- The cold half in x, split at the two boundaries the coverage rules key off:
+  --   SHORE_X1 .. SHORE_X2  the FULL-strength frost shore: past the end of the ci-tizx
+  --                         fade-in, but warmward of the smooth-ice sheet where the ci-10ze
+  --                         thinning begins. This is the densest cold ground there is.
+  --   SHEET_X               the smooth-ice sheet's own contour (x 188 by default), and
+  --   SHEET_X1 .. 340       the OPEN sea past the thinning ramp (fully thinned).
+  local SHEET_X = -field.ice_ocean_start()
+  local SHORE_X1 = math.ceil(COLD_X + field.COLD_FADE_SPAN) + 1
+  local SHORE_X2 = math.ceil(SHEET_X) - 1
+  local SHEET_X1 = math.ceil(SHEET_X + field.OCEAN_FADE_SPAN) + 1
+
+  -- Cold-decal coverage per TILE across an x strip (over a fixed y box) -- the direct measure
+  -- of "how much of the ground is buried", which is the whole question both legibility beads
+  -- (ci-tizx, ci-10ze) turn on. Returns (per_tile, count, tiles).
+  local DY = 200
+  local function cold_per_tile(x1, x2)
+    local n = 0
+    for _, name in ipairs(cold_names) do
+      for _, d in ipairs(s.find_decoratives_filtered({ name = name })) do
+        local p = d.position
+        if p.x >= x1 and p.x <= x2 and p.y >= -DY and p.y <= DY then n = n + 1 end
+      end
+    end
+    local tiles = (x2 - x1 + 1) * (2 * DY + 1)
+    return n / tiles, n, tiles
+  end
+
   -- 1. ROCKY HOT HALF -------------------------------------------------------------
   it("scatters rock / crater / pebble decals across the volcanic slope", function()
     assert.is_true(count_any(hot_names, HOT_X1, HOT_X2) > 0,
@@ -147,37 +177,69 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
   -- The decals fade IN from that edge, so the near strip is markedly sparser than the
   -- deep strip: no stamped line where the frost begins.
   it("fades the frost in from the icy edge instead of stamping a line (ci-tizx)", function()
-    local span = field.COLD_FADE_SPAN
-    -- Equal-width strips: the first half of the ramp vs deep past it (full density).
-    local w = math.floor(span / 2)
+    -- Equal-width strips: the first half of the ramp vs the FULL-strength frost shore past
+    -- it. The reference used to be a strip out on the deep ice, which ci-10ze now thins on
+    -- purpose -- the "does the frost thicken inland" read has to be taken where it is thick.
+    local w = math.min(math.floor(field.COLD_FADE_SPAN / 2), SHORE_X2 - SHORE_X1 + 1)
     local near = count_any(cold_names, COLD_X + 1, COLD_X + w)
-    local deep = count_any(cold_names, COLD_X + 2 * span, COLD_X + 2 * span + w - 1)
-    assert.is_true(deep > 0, "the deep icy ground still reads as frosted")
+    local deep = count_any(cold_names, SHORE_X1, SHORE_X1 + w - 1)
+    assert.is_true(deep > 0, "the frost shore still reads as frosted")
     assert.is_true(near < deep,
       "frost thickens toward the ice wall (near=" .. near .. " deep=" .. deep .. ")")
   end)
 
-  -- The point of the bead: the GROUND must dominate. Even at full fade the cold decals
-  -- may cover only a small fraction of the tiles. Measured per tile in a deep strip
-  -- (the densest place they get). MEASURED on this fixed seed: 0.182 decals/tile with
-  -- the pre-ci-tizx densities, 0.059 after -- the ceiling sits between the two, so a
-  -- regression back to the carpet fails here.
+  -- The point of the bead: the GROUND must dominate. Even at FULL fade the cold decals may
+  -- cover only a small fraction of the tiles. MEASURED on this fixed seed: 0.182 decals/tile
+  -- with the pre-ci-tizx densities, 0.059 with the three families ci-tizx thinned, 0.090 with
+  -- today's cold set (the ci-w87 iceberg families joined it after) -- the ceiling still sits
+  -- above all of those and below the carpet, so a regression back to it fails here. The
+  -- headroom is thin: a new cold decal family needs a density pass, not just a catalogue row.
+  --
+  -- Measured on the full-strength frost SHORE. It used to be measured out on the deep ice,
+  -- but ci-10ze deliberately thins the sheet by ~8x, so a strip out there would let a carpet
+  -- regression hide behind the thinning factor -- this ceiling has to sit where the cold
+  -- decals are thickest, which is now the shore.
   it("leaves the icy ground legible: decals stay a small fraction of it (ci-tizx)", function()
-    local x1, x2 = COLD_X + 2 * field.COLD_FADE_SPAN, 340
-    local y1, y2 = -200, 200
-    local n = 0
-    for _, name in ipairs(cold_names) do
-      for _, d in ipairs(s.find_decoratives_filtered({ name = name })) do
-        local p = d.position
-        if p.x >= x1 and p.x <= x2 and p.y >= y1 and p.y <= y2 then n = n + 1 end
-      end
-    end
-    local tiles = (x2 - x1 + 1) * (y2 - y1 + 1)
-    local per_tile = n / tiles
-    log("ci-tizx cold decal density: " .. n .. " / " .. tiles .. " = " .. per_tile)
-    assert.is_true(per_tile > 0, "some frost survives out on the deep ice")
+    local per_tile, n, tiles = cold_per_tile(SHORE_X1, SHORE_X2)
+    log("ci-tizx cold decal density (frost shore x " .. SHORE_X1 .. ".." .. SHORE_X2 .. "): " ..
+      n .. " / " .. tiles .. " = " .. per_tile)
+    assert.is_true(per_tile > 0, "the frost shore does read as frosted")
     assert.is_true(per_tile < 0.1,
       "cold decals must stay sparse (" .. string.format("%.4f", per_tile) .. " per tile)")
+  end)
+
+  -- 7. THE ICE OCEAN READS AS AN OCEAN (ci-10ze) ----------------------------------------
+  -- ci-tizx's fade-in reaches full strength ~18 tiles short of the smooth-ice sheet, so every
+  -- one of the ~212 tiles of frozen sea carried the densest clutter on the planet: chips,
+  -- drifts and bergs thick enough that the playtest could not tell it WAS an ice ocean. A sea
+  -- reads as a sea by being flat and open, so the frost now fades back out offshore.
+  it("thins the frost on the open smooth-ice OCEAN so it reads as ocean (ci-10ze)", function()
+    local shore = cold_per_tile(SHORE_X1, SHORE_X2)
+    local sheet, n, tiles = cold_per_tile(SHEET_X1, 340)
+    log("ci-10ze cold decal density: shore " .. shore .. " vs open sheet " .. sheet ..
+      " (" .. n .. " / " .. tiles .. ")")
+    -- We really did measure the OCEAN: the strip is the smooth-ice sheet, near enough solid.
+    local box = { { SHEET_X1, -DY }, { 340, DY } }
+    local all = s.count_tiles_filtered({ area = box })
+    local ice = s.count_tiles_filtered({ name = "cindra-ice-smooth", area = box })
+    assert.is_true(all > 0 and ice > 0.99 * all,
+      "the strip measured is the smooth-ice sheet (" .. ice .. " / " .. all .. ")")
+    assert.is_true(shore > 0, "the frost shore still carries its detail")
+    assert.is_true(sheet > 0, "a trace of frost survives on the sheet (not a bare hole)")
+    assert.is_true(sheet < shore / 4,
+      "the open sea must carry a small fraction of the shore's clutter (sheet " ..
+      string.format("%.4f", sheet) .. " vs shore " .. string.format("%.4f", shore) .. " per tile)")
+  end)
+
+  -- ...and the drop is a FADE, not a stamped line offshore: the first tiles of sheet are
+  -- markedly denser than the open sea beyond the ramp.
+  it("fades the frost out across the shore instead of stamping a line offshore (ci-10ze)", function()
+    local near = cold_per_tile(math.ceil(SHEET_X) + 1, math.ceil(SHEET_X + field.OCEAN_FADE_SPAN / 2))
+    local sheet = cold_per_tile(SHEET_X1, 340)
+    log("ci-10ze offshore ramp: near-shore sheet " .. near .. " vs open sheet " .. sheet)
+    assert.is_true(near > 2 * sheet,
+      "the thinning ramps in over the span rather than switching on at the contour (near=" ..
+      string.format("%.4f", near) .. " open=" .. string.format("%.4f", sheet) .. ")")
   end)
 
   -- 6. HOT RE-GATE ONTO THE HEIGHTMAP TILES (ci-mk5y) -----------------------------

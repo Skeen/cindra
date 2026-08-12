@@ -237,6 +237,30 @@ test("the molten floor is the lava tiles' value, and its contour sits inside the
     "and by a wide margin -- a band-edge gate would drop clutter on lava")
 end)
 
+-- The cold-side mirror of the same point (ci-10ze): the smooth-ice OCEAN SHEET starts at its
+-- own value contour, a long way WARMWARD of the cold-ocean band edge -- so anything that has
+-- to read as open sea (the decal thinning) gates on the crossing, never on the band.
+test("the frozen ceiling is the ocean sheet's value, and its contour sits outside the band", function()
+  assert_eq(0.10, terrain.FROZEN_CEILING, "the smooth-ice core's upper bound")
+  assert_eq("cindra-ice-smooth", terrain.value_tile(terrain.FROZEN_CEILING - 1e-6),
+    "just below the ceiling the ground is the frozen sea")
+  assert_true(terrain.value_tile(terrain.FROZEN_CEILING) ~= "cindra-ice-smooth",
+    "at the ceiling it is still the rough-ice shore")
+  assert_eq("cindra-ice-smooth", terrain.value_tile(0), "and the pinned extreme is the sea core")
+  local sheet_at = terrain.field_crossing(terrain.FROZEN_CEILING)
+  local ocean = terrain.role_band("cold_ocean")
+  assert_true(sheet_at > ocean.hi,
+    "the sea starts warmward of the ocean band's inner edge (" .. sheet_at .. " > " .. ocean.hi .. ")")
+  assert_true(sheet_at - ocean.hi > 10,
+    "and by a wide margin -- a band-edge gate would leave a strip of sea unthinned")
+  -- Every tile from the crossing out to the map edge is the sheet: one solid sea.
+  local _, total = terrain.bands()
+  for y = math.floor(sheet_at), -total / 2, -1 do
+    assert_eq("cindra-ice-smooth", terrain.value_tile(terrain.field(y)),
+      "the sheet is unbroken at y=" .. y)
+  end
+end)
+
 test("value_range_tiles names the tiles the ground can be painted with between two values", function()
   -- The volcanic slope + crust segment: the cracks main line, the folds branch and the two
   -- crust tiles -- but never the lava, the ash middle or anything on the cold side.
