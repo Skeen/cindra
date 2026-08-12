@@ -66,6 +66,10 @@ if script.active_mods["factorio-test"] then
     "tests/test_example",
     "tests/test_planet",
     "tests/test_ribbon",
+    -- ci-7k6 NO DEAD KNOBS: every mod setting a player can move is proven to reach
+    -- the world (bounded axis / burn on a hazard tile / band + world width), plus
+    -- the coverage guard that fails when a new setting ships with no effect.
+    "tests/test_settings_live",
     "tests/test_heater",
     "tests/test_ice_processing",
     "tests/test_lava",

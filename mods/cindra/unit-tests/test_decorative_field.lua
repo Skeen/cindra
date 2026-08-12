@@ -149,7 +149,6 @@ test("zone purity holds under a settings-driven config override too", function()
   -- volcanic slope's contours move, and both decal gates MUST move with them (one source of
   -- truth: terrain).
   local cfg = {
-    safe_half_width = 8, lethal_at = 60, wall_at = 100,
     middle = 40, cold_outer = 30, cold_inner = 30, cold_ocean = 100,
     hot_outer = 30, hot_inner = 30, hot_ocean = 100,
   }

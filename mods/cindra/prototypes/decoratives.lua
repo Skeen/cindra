@@ -19,18 +19,13 @@
 local util = require("util")
 local field = require("scripts.decorative-field")
 
--- Ribbon geometry (startup settings, available at the data stage): the zone masks
--- read these so the decal bands line up with the terrain + damage axis. Mirrors the
--- ribbon_cfg() helper in prototypes/tiles.lua / resources.lua.
-local function ribbon_cfg()
-  local s = settings.startup
-  return {
-    safe_half_width = s["cindra-ribbon-safe-half-width"].value,
-    lethal_at = s["cindra-ribbon-lethal-at"].value,
-    wall_at = s["cindra-ribbon-wall-at"].value,
-  }
-end
-local CFG = ribbon_cfg()
+-- The zone masks read the per-zone WIDTH layout (scripts/terrain.lua), which reads
+-- its own startup settings, so `nil` means "the live layout" and there is no cfg to
+-- build here. (ci-7k6: the table that used to be built from the ribbon
+-- safe-half-width / lethal-at / wall-at sliders was keyed nothing downstream ever
+-- looked at -- terrain's cfg is keyed by zone ROLE -- so moving those sliders moved
+-- no decal. Same removal as prototypes/resources.lua.)
+local CFG = nil
 
 local decoratives = {}
 for _, spec in ipairs(field.DECORATIVES) do

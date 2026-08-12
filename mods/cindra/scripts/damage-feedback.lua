@@ -36,8 +36,8 @@
 -- starts, where it saturates) are derived from the LIVE zone geometry
 -- (scripts/terrain.lua), exactly as ribbon.solar_anchors does for the solar curve, so
 -- retuning a zone width moves the grade with it. The temperature curve is evaluated
--- over the real ribbon half-width rather than ribbon's legacy `wall_at` backstop
--- (128 tiles, far inside today's 800-tile ribbon), which would otherwise saturate the
+-- over the real ribbon half-width rather than ribbon's default `saturate_at` (128
+-- tiles, far inside today's 800-tile ribbon), which would otherwise saturate the
 -- curve before the player even reaches the burn belt and flatten the whole gradient.
 --
 -- 🚨 Scoped to characters on `surface.name == "cindra"`: a player on any other planet
@@ -92,14 +92,14 @@ end
 --                           and the ocean therefore spans the whole alpha range;
 --                           inside an ocean it simply stays at full.
 --   half                  : the ribbon's half-width, the span the temperature curve
---                           is evaluated over (see the header note on `wall_at`).
+--                           is evaluated over (see the header note on `saturate_at`).
 -- The anchor TEMPERATURES are precomputed here so a sweep resolves the geometry once.
 function M.anchors(widths)
   local mid = terrain.role_band("middle", widths)
   local hot_ocean = terrain.role_band("hot_ocean", widths)
   local cold_ocean = terrain.role_band("cold_ocean", widths)
   local _, total = terrain.bands(widths)
-  local cfg = { wall_at = total / 2 }
+  local cfg = { saturate_at = total / 2 }
   return {
     cfg = cfg,
     half = total / 2,

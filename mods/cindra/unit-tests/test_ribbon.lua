@@ -31,13 +31,6 @@ local function assert_true(x, msg)
   if not x then error(msg or "expected true", 2) end
 end
 
-test("safe band is temperate and damage-free", function()
-  for _, y in ipairs({ -24, -10, 0, 10, 24 }) do
-    assert_eq("safe", ribbon.zone(y), "y=" .. y .. " safe")
-    assert_eq(0, (ribbon.damage_per_second(y)), "y=" .. y .. " no damage")
-  end
-end)
-
 test("temperature rises sunward, falls nightward", function()
   local center = ribbon.temperature(0)
   assert_eq(25, center, "centre is room temperature")
@@ -45,52 +38,46 @@ test("temperature rises sunward, falls nightward", function()
   assert_true(ribbon.temperature(-100) < center, "nightward colder")
 end)
 
-test("temperature saturates at the wall (no runaway beyond the edge)", function()
+test("temperature saturates at the curve's edge (no runaway beyond it)", function()
   assert_eq(ribbon.temperature(128), ribbon.temperature(500), "sunward saturates")
   assert_eq(ribbon.temperature(-128), ribbon.temperature(-500), "nightward saturates")
 end)
 
-test("zones split heat sunward from cold nightward", function()
-  assert_eq("hot_warn", ribbon.zone(60))
-  assert_eq("cold_warn", ribbon.zone(-60))
-  assert_eq("hot_lethal", ribbon.zone(110))
-  assert_eq("cold_lethal", ribbon.zone(-110))
-end)
-
-test("damage types match the edge", function()
-  local _, hot = ribbon.damage_per_second(60)
-  local _, cold = ribbon.damage_per_second(-60)
-  assert_eq("heat", hot)
-  assert_eq("cold", cold)
-end)
-
-test("damage ramps 0 -> max then holds", function()
-  assert_eq(0, (ribbon.damage_per_second(24)), "edge of safe band")
-  local mid = ribbon.damage_per_second(60)
-  local lethal = ribbon.damage_per_second(96)
-  assert_true(mid > 0 and mid < lethal, "ramps in margin")
-  assert_eq(lethal, (ribbon.damage_per_second(1000)), "saturates")
-  assert_eq(200, lethal, "peak dps default (§16)")
-end)
-
-test("damage ramp is exactly linear at the midpoint", function()
-  -- safe=24, lethal=96, max=200: midpoint distance 60 -> t = (60-24)/(96-24) = 0.5
-  local mid = ribbon.damage_per_second(60)
-  assert_eq(100, mid, "half-way through the margin is half the peak dps")
-end)
-
-test("hard-wall backstop bounds the ribbon", function()
-  assert_true(not ribbon.past_wall(120), "inside")
-  assert_true(ribbon.past_wall(128), "at wall")
-  assert_true(ribbon.past_wall(-200), "past wall")
+test("the temperature curve is evaluated over `saturate_at`, and it is tunable", function()
+  -- The live caller (scripts/damage-feedback.lua) hands in the REAL ribbon
+  -- half-width rather than taking the default, so the whole curve has to stretch
+  -- with the cfg key -- otherwise the grade saturates before the player reaches the
+  -- burn belt and the gradient reads flat.
+  local wide = { saturate_at = 400 }
+  assert_eq(ribbon.temperature(400, wide), ribbon.temperature(128), "the endpoint moved out to 400")
+  assert_true(ribbon.temperature(128, wide) < ribbon.temperature(128),
+    "128 tiles out is only part-way up the stretched curve, not saturated")
 end)
 
 test("partial config override falls back to defaults for unset keys", function()
-  local cfg = { safe_half_width = 4 }
-  assert_eq("hot_warn", ribbon.zone(10, cfg), "narrower safe band exposes y=10")
-  assert_eq("safe", ribbon.zone(0, cfg), "centre still safe")
-  -- lethal_at unspecified -> default 96 still applies
-  assert_eq("hot_lethal", ribbon.zone(96, cfg))
+  -- temp_center unset -> the default 25 still applies while saturate_at is overridden.
+  local cfg = { saturate_at = 400 }
+  assert_eq(25, ribbon.temperature(0, cfg), "centre is still room temperature")
+  assert_eq(1500, ribbon.temperature(400, cfg), "the sunward endpoint is still temp_hot_max")
+end)
+
+test("the dead band-layout API stayed dead (ci-7k6)", function()
+  -- These four were the ribbon's OWN copy of the world geometry: a safe band, a
+  -- damage ramp saturating at `lethal_at`, a `wall_at` backstop -- fed by three mod
+  -- settings and read by NOTHING at runtime, while the real damage came from the
+  -- tile under the player (scripts/tile-damage.lua) and the real boundaries from
+  -- the heightmap (scripts/terrain.lua). Re-adding any of them re-creates a second,
+  -- drifting source of truth for where the planet is dangerous. If you need one of
+  -- these answers, terrain.lethal_at / terrain.tile_damage / terrain.map_gen_bounds
+  -- give it from the geometry the world is actually generated from.
+  for _, name in ipairs({ "zone", "damage_per_second", "past_wall" }) do
+    assert_true(ribbon[name] == nil,
+      "ribbon." .. name .. " is world geometry that belongs to scripts/terrain.lua")
+  end
+  for _, key in ipairs({ "safe_half_width", "lethal_at", "wall_at", "max_dps" }) do
+    assert_true(ribbon.DEFAULTS[key] == nil,
+      "ribbon.DEFAULTS." .. key .. " is a band-layout knob nothing reads")
+  end
 end)
 
 -- === Solar output falloff (§ ci-9ht; recalibrated to ci-da2 zones, ci-22v) =====

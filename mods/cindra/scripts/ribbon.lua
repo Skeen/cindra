@@ -15,48 +15,60 @@
 -- that say "+Y" describe the legacy horizontal orientation -- the maths is the
 -- same, only which axis is perpendicular differs.
 --
--- This module is DELIBERATELY PURE: no `game.*` / `prototypes.*` access. It maps
--- a perpendicular coordinate to a temperature and a damage profile, nothing more.
--- That keeps
--- the axis maths fast, deterministic, and testable in plain Lua (unit-tests/),
--- and lets every downstream system (lethal-edge damage §15-2, nightside heat,
--- resource placement, edge-pushing rewards) read the SAME single source of truth
--- for "where am I on the hot-cold axis."
+-- This module is DELIBERATELY PURE: no `game.*` / `prototypes.*` access. It maps a
+-- perpendicular coordinate to TWO continuous curves, and nothing else:
+--   * TEMPERATURE (M.temperature) -- how hot it is here. Read by
+--     scripts/damage-feedback.lua for the ambient thermal grade.
+--   * SUNLIGHT (M.sunward_factor) -- what fraction of full output a solar panel
+--     earns here. Read by scripts/panel-solar.lua.
+-- That keeps the axis maths fast, deterministic, and testable in plain Lua
+-- (unit-tests/), and lets both systems read the SAME single source of truth for
+-- "where am I on the hot-cold axis."
+--
+-- WHAT IT IS NOT (ci-7k6). It does NOT own the world's BOUNDARIES -- not the safe
+-- band, not the lethal edges, not the map edge. Those are all derived from the ONE
+-- heightmap and its per-zone widths in scripts/terrain.lua, and the damage a player
+-- actually takes is keyed to the TILE they stand on (scripts/tile-damage.lua).
+-- A band layout used to live here too, with three mod settings feeding it and no
+-- runtime caller reading it; see the note above M.DEFAULTS.
 --
 -- The one place it reaches sideways is the SOLAR falloff (M.sunward_factor): its
 -- anchors are DERIVED from the live ci-da2 zone layout (scripts/terrain.lua, an
 -- equally pure sibling that reads the same axis), so the solar curve tracks the
 -- actual worldgen zone widths instead of stale fixed tiles (ci-22v). terrain reads
 -- no game.*/prototypes.* either, so the module stays plain-Lua testable.
---
--- Runtime application (ticking the player for damage, freezing nightside
--- machines) lives in scripts that consume this module; see TODO.md §15 item 2.
 
 local terrain = require("scripts.terrain")
 
 local M = {}
 
--- Tuning defaults (§16). Distances are in TILES from the ribbon centre (Y = 0);
+-- Tuning defaults (§16). Distances are in TILES from the ribbon centre (p = 0);
 -- temperatures are flavour/scaling values in degrees Celsius. All (tune).
 --
--- The band layout, from centre outward on EACH side:
---   [0 .. safe_half_width]            temperate, no damage           (the ribbon)
---   (safe_half_width .. lethal_at]    damage ramp 0 -> max            (the margin)
---   (lethal_at .. wall_at]            full lethal damage              (the deep edge)
---   beyond wall_at                    hard wall backstop (§15-2)      (off the map)
+-- WHAT THIS MODULE STOPPED OWNING (ci-7k6). It used to carry a whole BAND LAYOUT
+-- too -- a safe half-width, a damage ramp saturating at `lethal_at`, and a
+-- `wall_at` hard-wall backstop -- with `zone()`, `damage_per_second()` and
+-- `past_wall()` reading it, and three mod settings feeding it. Not one of those had
+-- a runtime caller: the world's damage is keyed to the TILE an entity stands on
+-- (scripts/tile-damage.lua + terrain.tile_damage, ci-ma18), the safe/lethal
+-- boundaries are wherever the ONE heightmap crosses its damage thresholds
+-- (scripts/terrain.lua), and ci-wly dropped the hard wall entirely (the world edge
+-- is the map-gen's finite dimension = the sum of the zone widths). They were
+-- deleted rather than re-wired, because a second copy of the ribbon geometry here
+-- is precisely the "one source of truth" breach this module exists to prevent.
+-- What remains is the TEMPERATURE curve and the SOLAR falloff -- both live, both
+-- read by real systems (scripts/damage-feedback.lua, scripts/panel-solar.lua).
 M.DEFAULTS = {
-  safe_half_width = 24, -- |Y| <= 24: guaranteed-safe temperate band
-  lethal_at       = 96, -- |Y| >= 96: damage has ramped to its maximum
-  wall_at         = 128, -- |Y| >= 128: hard-wall backstop (never walk into instant death)
+  -- Half-width (tiles) over which the temperature curve reaches its saturation
+  -- endpoints. This is a curve parameter, NOT a world boundary -- there is no wall
+  -- to hit at this distance. The live caller derives it from the real ribbon
+  -- half-width (scripts/damage-feedback.lua); the default is only what a caller
+  -- that passes no cfg gets.
+  saturate_at   = 128,
 
   temp_center  = 25, -- terminator centre: room temperature
   temp_hot_max = 1500, -- sunward saturation: manufactured-lava hot
   temp_cold_min = -270, -- nightward saturation: near absolute zero (gases freeze out)
-
-  -- Damage-per-second at the lethal saturation point, applied to the player
-  -- (and, later, unshielded buildings). Survivable BRIEFLY with gear so the
-  -- best edge resources are reachable at a cost (§4 edge-pushing).
-  max_dps = 200,
 
   -- Solar output falloff (§ solar-scales-with-sunward-position, ci-9ht; recalibrated
   -- to the ci-da2 zoned worldgen, ci-22v). Solar panels only REALLY work on the
@@ -96,15 +108,15 @@ function M.resolve(cfg)
 end
 
 -- Temperature (°C) at ribbon coordinate `y`.
---   y = 0            -> temp_center
---   y -> +wall_at    -> temp_hot_max  (sunward)
---   y -> -wall_at    -> temp_cold_min (nightward)
+--   y = 0              -> temp_center
+--   y -> +saturate_at  -> temp_hot_max  (sunward)
+--   y -> -saturate_at  -> temp_cold_min (nightward)
 -- Interpolated linearly from the centre to each saturation edge, then held flat
 -- beyond it. Symmetric geometry, asymmetric endpoints (fire one way, ice the
 -- other) — the planet's whole thesis in one curve.
 function M.temperature(y, cfg)
   cfg = M.resolve(cfg)
-  local edge = cfg.wall_at
+  local edge = cfg.saturate_at
   if y >= 0 then
     local t = clamp(y / edge, 0, 1)
     return lerp(cfg.temp_center, cfg.temp_hot_max, t)
@@ -114,54 +126,21 @@ function M.temperature(y, cfg)
   end
 end
 
--- Zone classification at coordinate `y`. One of:
---   "safe"        temperate ribbon, no damage
---   "hot_warn"    sunward margin: ticking heat damage, survivable briefly
---   "hot_lethal"  sunward deep edge: full heat damage
---   "cold_warn"   nightward margin: ticking cold damage, survivable briefly
---   "cold_lethal" nightward deep edge: full cold damage
-function M.zone(y, cfg)
-  cfg = M.resolve(cfg)
-  local d = math.abs(y)
-  if d <= cfg.safe_half_width then return "safe" end
-  local sunward = y > 0
-  if d >= cfg.lethal_at then
-    return sunward and "hot_lethal" or "cold_lethal"
-  end
-  return sunward and "hot_warn" or "cold_warn"
-end
-
--- True once past the hard-wall backstop (§15-2): the extreme edge where tiles
--- become impassable so the player can never walk off the usable map into instant
--- death. The damage ramp does the teaching; this is the bulletproof floor.
-function M.past_wall(y, cfg)
-  cfg = M.resolve(cfg)
-  return math.abs(y) >= cfg.wall_at
-end
-
--- Damage-per-second the environment inflicts at coordinate `y`.
---   |y| <= safe_half_width         -> 0                    (the ribbon is safe)
---   safe_half_width < |y| < lethal -> ramps 0 -> max_dps    (the survivable margin)
---   |y| >= lethal_at               -> max_dps               (the lethal deep edge)
--- The ramp is what makes edge-pushing a graded risk rather than a cliff: the
--- best resources sit just inside the lethal band, reachable with mitigation.
--- `damage_type` is "heat" sunward, "cold" nightward (callers pick the matching
--- Factorio damage prototype).
-function M.damage_per_second(y, cfg)
-  cfg = M.resolve(cfg)
-  local d = math.abs(y)
-  local dps
-  if d <= cfg.safe_half_width then
-    dps = 0
-  elseif d >= cfg.lethal_at then
-    dps = cfg.max_dps
-  else
-    local t = (d - cfg.safe_half_width) / (cfg.lethal_at - cfg.safe_half_width)
-    dps = cfg.max_dps * t
-  end
-  local damage_type = (y > 0) and "heat" or "cold"
-  return dps, damage_type
-end
+-- (`M.zone`, `M.damage_per_second` and `M.past_wall` lived here until ci-7k6.
+-- WHERE THEIR JOBS WENT, if you come looking for them:
+--   * "is this position safe, and to which extreme does it belong?"
+--       -> terrain.lethal_at(p) / terrain.damage_bounds(), read off the ONE
+--          heightmap rather than a distance from centre;
+--   * "how much damage does the environment do here?"
+--       -> terrain.tile_damage(tile_name) scaled by the `cindra-ribbon-max-dps`
+--          setting, applied per-entity by scripts/tile-damage.lua. It is keyed to
+--          the TILE, so concrete shields and every hazard tile bites (ci-ma18);
+--   * "where does the world end?"
+--       -> terrain.map_gen_bounds(), the map-gen's own finite dimension. There is
+--          no wall to be past: ci-wly dropped the impassable ice-wall and the hot
+--          lava ocean is the only ground you cannot walk on.
+-- Do not reintroduce them: each would be a second, drifting copy of geometry that
+-- terrain.lua already owns.)
 
 -- The solar falloff ANCHORS for the live zone layout (ci-22v). Returns
 -- (full_at, zero_at, floor):
