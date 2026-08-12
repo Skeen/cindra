@@ -141,6 +141,12 @@ if script.active_mods["factorio-test"] then
     -- planet -- including a gas-percentage assert that REFUSES TO LOAD the game.
     -- Pinned from our own side, in every config.
     "tests/test_planetslib_compat",
+    -- ci-ndm9: every Cindra building is placeable on Cindra and every Cindra recipe
+    -- craftable there -- the coverage guard over surface conditions, which a clone
+    -- of a vanilla prototype inherits silently. Enumerated live, so a new machine
+    -- is checked without being listed. (The helpers that edit those conditions,
+    -- and their PlanetsLib delegation, live in scripts/surface-conditions.lua.)
+    "tests/test_surface_conditions",
     -- Power system (§15 items 7-9), integrated from the flare-poc (ci-zg3):
     -- flare cycle, disposal-deficit panel damage, storage + dissipator sinks.
     "tests/test_flare",

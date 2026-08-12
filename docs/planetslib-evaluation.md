@@ -253,6 +253,89 @@ next PlanetsLib release is checked by running it rather than by reading a log
 installed; `tests/test_planetslib_compat.lua` guards the same edges from our own
 side in every run.
 
+### 5.2 The surface-condition helpers, adopted (stage 2, `ci-ndm9`)
+
+`scripts/surface-conditions.lua` is the adoption: `SC.restrict` / `SC.relax` /
+`SC.remove` call `PlanetsLib.restrict_surface_conditions` /
+`relax_surface_conditions` / `remove_surface_condition` when the library is
+loaded, and run our own implementation of the same three operations otherwise.
+The hand-rolled path stays the default and is what every shipped run uses.
+
+**The guard is not just `mods["PlanetsLib"]`, and that is load-bearing.**
+`PlanetsLib` is a global its own `data.lua` creates, so `mods["PlanetsLib"]`
+reports INSTALLED, not LOADED. The `? PlanetsLib` dependency (stage 3, `ci-dza6`)
+is what orders the library ahead of us and makes the two coincide; the guard
+demands the three functions be actually reachable anyway, and is evaluated per
+call.
+
+That is not a theoretical precaution — it is measured. Before `ci-dza6` landed,
+with both mods installed, Factorio loaded `cindra 0.1.0 (data.lua)` at **0.352 s**
+and `PlanetsLib 1.23.4 (data.lua)` at **0.389 s**: PlanetsLib ran *after* us,
+because mods with no dependency relation load in name order and nothing put it
+first. A naive `if mods["PlanetsLib"] then PlanetsLib.restrict_surface_conditions(...)`
+would have crashed the data stage for **every player who owned both mods**. The
+guard turns that class of failure into a silent, correct fallback — which still
+matters, because the `?` is optional by construction and a future release can
+rename a helper.
+
+Two stages therefore interlock: **stage 3 is what puts stage 2's delegated path
+live.** Ordering the library first is the whole of what `? PlanetsLib` does.
+
+So that "which path ran" is not guesswork, the data stage writes its choice into
+a `mod-data` prototype (`prototypes/surface-conditions.lua`), readable at runtime
+as `prototypes.mod_data["cindra-surface-conditions"].data.backend`. It reads
+`"PlanetsLib"` when the player has the library and `"cindra"` otherwise, and both
+suites assert against it — including as the non-vacuity guard on the co-load case,
+which would otherwise pass just as happily if the delegation never happened. That
+also makes it the tripwire on the dependency: drop the `?` and the delegated
+branch goes quietly dead, and the co-load suite says so.
+
+**The premise of the bead had to be corrected first.** Stage 2 was written on the
+reading that `prototypes/` edits `surface_conditions` tables by hand — e.g. that
+the field-foundry recipe is the vanilla recipe with its Vulcanus pressure gate
+stripped. An audit found that is not so: **Cindra hand-edits no surface
+condition anywhere.** Every "not gated like the vanilla one" case is a fresh
+prototype written without conditions (`cindra-field-foundry` has different
+ingredients on purpose, so it was never a copy), and before this change nothing
+in `mods/cindra` mentioned `surface_conditions` at all.
+
+What the audit *did* find is the inverse problem, and it is the one worth fixing:
+Cindra builds most of its machines by deep-copying a vanilla one, and a deep copy
+**inherits the source's gate silently**.
+
+| Cindra entity | Cloned from | Inherited gate | Satisfied on Cindra? |
+|---|---|---|---|
+| `cindra-electric-heater` | `heating-tower` (Space Age) | `pressure >= 10` | yes (pressure 500) |
+| `cindra-mass-driver` | `rocket-silo` (base-data-updates) | `pressure >= 1` | yes |
+
+Nothing was broken — both gates are satisfiable here — but neither was written
+down, neither was tested, and both would move under us if Wube retuned the
+source. The trap is real rather than theoretical: the vanilla `crusher` is
+`gravity` exactly 0 (space only), and Cindra's design brief is *"the
+space-platform asteroid-crushing model, relocated to ground ice processing"*.
+Clone that one and the mod ships a building the player owns, sees in the crafting
+menu, and cannot place on the planet it was built for.
+
+So both sites now **state** their gate through the shim instead of inheriting it,
+at identical values (a behaviour-neutral change — `restrict` merges, so
+re-declaring an existing condition is idempotent), and
+`tests/test_surface_conditions.lua` enumerates the class live and asserts that
+every player-placeable Cindra entity really is placeable on Cindra and every
+Cindra recipe really is craftable there. That test is what makes a future
+wrongly-cloned gate fail loudly instead of shipping.
+
+Both branches of the shim are covered: `unit-tests/test_surface_conditions.lua`
+drives the delegated branch off-engine with a stub library (the two paths are
+also cross-checked against each other), and the stage-2 case added to
+`tests/test_planetslib_coload.lua` runs the real library in a real engine —
+proving the delegation actually happened, and that it gates no Cindra machine
+differently. The fallback was additionally differential-tested against
+PlanetsLib 1.23.4's real `lib/surface_conditions.lua` over the cross product of
+6 starting prototypes × 5 conditions × 3 operations — 96 cases, zero
+divergences — including the two documented quirks it deliberately preserves
+(`relax` only widens bounds that already exist; the table form of `remove`
+matches bounds exactly).
+
 ---
 
 ## 6. Staged migration plan
@@ -264,8 +347,8 @@ need human sign-off** because they change what a player is forced to install.
 |---|---|---|---|---|
 | 0 | *(this spike)* | `tests/test_planetslib_compat.lua` — pin the preconditions PlanetsLib's `data-final-fixes` imposes on Cindra, with **no** dependency on PlanetsLib | none | — |
 | 1 | `ci-gg3x` | ~~Verify in-engine that Cindra + PlanetsLib load clean together and Cindra does not move on the starmap~~ **DONE** — clean, see §5.1; kept as `tests/test_planetslib_coload.lua` | low | — |
-| 2 | `ci-ndm9` | Adopt `PlanetsLib.relax_surface_conditions` / `remove_surface_condition` behind `mods["PlanetsLib"]`, keeping the hand-rolled path as the default | low | — |
-| 3 | `ci-dza6` | ~~Declare `"? PlanetsLib"` in `info.json` (optional dep — load order only, forces nothing on the player)~~ **DONE** — human sign-off granted 2026-08-12; guarded by `unit-tests/test_dependencies.lua` (the text) and `tests/test_planetslib_absent.lua` (the consequence) | medium | **human** |
+| 2 | `ci-ndm9` | ~~Adopt `PlanetsLib.relax_surface_conditions` / `remove_surface_condition` behind `mods["PlanetsLib"]`, keeping the hand-rolled path as the default~~ **DONE** — `scripts/surface-conditions.lua`, see §5.2 (the premise needed correcting first) | low | — |
+| 3 | `ci-dza6` | ~~Declare `"? PlanetsLib"` in `info.json` (optional dep — load order only, forces nothing on the player)~~ **DONE** — human sign-off granted 2026-08-12; guarded by `unit-tests/test_dependencies.lua` (the text) and `tests/test_planetslib_absent.lua` (the consequence). It is also what puts stage 2's delegated path LIVE (§5.2) | medium | **human** |
 | 4 | `ci-82ib` | Migrate the planet prototype to `PlanetsLib:extend{ orbit = { parent = star, ... } }` | medium | **human** — only worth doing if Cindra gains a moon/satellite |
 | — | — | *Not planned:* hard dependency; entity-variant migration; starmap/orbit-sprite migration | — | — |
 
