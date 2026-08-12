@@ -315,6 +315,26 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   look) — now SAFE to add because damage is positional, but it needs the family-separation
   test relaxed; file/track separately before adding.
 
+- [ ] **[LANDED] Hot-side FOLDS branch — two texture families on the same slope (ci-72bw).**
+  The safe hot slope now has an ALTERNATE texture family selected per-region by a
+  low-frequency noise: broad regions read **folded / cracked-ash / pumice**
+  (`folds-warm -> folds -> folds-flat -> ash-cracks -> pumice-stones`) instead of the
+  main-line **cracked** run (`cracks-warm -> cracks -> smooth-stone`), and both converge on
+  `ash-dark` at the middle. That both families generate, converge, stay confined to the
+  slope and carry no damage is integration-tested (`tests/test_worldgen.lua`); only the
+  *look* is the playtest, since no test can judge whether the two families read as distinct
+  terrain rather than as noise. *Repro:* `./play.sh` onto Cindra, then walk NORTH–SOUTH
+  along the hot slope (roughly x −130..−72 on the default vertical ribbon), or open the map
+  view over that band. *Look for:* (1) walking along the slope you pass through **broad
+  patches** (~90 tiles across) that are clearly folded/pumice, alternating with clearly
+  cracked ones — not a per-tile salt-and-pepper mix of both; (2) where two patches meet the
+  families **interpenetrate** for a few tiles — an organic transition, never a straight
+  seam; (3) both kinds of patch **fade into the same dark ash** as you walk inward toward
+  spawn — no visible family boundary in the middle; (4) the hot crust above the slope
+  (`cracks-hot`, glowing) is unchanged in both kinds of region; (5) the map view over the
+  slope still reads as one continuous hot→cold ramp — the folds tiles must not stand out as
+  a differently-coloured band.
+
 - [ ] **[LANDED] Smooth-ice is now WALKABLE-but-damaging; the old ice WALL is gone (ci-wly).**
   ci-wly drops the impassable deep-ice wall. Only the two **lava** tiles remain
   impassable (the hot-lava ocean is the one hard wall). You can now **RUN onto the

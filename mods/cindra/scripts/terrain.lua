@@ -24,7 +24,9 @@
 --     the ash middle, the dust/snow, down to smooth-ice at the bottom. A single ordered
 --     ramp (M.VALUE_RAMP) maps H -> tile, so the whole planet is one seamless surface
 --     with no band boundary. A boundary wiggle + per-tile speckle make the contours
---     organic; the oceans radiate inward as concentric value contours.
+--     organic; the oceans radiate inward as concentric value contours. The SAFE HOT SLOPE
+--     is the one place the ramp forks: two texture families (cracks / folds) cover that
+--     one value segment and converge again on ash-dark (ci-72bw, M.FOLDS_RAMP).
 --   * DAMAGE (lethal ground): value >= HOT_DMG -> heat (scaling with how far above), value
 --     <= COLD_DMG -> cold, in between -> SAFE. Because the field is monotonic + clamped,
 --     the damage is confined to two contiguous EDGE BELTS with a guaranteed safe middle
@@ -130,10 +132,12 @@ M.VALUE_RAMP = {
   { vanilla = "lava",                       lo = 0.82 }, -- molten body (heat)
   { vanilla = "volcanic-smooth-stone-warm", lo = 0.76 }, -- warm crust (heat)
   { vanilla = "volcanic-cracks-hot",        lo = M.HOT_DMG }, -- glowing crust; HOT_DMG edge
-  { vanilla = "volcanic-cracks-warm",       lo = 0.655 }, -- warm cracks (SAFE, hot look)
-  { vanilla = "volcanic-cracks",            lo = 0.62 },  -- cool cracks
-  { vanilla = "volcanic-smooth-stone",      lo = 0.585 }, -- cool stone
-  { vanilla = "volcanic-ash-dark",          lo = 0.525 }, -- dark ash (middle)
+  -- The safe hot SLOPE (below HOT_DMG, above the ash middle) is the CRACKS family: the
+  -- main line, and the segment the ci-72bw FOLDS family branches against.
+  { vanilla = "volcanic-cracks-warm",       lo = 0.655, branch = "cracks" }, -- warm cracks (SAFE, hot look)
+  { vanilla = "volcanic-cracks",            lo = 0.62,  branch = "cracks" }, -- cool cracks
+  { vanilla = "volcanic-smooth-stone",      lo = 0.585, branch = "cracks" }, -- cool stone
+  { vanilla = "volcanic-ash-dark",          lo = 0.525 }, -- dark ash (middle); the CONVERGENCE
   { vanilla = "volcanic-ash-flats",         lo = 0.465 }, -- ash flats (middle centre)
   { vanilla = "volcanic-ash-light",         lo = 0.42 },  -- light ash (middle)
   { vanilla = "dust-flat",                  lo = 0.395 }, -- dust (SAFE, cold look)
@@ -147,6 +151,64 @@ M.VALUE_RAMP = {
   { vanilla = "ice-rough",                  lo = 0.10 }, -- rough ice (cold)
   { vanilla = "ice-smooth",                 lo = -RAMP_BIG }, -- smooth-ice ocean core (cold)
 }
+
+-- ---------------------------------------------------------------------------
+-- THE HOT-SIDE FOLDS BRANCH (ci-72bw).
+--
+-- The safe hot SLOPE (the value segment strictly between HOT_DMG and the ash middle) has
+-- TWO texture families instead of one. Both cover the SAME value segment and both
+-- CONVERGE on volcanic-ash-dark below it -- only the art differs:
+--   * CRACKS (the ci-wly main line): cracks-warm -> cracks -> smooth-stone.
+--   * FOLDS  (this branch):          folds-warm -> folds -> folds-flat -> ash-cracks ->
+--                                    pumice-stones.
+-- Which family paints a given point is decided by a LOW-FREQUENCY branch noise: broad
+-- regions of the hot slope read folded/pumice, the rest read cracked, and the two
+-- interpenetrate where the noise crosses zero (so the family boundary is organic, not a
+-- seam). Because the families share the segment, the damage model is untouched -- a folds
+-- tile is exactly as (non-)lethal as the cracks tile at the same field value.
+-- ---------------------------------------------------------------------------
+
+-- The BRANCH SPAN = the value segment the cracks family owns in the ramp (derived, so the
+-- folds family tracks any future retune of the main line): the top is the hi of the first
+-- cracks member (== HOT_DMG), the bottom the lo of the last (== ash-dark's hi).
+M.BRANCH_SPAN = (function()
+  local hi, lo
+  local prev_lo = RAMP_BIG
+  for _, r in ipairs(M.VALUE_RAMP) do
+    if r.branch == "cracks" then
+      if hi == nil then hi = prev_lo end
+      lo = r.lo
+    end
+    prev_lo = r.lo
+  end
+  return { lo = lo, hi = hi }
+end)()
+
+-- The vanilla clone sources of the FOLDS family, hottest first. They split the branch span
+-- into equal sub-bands, so the family spans exactly the same values as the cracks family.
+M.FOLDS_FAMILY = {
+  "volcanic-folds-warm",    -- the folds counterpart of cracks-warm (same low/zero heat)
+  "volcanic-folds",
+  "volcanic-folds-flat",
+  "volcanic-ash-cracks",
+  "volcanic-pumice-stones", -- thins into ash-dark: the shared convergence
+}
+
+-- The folds family as a value ramp (same shape as M.VALUE_RAMP: `lo` is the lower bound).
+M.FOLDS_RAMP = (function()
+  local n = #M.FOLDS_FAMILY
+  local step = (M.BRANCH_SPAN.hi - M.BRANCH_SPAN.lo) / n
+  local out = {}
+  for i, vanilla in ipairs(M.FOLDS_FAMILY) do
+    out[i] = { vanilla = vanilla, lo = M.BRANCH_SPAN.lo + (n - i) * step, branch = "folds" }
+  end
+  out[n].lo = M.BRANCH_SPAN.lo -- pin the bottom exactly onto the convergence value
+  return out
+end)()
+
+-- The folds family is registered into the tile order directly after this main-line tile,
+-- so M.TILES still reads hot -> cold.
+M.BRANCH_AFTER = "volcanic-cracks-hot"
 
 -- SOIL patches: a mini ring model on a low-frequency PATCH field, confined to the middle
 -- band. soil-dark at a patch centre, ringed by soil-light, then ash-soil, blending back
@@ -179,7 +241,16 @@ function M.is_no_pave(name) return M.NO_PAVE[name] == true end
 -- ---------------------------------------------------------------------------
 
 -- The cindra tile a field value H falls in (the first ramp tile whose lo it clears).
-function M.value_tile(H)
+-- `family` selects the hot-slope texture family (ci-72bw): the default (nil / "cracks") is
+-- the main line; "folds" swaps in the folds family INSIDE the branch span only -- outside
+-- it (the oceans, the crust, the ash middle, the whole cold side) both families are the
+-- same ramp, which is exactly what "the two families converge on ash-dark" means.
+function M.value_tile(H, family)
+  if family == "folds" and H >= M.BRANCH_SPAN.lo and H < M.BRANCH_SPAN.hi then
+    for _, r in ipairs(M.FOLDS_RAMP) do
+      if H >= r.lo then return cindra_name(r.vanilla) end
+    end
+  end
   for _, r in ipairs(M.VALUE_RAMP) do
     if H >= r.lo then return cindra_name(r.vanilla) end
   end
@@ -412,6 +483,7 @@ local TILE_BY_NAME = {}     -- cindra name -> tile entry
 local VALUE_BAND = {}       -- cindra name -> { lo, hi } value band (ramp tiles only)
 local SOIL_RING_BAND = {}   -- cindra name -> { lo, hi } soil patch band
 local GRADIENT_POS = {}     -- cindra name -> normalised 0..1 hot->cold position
+local TILE_BRANCH = {}      -- cindra name -> "cracks" | "folds" (hot-slope family, ci-72bw)
 
 do
   local order = {}
@@ -428,11 +500,38 @@ do
 
   -- The value ramp: one continuous hot->cold sequence, gradient 0 (lava-hot) -> 1 (ice).
   local nr = #M.VALUE_RAMP
+  -- The fractional ramp position of a value, so a FOLDS tile takes the map colour of the
+  -- main-line tile it sits alongside (the two families read the same on the map view).
+  local function gradient_for_value(H)
+    local prev_lo = RAMP_BIG
+    for i, r in ipairs(M.VALUE_RAMP) do
+      if H >= r.lo then
+        local f = (prev_lo <= r.lo) and 0 or ((prev_lo - H) / (prev_lo - r.lo))
+        if f < 0 then f = 0 elseif f > 1 then f = 1 end
+        return (i - 1 + f) / (nr - 1)
+      end
+      prev_lo = r.lo
+    end
+    return 1
+  end
+
   for i, r in ipairs(M.VALUE_RAMP) do
     local name = register(r.vanilla, (i - 1) / (nr - 1))
     VALUE_BAND[name] = { lo = r.lo }
+    if r.branch then TILE_BRANCH[name] = r.branch end
+    -- The FOLDS family (ci-72bw) is registered inline so M.TILES stays hot -> cold.
+    if r.vanilla == M.BRANCH_AFTER then
+      local prev_hi = M.BRANCH_SPAN.hi
+      for _, f in ipairs(M.FOLDS_RAMP) do
+        local fname = register(f.vanilla, gradient_for_value((f.lo + prev_hi) / 2))
+        VALUE_BAND[fname] = { lo = f.lo, hi = prev_hi }
+        TILE_BRANCH[fname] = f.branch
+        prev_hi = f.lo
+      end
+    end
   end
-  -- Fill in each ramp tile's upper bound (the previous tile's lo).
+  -- Fill in each MAIN-LINE ramp tile's upper bound (the previous tile's lo). The folds
+  -- family already carries its own bands (they overlay the same span).
   do
     local prev_hi = RAMP_BIG
     for _, r in ipairs(M.VALUE_RAMP) do
@@ -463,6 +562,18 @@ end
 function M.map_color(name)
   local t = TILE_BY_NAME[name]
   return t and t.map_color or nil
+end
+
+-- The hot-slope texture FAMILY a tile belongs to (ci-72bw): "cracks" (main line), "folds"
+-- (the branch), or nil for every tile outside the branch span (including ash-dark, the
+-- shared convergence, which belongs to NEITHER family precisely because both reach it).
+function M.tile_branch(name) return TILE_BRANCH[name] end
+
+-- The set of cindra tile names in a hot-slope family.
+function M.family_tiles(branch)
+  local out = {}
+  for name, b in pairs(TILE_BRANCH) do if b == branch then out[name] = true end end
+  return out
 end
 
 function M.is_walkable(name)
@@ -565,6 +676,46 @@ M.SOIL_WIN = 1.25   -- an in-patch soil tile beats the ash tile (whose band peak
 M.SOIL_SHARP = 0.12 -- how fast a soil ring falls off outside its patch band
 M.SOIL_GATE = 0.15  -- per-tile position penalty confining soil to the middle band
 
+-- The hot-slope BRANCH selector (ci-72bw). A LOW-frequency signed noise: where it is
+-- positive the folds family paints, where negative the cracks family does. The penalty is
+-- what each family pays in the OTHER family's regions -- it only ever demotes the loser
+-- below the winner's band peak (1), so no third tile can steal the band. Near the zero
+-- crossing the penalty vanishes, so the two families interpenetrate and the family
+-- boundary reads organic instead of as a seam.
+M.BRANCH_AMPLITUDE = 1
+M.BRANCH_WAVELENGTH = 90 -- tiles: broad regions, not per-tile salt-and-pepper
+M.BRANCH_PENALTY = 0.8
+-- CONTAINMENT. The value bands alone leave the folds family a per-tile speckle's worth of
+-- bleed past the slope (the same interpenetration the main line has at every band edge).
+-- The main line may bleed -- it is the established look, and its tiles are already part of
+-- every neighbouring region's tile set -- but the BRANCH must be purely additive to the
+-- SAFE hot slope: no folds tile may surface in the habitable middle, on the cold side, or
+-- as a new zero-damage tile out in the lethal heat belt. So the folds family also carries
+-- a positional GATE: a per-tile penalty outside a containment band, steep enough that one
+-- tile past a gate line swamps the entire speckle budget.
+--
+-- The gate reads the RAW perpendicular, NOT the wiggled one the field uses. A gate on the
+-- wiggled coordinate cannot contain anything in world space -- the wiggle just carries the
+-- tile back over the line.
+--
+-- Both gate lines clear the family's VISIBLE (wiggled) contours by BRANCH_GATE_MARGIN, so
+-- neither ever cuts a straight edge into the art:
+--   * middle-ward line, a few tiles INSIDE the slope: the folds family's lowest value band
+--     only begins ~12 tiles further out (where the field reaches BRANCH_SPAN.lo), so there
+--     is nothing there to cut -- but the line still bites AT the slope edge itself.
+--   * hot line, a few tiles OUTSIDE the slope: the family's top value band ends exactly at
+--     the slope's hot edge, so the line sits past the wiggled folds/crust contour.
+M.BRANCH_ROLE = "hot_outer" -- the zone band the folds family is contained to
+M.BRANCH_GATE = 1.0         -- per-tile position penalty outside the containment band
+M.BRANCH_GATE_MARGIN = 4    -- tiles of clearance between a gate line and the contour it must not clip
+
+-- The perpendicular band the folds family is gated to (see above): the slope band with
+-- each line pushed clear of the contour it must not clip.
+function M.branch_gate_band(cfg)
+  local slope = M.role_band(M.BRANCH_ROLE, cfg)
+  return { lo = slope.lo + M.BRANCH_GATE_MARGIN, hi = slope.hi + M.BRANCH_GATE_MARGIN }
+end
+
 -- ---------------------------------------------------------------------------
 -- Noise-expression emitters.
 -- ---------------------------------------------------------------------------
@@ -579,6 +730,7 @@ local function basis(seed1, amp, wl)
 end
 local function wiggle_noise() return basis(7, M.NOISE_AMPLITUDE, M.NOISE_WAVELENGTH) end
 local function speckle_noise(tile_index) return basis(100 + tile_index, M.SPECKLE_H, M.SPECKLE_WAVELENGTH) end
+local function branch_noise() return basis(60, M.BRANCH_AMPLITUDE, M.BRANCH_WAVELENGTH) end
 
 local function relu(expr) return "max(0, " .. expr .. ")" end
 local function clamp01(expr) return "min(1, max(0, " .. expr .. "))" end
@@ -606,6 +758,22 @@ end
 local function value_band_term(band, Hf)
   return "(1 - (" .. relu(num(band.lo) .. " - " .. Hf) ..
          " + " .. relu(Hf .. " - " .. num(band.hi)) .. "))"
+end
+
+-- The BRANCH penalty a hot-slope family member pays outside its own regions (ci-72bw).
+-- The folds family is gated to branch-noise > 0, the cracks family to branch-noise < 0;
+-- both fall to zero penalty at the crossing, so neither family has a hard edge.
+local function branch_term(branch, cfg)
+  local B = branch_noise()
+  local losing = (branch == "folds") and relu("-(" .. B .. ")") or relu(B)
+  local expr = " - " .. num(M.BRANCH_PENALTY) .. " * " .. losing
+  if branch == "folds" then
+    local g = M.branch_gate_band(cfg)
+    local perp = axis.perp_expr()
+    expr = expr .. " - " .. num(M.BRANCH_GATE) .. " * (" ..
+           relu(num(g.lo) .. " - " .. perp) .. " + " .. relu(perp .. " - " .. num(g.hi)) .. ")"
+  end
+  return expr
 end
 
 -- One SOIL patch term: an OVERLAY that wins over the ash tiles only inside a patch of the
@@ -640,6 +808,9 @@ function M.probability_expr(name, cfg)
   local vb = VALUE_BAND[name]
   if vb then
     term = value_band_term(vb, Hf)
+    -- Hot-slope family members additionally pay the branch penalty outside their regions.
+    local branch = TILE_BRANCH[name]
+    if branch then term = "(" .. term .. branch_term(branch, cfg) .. ")" end
   else
     local sband = SOIL_RING_BAND[name]
     if not sband then error("terrain: tile " .. name .. " has no placement term") end

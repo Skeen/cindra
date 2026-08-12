@@ -13,6 +13,9 @@
 --      toward the habitable middle.
 --   4. THREE REGIONS: the hot slope is hot-family tiles, the middle is the ash mix +
 --      soil, the cold slope is cold-family tiles; the families never cross the middle.
+--   4a. THE HOT-SIDE FOLDS BRANCH (ci-72bw): the safe hot slope carries TWO texture
+--      families (cracks and folds/pumice) over the same value segment, picked per-REGION
+--      by a low-frequency selector; both converge on ash-dark and neither leaks out.
 --   5. WALKABILITY: only the two lava tiles are impassable; smooth-ice is now WALKABLE.
 --   6. DAMAGE: positional -- the hot ocean+inner burn, the cold inner+ocean freeze.
 --   7. ZERO NAUVIS LEAKAGE. 8. NATIVE RESOURCES banded. 9. NO CLIFFS. 10. LANDABLE.
@@ -48,9 +51,15 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
 
   local HOT_FAMILY, MIDDLE_FAMILY, COLD_FAMILY = {}, {}, {}
   for _, v in ipairs({ "lava-hot", "lava", "volcanic-smooth-stone-warm", "volcanic-cracks-hot",
-                       "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone", "volcanic-ash-dark" }) do
+                       "volcanic-cracks-warm", "volcanic-cracks", "volcanic-smooth-stone", "volcanic-ash-dark",
+                       -- the ci-72bw folds branch: the hot slope's ALTERNATE texture family
+                       "volcanic-folds-warm", "volcanic-folds", "volcanic-folds-flat",
+                       "volcanic-ash-cracks", "volcanic-pumice-stones" }) do
     HOT_FAMILY["cindra-" .. v] = true
   end
+  -- The two hot-slope families (ci-72bw), read from the single source of truth.
+  local FOLDS = terrain.family_tiles("folds")
+  local CRACKS = terrain.family_tiles("cracks")
   for _, v in ipairs({ "volcanic-ash-dark", "volcanic-ash-light", "volcanic-ash-flats",
                        "volcanic-ash-soil", "volcanic-soil-light", "volcanic-soil-dark" }) do
     MIDDLE_FAMILY["cindra-" .. v] = true
@@ -203,6 +212,105 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
           "cold slope at (" .. x .. "," .. y .. ") should be a cold-family tile, got " .. tile(x, y))
       end
     end
+  end)
+
+  -- 4a. THE HOT-SIDE FOLDS BRANCH (ci-72bw) ----------------------------------------
+  -- The safe hot slope carries TWO texture families over the same value segment, picked by
+  -- a low-frequency branch noise: broad regions read folded/pumice, the rest read cracked.
+  -- The slope spans perp (72, 130) -> x in (-130, -72).
+
+  it("generates BOTH hot-slope families live: cracked regions AND folded/pumice regions (ci-72bw)", function()
+    local folds = count_in(FOLDS, -128, -74, -RY, RY)
+    local cracks = count_in(CRACKS, -128, -74, -RY, RY)
+    assert.is_true(folds > 500, "the folds/pumice family really paints the hot slope (" .. folds .. " tiles)")
+    assert.is_true(cracks > 500, "the cracks family still paints the hot slope (" .. cracks .. " tiles)")
+    -- Every folds tile is present, not just the top of the family.
+    for name in pairs(FOLDS) do
+      assert.is_true(s.count_tiles_filtered({ name = name, area = { { -128, -RY }, { -74, RY } } }) > 0,
+        name .. " generates somewhere on the hot slope")
+    end
+  end)
+
+  it("picks ONE family per REGION (broad folded/cracked patches, not per-tile noise, ci-72bw)", function()
+    -- Classify each sampled row by the family that dominates it. A low-frequency selector
+    -- gives whole regions to one family; per-tile salt-and-pepper would give ~every row a
+    -- 50/50 split and no clear winner.
+    local folds_rows, cracks_rows = {}, {}
+    for y = -150, 150, 5 do
+      local f, c = 0, 0
+      for x = -128, -74 do
+        local n = tile(x, y)
+        if FOLDS[n] then f = f + 1 elseif CRACKS[n] then c = c + 1 end
+      end
+      if f > c * 2 then folds_rows[#folds_rows + 1] = y
+      elseif c > f * 2 then cracks_rows[#cracks_rows + 1] = y end
+    end
+    assert.is_true(#folds_rows > 0, "some regions of the hot slope read FOLDED (" .. #folds_rows .. " rows)")
+    assert.is_true(#cracks_rows > 0, "some regions of the hot slope read CRACKED (" .. #cracks_rows .. " rows)")
+  end)
+
+  it("CONVERGES both families on ash-dark at the middle edge (ci-72bw)", function()
+    -- Whichever family a region uses, its coldest member thins into ash-dark at the same
+    -- value -- the two branches rejoin, so the middle never sees a family boundary.
+    local function rows_of(set, other)
+      local out = {}
+      for y = -150, 150, 5 do
+        local a, b = 0, 0
+        for x = -128, -74 do
+          local n = tile(x, y)
+          if set[n] then a = a + 1 elseif other[n] then b = b + 1 end
+        end
+        if a > b * 2 then out[#out + 1] = y end
+      end
+      return out
+    end
+    local function ash_share(rows)
+      local ash, total = 0, 0
+      for _, y in ipairs(rows) do
+        for x = -70, -62 do -- the convergence band, just inward of the branch span
+          total = total + 1
+          if tile(x, y) == "cindra-volcanic-ash-dark" then ash = ash + 1 end
+        end
+      end
+      return total > 0 and (ash / total) or 0
+    end
+    local folds_rows, cracks_rows = rows_of(FOLDS, CRACKS), rows_of(CRACKS, FOLDS)
+    assert.is_true(#folds_rows > 0 and #cracks_rows > 0, "sampled regions of both families")
+    local f_ash, c_ash = ash_share(folds_rows), ash_share(cracks_rows)
+    assert.is_true(f_ash > 0.75, "folded regions converge on ash-dark (" .. f_ash .. ")")
+    assert.is_true(c_ash > 0.75, "cracked regions converge on ash-dark (" .. c_ash .. ")")
+    -- And they converge EQUALLY WELL: the branch does not push its own family further in
+    -- (or stop it short) relative to the main line it branched from.
+    assert.is_true(math.abs(f_ash - c_ash) < 0.15,
+      "both families reach ash-dark alike (folds=" .. f_ash .. ", cracks=" .. c_ash .. ")")
+  end)
+
+  it("never leaks folds tiles into the middle or the cold side (ci-72bw)", function()
+    -- The branch lives strictly inside the hot slope's value segment, so no folds tile may
+    -- appear from the middle band (x >= -60) rightward, all the way to the ice ocean.
+    local leaked = count_in(FOLDS, -60, 396, -RY, RY)
+    assert.are.equal(0, leaked, "folds-family tiles must never paint the middle/cold side (" .. leaked .. " found)")
+    -- Nor above the branch: the lethal hot crust + the lava ocean stay the main line, so
+    -- the branch adds no new zero-damage tile out in the heat belt.
+    local hot_leak = count_in(FOLDS, -396, -135, -RY, RY)
+    assert.are.equal(0, hot_leak, "folds-family tiles must never paint the lethal hot belt (" .. hot_leak .. " found)")
+    -- Belt and braces: the whole scanned belt really is lethal ground.
+    assert.are.equal("heat", terrain.lethal_at(135), "the scanned hot belt is heat-lethal")
+  end)
+
+  it("keeps the folds slope SAFE: folds ground deals no damage and is buildable (ci-72bw)", function()
+    for name in pairs(FOLDS) do
+      local intensity, kind = terrain.tile_damage(name)
+      assert.are.equal(0, intensity, name .. " must deal no environmental damage")
+      assert.is_nil(kind, name .. " must have no damage kind")
+      assert.is_true(terrain.is_walkable(name), name .. " must be walkable ground")
+      assert.is_not_nil(prototypes.tile[name], name .. " is a real registered Cindra tile")
+    end
+    -- The folds counterpart of cracks-warm carries exactly cracks-warm's (zero) heat.
+    local fi, fk = terrain.tile_damage("cindra-volcanic-folds-warm")
+    local ci, ck = terrain.tile_damage("cindra-volcanic-cracks-warm")
+    assert.are.equal(ci, fi, "folds-warm has cracks-warm's heat intensity")
+    assert.are.equal(ck, fk, "folds-warm has cracks-warm's damage kind")
   end)
 
   it("the habitable middle is a MIX of ash tiles (+ soil patches), not one flat tile", function()

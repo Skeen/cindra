@@ -68,8 +68,15 @@ is an **OCEAN + a damaging INNER slope painted by a HEIGHTMAP**, plus a safe coo
 
 - **HOT** (ocean of hot-lava → ash-dark): `hot-lava → lava → smooth-stone-warm →
   cracks-hot` (heightmap rings radiating from the lava ocean) → `cracks-warm →
-  cracks → smooth-stone → ash-dark` (flat cool outer slope). The ci-72bw
-  folds/pumice **branch** after cracks-hot is a staged follow-up.
+  cracks → smooth-stone → ash-dark` (flat cool outer slope). Below cracks-hot the
+  slope **BRANCHES** into a second texture family (ci-72bw): `folds-warm → folds →
+  folds-flat → ash-cracks → pumice-stones`, covering the same value segment and
+  **converging on the same ash-dark**. A LOW-frequency branch noise picks the family
+  per REGION (broad folded/pumice patches alternating with cracked ones,
+  interpenetrating where the noise crosses zero), so the slope reads varied without
+  a seam. The branch is purely additive: it is gated to the slope band, so no folds
+  tile reaches the middle, the cold side, or the lethal heat belt, and each folds
+  tile carries exactly the damage of the cracks tile at the same field value (none).
 - **COLD** (ocean of smooth-ice → ash-light): `smooth-ice → rough-ice → snow-patchy
   → snow-lumpy → snow-crests → snow-flat` (heightmap rings) → `dust-patchy →
   dust-lumpy → dust-crests → dust-flat → ash-light` (flat cool outer slope).

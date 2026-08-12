@@ -257,8 +257,13 @@ merge queue.
   FOLLOW-UP (aesthetic, enabled by the damage decoupling): deliberate cross-region cosmetic
   scatter (hot-looking tiles out in the safe middle) — safe because damage is positional;
   needs the family-separation guard relaxed. Not yet done; see PLAYTEST.
-- [ ] **Hot-side folds BRANCH.** `ci-72bw` — the alternate volcanic-folds / ash-cracks
-  / pumice texture family after cracks-hot (additive to the hot heightmap).
+- [x] **Hot-side folds BRANCH.** `ci-72bw` — DONE. The alternate volcanic-folds /
+  ash-cracks / pumice family covers the same value segment as the cracks main line below
+  cracks-hot, picked per REGION by a low-frequency branch noise (`scripts/terrain.lua`
+  `BRANCH_*`), both converging on ash-dark. Gated to the slope band so it never reaches
+  the middle / cold side / heat belt, and damage-neutral (folds-warm == cracks-warm).
+  Gated by `unit-tests/test_terrain.lua` + `tests/test_worldgen.lua`; the look is a
+  PLAYTEST entry.
 - [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
   snowfall on the cold side only.
 - [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +

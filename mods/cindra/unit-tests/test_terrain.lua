@@ -66,6 +66,101 @@ test("the value ramp is ONE monotonic hot->cold sequence, lava-hot core -> ice-s
   assert_eq(terrain.COLD_DMG, by["snow-flat"], "snow-flat begins at the cold threshold (safe side)")
 end)
 
+-- === THE HOT-SIDE FOLDS BRANCH (ci-72bw) ====================================
+
+test("the hot slope has TWO families spanning the SAME value segment (ci-72bw)", function()
+  -- The cracks family is the main line; the folds family is the branch. The branch span is
+  -- derived from the cracks members, so both cover exactly the same values.
+  local span = terrain.BRANCH_SPAN
+  assert_eq(terrain.HOT_DMG, span.hi, "the branch span tops out at the heat threshold")
+  assert_eq(0.585, span.lo, "the branch span bottoms out where ash-dark begins")
+  local cracks, folds = terrain.family_tiles("cracks"), terrain.family_tiles("folds")
+  local function names(set)
+    local out = {}
+    for n in pairs(set) do out[#out + 1] = n end
+    table.sort(out)
+    return table.concat(out, ",")
+  end
+  assert_eq("cindra-volcanic-cracks,cindra-volcanic-cracks-warm,cindra-volcanic-smooth-stone",
+    names(cracks), "the cracks family is the ci-wly main line")
+  assert_eq("cindra-volcanic-ash-cracks,cindra-volcanic-folds,cindra-volcanic-folds-flat," ..
+    "cindra-volcanic-folds-warm,cindra-volcanic-pumice-stones",
+    names(folds), "the folds family is the ci-72bw branch")
+  -- Family membership is exclusive, and NOTHING outside the branch span is a member.
+  for _, v in ipairs({ "lava-hot", "lava", "volcanic-smooth-stone-warm", "volcanic-cracks-hot",
+                       "volcanic-ash-dark", "volcanic-ash-flats", "dust-flat", "ice-smooth" }) do
+    assert_eq(nil, terrain.tile_branch("cindra-" .. v), "cindra-" .. v .. " is in neither family")
+  end
+  assert_eq("cracks", terrain.tile_branch("cindra-volcanic-cracks-warm"), "cracks-warm is the cracks family")
+  assert_eq("folds", terrain.tile_branch("cindra-volcanic-folds-warm"), "folds-warm is the folds family")
+end)
+
+test("the folds ramp is monotonic, pinned to the branch span, ordered warm -> pumice", function()
+  local r = terrain.FOLDS_RAMP
+  assert_eq(5, #r, "five folds tiles")
+  assert_eq("volcanic-folds-warm", r[1].vanilla, "hottest folds tile first")
+  assert_eq("volcanic-pumice-stones", r[#r].vanilla, "pumice-stones is the coldest folds tile")
+  for i = 2, #r do
+    assert_true(r[i].lo < r[i - 1].lo, "folds tile " .. i .. " has a strictly lower value threshold")
+  end
+  assert_eq(terrain.BRANCH_SPAN.lo, r[#r].lo, "the coldest folds tile bottoms out at the convergence")
+  assert_true(r[1].lo < terrain.BRANCH_SPAN.hi, "the hottest folds tile stays below the heat threshold")
+end)
+
+test("BOTH families CONVERGE on ash-dark, and neither leaks past the branch span", function()
+  local span = terrain.BRANCH_SPAN
+  -- Below the span the folds selection returns the SAME tile as the main line (ash-dark
+  -- and everything colder): that IS the convergence.
+  for _, H in ipairs({ span.lo - 0.001, 0.56, 0.5, 0.44, terrain.COLD_DMG, 0.1, 0.0 }) do
+    assert_eq(terrain.value_tile(H), terrain.value_tile(H, "folds"),
+      "below the branch span both families paint the same tile (H=" .. H .. ")")
+  end
+  assert_eq("cindra-volcanic-ash-dark", terrain.value_tile(span.lo - 0.001, "folds"),
+    "the folds family thins into ash-dark")
+  assert_eq("cindra-volcanic-ash-dark", terrain.value_tile(span.lo - 0.001),
+    "the cracks family thins into ash-dark too")
+  -- Above the span (the lethal crust + the oceans) both families are the main line as well.
+  for _, H in ipairs({ span.hi, 0.76, 0.85, 0.95, 1.0 }) do
+    assert_eq(terrain.value_tile(H), terrain.value_tile(H, "folds"),
+      "above the branch span both families paint the same tile (H=" .. H .. ")")
+  end
+  -- INSIDE the span the two families differ everywhere (that is the point of the branch).
+  for _, H in ipairs({ 0.69, 0.66, 0.64, 0.60, 0.59 }) do
+    local main, folds = terrain.value_tile(H), terrain.value_tile(H, "folds")
+    assert_true(main ~= folds, "the families differ inside the span (H=" .. H .. ": " .. main .. ")")
+    assert_eq("folds", terrain.tile_branch(folds), folds .. " is a folds tile")
+    assert_eq("cracks", terrain.tile_branch(main), main .. " is a cracks tile")
+  end
+end)
+
+test("folds-warm carries the SAME (zero) heat damage as cracks-warm (ci-72bw)", function()
+  local wi, wk = terrain.tile_damage("cindra-volcanic-folds-warm")
+  local ci, ck = terrain.tile_damage("cindra-volcanic-cracks-warm")
+  assert_eq(ci, wi, "folds-warm has cracks-warm's heat intensity")
+  assert_eq(ck, wk, "folds-warm has cracks-warm's damage kind")
+  assert_eq(0, wi, "and that is the safe hot-slope value (0)")
+  assert_eq(nil, wk, "with no damage kind")
+  -- The whole folds family is safe, exactly like the whole cracks family: both live
+  -- strictly below HOT_DMG, so the branch cannot smuggle lethal ground into the slope.
+  for name in pairs(terrain.family_tiles("folds")) do
+    local i, k = terrain.tile_damage(name)
+    assert_eq(0, i, name .. " deals no damage")
+    assert_eq(nil, k, name .. " has no damage kind")
+    assert_eq(false, terrain.is_no_pave(name), name .. " is pavable safe ground")
+    assert_eq(true, terrain.is_walkable(name), name .. " is walkable ground")
+  end
+end)
+
+test("the folds family is confined to the hot slope: never the middle, never the cold side", function()
+  for name in pairs(terrain.family_tiles("folds")) do
+    local zones = terrain.tile_zones(name)
+    assert_true(zones.hot_outer == true, name .. " paints the hot outer slope")
+    for _, role in ipairs({ "middle", "cold_outer", "cold_inner", "cold_ocean", "hot_ocean" }) do
+      assert_eq(nil, zones[role], name .. " must never paint " .. role)
+    end
+  end
+end)
+
 test("the field is PINNED at the edges: lava extreme sunward, ice extreme nightward", function()
   local _, total = terrain.bands()
   local half = total / 2
@@ -224,8 +319,16 @@ end)
 
 test("all clone sources are real vanilla/space-age tile family names", function()
   local names = terrain.tile_names()
-  assert_eq(23, #names, "twenty-three deduped concrete tiles")
+  assert_eq(28, #names, "twenty-eight deduped concrete tiles (23 + the 5 folds-family tiles)")
   assert_eq("cindra-lava-hot", names[1], "hottest tile is first (hot -> cold order)")
+  -- The folds family registers directly after the tile it branches from, so the tile list
+  -- still reads hot -> cold.
+  local at = {}
+  for i, n in ipairs(names) do at[n] = i end
+  assert_true(at["cindra-volcanic-cracks-hot"] < at["cindra-volcanic-folds-warm"],
+    "the folds family is registered after the crust it branches below")
+  assert_true(at["cindra-volcanic-pumice-stones"] < at["cindra-volcanic-ash-dark"],
+    "and before the ash-dark convergence")
 end)
 
 test("only the two lava tiles are impassable; smooth-ice is WALKABLE (ci-wly)", function()
@@ -379,6 +482,58 @@ test("a value-ramp tile's probability_expr is a value-band term over the ONE fie
   contains(cold, "- -130", "the shared field references the cold damage boundary")
   local ok = pcall(function() terrain.probability_expr("not-a-tile") end)
   assert_true(not ok, "an unknown tile errors")
+end)
+
+test("hot-slope family tiles carry the low-frequency BRANCH penalty (ci-72bw)", function()
+  local folds = terrain.probability_expr("cindra-volcanic-folds-warm")
+  local cracks = terrain.probability_expr("cindra-volcanic-cracks-warm")
+  for _, e in ipairs({ folds, cracks }) do
+    contains(e, "seed1 = 60", "gated by the low-frequency branch-noise field")
+    contains(e, "input_scale = " .. string.format("%.6g", 1 / terrain.BRANCH_WAVELENGTH),
+      "the branch noise is LOW frequency (wavelength " .. terrain.BRANCH_WAVELENGTH .. ")")
+    contains(e, "- 0.8 * max(0,", "pays the branch penalty in the other family's regions")
+  end
+  -- Opposite signs: the folds family is gated to +branch-noise, cracks to -branch-noise,
+  -- so a region reads one family or the other, never a blend of both.
+  contains(folds, "0.8 * max(0, -(basis_noise{", "folds paint where the branch noise is positive")
+  assert_true(cracks:find("0.8 * max(0, -(basis_noise{", 1, true) == nil,
+    "cracks are gated the other way (no negated branch noise)")
+  -- CONTAINMENT: the folds family additionally pays a positional gate inward of the hot
+  -- slope, so a speckle can never surface it in the middle or on the cold side. The gate
+  -- reads the RAW perpendicular (a gate on the WIGGLED one contains nothing in world
+  -- space -- the wiggle carries the tile straight back over the line).
+  local slope = terrain.role_band(terrain.BRANCH_ROLE)
+  local g = terrain.branch_gate_band()
+  assert_eq(60, slope.lo, "the slope band starts at the middle's hot edge")
+  assert_eq(130, slope.hi, "and ends at the heat damage boundary")
+  assert_eq(64, g.lo, "the middle-ward gate line sits just inside the slope")
+  assert_eq(134, g.hi, "the hot gate line sits just outside it")
+  contains(folds, "- 1 * (max(0, 64 - " .. axis.perp_expr(),
+    "gated on the RAW perpendicular (a wiggled gate contains nothing in world space)")
+  contains(folds, axis.perp_expr() .. " - 134)", "and closed off on the hot side too")
+  assert_true(terrain.BRANCH_GATE > terrain.SPECKLE_H,
+    "one tile past a gate line the penalty already swamps the per-tile speckle")
+  -- Both gate lines must clear the family's visible (wiggled) contours, so neither ever
+  -- cuts a straight edge into the art.
+  local folds_lo, folds_hi
+  for p = slope.lo, slope.hi do
+    local h = terrain.field(p)
+    if h >= terrain.BRANCH_SPAN.lo and folds_lo == nil then folds_lo = p end
+    if h < terrain.BRANCH_SPAN.hi then folds_hi = p end
+  end
+  local clearance = terrain.NOISE_AMPLITUDE + 1
+  assert_true(folds_lo - g.lo > clearance,
+    "the middle-ward gate line (" .. g.lo .. ") clears the folds contour (" .. folds_lo .. ")")
+  assert_true(g.hi - folds_hi > clearance,
+    "the hot gate line (" .. g.hi .. ") clears the folds/crust contour (" .. folds_hi .. ")")
+  assert_true(cracks:find("max(0, 64 - ", 1, true) == nil,
+    "the main line keeps its established look: only the additive branch is gated")
+  -- Tiles OUTSIDE the branch span carry no branch term at all: the crust above it and the
+  -- ash-dark convergence below it are family-agnostic.
+  for _, v in ipairs({ "volcanic-cracks-hot", "volcanic-ash-dark", "volcanic-ash-flats", "ice-smooth" }) do
+    assert_true(terrain.probability_expr("cindra-" .. v):find("seed1 = 60", 1, true) == nil,
+      "cindra-" .. v .. " is outside the branch and carries no branch gate")
+  end
 end)
 
 test("a middle tile carries a value-band term; soil carries a gated patch term", function()
