@@ -4,6 +4,9 @@
 --
 -- Rule: a panel degrades only if its own output had nowhere to go (a disposal
 -- deficit on its grid). Properties this module guarantees, each locked by a test:
+--   * The deficit is the REAL undisposed surplus, measured from the engine's own
+--     per-network solar accounting (ci-sz8q), not the array's nameplate output:
+--     a grid consuming 100% of what its panels make takes ZERO damage.
 --   * Damage budget scales with the DEFICIT (W with nowhere to go), never with
 --     panel count.
 --   * Degrade before death: a mild deficit spends less than a panel's health, so
@@ -18,8 +21,9 @@
 --     panel's PERPENDICULAR coordinate (scripts/ribbon.lua via scripts/axis.lua,
 --     the single source of truth; hotter = more sunward), so the die-off front
 --     follows the planet's real temperature gradient in either orientation.
---   * Dissipator is the fuse: its capacity is counted in `capture` before any
---     panel is touched (scripts/sinks.lua), so disposal-first scaling = zero loss.
+--   * Dissipator is the fuse: it draws the surplus before any panel is touched
+--     (really, on the measured path; as rated `capture` on the modelled one,
+--     scripts/sinks.lua), so disposal-first scaling = zero loss.
 --
 -- Per-grid (scoped by electric_network_id) and per-surface: a saturated grid
 -- only damages its own panels; other grids and other planets are untouched.
@@ -111,27 +115,50 @@ function M.reconcile_variants(surface)
   return morphed
 end
 
--- Full disposal-deficit calculation for one network. Returns potential, the
--- capture breakdown (scripts/sinks.capture), and deficit = potential - capture.
--- deficit > 0 means surplus with nowhere to go.
+-- Full disposal-deficit calculation for one network. deficit > 0 means surplus
+-- with nowhere to go; it is what the damage budget is spent from.
+--
+-- TWO SOURCES, one meaning (ci-sz8q):
+--   * MEASURED (real play): the engine's own per-network accounting of solar
+--     power that was offered and NOT taken away (sinks.unconsumed_solar_w). This
+--     is the ACTUAL undisposed surplus, so a grid drawing 100% of what its panels
+--     make has a deficit of ZERO and takes no damage -- however large the array's
+--     nameplate output is. It also counts every real sink for free: factory
+--     consumers, dissipators actually drawing, accumulators still charging.
+--   * MODELLED (fallback): potential - capture, the nameplate estimate. Used when
+--     a consumption override is set (a test/dev simulating a load, where there is
+--     no real load to measure) or when the network cannot be read yet.
+--
+-- `potential` and `capture` stay in the result either way: they are the model's
+-- telemetry (and what the sink/catchability tests read).
 function M.deficit(surface, network_id, intensity)
   intensity = intensity or flare.current_intensity()
   local panels = M.panels(surface, network_id)
   local potential = M.potential(panels, intensity)
   local capture = sinks.capture(surface, network_id)
+  local modelled = potential - capture.total
+
+  local measured = nil
+  if sinks.consumption_override() == nil then
+    measured = sinks.unconsumed_solar_w(panels[1])
+  end
+
   return {
     panels = panels,
     intensity = intensity,
     potential = potential,
     capture = capture,
-    deficit = potential - capture.total,
+    measured = measured,
+    modelled = modelled,
+    deficit = measured or modelled,
   }
 end
 
--- Pop the overload-damage spark on a panel that just took a hit (ci-clf). A
--- self-reaping electric-arc explosion (prototypes/panel-spark.lua) at the panel's
--- position, so the otherwise-silent disposal-deficit degradation has a visible
--- cue -- the player can SEE which panels are burning up from an unabsorbed flare.
+-- Pop the overload effect on a panel that just took a hit (ci-clf; ci-sz8q art).
+-- A self-reaping accumulator-DISCHARGE glow (prototypes/panel-spark.lua) at the
+-- panel's position, so the otherwise-silent disposal-deficit degradation has a
+-- visible cue -- the player can SEE which panels are burning up from an unabsorbed
+-- flare.
 -- Created on the panel's OWN surface, which the sweep has already gated to
 -- "cindra", so no other planet ever sees a spark. Fired BEFORE a lethal hit so a
 -- panel about to be destroyed still arcs at its last position.
@@ -144,6 +171,16 @@ end
 -- panels (degrade), a large sustained budget consumes their health and kills
 -- them (death), then spills to the next panel inward. Every panel that takes a
 -- hit pops an overload spark (ci-clf). Returns hp dealt, deaths, and spark count.
+--
+-- DEATH IS A REAL DEATH (ci-sz8q): a lethal hit calls entity.die(), not
+-- entity.destroy(). destroy() removes the entity silently -- the panel simply
+-- VANISHED, with no death animation, no remnant and no destruction sound, which
+-- read as a bug rather than as burning out. die() runs the engine's own death
+-- path, so the panel breaks like anything else in Factorio: it plays its
+-- `dying_explosion`, leaves its `solar-panel-remnants` corpse on the ground, and
+-- raises on_entity_died for anything listening. Non-lethal hits still set health
+-- directly, which keeps the damage budget EXACT (the balance tests measure HP to
+-- within 1) and independent of any damage-type resistance.
 local function damage_network(info)
   local budget = (info.deficit / 1e6) * C.HP_PER_MW_DEFICIT
   local dealt, destroyed, sparked = 0, 0, 0
@@ -158,7 +195,7 @@ local function damage_network(info)
         sparked = sparked + 1
       end
       if hit >= p.health then
-        p.destroy()
+        p.die()
         destroyed = destroyed + 1
       else
         p.health = p.health - hit

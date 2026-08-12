@@ -7,7 +7,10 @@ merge queue.
 
 > **Test-first (non-negotiable):** every gameplay change needs an integration
 > test (`mods/cindra/tests/test_*.lua`) and/or a plain-Lua unit test
-> (`mods/cindra/unit-tests/`). See [`AGENTS.md`](AGENTS.md).
+> (`mods/cindra/unit-tests/`). Those tests assert what the PLAYER OBSERVES
+> (conservation, damage, on/off, demand-driven), never a restatement of the
+> implementation constants — a test that could still pass while the behavior is
+> broken is the wrong test (`ci-m96z`). See [`AGENTS.md`](AGENTS.md).
 
 ## Done
 

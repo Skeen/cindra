@@ -579,19 +579,22 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   finished foundries instead; those recipes reuse vanilla lubricant/foundry icons
   (v1 placeholder art), do not file that as a bug.
 
-- [ ] **[LANDED] Bootstrap kit capsule drops on landing (ci-8wu).** A start-on-Cindra
-  game lands with a MINIMAL supply chest ("capsule") pre-stocked with the two machines
-  that are painful to hand-bootstrap plus basic power: 1 `foundry`, 1
-  `cindra-lava-manufacturer`, 3 `solar-panel`, 2 `accumulator`, 8 `small-electric-pole`.
-  The kit CONTENTS + one-chest-only minimality are logic-tested
-  (`tests/test_aps_kit.lua`, via `cindra-start`'s spawn seam); what stays a playtest is
-  the in-game DROP FLOW, which needs a real cargo-pod cutscene. *Repro:* start on Cindra
-  via any-planet-start and watch the opening. *Look for:* exactly ONE steel chest appears
-  near where the character lands (not before the cargo-pod cutscene finishes, not a
-  second copy on reload/save), it is openable and holds the kit above, and the kit gives
-  a genuine leg-up (build power + a first foundry+caster without the hand-craft grind)
-  without feeling like a free base. If it drops twice, drops on a non-Cindra start, or
-  never drops, that is a bug.
+- [ ] **[LANDED] Bootstrap kit rides in the crashed ship (ci-8wu, ci-q6nh).** A
+  start-on-Cindra game lands with a MINIMAL kit -- the two machines that are painful to
+  hand-bootstrap plus basic power: 1 `foundry`, 1 `cindra-lava-manufacturer`, 3
+  `solar-panel`, 2 `accumulator`, 8 `small-electric-pole` -- loaded into the CRASH-SITE
+  SPACESHIP itself (ci-q6nh moved it out of the old chest capsule). The ship's own 8
+  firearm magazines are stripped to free a slot; there is nothing to shoot on Cindra.
+  The kit CONTENTS, the ammo strip, the five-slot fit and the no-extra-container
+  guarantee are logic-tested (`tests/test_aps_kit.lua`, via `cindra-start`'s ship-stock
+  seam); what stays a playtest is the in-game OPENING FLOW, which needs a real cargo-pod
+  cutscene. *Repro:* start on Cindra via any-planet-start, let the cutscene finish, walk
+  to the wreck and open it. *Look for:* the wreck holds exactly the kit above and no
+  ammo, NO extra chest sits anywhere near the landing site, the kit is there on the
+  first open (and is not duplicated after a save/reload), and it gives a genuine leg-up
+  (build power + a first foundry+caster without the hand-craft grind) without feeling
+  like a free base. If a chest still appears, if the ship is empty or still holds
+  magazines, or if the kit arrives on a non-Cindra start, that is a bug.
 
 ## Economy: lava, ice, aluminium
 
@@ -806,23 +809,33 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   added. Beyond the health bar, a damaged panel now pops an **overload spark**
   (ci-clf, next entry) so you can SEE which panels are cooking.
 
-- [ ] **[LANDED] Overload-damage spark on a burning panel (ci-clf) — VISUAL.**
-  *Repro:* build a sunward panel array with NO disposal (no dissipator/battery)
-  and ride a flare (or force it: enable the driver and let a real flare peak). The
-  most-sunward panels take disposal-deficit damage. *Look for:* the instant a panel
-  is damaged, a short **electric-arc spark** flashes on it — a brief hot orange/white
-  zap (the vanilla `sparks-0x` arc, re-tinted to Cindra's fire palette, drawn as a
-  glow), NOT Fulgora electric-blue lightning. It fires once per damaged panel per
-  damage tick, so a cooking array **shimmers with arcs sunward-first** and the front
-  advances inward as panels die; a spared/recovering panel (enough disposal) throws
-  **no** spark. The spark should read as "this panel is arcing from overload", pop
-  cleanly, and self-clear (it is a one-shot explosion entity, no lingering artifact).
-  *Fallback:* the spark prototype (a self-reaping `explosion`) and the fire-on-damage /
-  no-fire-on-recovery / one-per-hit behaviour are integration-tested
-  (`tests/test_panel_damage.lua` "overload spark visual", `tests/test_power_prototypes.lua`);
-  only the *look/feel* (tint, scale, is the flash readable but not spammy?) is the
-  playtest. *Note:* v1 reuses the vanilla arc sheets; a bespoke overload sprite is
-  an optional art follow-up.
+- [ ] **[LANDED] Overload effect on a burning panel = accumulator DISCHARGE
+  (ci-clf, art re-done in ci-sz8q) — VISUAL.** *Repro:* build a sunward panel array
+  with NO disposal (no dissipator/battery) and ride a flare (or force it: enable the
+  driver and let a real flare peak). The most-sunward panels take disposal-deficit
+  damage. *Look for:* the instant a panel is damaged, the vanilla **accumulator
+  discharge glow** pulses over it (the same effect an accumulator plays dumping its
+  charge), NOT the old re-tinted arc sparks and NOT Fulgora electric-blue lightning.
+  It fires once per damaged panel per damage tick, so a cooking array **pulses
+  sunward-first** and the front advances inward as panels die; a spared/recovering
+  panel (enough disposal) shows **nothing**. It should read as "too much power is
+  moving through this thing", sit ON the panel (no accumulator body drawn over it),
+  and self-clear (a one-shot explosion entity, no lingering artifact).
+  *Fallback:* the prototype's type/hidden flags, the exact discharge art + frame
+  geometry, and the fire-on-damage / no-fire-on-recovery / one-per-hit behaviour are
+  all tested (`unit-tests/test_panel_spark_graphics.lua`,
+  `tests/test_panel_damage.lua` "overload spark visual",
+  `tests/test_power_prototypes.lua`); only the *look/feel* (is the pulse readable but
+  not spammy at array scale?) is the playtest.
+
+- [ ] **[LANDED] A panel killed by overload BREAKS, it does not vanish (ci-sz8q)
+  — VISUAL/AUDIO.** *Repro:* as above, but let the sunmost panel burn all the way
+  down (no disposal, sustained flare). *Look for:* it dies like any other Factorio
+  building — the destruction explosion plays, the break sound fires, and a
+  **solar-panel wreck stays on the ground** where it stood (it used to simply pop
+  out of existence mid-flare, which read as a bug). *Fallback:* the remnant is
+  integration-tested (`tests/test_panel_overload.lua` "leaves a remnant at its
+  position"); only the sound/animation feel is the playtest.
 
 - [ ] **[LANDED] Sunward-position solar output, no visual band cue (ci-9ht,
   ci-8al).** Cindra uses the **vanilla** `solar-panel` (ci-8al). A placed panel

@@ -42,6 +42,43 @@ most common cause of a rejected MR.
 - **Nothing ships without its tests.** Every change needs a test (see
   Conventions). The fix for a bug MUST add a test that fails on main and passes
   on the fix.
+- **Ship at least one PLAYER-OBSERVABLE INVARIANT test** for any new or changed
+  mechanic (see the section below). A suite of prototype-field assertions does
+  not satisfy this for anything with runtime behavior.
+
+## 🚨 TESTS ASSERT PLAYER-OBSERVABLE BEHAVIOR, NOT THE IMPLEMENTATION
+
+**Players only ever see behavior. That is all a test may assert.**
+
+A test that restates the code cannot catch a wrong model: it passes precisely
+because the code says what the code says. Two green suites shipped exactly that
+way -- a power diode that drew 10 MW forever AND generated 10 MW from nothing
+(ci-76if, `energy_usage == X` asserted), and a tile-damage regression (ci-ma18,
+the damage CONSTANT asserted instead of "standing on concrete shields you").
+
+**The test:** if this test could still pass while the player-visible behavior is
+broken, it is the WRONG test. Rewrite it against the observable outcome.
+
+Observable invariants look like:
+
+- **conservation** -- no entity creates energy/items from nothing; what comes out
+  is at most what went in plus legitimate generation
+  (`tests/test_power_conservation.lua` is the worked example, and the mod-wide
+  policy suite for power)
+- **tile-based damage** -- concrete shields, lava/cracks burn
+- **on/off actually gates** -- a disabled thing transfers nothing AND draws nothing
+- **demand-driven** -- an idle consumer causes ~zero upstream draw
+- **the right thing renders** -- correct model/overlay, selection box matches it
+
+Prototype-field assertions (`energy_usage == X`, `box == Y`) are fine as a
+supplement -- they pin intent and catch typos -- but they never stand alone for
+anything with runtime behavior. Prefer a runtime/behavioral test; the runtime
+API exposes enough world state to measure nearly anything (see the next section).
+
+**Coverage guards beat good intentions.** Where a class of entity shares an
+invariant, enumerate the class LIVE from `prototypes.*` and fail when a member
+has no case (`test_power_conservation.lua` does this for every Cindra power
+entity). A new entity then cannot ship without its invariant test.
 
 ## 🚨 ALWAYS PREFER TESTS OVER PLAYTEST
 
@@ -175,7 +212,8 @@ storage tier, the electric heater, the mass driver, the science pack.
 
 - **🚨 EVERY CHANGE NEEDS A TEST.** Prototype field, recipe, script, world-gen
   tweak — all of it. If a player finds a bug, the fix MUST add a test that fails
-  on main and passes on the fix.
+  on main and passes on the fix. The test asserts what the PLAYER OBSERVES, never
+  a restatement of the implementation (see the player-observable section above).
 - **Don't `git add -A`/`.`.** Always name specific files.
 - **Commits:** short subject (<70 chars), body explains *why*.
 - **Don't bypass hooks** (`--no-verify`, `--amend` unless asked).

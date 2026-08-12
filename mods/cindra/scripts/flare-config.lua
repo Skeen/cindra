@@ -116,10 +116,11 @@ C.PANEL = "solar-panel"
 C.PANEL_BAND_PREFIX = "cindra-solar-band"
 -- Vanilla solar-panel max_health (the panels the disposal-deficit rule degrades).
 C.PANEL_MAX_HEALTH = 200
--- The overload-damage spark (ci-clf): a short electric-arc explosion the damage
--- sweep pops on a panel the instant it takes disposal-deficit damage, so the
--- otherwise-silent degradation has a visible cue. Prototype in
--- prototypes/panel-spark.lua; spawned by scripts/panels.lua.
+-- The overload-damage effect (ci-clf; art re-done in ci-sz8q): a one-shot
+-- ACCUMULATOR-DISCHARGE glow the damage sweep pops on a panel the instant it
+-- takes disposal-deficit damage, so the otherwise-silent degradation has a
+-- visible cue. Prototype in prototypes/panel-spark.lua; spawned by
+-- scripts/panels.lua.
 C.PANEL_SPARK = "cindra-panel-overload-spark"
 -- Damage budget per sweep scales with the disposal DEFICIT (MW with nowhere to
 -- go), never with panel count (mirrors the induction-damage kernel).
@@ -200,10 +201,13 @@ C.MEASURE_BUFFER_J = 5e9
 -- rest -- the between-flare floor never damages a lone panel, only undisposed
 -- flare/array surplus does.
 --
--- NOTE (integration simplification, from the PoC): consumption is a per-grid
--- SCALAR the damage rule reads to size the deficit; a full build would read live
--- consumers per electric network. TODO(ci-63d/follow-up): sum real network draw
--- so the panel-damage deficit tracks actual load instead of this default.
+-- NOTE (ci-sz8q): this scalar is now only the MODELLED fallback. Real play sizes
+-- the deficit from the engine's own per-network solar accounting
+-- (sinks.unconsumed_solar_w), so panel damage tracks the ACTUAL undisposed
+-- surplus -- a grid consuming 100% of its panels' output takes zero damage. The
+-- scalar still backs the model path used when a test/dev simulates a load via
+-- sinks.set_consumption, and it is deliberately one full-band panel's baseline
+-- output so a lone-panel grid reads net-neutral at rest there too.
 C.DEFAULT_CONSUMPTION_W = C.BASELINE_W
 
 return C
