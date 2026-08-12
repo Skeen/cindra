@@ -24,3 +24,15 @@ if #bad > 0 then
   error("cindra: invisible entity prototype(s) with no render graphics wired: "
     .. table.concat(bad, ", ") .. " (see prototypes/graphics-audit.lua)")
 end
+
+-- Second guard (ci-z94): a player-placed power building of an animated class
+-- must SHOW ITS STATE. The class is enumerated live from data.raw, so a new
+-- Cindra accumulator or electric-energy-interface cannot ship as a still image
+-- the way the ci-pru placeholders did -- the flare loop is played by reading
+-- which units are working, and a static building tells the player nothing.
+local static = audit.static_offenders(data.raw, specs)
+if #static > 0 then
+  error("cindra: player-placed power entity/entities with no working animation: "
+    .. table.concat(static, ", ")
+    .. " (generate one with ./scripts/render-entity-anim.sh; see prototypes/graphics-audit.lua)")
+end
