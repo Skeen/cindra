@@ -194,7 +194,10 @@ describe("cindra start-on-Cindra foundry bootstrap", function()
     assert.is_true(unlocks[R_MINERAL], "unlocks mineral lubricant")
     assert.is_true(unlocks[R_FIELD_FOUNDRY], "unlocks the field foundry")
 
-    assert.is_not_nil(tech.prerequisites["planet-discovery-cindra"],
+    -- Gated behind Cindra discovery in the world that has one. An APS Cindra start
+    -- retires that tech (the player begins on the planet), so there the helper
+    -- asserts the other half: nothing is stranded behind it (ci-r7w4).
+    H.assert_behind_cindra_discovery(tech.name,
       "gated behind Cindra discovery -- normal play reaches it only after Vulcanus (§6)")
   end)
 

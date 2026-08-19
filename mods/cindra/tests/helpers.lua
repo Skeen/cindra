@@ -150,4 +150,96 @@ function H.panel_col(surface, count, y0, x, step)
   return list
 end
 
+-- ===========================================================================
+-- The "you must reach Cindra first" gate (ci-r7w4).
+--
+-- In normal play Cindra is a DESTINATION: its technologies hang off
+-- `planet-discovery-cindra`, so none of its content is researchable until the
+-- player has actually reached the planet. The Any-Planet-Start CINDRA START is a
+-- different world on purpose -- the player begins ON Cindra -- so APS's
+-- data-final-fixes retires the discovery tech (hides it, strips it out of every
+-- prerequisite list in the game, and enables the recipes it used to hand out).
+--
+-- Tests that asserted the prerequisite edge unconditionally were therefore red on
+-- clean main under the documented with-APS mod set: the gating they described
+-- does not exist there, and never should. That made a target-side failure
+-- indistinguishable from an MR's own. So the gate is asserted through the helper
+-- below, which states the invariant belonging to whichever world is loaded. The
+-- default assertion is UNCHANGED and unweakened: the prerequisite must be there.
+-- ===========================================================================
+
+H.DISCOVERY_TECH = "planet-discovery-cindra"
+
+-- True only when Cindra is the CHOSEN Any-Planet-Start start planet. `aps-planet`
+-- is APS's own startup setting, so its absence means APS is not loaded at all;
+-- with any other planet chosen the discovery tech survives untouched and the
+-- default gate still applies. Same predicate cindra-start's control.lua uses to
+-- decide whether it is running a Cindra start.
+function H.aps_cindra_start()
+  local setting = settings.startup["aps-planet"]
+  return setting ~= nil and setting.value == "cindra"
+end
+
+-- Every technology reachable from `name` by walking prerequisites (`name` itself
+-- excluded), as a set. Reachability of the whole chain, not one edge.
+function H.prereq_closure(name)
+  local seen, queue = {}, { name }
+  while #queue > 0 do
+    local tech = prototypes.technology[table.remove(queue)]
+    if tech then
+      for prereq in pairs(tech.prerequisites) do
+        if not seen[prereq] then
+          seen[prereq] = true
+          queue[#queue + 1] = prereq
+        end
+      end
+    end
+  end
+  return seen
+end
+
+-- A retired tech is one no player can ever research: APS hides the start
+-- planet's discovery tech instead of deleting it, so it lingers in
+-- `prototypes.technology` but never appears in the tech tree.
+function H.tech_is_retired(name)
+  local tech = prototypes.technology[name]
+  return tech == nil or tech.hidden
+end
+
+-- The APS-start half of the gate: the discovery gate is gone BY DESIGN, so what
+-- must hold is that it went for that reason and stranded nothing. `tech_name`
+-- must still be reachable -- a Cindra tech left sitting behind the retired
+-- discovery tech (or any other unresearchable one) would soft-lock the start,
+-- which is exactly what this catches.
+function H.assert_reachable_on_aps_start(tech_name)
+  assert.is_true(H.tech_is_retired(H.DISCOVERY_TECH),
+    H.DISCOVERY_TECH .. " must be retired by the APS Cindra start -- the player is already there")
+  for _, tech in pairs(prototypes.technology) do
+    assert.is_nil(tech.prerequisites[H.DISCOVERY_TECH],
+      tech.name .. " still requires the retired " .. H.DISCOVERY_TECH .. " -- unresearchable, so a soft-lock")
+  end
+
+  local tech = prototypes.technology[tech_name]
+  assert.is_not_nil(tech, tech_name .. " must still exist on an APS Cindra start")
+  assert.is_false(tech.hidden, tech_name .. " must stay researchable on an APS Cindra start")
+  for prereq in pairs(H.prereq_closure(tech_name)) do
+    assert.is_false(H.tech_is_retired(prereq),
+      tech_name .. " is stranded behind the retired " .. prereq .. " -- the APS start would soft-lock")
+  end
+end
+
+-- Assert that `tech_name` is Cindra-progression content -- in EITHER world.
+--   * default        -> it lists `planet-discovery-cindra` as a DIRECT
+--                       prerequisite, so it cannot be researched before the
+--                       player reaches the planet. `message` describes that edge.
+--   * APS Cindra start -> the gate is retired and nothing is stranded behind it
+--                       (see assert_reachable_on_aps_start).
+function H.assert_behind_cindra_discovery(tech_name, message)
+  if H.aps_cindra_start() then
+    H.assert_reachable_on_aps_start(tech_name)
+    return
+  end
+  assert.is_not_nil(prototypes.technology[tech_name].prerequisites[H.DISCOVERY_TECH], message)
+end
+
 return H

@@ -34,12 +34,14 @@ describe("cindra planet", function()
     -- Vulcanus gate (§6). Guard so both configs stay green (matches the
     -- config-aware guard test_mass_driver uses for the same trap).
     --
-    -- Gate on `any-planet-start`, NOT `cindra-start`: APS is now an OPTIONAL
-    -- dependency, so cindra-start can be active without it. The prereq-stripping
-    -- is APS's data-final-fixes, so it only happens when APS itself is present.
+    -- Gate on APS having CINDRA as its chosen start (H.aps_cindra_start), not on
+    -- `cindra-start` and not on APS merely being installed: the prereq-stripping is
+    -- APS's data-final-fixes acting on the CHOSEN planet's discovery tech, so with
+    -- APS installed and another planet picked the Vulcanus gate is still there
+    -- (ci-r7w4 -- a config asserting the wrong world reads as a target failure).
     local prereqs = {}
     for _, p in pairs(tech.prerequisites) do prereqs[p.name] = true end
-    if script.active_mods["any-planet-start"] then
+    if H.aps_cindra_start() then
       assert.is_nil(prereqs["planet-discovery-vulcanus"],
         "under APS the Vulcanus discovery prereq is stripped (tech becomes a root)")
     else

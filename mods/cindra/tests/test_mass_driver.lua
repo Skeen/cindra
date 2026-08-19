@@ -367,10 +367,12 @@ describe("cindra mass driver (tech gating)", function()
     assert.is_true(pack_names["cindra-science-pack"],
       "exporting off Cindra must cost the Cindra science pack")
 
-    -- Branches off Cindra's own discovery tech. Under any-planet-start (Cindra
-    -- start), APS hides planet-discovery-cindra and STRIPS it from dependents'
+    -- Branches off Cindra's own discovery tech. Under an any-planet-start CINDRA
+    -- start, APS hides planet-discovery-cindra and STRIPS it from dependents'
     -- prerequisites, so this tech becomes a root instead -- never a dangling ref.
-    if script.active_mods["any-planet-start"] then
+    -- Gated on the CHOSEN start being Cindra (ci-r7w4): with APS installed and
+    -- another planet picked, the discovery gate below is still the live one.
+    if H.aps_cindra_start() then
       assert.is_nil(tech.prerequisites["planet-discovery-cindra"],
         "under APS the discovery prereq is stripped (tech becomes a root), not dangling")
     else

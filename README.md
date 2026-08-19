@@ -134,8 +134,14 @@ cindra-test any-planet-start cindra-start cindra-dev-default
 ```
 
 That mod set rewrites Cindra's discovery tech (APS treats it as the start
-planet), so it is deliberately kept out of the default run. The actual in-game
-start (cargo-pod drop, playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
+planet), so it is deliberately kept out of the default run. It is nonetheless a
+FULLY GREEN run: the whole suite must pass under it, exactly as under the default
+mod set. Cindra's gating tests state the discovery gate per world rather than
+asserting the default tech tree unconditionally (`tests/helpers.lua`
+`assert_behind_cindra_discovery` + `tests/test_discovery_gate.lua`, ci-r7w4) --
+before that, three of them were red on clean main here, which made a target-side
+failure look like the branch's own. The actual in-game start (cargo-pod drop,
+playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
 
 ### PlanetsLib co-load
 

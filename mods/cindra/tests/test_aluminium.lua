@@ -258,7 +258,10 @@ describe("cindra aluminium: private category + gating", function()
     -- (reaching Cindra), so aluminium stays behind both rock and the planet itself.
     assert.is_not_nil(tech.prerequisites["cindra-lava"],
       "gated behind the lava spine -- the metal economy + the power to electrolyse")
-    assert.is_not_nil(prototypes.technology["cindra-lava"].prerequisites["planet-discovery-cindra"],
+    -- ...and the lava spine itself sits behind reaching the planet, in the world
+    -- that gates on that. An APS Cindra start has no such gate by design (the
+    -- player begins on Cindra), so there the helper asserts that half (ci-r7w4).
+    H.assert_behind_cindra_discovery("cindra-lava",
       "cindra-lava requires Cindra discovery -- so aluminium is unreachable until the player commands both rock and the planet (calcite is mined, no crush tech)")
   end)
 

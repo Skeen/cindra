@@ -78,6 +78,12 @@ if script.active_mods["factorio-test"] then
     "tests/test_lava_tap",
     "tests/test_sulfur", -- ci-eat: stone -> roast -> sulfur -> sulfuric acid
     "tests/test_aluminium",
+    -- ci-r7w4: the "reach Cindra first" gate as a player-observable REACHABILITY
+    -- sweep (drive a fresh force through the whole tech tree, then look at what it
+    -- can craft), stated so it holds in BOTH worlds: normal play, where the
+    -- discovery tech gates the signature chain, and an APS Cindra start, which
+    -- retires that tech on purpose and must strand nothing behind it.
+    "tests/test_discovery_gate",
     -- ci-400 Calcite-To-Olefins: the petrochemical-free plastic chain (water
     -- electrolysis + calcite calcination + methanol-to-olefins over a Cu/Al
     -- catalyst), ending in the vanilla plastic-bar; byproduct vents; gating.

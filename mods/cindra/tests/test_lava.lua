@@ -259,7 +259,9 @@ describe("cindra manufactured lava", function()
     -- feeds) AND Cindra discovery (so it is Cindra-progression content).
     assert.is_not_nil(tech.prerequisites["foundry"],
       "gated behind the foundry -- the Vulcanus casts + metal chain lava feeds")
-    assert.is_not_nil(tech.prerequisites["planet-discovery-cindra"],
+    -- ...AND Cindra discovery, in the world that has one. On an APS Cindra start the
+    -- player is already there, so the helper asserts that half instead (ci-r7w4).
+    H.assert_behind_cindra_discovery(tech.name,
       "gated behind Cindra discovery -- Cindra-progression content")
   end)
 
