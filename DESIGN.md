@@ -339,6 +339,24 @@ startup zone-width settings remain the nominal geometry the sliders multiply.
 All three bounds come from `terrain.resource_bounds` / `terrain.damage_bounds` —
 i.e. from the per-zone widths — so retuning a zone width moves the ore with it.
 
+**Where a thing may stand is decided by the TILE, not by the coordinate.** Those
+band bounds shape the world; they cannot promise anything about *damage*. The tile
+family is picked from the noisy heightmap VALUE, so a lethal tile surfaces roughly
+20 tiles inside the nominal safe side of its boundary — many times any keep-back
+margin. So every placement rule that must hold against the ground gates on an
+autoplace `tile_restriction` naming tiles from `terrain.tiles_by_damage`, and the
+positional margins beside it are cosmetic fades only:
+
+* the **glowing** volcanic boulder may stand only on burning ground and the plain
+  one only on safe ground, so the model you see is a truthful read of the ground
+  (ci-w87);
+* a **hand-gathered bootstrap rock** (sandy or ice) may stand only on ground that
+  does no damage (ci-pxlz) — it is the one thing on Cindra you harvest by walking
+  to it and waiting, on the landing-tier trip you make before owning any heat or
+  cold gear, so a rock planted in lethal ground is visible-but-unreachable in its
+  most expensive form. The glowing volcanic rocks are the deliberate exception:
+  they are hazard signage inside the lava area, not a resource you set out for.
+
 There is **no standalone ice-derived ore or map-gen slider** beyond stone + ice
 (ci-3yl). The ice field is a **multi-product resource**: mining it drops a FIXED
 mix of both `ice` and `calcite` in one action (ci-9l6), in an ice-majority ratio

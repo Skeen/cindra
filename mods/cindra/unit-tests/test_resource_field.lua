@@ -410,6 +410,70 @@ test("splitting the volcanic family does NOT change the band or its density (ci-
     "the lava edge must NOT appear as a position gate -- the tile decides the model")
 end)
 
+-- ci-pxlz: the hand-gathered bootstrap rocks (sandy + ice) may stand only on ground that
+-- does no damage. These pin the GATE ITSELF -- that the tile list really is damage-free,
+-- really is all of the damage-free ground, and really is terrain's own set rather than a
+-- hand-maintained copy. What the gate DOES to a generated world is asserted behaviourally
+-- in tests/test_worldgen_rock_ground.
+test("a bootstrap rock may stand ONLY on ground that does no damage (ci-pxlz)", function()
+  local tiles = field.bootstrap_rock_tile_restriction()
+  assert_true(#tiles > 0, "the bootstrap rocks have somewhere to stand")
+  for _, name in ipairs(tiles) do
+    local intensity, kind = terrain.tile_damage(name)
+    assert_true(intensity <= 0,
+      name .. " deals " .. tostring(kind) .. " damage, so a rock you walk out to mine there hurts")
+  end
+end)
+
+test("NO safe tile is barred to the bootstrap rocks -- the bands keep their reach (ci-pxlz)", function()
+  -- The other half of the gate, and the one that stops "fix the damage by shrinking the
+  -- scatter": every damage-free Cindra tile must still qualify, so the restriction can
+  -- only ever remove the bled lethal ground and never trims the band itself.
+  local allowed = {}
+  for _, n in ipairs(field.bootstrap_rock_tile_restriction()) do allowed[n] = true end
+  for _, name in ipairs(terrain.tile_names()) do
+    local intensity = terrain.tile_damage(name)
+    if intensity <= 0 then
+      assert_true(allowed[name], name .. " is safe ground but carries no bootstrap rock")
+    else
+      assert_true(not allowed[name], name .. " damages the player but is allowed anyway")
+    end
+  end
+end)
+
+test("the bootstrap gate is terrain's OWN damage-free set, not a copy (ci-pxlz)", function()
+  -- If the two ever drift, a retuned value ramp would move the damage belts and leave the
+  -- rock gate behind -- which is exactly how ci-18n's positional promise went stale.
+  local from_terrain = terrain.tiles_by_damage(nil)
+  local from_field = field.bootstrap_rock_tile_restriction()
+  assert_eq(#from_terrain, #from_field, "the gate must track terrain's damage-free set")
+  local set = {}
+  for _, n in ipairs(from_terrain) do set[n] = true end
+  for _, n in ipairs(from_field) do
+    assert_true(set[n], n .. " is allowed a rock but is not in terrain's damage-free set")
+  end
+  -- ...and it is the SAME rule the plain volcanic boulders already stand on, so the two
+  -- cannot disagree about what "safe ground" means.
+  assert_eq(#from_terrain, #field.burned_rock_tile_restriction(field.BURNED_ROCK),
+    "the plain volcanic rocks and the bootstrap rocks must share one notion of safe ground")
+end)
+
+test("the ROCK_COLD_MARGIN fade is NOT what keeps rocks off lethal ground (ci-pxlz)", function()
+  -- ci-18n sized the margin against the noise amplitudes and read it as a damage
+  -- guarantee. It never was one: the speckle is a FIELD-unit tie-break, so the tile bleed
+  -- is many times the amplitude sum. Pin the margin as the cosmetic fade it is, so nobody
+  -- re-derives a safety promise from it.
+  assert_true(field.ROCK_COLD_MARGIN < terrain.NOISE_AMPLITUDE + terrain.SPECKLE_AMPLITUDE + 20,
+    "the margin is a fade, not a bleed budget -- it cannot cover the real tile bleed")
+  local d = terrain.damage_bounds()
+  local b = terrain.resource_bounds()
+  -- The ice-rock band still runs right up to the nominal cold-damage boundary: the fix is
+  -- a tile gate, NOT a retreat, so the band must not have been pulled inland.
+  assert_true(field.ice_rock_zone(d.cold_from + 1), "the ice-rock band still reaches the icy edge")
+  assert_true(not field.ice_rock_zone(d.cold_from), "...and still stops at the lethal cap")
+  assert_true(field.ice_rock_zone(b.building_lo), "...and still starts at the stone/ice divider")
+end)
+
 -- ci-w87: the cold rocks come in two iceberg sizes now. Adding a size must change what
 -- the player SEES, not how buried the ground is -- the ci-tizx legibility budget.
 test("the ice-rock sizes SPLIT one scatter, they do not add a second (ci-w87)", function()

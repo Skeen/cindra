@@ -117,6 +117,12 @@ if script.active_mods["factorio-test"] then
     -- map-gen slider setting. Generates the world with every Stone/Ice slider maxed
     -- (where the leak shows) and reads the tile under every single ore tile.
     "tests/test_worldgen_field_ground",
+    -- ci-pxlz: the hand-mined bootstrap rocks stand on ground that does not damage
+    -- you. Reads the real footprint-damage decision under every rock that generated
+    -- on a tall fixed-seed strip, plus a no-retreat guard (the cold scatter must
+    -- still reach the icy edge) and a LIVE coverage sweep over every Cindra scatter
+    -- family, so a new rock cannot ship without the invariant.
+    "tests/test_worldgen_rock_ground",
     -- ci-oe83: the ONE-heightmap merge gate -- emergent oceans, belt-confined damage,
     -- no walk-to-ocean corridor, no enclosure (drives the real sweep as the oracle).
     "tests/test_heightmap",

@@ -257,14 +257,16 @@ end
 -- (sunward) edge stays at the middle's hot edge -- that neighbour is the cool volcanic
 -- hot outer slope, never ice, so it needs no pull.
 --
--- The margin is a COSMETIC fade, not a guarantee: ci-18n sized it against the noise
--- AMPLITUDES (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE, 3.5 tiles since the ci-qqt thin-ribbon
--- compression) and that is not what a tile family's bleed is worth -- the speckle is a
--- FIELD-unit tie-break, so on the shallow middle slope a cold-looking dust tile reaches
--- far further warmward than 5 tiles (ci-bgpm measured ~20 at the damage boundaries). A
--- sandy rock on a frost-looking tile is a looks-only mismatch (both tiles are safe
--- ground), so this stays a fade; a rule that must hold gates on the TILE instead
--- (M.field_tile_restriction / M.burned_rock_tile_restriction).
+-- THE MARGIN IS A COSMETIC FADE, NOT A GUARANTEE (ci-pxlz). ci-18n sized it against the
+-- noise AMPLITUDES (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE, 3.5 tiles since the ci-qqt
+-- thin-ribbon compression) and read that as "so no sandy rock can sit on a frost tile".
+-- That is not what a tile family's bleed is worth: the speckle is a FIELD-unit tie-break,
+-- so on the shallow middle slope a cold-slope dust tile reaches far further warmward than
+-- 5 tiles (ci-bgpm measured ~20 at the damage boundaries). A sandy rock on a frost-LOOKING
+-- dust tile is a looks-only mismatch (both tiles are safe ground) and this margin is what
+-- softens it; the rule that must actually HOLD -- no rock planted in ground that damages
+-- you -- gates on the TILE instead (M.bootstrap_rock_tile_restriction, and for the ore
+-- fields and burned rocks M.field_tile_restriction / M.burned_rock_tile_restriction).
 M.ROCK_COLD_MARGIN = 5
 function M.rock_zone(y, cfg)
   local b = bounds(cfg)
@@ -276,17 +278,18 @@ M.ROCK_PROBABILITY = 0.006
 
 -- Ice-rocks (ci-18n) scatter across the SAFE cold/ice band: cold of the building
 -- band's cold edge (building_lo, the stone/ice divider) but WARM of the lethal
--- deep-ice damage zone (zone 11, p <= damage cold_from), so they read as "on the icy
--- side". Finite simple-entities like the sandy rock (one-shot on mining), yielding an
--- early ice + stone trickle.
+-- deep-ice damage zone (zone 11, p <= damage cold_from). So they read as "on the
+-- icy side". Finite simple-entities like the sandy rock (one-shot on mining), yielding
+-- an early ice + stone trickle.
 --
--- ci-18n claimed this positional bound ALSO made them "hand-gatherable with no cold
--- damage". It does not, for the ci-bgpm reason: cold-damaging snow bleeds ~20 tiles
--- middle-ward of the nominal boundary this clamps to, and unlike the fields there is no
--- keep-back margin here at all. Measured (default sliders, seed 24680, 8192 rows): 38 of
--- 840 ice-rocks stand on cold-damaging ground. Tracked as ci-pxlz, which wants the same
--- tile_restriction the fields got -- deliberately NOT changed here, because it thins the
--- early bootstrap trickle and that is a balance call of its own.
+-- ci-18n also claimed this positional clamp kept them "hand-gatherable with no cold
+-- damage -- the damage-zone exclusion the resource-reachability rule asks for". It did
+-- NOT (ci-pxlz): cold-damaging snow bleeds ~20 tiles middle-ward of the boundary this
+-- clamps to, and unlike the ore fields there is no keep-back margin here at all, so 10
+-- of 579 ice-rocks were planted in freezing ground. What actually delivers the
+-- no-damage promise is M.bootstrap_rock_tile_restriction, which reads the TILE; this
+-- bound stays for what it honestly is -- the band's SHAPE, keeping the scatter out of
+-- the deep-ice cap entirely rather than trimming it tile by tile out there.
 function M.ice_rock_zone(y, cfg)
   local b = bounds(cfg)
   local d = terrain.damage_bounds(cfg)
@@ -351,6 +354,41 @@ end
 -- rock-free by the split.
 function M.burned_rock_tile_restriction(name)
   if M.is_hot_burned_rock(name) then return terrain.tiles_by_damage("heat") end
+  return terrain.tiles_by_damage(nil)
+end
+
+-- A HAND-GATHERED ROCK IS PLANTED IN GROUND YOU CAN STAND IN (ci-pxlz) -- decided by the
+-- TILE, not by the coordinate, the same way and for the same reason as the volcanic
+-- models above and the ore fields.
+--
+-- The bootstrap rocks (sandy + ice) are the ONE thing on Cindra you harvest by walking
+-- to it and waiting: you spot the rock, cross to it, and hold the mine key for a couple
+-- of seconds. If the rock is planted in burning crust or freezing snow, that whole trip
+-- costs health -- and it is the LANDING-TIER trip, made before you have any heat/cold
+-- gear at all. So a rock on lethal ground is the visible-but-unreachable UX ci-fb9
+-- forbids, in its most expensive form.
+--
+-- The positional bounds those two scatters carry (M.rock_zone's ROCK_COLD_MARGIN,
+-- M.ice_rock_zone's clamp at the cold-damage boundary) cannot deliver that, and
+-- ci-18n's comment claiming they did was simply wrong. The tile FAMILY comes from the
+-- noisy heightmap VALUE, so cold-damaging snow surfaces ~20 tiles middle-ward of the
+-- boundary the ice-rock band stops AT -- measured in-engine, seed 24680 over 2800 rows:
+-- 10 of 579 ice-rocks planted in freezing ground (35 touching some freezing tile), and
+-- the sandy scatter has only the 5-tile ROCK_COLD_MARGIN standing between it and the
+-- same class of leak. Widening those margins is not the answer either: covering a
+-- 20-tile bleed would eat the outer third of the ice-rock band, which is exactly where
+-- ci-18n wanted the cold-side bootstrap to read as "out on the ice".
+--
+-- Naming the damage-free tiles instead costs the band nothing: it removes only the
+-- scattered rocks that were standing in bled lethal ground (measured: 579 -> 569 ice
+-- rocks, ~1.7%, with the scatter still reaching the same distance out), and no
+-- coordinate can put a rock and its ground out of step again.
+--
+-- Derived from terrain.tiles_by_damage, so a retuned value ramp moves this list with it.
+-- The GLOWING volcanic boulders are the deliberate exception and keep their own
+-- restriction above: they belong in the lava area, where they are hazard signage rather
+-- than a resource you set out to collect.
+function M.bootstrap_rock_tile_restriction()
   return terrain.tiles_by_damage(nil)
 end
 

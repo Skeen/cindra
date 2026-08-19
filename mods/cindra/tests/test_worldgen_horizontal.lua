@@ -286,6 +286,36 @@ describe("horizontal (E-W) ribbon: the generated world is rotated a quarter turn
     assert.are.equal(0, count(field.burned_rock_names(), -55, HALF), "none in the middle or cold half")
   end)
 
+  -- ci-pxlz, rotated: the bootstrap rocks are the one thing you harvest by WALKING to it
+  -- and waiting, so none may be planted in ground that damages you -- in either
+  -- orientation. The tile gate that delivers this is orientation-blind by construction
+  -- (it names tiles, and the tile-damage ramp is the same one either way round), which
+  -- is exactly why it is worth stating here: a future "fix" that went back to a
+  -- coordinate would have to be written twice and would break on this axis first.
+  --
+  -- It is not a token restatement: verified sensitive by deleting the tile restriction
+  -- from both bootstrap autoplaces, which fails this test on five ice-rocks planted in
+  -- cindra-snow-crests spread right along the rotated band.
+  it("plants no bootstrap rock in damaging ground, on the rotated axis too (ci-pxlz)", function()
+    local names = { field.ROCK }
+    for _, n in ipairs(field.ice_rock_names()) do names[#names + 1] = n end
+    local seen, bad = 0, {}
+    for _, name in ipairs(names) do
+      for _, e in ipairs(s.find_entities_filtered({ name = name, area = { { -FAR, -HALF }, { FAR, HALF } } })) do
+        seen = seen + 1
+        local tile = s.get_tile(e.position.x, e.position.y).name
+        local intensity, kind = terrain.tile_damage(tile)
+        if intensity > 0 and #bad < 5 then
+          bad[#bad + 1] = string.format("%s at %.1f,%.1f in %s (%s)",
+            e.name, e.position.x, e.position.y, tile, tostring(kind))
+        end
+      end
+    end
+    assert.is_true(seen > 0, "bootstrap rocks must actually generate on the rotated world")
+    assert.are.equal(0, #bad,
+      "bootstrap rocks planted in ground that damages you: " .. table.concat(bad, "; "))
+  end)
+
   it("keeps every harvestable field OUT of both lethal belts (ci-fb9, rotated)", function()
     for _, name in ipairs({ field.STONE, field.ICE }) do
       assert.are.equal(0, #resources(name, -HALF, -131), name .. " must not sit in the north heat belt")

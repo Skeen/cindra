@@ -361,6 +361,24 @@ merge queue.
   mirrored Aquilo density, so the tiles read through them (see
   `docs/verification/ci-tizx-cold-decal-density.png`). Still open here: the HOT-side
   re-gate (rocks/craters still key off the ribbon safe band) and the snowfall effect.
+- [x] **Bootstrap rocks off damaging ground.** `ci-pxlz` — DONE. The ice-rock band was
+  clamped positionally at the nominal cold-damage boundary with NO keep-back, and
+  `ci-18n`'s comment read that clamp as "hand-gatherable with no cold damage". It was
+  not: cold-damaging snow bleeds ~20 tiles middle-ward of that boundary, so 10 of 579
+  ice-rocks (seed 24680, 2800 rows) were planted in freezing ground — on the
+  landing-tier trip you make before owning any cold gear. Fixed the `ci-w87` way, by
+  TILE: both bootstrap scatters carry `field.bootstrap_rock_tile_restriction()`
+  (= `terrain.tiles_by_damage(nil)`). It costs the bands nothing measurable — ice-rocks
+  579 → 574 (0.9%, not the 4.5% the bead estimated), the scatter still reaching to
+  within 0.4 tiles of the lethal boundary, and the sandy scatter unchanged at 1763
+  (its band is all safe ground, so the gate there is structural insurance). Proven in
+  `tests/test_worldgen_rock_ground.lua`, which reads the ground under every rock that
+  generated and then stands a character in each of those grounds on the LIVE surface
+  and runs the real damage sweep, plus no-retreat and LIVE coverage guards; rotated
+  in `tests/test_worldgen_horizontal.lua`; the pure gate in
+  `unit-tests/test_resource_field.lua`. `ROCK_COLD_MARGIN` stays as the cosmetic fade
+  it always was — the bead's noted sandy-rock-on-frost-LOOKING-dust mismatch is
+  looks-only (both tiles are safe ground) and is left as it is.
 - [ ] **Orbital / star-map re-render.** `ci-4qyj` — re-bake the from-space art +
   `scripts/gen-planet-maps.py` colour ramp to MATCH the new terrain (required follow-up).
 - [x] **No field ever lies on ground that damages you.** `ci-bgpm` — DONE. `ci-fb9`/`ci-4iw`

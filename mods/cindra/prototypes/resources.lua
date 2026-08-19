@@ -303,9 +303,15 @@ rock.name = "cindra-rock"
 -- The autoplace `order` is its own random stream (see scripts/rock-models.lua): rocks
 -- that share one succeed on identical tiles and all but the first silently never
 -- generate.
+-- ...and NEVER in ground that damages you (ci-pxlz). The band mask is positional, and a
+-- lethal tile bleeds far into the nominal safe side because the tile family comes from
+-- the noisy heightmap value, so no band edge or margin can promise "safe to walk out and
+-- mine". The tile restriction can, exactly, at no cost to the scatter's reach
+-- (scripts/resource-field.lua owns the list and the reasoning).
 rock.autoplace = {
   order = rock_models.place_order(field.ROCK),
   probability_expression = field.rock_probability_expr(CFG),
+  tile_restriction = field.bootstrap_rock_tile_restriction(),
 }
 rock.order = "a[cindra]-a[rock]"
 rock.map_color = { 0.55, 0.45, 0.35 }
@@ -374,9 +380,15 @@ for _, spec in ipairs(ICE_ROCKS) do
   -- The per-size autoplace ORDER is load-bearing, not cosmetic: two rocks sharing an
   -- order share the engine's per-tile roll, and the second then generates nowhere at
   -- all (see scripts/rock-models.lua).
+  -- The tile restriction (ci-pxlz) is what keeps the cold-side bootstrap gatherable: the
+  -- band's positional clamp stops at the nominal cold-damage boundary, but freezing snow
+  -- bleeds ~20 tiles middle-ward of it, so without this the outer bergs stood in ground
+  -- that hurt you while you mined them -- on the trip you make before you own any cold
+  -- gear. The band keeps its full reach; only the bled-lethal tiles lose their rock.
   r.autoplace = {
     order = rock_models.place_order(spec.name),
     probability_expression = field.ice_rock_probability_expr(CFG, spec.name),
+    tile_restriction = field.bootstrap_rock_tile_restriction(),
   }
   -- Keep the source's mining_time / particles / ice-crunch mining_trigger; replace only
   -- the drop with Cindra's ice + stone bootstrap trickle (no lithium, no ice-platform).
