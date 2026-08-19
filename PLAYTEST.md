@@ -606,6 +606,19 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   side) and yield ice + stone; only "does the ice art read as ice against live cold
   terrain + lighting" is the playtest.
 
+- [ ] **[LANDED] The ice-rock band's outer edge still reads as populated after the
+  damage gate (ci-pxlz).** *Repro:* walk out to the coldest end of the ice-rock
+  scatter, right up against the lethal deep-ice cap, and look back along the band.
+  *Look for:* the outermost stretch still reads as a scatter you would walk out for,
+  with no visible "combed" line where rocks stop and the icy ground goes bare -- the
+  tile gate removes rocks tile by tile on bled snow rather than cutting the band
+  back, so the thinning should be invisible. *Why only a playtest:* the numbers are
+  covered -- `tests/test_worldgen_rock_ground.lua` measures 579 -> 574 rocks (0.9%)
+  with the scatter still reaching within 0.44 tiles of the lethal boundary, and pins
+  both the reach and the population against a future retreat. Whether a 0.9% trim
+  concentrated on one tile family is *perceptible* as patchiness is a look
+  judgement no test can make.
+
 - [ ] **[LANDED] Volcanic rocks GLOW inside the lava area (ci-w87).** *Repro:* walk
   west from the terminator across the hot slope and on into the heat-damage band
   (the glowing-cracks ground), looking at the **volcanic rocks** as you cross.
