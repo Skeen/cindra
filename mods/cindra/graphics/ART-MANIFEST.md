@@ -214,3 +214,26 @@ Cindra accumulator or electric-energy-interface has no working animation.
   (deterministic; add the building to `SPECS` in `scripts/gen-frost-layer.py`).
   The data-stage audit `prototypes/frost-audit.lua` fails the load if a crafting
   machine that freezes has no patch, so a new one cannot ship bare.
+- **Frost for the buildings the engine will not freeze (ci-de55).** An
+  accumulator, a solar panel and an electric-energy-interface have no
+  `frozen_patch` field at all -- the engine refuses to freeze them, which is why
+  Cindra freezes them by script (`scripts/script-freeze.lua`) by swapping each for
+  a FROZEN TWIN prototype. The twin carries the ice in its own picture, so the
+  assets live under `entity/frost/` and come in two flavours:
+  - **Body-derived**, for a building wearing art of ours:
+    `entity/frost/capacitor-frost.png`, `molten-salt-battery-frost.png`,
+    `dissipator-frost.png` -- generated from each body sprite by the same
+    accretion model as the arc furnace's patch, so the rime settles on the real
+    shapes and inherits the body layer's geometry exactly.
+  - **`entity/frost/rime-generic.png`**, the fallback, for a building wearing
+    VANILLA art (the sunward solar bands are deep-copies of the base game's
+    panel, so there is no sprite of ours to derive from and nothing we may ship a
+    derivative of). It is grown from noise alone -- original art in the same ice
+    palette -- and `prototypes/frozen-twins.lua` scales it to the building's own
+    selection box, so a NEW script-frozen entity gets a correctly sized cue for
+    free instead of shipping invisible.
+
+  The path is load-bearing, not filing: `scripts/frost-audit.lua` proves a twin
+  wears ice by looking for a sprite from `entity/frost/`, and fails the load
+  otherwise. Both flavours come out of `./scripts/render-frost-layer.sh` and are
+  pixel-tested in `unit-tests/test_frost_layer.py`.
