@@ -111,6 +111,18 @@ lava-pump exploit; only our clones are stripped, so Vulcanus still pumps its lak
 Boundaries carry a `basis_noise` wiggle + a per-tile speckle, so
 they are organic curves with a real mix, never raw stripes.
 
+On top of that, a low-frequency **COSMETIC CROSS-REGION SCATTER** (ci-frcw) breaks the
+stacked-band read: an occasional patch paints a tile a band or two away from its own, so
+cool volcanic ground turns up out in the ash middle and dust turns up among it. It moves
+**only the value the TILE is picked from** — the field the damage belts, the resource
+bands and every gate read is untouched — and it is **windowed shut** a guard short of
+either damage threshold. So it can never paint burning ground on safe ground (which,
+damage being per-TILE, would really burn) nor safe-looking ground out in a belt (a free
+stepping stone toward the lava). The two guards differ in width for a reason worth
+knowing: the hot one is DERIVED from the ci-72bw branch span, the one value segment where
+both hot-slope families can be losing at once and the lethal crust would otherwise win
+(`terrain.SCATTER_HOT_CEILING`).
+
 `mods/cindra/scripts/ribbon.lua` is the **single source of truth** for the
 hot–cold axis' two continuous **curves**. It is a pure module (no `game.*` /
 `prototypes.*`) mapping a perpendicular coordinate to:

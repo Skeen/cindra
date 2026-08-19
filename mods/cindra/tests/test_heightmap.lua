@@ -236,6 +236,51 @@ describe("ci-oe83: one heightmap, emergent oceans, belt-confined damage", functi
     assert.is_true(safe_mid > 100, "the middle has a large connected safe region (" .. safe_mid .. " cells)")
   end)
 
+  -- === THE COSMETIC SCATTER IS COSMETIC (ci-frcw) ===========================
+  it("ci-frcw: standing on a scattered hot/cold-looking patch in the middle does NOTHING", function()
+    -- The scatter drops a neighbouring region's tile into the middle for looks. Damage is
+    -- keyed to the TILE (ci-ma18), so "for looks" is a claim about the real damage sweep,
+    -- not about the value model: find the tiles in the middle that are NOT the middle's
+    -- own ground, stand a character on each, run the REAL sweep, read the health back.
+    --
+    -- On THIS surface -- the live, freezing one -- a scattered `cindra-dust-*` tile is
+    -- reported under its vanilla FROZEN VARIANT (`snow-*`): the dust tiles Cindra clones
+    -- carry Aquilo's `frozen_variant`, and the engine swaps the tile itself on frozen
+    -- ground. Those names are counted as scattered ground because that is what they are
+    -- (the middle's own ash has no frozen variant, so nothing else can produce them), and
+    -- the swap is safe→safe: neither form is a hazard natural.
+    local s = live()
+    local cells = classify(s, -40, 40, WY - 45, WY + 45)
+    local native = terrain.zone_tiles("middle")
+    local FROZEN_DUST = {} -- vanilla frozen variants of the cold side's dust family
+    for _, v in ipairs({ "snow-flat", "snow-crests", "snow-lumpy", "snow-patchy" }) do
+      FROZEN_DUST[v] = true
+    end
+    local scattered, tested, kinds = 0, 0, {}
+    for _, c in pairs(cells) do
+      if not native[c.tile] then
+        scattered = scattered + 1
+        kinds[c.tile] = (kinds[c.tile] or 0) + 1
+        assert.are_not.equal("damage", c.state,
+          "a character on the scattered tile " .. c.tile .. " at (" .. c.x .. "," .. c.y .. ") took damage")
+        assert.are_not.equal("ocean", c.state, c.tile .. " is an ocean tile in the middle (" .. c.x .. "," .. c.y .. ")")
+        -- It came from the scatter, not from somewhere unaccounted for: either a Cindra
+        -- ramp tile belonging to a neighbouring region, or the frozen form of one.
+        assert.is_true(terrain.tile_damage(c.tile) == 0 and
+          (FROZEN_DUST[c.tile] or c.tile:find("^cindra%-") ~= nil),
+          "unexpected ground in the middle: " .. c.tile .. " at (" .. c.x .. "," .. c.y .. ")")
+        if c.state == "safe" then tested = tested + 1 end
+      end
+    end
+    local names = {}
+    for n, n_count in pairs(kinds) do names[#names + 1] = n .. "=" .. n_count end
+    table.sort(names)
+    log("ci-frcw scattered middle cells: " .. scattered .. " (" .. tested .. " swept) " .. table.concat(names, " "))
+    assert.is_true(scattered > 0, "the middle really does carry scattered neighbour tiles here")
+    -- Not vacuous: characters really did stand on them and really were swept.
+    assert.is_true(tested > 0, "characters actually stood on scattered ground for the sweep")
+  end)
+
   -- === NO ENCLOSURE + a continuous safe corridor down the long axis =========
   it("NO ENCLOSURE: the safe middle is ONE region spanning the full long axis, reaching both edges", function()
     -- Flood the SAFE cells from spawn across the full width at several Y bands; the reached

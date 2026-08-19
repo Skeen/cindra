@@ -380,10 +380,33 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   can reach the ocean** — there is NO high-ground / ridge path that lets you walk right up to
   the lava or ice taking zero damage (the old bug); (3) the safe middle is always a
   continuous traversable band down the whole long axis — you are never boxed into a pocket
-  ringed by lava/frost. FOLLOW-UP (not yet built): deliberate cross-region cosmetic scatter
-  (occasional volcanic-cracks / dust out in the safe middle for an organic, less-banded
-  look) — now SAFE to add because damage is positional, but it needs the family-separation
-  test relaxed; file/track separately before adding.
+  ringed by lava/frost. FOLLOW-UP: the cross-region cosmetic scatter this entry asked for is
+  BUILT — see the ci-frcw entry below. (Its premise moved on: damage went back to being
+  keyed to the TILE in ci-ma18, so the scatter is safe not because a hot-looking tile in the
+  middle is harmless, but because the scatter is windowed so it can never paint one.)
+
+- [ ] **[LANDED] Cosmetic cross-region scatter — kill the 3-band look (ci-frcw).**
+  An occasional patch now paints a tile a band or two away from its own: cool volcanic
+  ground (`smooth-stone` / `cracks`) out in the ash middle, `dust` mixed in among the ash,
+  ash bleeding out onto the slopes. It moves only the value the TILE is chosen from, never
+  the field the damage and resources read, and is windowed shut short of both damage
+  thresholds. That it really scatters, that nothing damaging leaks into the safe corridor,
+  and that standing on a scattered patch does nothing are all integration-tested
+  (`tests/test_worldgen.lua`, `tests/test_heightmap.lua`); only the *look* is the playtest.
+  *Repro:* `./play.sh` onto Cindra, walk WEST and EAST from spawn across the middle, then
+  open the map view over the whole ribbon. *Look for:* (1) the middle reads as **ash with
+  patches of other ground in it**, not as a uniform ash stripe — but still unmistakably as
+  the ash middle, not as mush; (2) the patches are **patches** (roughly 30-ish tiles across),
+  not per-tile salt-and-pepper speckle; (3) the hot/middle and middle/cold transitions no
+  longer read as a line at all — the tiles interleave across them; (4) NOTHING glowing and
+  no sea appears in the middle: no `cracks-hot` glow, no lava, no smooth/rough ice — the
+  scattered volcanic ground is the dull cool kind. (Pale *snow* patches in the middle ARE
+  expected: the scattered `dust-*` tiles carry Aquilo's `frozen_variant`, so on frozen
+  ground the engine swaps them to plain `snow-*`. Harmless either way — judge whether it
+  reads as frosted dust or as a mistake.) (5) in the map view the ribbon still
+  reads as one hot→cold ramp — the scatter must not put visible speckle noise on the map
+  colours; (6) the hot slope's folds/cracks patches (ci-72bw) still read as broad families,
+  now with ash mixed into them, rather than being drowned by the mixing.
 
 - [ ] **[LANDED] Hot-side FOLDS branch — two texture families on the same slope (ci-72bw).**
   The safe hot slope now has an ALTERNATE texture family selected per-region by a
