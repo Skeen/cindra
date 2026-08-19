@@ -775,13 +775,51 @@ you start so you know to look.
   extended to those two types. **(B)** the whole storage/solar tier **cannot**
   freeze: the engine accepts `heating_energy` on an accumulator / solar panel /
   electric-energy-interface and then ignores it (measured), and vanilla Aquilo is
-  the same. Does a battery bank humming away in the deep dark read as WRONG? If
-  so that is the ci-de55 design question (script Cindra's own freeze for those
-  types) and wants your verdict there, not a fix here.
+  the same. **(B) is now ANSWERED — it read as wrong, and ci-de55 fixed it. See
+  the next entry; (A) is still open.**
   *Covered:* the ci-qha1 guard — no Cindra-added entity may be immune to the
   freeze (`scripts/frost-audit.lua`, `prototypes/frost-audit.lua`,
   `tests/test_frost.lua`, `unit-tests/test_frost_audit.lua`). The class is
   enumerated LIVE, so a new entity cannot ship unexamined.
+
+- [ ] **[UNSEEN] The battery bank now freezes too — read and difficulty (ci-de55).**
+  Answering (B) above: the engine refuses to freeze an accumulator, a solar panel
+  or an electric-energy-interface at any price, so Cindra freezes those buildings
+  itself. Any capacitor, molten-salt battery, solar band or dissipator sitting
+  outside every heat source's reach is swapped for a **frozen twin** — same place,
+  same charge, zero flow, zero output — wearing ice, named "*(frozen)*", and
+  announced by a **map alert**. It swaps straight back when heat returns, with the
+  stored charge untouched either way.
+  *Do:* build a capacitor, a molten-salt battery, a dissipator and a nightward
+  solar panel in the thawed band, charge the bank, then walk them nightward past
+  the onset (or mine the heat line feeding them) and leave them. Then run an
+  electric heater / heat pipes back to them. Mine one while it is frozen, and
+  blueprint the frozen area and paste it somewhere warm.
+  *See:* (1) each frozen building wears a pale rime crust that follows its shape,
+  sits ON the body and still reads as itself — the solar bands wear a generic
+  crust rather than a body-derived one (their art is vanilla), so check it does not
+  look like a grey smear at panel scale; (2) **nothing still animates** — no
+  charge/discharge glow on a frozen accumulator, no heat wave on a frozen
+  dissipator; (3) the alert names the building and CLEARS when heat returns;
+  (4) the tooltip reads "*<name> (frozen)*" and tells the player to run heat to it;
+  (5) mining hands back the ORDINARY item, and the pasted blueprint builds normal
+  working buildings.
+  *Judge:* **the difficulty.** Losing your night buffer exactly when the sun is
+  gone is the point of a freeze planet and is meant to push you toward routing
+  heat. Is a nightside outpost still viable with a heat line, and does the first
+  freeze read as "I need heat here" rather than "my base broke"? **No grace period
+  was shipped, deliberately** — softening it is your call, not the mod's. Also
+  judge whether a farm-wide freeze produces a usable alert or a wall of them
+  (batching would be a follow-up).
+  *Broken if:* a frozen building is still lit up and animating; ice floats off the
+  silhouette; the alert never clears; mining yields something unbuildable.
+  *Covered:* `tests/test_script_freeze.lua` (they stop working for real, thawing
+  hands back exactly what was frozen, wires survive, the alert fires once and
+  clears, no other planet is touched, and the scripted boundary lands on the same
+  tile the ENGINE's own freeze does for a machine beside them),
+  `tests/test_power_conservation.lua` (the grid's stored energy is unchanged
+  across the freeze AND the thaw), `unit-tests/test_freeze.lua` (the tile
+  geometry, and that the sweep cannot degenerate to sources × buildings).
 
 ## 6. Back to orbit — the export leg
 
