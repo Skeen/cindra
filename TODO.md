@@ -301,6 +301,19 @@ merge queue.
     `terrain.FROZEN_CEILING` through `terrain.field_crossing`) rather than the cold-ocean
     band edge, which sits ~12 tiles too far out. Measured 0.090 -> 0.010 decals/tile on the
     open sheet; before/after: `docs/verification/ci-10ze-ice-ocean-decals.png`.
+  * **COLD-DECAL COVERAGE BUDGET.** `ci-fwaq` — DONE. ci-tizx's 0.1 decals/tile ceiling was
+    guarded by ONE in-engine measurement on ONE seed, so the `ci-w87` iceberg families
+    joined the cold set with no re-balance and took the frost shore from 0.059 to 0.090 --
+    a 90% spend nobody had to re-read. Coverage is now PREDICTED from the catalogue in
+    closed form off the game (`field.coverage_budget`: each scatter's covered fraction is
+    an integral over its `random_penalty`, times its `density`), and the guard is split in
+    two halves that together bound the measured coverage on ANY seed rather than on the
+    fixed one: `unit-tests` hold `budget * (1 + tolerance) <= ceiling`, and
+    `tests/test_decoratives.lua` proves the engine really generates what the budget
+    predicts (measured 0.0896 vs budget 0.0850, +5.5%, tolerance 15%). A new cold family
+    now costs its ground the moment the row is written, so the density pass lands in the
+    same commit; the ceiling constant carries its own upper bound so "raise it to fit"
+    fails a test. No art changed — the densities are exactly as ci-w87 left them.
 - [x] **Orbital / star-map re-render.** `ci-4qyj` — DONE. The from-space art no longer
   keeps a colour ramp of its own: `scripts/terrain_ramp.py` reads `scripts/terrain.lua`
   and replays its position -> heat -> tile -> colour chain, so the globe shows the real

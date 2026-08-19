@@ -96,6 +96,32 @@
 -- which the engine's own collision check keeps off the lava however loose their band is, a
 -- DECAL goes wherever its probability is positive: the mask is the only thing standing
 -- between a crater and the lava, so it has to be the tile boundary itself.
+--
+-- THE COLD COVERAGE BUDGET (ci-fwaq). ci-tizx set a hard ceiling on how much of the icy
+-- ground the frost may bury, and guarded it with ONE number measured on ONE fixed seed out
+-- on the frost shore. That guard is a rear-view mirror: it only reports a breach after a
+-- four-minute engine run, and it cannot say WHICH decal spent the budget. The ci-w87
+-- iceberg families duly joined the cold set with no re-balance and took the shore from
+-- 0.059 to 0.090 decals/tile -- a 90% spend of a ceiling nobody re-read.
+--
+-- So the coverage is now PREDICTED from the catalogue itself, in closed form, off the game
+-- (M.coverage_budget). Every cold decal's scatter is `min(1, 1 - A*r + coef*peaks + bias)`
+-- for a per-tile uniform r, so the fraction of tiles it covers is a plain integral over r
+-- (M.tile_probability) times its `density` multiplier -- and the catalogue's total is the
+-- sum. Two guards then replace the single measured strip, and TOGETHER they imply it:
+--
+--   * unit-tests: budget * (1 + M.COVERAGE_MODEL_TOLERANCE) <= M.SHORE_COVERAGE_CEILING.
+--     Pure arithmetic, no engine, no seed. A new cold family costs its coverage the moment
+--     it is written down, so the density pass happens in the same commit as the row.
+--   * tests/test_decoratives.lua: the coverage the engine actually generates on the shore
+--     sits within M.COVERAGE_MODEL_TOLERANCE of the budget. That is what makes the model
+--     admissible evidence rather than arithmetic about itself -- and it is measured on the
+--     ground the player walks on.
+--
+-- budget * (1 + tol) <= ceiling AND measured <= budget * (1 + tol)  =>  measured <= ceiling,
+-- for ANY seed rather than for the one the old strip happened to use. Raising the ceiling to
+-- fit a new family is the regression the whole thing exists to catch, so the ceiling carries
+-- its own upper-bound assertion.
 
 local axis = require("scripts.axis")
 local terrain = require("scripts.terrain")
@@ -118,6 +144,17 @@ local function num(v)
   return string.format("%.6g", v)
 end
 
+-- The `random_penalty` amplitude every Cindra decal's scatter uses, as a NUMBER: the
+-- coverage model (M.tile_probability) integrates over it, so it cannot be left as an
+-- opaque substring of the emitted expression. `random_penalty{source = S, amplitude = A}`
+-- is S - A*r for a per-tile uniform r in [0,1) (see core/prototypes/noise-functions.lua,
+-- where random_penalty_between(from, to) spells it source = to, amplitude = to - from), so
+-- source 1 with this amplitude is 1 - 10*r. The emitted string keeps the vanilla SPELLING
+-- `1/0.1` (the Aquilo decals we mirror write it that way); a unit test pins the two
+-- together so the model can never drift from the expression the map-gen actually reads.
+M.PENALTY_AMPLITUDE = 1 / 0.1
+local PENALTY_AMPLITUDE_DSL = "1/0.1"
+
 -- A self-contained sparse scatter probability, mirroring the vanilla decal shape
 -- `min(1, random_penalty{...} + coef * peaks + bias)`:
 --   * random_penalty (source 1, amplitude 1/0.1 = 10) evaluates to 1 - 10*r for a
@@ -136,31 +173,55 @@ end
 -- `seed` varies the random field per decal so they do not all land on the same tiles.
 local function scatter(seed, coef, bias)
   return "min(1, random_penalty{x = x, y = y, seed = " .. num(seed) ..
-         ", source = 1, amplitude = 1/0.1} + (" .. num(coef) .. ") * " .. PEAKS ..
-         " + (" .. num(bias) .. "))"
+         ", source = 1, amplitude = " .. PENALTY_AMPLITUDE_DSL .. "} + (" .. num(coef) ..
+         ") * " .. PEAKS .. " + (" .. num(bias) .. "))"
+end
+
+-- One catalogue row. The scatter PARAMETERS live on the spec and the expression string is
+-- built from them here (ci-fwaq), instead of the row carrying a pre-baked string: the
+-- coverage budget needs those numbers, and a row that could carry a hand-written
+-- expression instead would be invisible to the budget -- i.e. a new cold family could
+-- spend the whole ci-tizx ceiling for free. Missing parameters are a hard error for the
+-- same reason: an unmodellable decal must be impossible to write down, not merely score
+-- zero and slip past the guard.
+local function decal(spec)
+  for _, key in ipairs({ "seed", "coef", "bias" }) do
+    if type(spec[key]) ~= "number" then
+      error("cindra decorative " .. tostring(spec.name) .. ": scatter parameter '" .. key ..
+            "' must be a number -- the cold coverage budget reads it (ci-fwaq)")
+    end
+  end
+  spec.scatter = scatter(spec.seed, spec.coef, spec.bias)
+  return spec
 end
 
 -- The decorative catalogue: each a NEW `cindra-*` optimized-decorative cloned
 -- (prototypes/decoratives.lua) from a vanilla decorative for its art, given a
--- zone-gated Cindra autoplace. `side` picks the zone mask; `scatter` is the base
--- density expression above; `density` (default 1) is a straight multiplier on the
+-- zone-gated Cindra autoplace. `side` picks the zone mask; `seed` / `coef` / `bias` are the
+-- base scatter parameters above (the row's `scatter` expression is built from them, and the
+-- cold coverage budget reads them); `density` (default 1) is a straight multiplier on the
 -- resulting probability -- the fraction of the mirrored vanilla density we keep.
---   name                          clone_from             side    scatter   density
+--   name                          clone_from             side   seed coef bias  density
 M.DECORATIVES = {
   -- HOT half -- Vulcanus rocks + pebbles + craters, confined to the solid volcanic slope +
   -- crust (ci-mk5y). Occasional scatter (negative biases), sparsest for the biggest decals.
-  { name = "cindra-volcanic-rock-tiny",   clone_from = "tiny-volcanic-rock",   side = "hot",  scatter = scatter(5, 0.5, -0.5) },
-  { name = "cindra-volcanic-rock-small",  clone_from = "small-volcanic-rock",  side = "hot",  scatter = scatter(4, 0.5, -0.6) },
-  { name = "cindra-volcanic-rock-medium", clone_from = "medium-volcanic-rock", side = "hot",  scatter = scatter(3, 0.5, -0.75) },
-  { name = "cindra-crater-small",         clone_from = "crater-small",         side = "hot",  scatter = scatter(6, 0.5, -0.7) },
-  { name = "cindra-crater-large",         clone_from = "crater-large",         side = "hot",  scatter = scatter(7, 0.5, -0.9) },
+  decal{ name = "cindra-volcanic-rock-tiny",   clone_from = "tiny-volcanic-rock",   side = "hot",  seed = 5, coef = 0.5, bias = -0.5 },
+  decal{ name = "cindra-volcanic-rock-small",  clone_from = "small-volcanic-rock",  side = "hot",  seed = 4, coef = 0.5, bias = -0.6 },
+  decal{ name = "cindra-volcanic-rock-medium", clone_from = "medium-volcanic-rock", side = "hot",  seed = 3, coef = 0.5, bias = -0.75 },
+  decal{ name = "cindra-crater-small",         clone_from = "crater-small",         side = "hot",  seed = 6, coef = 0.5, bias = -0.7 },
+  decal{ name = "cindra-crater-large",         clone_from = "crater-large",         side = "hot",  seed = 7, coef = 0.5, bias = -0.9 },
   -- COLD half -- Aquilo ice + light-snow decals, confined to the icy ground and
   -- thinned so the tiles read through (ci-tizx). The snow-drift art is huge (a
   -- ~6.6 x 4.6 tile decal), so at equal probability it alone carpets the ground:
   -- it gets the sparsest density of the three.
-  { name = "cindra-ice-decal",            clone_from = "aqulio-ice-decal-blue", side = "cold", scatter = scatter(1, 0.5, 0.0),  density = 0.4 },
-  { name = "cindra-snowy-decal",          clone_from = "aqulio-snowy-decal",    side = "cold", scatter = scatter(1, -0.5, 0.3), density = 0.4 },
-  { name = "cindra-snow-drift-decal",     clone_from = "snow-drift-decal",      side = "cold", scatter = scatter(2, -0.5, 0.3), density = 0.15 },
+  --
+  -- 🚨 Every row below spends the SHARED cold coverage budget (M.coverage_budget, ci-fwaq),
+  -- which the unit tests hold under M.SHORE_COVERAGE_CEILING. Adding a family means
+  -- re-balancing the `density` figures here so the total still fits -- NOT raising the
+  -- ceiling, which is the regression the ceiling exists to catch.
+  decal{ name = "cindra-ice-decal",            clone_from = "aqulio-ice-decal-blue", side = "cold", seed = 1, coef = 0.5,  bias = 0.0, density = 0.4 },
+  decal{ name = "cindra-snowy-decal",          clone_from = "aqulio-snowy-decal",    side = "cold", seed = 1, coef = -0.5, bias = 0.3, density = 0.4 },
+  decal{ name = "cindra-snow-drift-decal",     clone_from = "snow-drift-decal",      side = "cold", seed = 2, coef = -0.5, bias = 0.3, density = 0.15 },
   -- The small end of the ICEBERG family (ci-w87). The cold-side rocks are Aquilo's
   -- lithium-iceberg models now (prototypes/resources.lua), and that family's
   -- medium/small/tiny members are DECORATIVES rather than entities -- so they belong
@@ -171,9 +232,9 @@ M.DECORATIVES = {
   -- already spends most of its ci-tizx coverage budget on ice/snow decals, and the
   -- point of that bead was that the GROUND must dominate; three more families at frost
   -- density would put the carpet straight back. These add a sparse chip-scatter on top.
-  { name = "cindra-lithium-iceberg-medium", clone_from = "lithium-iceberg-medium", side = "cold", scatter = scatter(8, 0.5, 0.0), density = 0.10 },
-  { name = "cindra-lithium-iceberg-small",  clone_from = "lithium-iceberg-small",  side = "cold", scatter = scatter(9, 0.5, 0.0), density = 0.14 },
-  { name = "cindra-lithium-iceberg-tiny",   clone_from = "lithium-iceberg-tiny",   side = "cold", scatter = scatter(10, 0.5, 0.0), density = 0.18 },
+  decal{ name = "cindra-lithium-iceberg-medium", clone_from = "lithium-iceberg-medium", side = "cold", seed = 8,  coef = 0.5, bias = 0.0, density = 0.10 },
+  decal{ name = "cindra-lithium-iceberg-small",  clone_from = "lithium-iceberg-small",  side = "cold", seed = 9,  coef = 0.5, bias = 0.0, density = 0.14 },
+  decal{ name = "cindra-lithium-iceberg-tiny",   clone_from = "lithium-iceberg-tiny",   side = "cold", seed = 10, coef = 0.5, bias = 0.0, density = 0.18 },
 }
 
 -- The MARGIN, in field-VALUE units, each hot gate line is pulled INSIDE the tile contour it
@@ -296,6 +357,85 @@ end
 -- ground is covered here" -- which is the question both legibility beads were about.
 function M.cold_density(y, cfg)
   return M.cold_fade(y, cfg) * M.ocean_thin(y, cfg)
+end
+
+-- THE COLD COVERAGE BUDGET (ci-fwaq) -------------------------------------------------
+-- The positional half of the coverage story is above (M.cold_density: WHERE the frost is
+-- thick). This is the CATALOGUE half: how much ground the cold set covers where that
+-- positional factor is 1, i.e. on the full-strength frost shore -- the thickest cold ground
+-- there is, and so the place the ci-tizx ceiling has to be read.
+
+-- The ceiling from ci-tizx: the largest fraction of shore tiles the cold decals may carry
+-- before the ground stops dominating them. Calibrated in-engine against the frost shore
+-- (0.182 decals/tile with the pre-ci-tizx densities read as a carpet; 0.059 after ci-tizx
+-- thinned the three original families; 0.090 once the ci-w87 iceberg families joined).
+--
+-- 🚨 RAISING THIS NUMBER IS THE REGRESSION IT EXISTS TO CATCH. A new cold family is paid
+-- for out of the existing `density` figures, never out of the ceiling -- unit-tests assert
+-- an upper bound on the constant itself so a raise cannot pass as a re-balance.
+M.SHORE_COVERAGE_CEILING = 0.1
+
+-- The value M.tile_probability evaluates the peaks modulation at. `cindra_decorative_peaks`
+-- is an abs() of noise, so it is non-negative and the coefficient's SIGN decides whether
+-- reality sits above the nominal (the ice / iceberg decals, coef > 0) or below it (the snowy
+-- / drift decals, coef < 0). We nominate its floor rather than guess a mean: the modulation
+-- is worth at most ~0.014 coverage across the whole cold catalogue -- an order of magnitude
+-- less than the biases and densities -- and whatever residual it leaves is not hand-waved
+-- but MEASURED, by the model-vs-engine cross-check in tests/test_decoratives.lua that holds
+-- the two within M.COVERAGE_MODEL_TOLERANCE of each other.
+M.PEAKS_NOMINAL = 0
+
+-- How far the model and the coverage the engine actually generates may sit apart, as a
+-- fraction. It buys two things at once, which is why it is one constant and not two: it is
+-- the slack the in-engine cross-check allows, AND the margin the budget is held below the
+-- ceiling by -- so `budget * (1 + tol) <= ceiling` plus `measured <= budget * (1 + tol)`
+-- proves `measured <= ceiling` outright, on any seed. Sized well clear of the ~6% the
+-- current catalogue actually shows.
+M.COVERAGE_MODEL_TOLERANCE = 0.15
+
+-- The fraction of tiles ONE decal covers where its zone mask and positional multipliers are
+-- 1, before its own `density` -- i.e. the mean of its scatter expression clamped to [0,1].
+--
+-- The scatter is `min(1, 1 - A*r + coef*peaks + bias)` for a per-tile uniform r in [0,1)
+-- and A = M.PENALTY_AMPLITUDE, and a probability outside [0,1] is clamped by the engine, so
+-- with `u = 1 + bias + coef*peaks` the coverage is the plain integral
+--   (1/A) * integral over t in [0,A] of clamp(u - t, 0, 1) dt,
+-- which is closed form: u^2/(2A) while the ramp is still inside the interval (u <= 1),
+-- (u - 1/2)/A once it has cleared it, and 1 once even u - A saturates. That is why the
+-- budget needs no sampling and no seed: coverage is arithmetic on the catalogue.
+function M.tile_probability(bias, coef)
+  local a = M.PENALTY_AMPLITUDE
+  local u = 1 + (bias or 0) + (coef or 0) * M.PEAKS_NOMINAL
+  if u <= 0 then return 0 end              -- never positive: nothing places
+  if u <= 1 then return u * u / (2 * a) end -- the ramp's whole triangle fits inside
+  if u >= a + 1 then return 1 end          -- saturated everywhere: a solid carpet
+  if u <= a then return (u - 0.5) / a end  -- a saturated stretch plus the ramp
+  return ((u - 1) + (1 - (u - a) ^ 2) / 2) / a -- ...with the ramp truncated at t = A
+end
+
+-- The fraction of ground one catalogue row covers at full positional strength: its scatter's
+-- own coverage times the `density` multiplier ci-tizx thins it by. Multiplying the
+-- PROBABILITY is what makes density linear in covered ground, so halving a density halves
+-- the row's share of the budget -- the knob a re-balance turns.
+function M.expected_coverage(spec)
+  return M.tile_probability(spec.bias, spec.coef) * (spec.density or 1)
+end
+
+-- What one side of the catalogue costs in covered ground, summed live from M.DECORATIVES so
+-- a family cannot join without appearing here. For "cold" this is the shore coverage the
+-- ci-tizx ceiling governs.
+function M.coverage_budget(side)
+  local total = 0
+  for _, spec in ipairs(M.DECORATIVES) do
+    if spec.side == side then total = total + M.expected_coverage(spec) end
+  end
+  return total
+end
+
+-- The most the modelled budget may be, so that the coverage the engine generates still
+-- clears the ceiling even at the far end of the model's proven error bar.
+function M.coverage_allowance()
+  return M.SHORE_COVERAGE_CEILING / (1 + M.COVERAGE_MODEL_TOLERANCE)
 end
 
 -- The zone mask as a noise-expression string (1 inside the zone, 0 outside): a

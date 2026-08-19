@@ -23,6 +23,13 @@
 -- SHEET, so the frozen sea reads as a sea instead of as the most cluttered ground on the
 -- planet: full frost on the snow/rough-ice shore, a trace of it offshore, and a ramp between
 -- the two (no stamped line). Gated on the smooth-ice TILE contour, not the ocean band edge.
+--
+-- ci-fwaq turns ci-tizx's coverage ceiling from a single number measured on one fixed seed
+-- into a BUDGET the catalogue is held to here, off the game: every cold row's covered
+-- fraction of ground is closed-form arithmetic on its scatter parameters, and the sum has to
+-- fit under the ceiling with the model's own error bar to spare. The engine half of the
+-- guard -- that the coverage really generated matches this model -- lives in
+-- tests/test_decoratives.lua; the two together imply the measured ceiling on ANY seed.
 
 package.path = package.path .. ";./?.lua;./?/init.lua"
 local field = require("scripts.decorative-field")
@@ -362,6 +369,160 @@ test("every cold decal's emitted probability carries the ocean thinning (ci-10ze
       assert_true(expr:find(thin, 1, true) == nil, spec.name .. " (hot) has no ocean thinning")
     end
   end
+end)
+
+-- THE COLD COVERAGE BUDGET (ci-fwaq) -------------------------------------------------
+-- ci-tizx's ceiling was guarded by ONE in-engine measurement on ONE seed, so the ci-w87
+-- iceberg families could join the cold set with no re-balance and quietly take the shore
+-- from 0.059 to 0.090 decals/tile -- 90% of a ceiling nobody had to re-read. The coverage is
+-- now predicted from the catalogue in closed form, so a family costs its ground the moment
+-- the row is written and the density pass lands in the same commit.
+
+-- The model first: the coverage of one scatter is the mean of `min(1, 1 - A*r + bias)` over
+-- a uniform r, clamped at 0. Pin it at the values the catalogue actually uses plus both
+-- branch boundaries, so a wrong integral cannot masquerade as a comfortable budget.
+test("a scatter's covered fraction of ground is its closed-form mean (ci-fwaq)", function()
+  local A = field.PENALTY_AMPLITUDE
+  assert_eq(10, A, "the amplitude the emitted expression writes as 1/0.1")
+  -- Below the ramp: a triangle, u^2/(2A). These are the hot side's biases.
+  assert_near(0.0125, field.tile_probability(-0.5, 0), 1e-12, "bias -0.5 covers 1.25% of tiles")
+  assert_near(0.008, field.tile_probability(-0.6, 0), 1e-12, "bias -0.6")
+  assert_near(0.003125, field.tile_probability(-0.75, 0), 1e-12, "bias -0.75")
+  assert_near(0.0005, field.tile_probability(-0.9, 0), 1e-12, "bias -0.9, the sparsest decal")
+  -- The cold side's two biases, one at each side of the u = 1 branch.
+  assert_near(0.05, field.tile_probability(0.0, 0), 1e-12, "bias 0 covers 5%")
+  assert_near(0.08, field.tile_probability(0.3, 0), 1e-12, "bias 0.3 covers 8%")
+  -- Continuous across every branch: no step where one closed form hands over to the next.
+  for _, b in ipairs({ 0, A - 1, A }) do
+    assert_near(field.tile_probability(b - 1e-9, 0), field.tile_probability(b + 1e-9, 0), 1e-6,
+      "the closed form is continuous at bias " .. b)
+  end
+  -- The ends: nothing can place below the floor, and a big enough bias is a solid carpet.
+  assert_eq(0, field.tile_probability(-1, 0), "a bias of -1 never places")
+  assert_eq(0, field.tile_probability(-5, 0), "nor anything below it")
+  assert_eq(1, field.tile_probability(A, 0), "a bias of A covers every tile")
+  -- Monotonic in the bias, so "less negative = denser" is true and not just intended.
+  local prev = -1
+  for i = -20, 30 do
+    local p = field.tile_probability(i / 10, 0)
+    assert_true(p >= prev, "coverage must not fall as the bias rises (bias " .. i / 10 .. ")")
+    prev = p
+  end
+end)
+
+-- The model has to read the SAME amplitude the map-gen does. The emitted string keeps the
+-- vanilla `1/0.1` spelling, so nothing but a test ties the two together.
+test("the model's amplitude is the one the emitted scatter uses (ci-fwaq)", function()
+  for _, spec in ipairs(field.DECORATIVES) do
+    local expr = field.probability_expr(spec)
+    assert_true(expr:find("amplitude = 1/0.1", 1, true) ~= nil,
+      spec.name .. " emits the amplitude the coverage model integrates over")
+    assert_true(expr:find("(" .. num(spec.bias) .. ")", 1, true) ~= nil,
+      spec.name .. " emits the bias the coverage model reads")
+  end
+  assert_eq(1 / 0.1, field.PENALTY_AMPLITUDE, "and the constant is that same number")
+end)
+
+-- `density` is a multiplier on the PROBABILITY, which is exactly why it maps linearly onto
+-- covered ground -- the property a re-balance depends on.
+test("a decal's coverage is linear in its density multiplier (ci-fwaq)", function()
+  local base = { bias = 0.3, coef = 0 }
+  local full = field.expected_coverage(base)
+  assert_near(full, field.tile_probability(0.3, 0), 1e-12, "no density means the full scatter")
+  assert_near(full / 2, field.expected_coverage({ bias = 0.3, coef = 0, density = 0.5 }), 1e-12,
+    "halving the density halves the covered ground")
+  assert_eq(0, field.expected_coverage({ bias = 0.3, coef = 0, density = 0 }), "a zero density covers nothing")
+end)
+
+-- Every cold row must be visible to the budget. The sum is taken LIVE from the catalogue and
+-- cross-checked row by row, so a family cannot join by being unaccounted for (the exact way
+-- ci-w87's three families spent ci-tizx's headroom without anyone noticing).
+test("the cold budget accounts for every cold row in the catalogue (ci-fwaq)", function()
+  local sum, cold, hot = 0, 0, 0
+  for _, spec in ipairs(field.DECORATIVES) do
+    -- The scatter parameters are numbers on the spec, not an opaque expression string, or
+    -- the row would be unmodellable -- decorative-field.lua errors on such a row at load.
+    assert_true(type(spec.bias) == "number", spec.name .. " carries a numeric bias")
+    assert_true(type(spec.coef) == "number", spec.name .. " carries a numeric peaks coefficient")
+    assert_true(type(spec.seed) == "number", spec.name .. " carries a numeric scatter seed")
+    local c = field.expected_coverage(spec)
+    assert_true(c > 0, spec.name .. " covers some ground (a decal that never places is dead art)")
+    assert_true(c < 1, spec.name .. " does not carpet the ground on its own")
+    if spec.side == "cold" then
+      cold = cold + 1
+      sum = sum + c
+    else
+      hot = hot + 1
+    end
+  end
+  assert_true(cold > 0 and hot > 0, "both sides are populated")
+  assert_near(sum, field.coverage_budget("cold"), 1e-12, "the budget is the sum of its rows")
+  assert_true(field.coverage_budget("hot") > 0, "the hot side is summable the same way")
+  -- An unknown side contributes nothing, so a typo'd `side` cannot hide inside the cold
+  -- budget -- the zone-purity test above is what fails on it.
+  assert_eq(0, field.coverage_budget("nonesuch"), "only real sides carry a budget")
+end)
+
+-- THE GUARD. The one assertion the bead turns on: the cold catalogue's total shore coverage
+-- must fit under ci-tizx's ceiling with the model's proven error bar to spare.
+test("the cold catalogue's total shore coverage fits under the ci-tizx ceiling (ci-fwaq)", function()
+  local budget = field.coverage_budget("cold")
+  local allowance = field.coverage_allowance()
+  assert_true(budget > 0, "the frost shore does carry frost")
+  assert_true(budget <= allowance, string.format(
+    "cold decal coverage budget %.4f/tile exceeds the allowance %.4f (ceiling %.3f less the " ..
+    "%.0f%% model tolerance). RE-BALANCE the per-decal `density` figures in " ..
+    "scripts/decorative-field.lua so the total fits -- do NOT raise the ceiling, which is " ..
+    "the regression it exists to catch.",
+    budget, allowance, field.SHORE_COVERAGE_CEILING, 100 * field.COVERAGE_MODEL_TOLERANCE))
+  -- And the headroom really is thin, so this is a live guard rather than a formality: the
+  -- catalogue is inside a few percent of its allowance today.
+  assert_true(budget > 0.5 * allowance,
+    "the budget is a live constraint, not slack (if the shore got this sparse on purpose, " ..
+    "re-read the ceiling rather than leaving a guard that can never fire)")
+end)
+
+-- The tempting fix is the forbidden one, so bound the constant itself: a "re-balance" that
+-- is really a raised ceiling fails here.
+test("the shore coverage ceiling cannot be raised to fit a new family (ci-fwaq)", function()
+  assert_true(field.SHORE_COVERAGE_CEILING <= 0.1,
+    "the ci-tizx ceiling is 0.1 decals/tile on the frost shore and may only ever come DOWN")
+  assert_true(field.COVERAGE_MODEL_TOLERANCE >= 0.1,
+    "the model tolerance must stay wide enough to cover the model's real error (~6%)")
+  assert_true(field.COVERAGE_MODEL_TOLERANCE <= 0.25,
+    "but not so wide that the allowance stops meaning anything")
+  assert_near(field.SHORE_COVERAGE_CEILING / (1 + field.COVERAGE_MODEL_TOLERANCE),
+    field.coverage_allowance(), 1e-12, "the allowance is the ceiling less the tolerance")
+  assert_true(field.coverage_allowance() < field.SHORE_COVERAGE_CEILING,
+    "the budget is held strictly below the ceiling, not up against it")
+end)
+
+-- The guard has to BITE, or it is decoration. One more cold family at the frost decals' own
+-- density -- exactly what the ci-w87 rows did, and the case the bead predicts -- must breach
+-- the allowance, and re-balancing the existing densities must be a way back under it.
+test("one more cold family at frost density breaches the budget (ci-fwaq)", function()
+  local ice
+  for _, spec in ipairs(field.DECORATIVES) do
+    if spec.name == "cindra-ice-decal" then ice = spec end
+  end
+  assert_true(ice ~= nil, "the ice decal is the reference frost density")
+  local newcomer = field.expected_coverage({ bias = ice.bias, coef = ice.coef, density = ice.density })
+  assert_true(field.coverage_budget("cold") + newcomer > field.coverage_allowance(),
+    "a fourth frost-density family must NOT fit -- if it does, the guard has gone slack")
+  -- ...and the prescribed fix works: paying for it out of the existing densities gets back
+  -- under. (Scaling every cold row by this factor is the crudest possible re-balance; a real
+  -- one would weigh the art. It exists here to prove the constraint is satisfiable.)
+  local scale = (field.coverage_allowance() - newcomer) / field.coverage_budget("cold")
+  assert_true(scale > 0, "there is room for another family at all, once paid for")
+  local rebalanced = newcomer
+  for _, spec in ipairs(field.DECORATIVES) do
+    if spec.side == "cold" then
+      rebalanced = rebalanced + field.expected_coverage({
+        bias = spec.bias, coef = spec.coef, density = (spec.density or 1) * scale })
+    end
+  end
+  assert_true(rebalanced <= field.coverage_allowance() + 1e-12,
+    "re-balancing the existing densities is the way back under the ceiling")
 end)
 
 -- The big snow-drift art (a ~6.6 x 4.6 tile decal) covers far more ground per

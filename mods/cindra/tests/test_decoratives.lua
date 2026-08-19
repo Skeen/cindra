@@ -22,6 +22,11 @@
 --   7. THE ICE OCEAN READS AS AN OCEAN (ci-10ze): the open smooth-ice sheet carries only a
 --      small fraction of the frost shore's clutter, the drop is a fade rather than a line,
 --      and the shore keeps its detail.
+--   8. THE COVERAGE BUDGET DESCRIBES THE PLANET (ci-fwaq): the frost the shore actually
+--      generates matches what the catalogue's coverage budget predicts. That is the half of
+--      the ceiling guard only the engine can prove -- the other half (the budget fits under
+--      the ceiling) is pure arithmetic in unit-tests/test_decorative_field.lua, and the two
+--      together bound the measured coverage on any seed rather than on this one.
 --
 -- The pure zone geometry is proven off-game in unit-tests/test_decorative_field.lua;
 -- this proves it actually generates. The VISUAL read (do the decals look like ice vs
@@ -204,8 +209,66 @@ describe("cindra decoratives: zone-appropriate decal scatter (ci-6fq)", function
     log("ci-tizx cold decal density (frost shore x " .. SHORE_X1 .. ".." .. SHORE_X2 .. "): " ..
       n .. " / " .. tiles .. " = " .. per_tile)
     assert.is_true(per_tile > 0, "the frost shore does read as frosted")
-    assert.is_true(per_tile < 0.1,
-      "cold decals must stay sparse (" .. string.format("%.4f", per_tile) .. " per tile)")
+    assert.is_true(per_tile < field.SHORE_COVERAGE_CEILING,
+      "cold decals must stay sparse (" .. string.format("%.4f", per_tile) .. " per tile, ceiling " ..
+      field.SHORE_COVERAGE_CEILING .. ")")
+  end)
+
+  -- 8. THE COVERAGE BUDGET IS HONEST (ci-fwaq) ------------------------------------------
+  -- The measurement above is a rear-view mirror: it needs the engine, it reads one seed, and
+  -- it cannot say which decal spent the ceiling -- which is how the ci-w87 iceberg families
+  -- joined the cold set with no re-balance and took the shore from 0.059 to 0.090/tile. The
+  -- coverage is now PREDICTED from the catalogue off the game (field.coverage_budget), and
+  -- the unit tests hold that prediction under the ceiling with the model's error bar to
+  -- spare. This is what makes the prediction admissible: the coverage the engine actually
+  -- puts on the ground has to match it.
+  --
+  --   unit-tests: budget * (1 + tol) <= ceiling
+  --   here:       measured <= budget * (1 + tol)
+  --   therefore:  measured <= ceiling  -- on ANY seed, not just this one.
+  --
+  -- If a future change makes the world generate more frost than the catalogue accounts for
+  -- (a denser clone source, a placement_density > 1, a second scatter term), the budget stops
+  -- describing the planet and this fails -- rather than the guard silently under-counting.
+  it("generates the cold coverage its catalogue budget predicts (ci-fwaq)", function()
+    -- Like for like: the budget is coverage where the positional multipliers are 1, so the
+    -- strip we measure has to be at FULL cold density for every column in it. That is what
+    -- makes the frost shore the right ground to read the ceiling on, and we prove it here
+    -- rather than assuming the two boundary calculations still agree.
+    for x = SHORE_X1, SHORE_X2 do
+      assert.are.equal(1, field.cold_density(axis.perp(x, 0)),
+        "the measured strip must be at full cold density (x " .. x .. ")")
+    end
+
+    local measured = cold_per_tile(SHORE_X1, SHORE_X2)
+    local budget = field.coverage_budget("cold")
+    local tol = field.COVERAGE_MODEL_TOLERANCE
+    log(string.format("ci-fwaq cold coverage: measured %.4f/tile vs budget %.4f (%+.1f%%), " ..
+      "tolerance %.0f%%, ceiling %.3f",
+      measured, budget, 100 * (measured / budget - 1), 100 * tol, field.SHORE_COVERAGE_CEILING))
+    assert.is_true(measured <= budget * (1 + tol), string.format(
+      "the shore generates MORE frost than the catalogue budget accounts for (measured %.4f " ..
+      "vs budget %.4f +%.0f%%): the budget is under-counting, so the unit-test guard is not " ..
+      "protecting the ceiling. Find what the model is missing before touching either number.",
+      measured, budget, 100 * tol))
+    assert.is_true(measured >= budget * (1 - tol), string.format(
+      "the shore generates LESS frost than the catalogue budget accounts for (measured %.4f " ..
+      "vs budget %.4f -%.0f%%): the budget is over-counting, so it is reserving ground the " ..
+      "art never uses and will refuse a family that would have fitted.",
+      measured, budget, 100 * tol))
+  end)
+
+  -- The chain above is only worth anything if the ceiling really is the binding constraint,
+  -- so state it as one assertion: the ground the player walks on carries less frost than the
+  -- ceiling allows, and the budget it was predicted from is what keeps it there.
+  it("holds the frost shore under the ceiling via its budget, not by luck (ci-fwaq)", function()
+    local measured = cold_per_tile(SHORE_X1, SHORE_X2)
+    local bound = field.coverage_budget("cold") * (1 + field.COVERAGE_MODEL_TOLERANCE)
+    assert.is_true(bound <= field.SHORE_COVERAGE_CEILING, string.format(
+      "the budget's upper bound %.4f must fit under the ceiling %.3f (the unit-test guard)",
+      bound, field.SHORE_COVERAGE_CEILING))
+    assert.is_true(measured <= bound and measured < field.SHORE_COVERAGE_CEILING, string.format(
+      "and the ground the player walks on stays under it (%.4f)", measured))
   end)
 
   -- 7. THE ICE OCEAN READS AS AN OCEAN (ci-10ze) ----------------------------------------
