@@ -148,6 +148,13 @@ if script.active_mods["factorio-test"] then
     -- frost layer) and thaws beside heat (so the sheen is never always-on). The
     -- class is enumerated live, so a new machine is measured without being listed.
     "tests/test_frost",
+    -- ci-de55: the other half of the freeze ruling. The engine REFUSES to freeze an
+    -- accumulator, a solar panel or an electric-energy-interface at any price, so
+    -- Cindra freezes those buildings itself. Measures that they stop working for
+    -- real, that thawing hands every joule back, that the player is told -- and,
+    -- hardest, that the scripted boundary lands on the same tile the ENGINE's own
+    -- does for a natively-freezable machine walking identical ground.
+    "tests/test_script_freeze",
     "tests/test_mass_driver",
     "tests/test_space_appearance",
     -- ci-810e: PlanetsLib interop guards. Cindra declares only an OPTIONAL

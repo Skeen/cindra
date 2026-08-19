@@ -33,9 +33,11 @@
 local H = require("tests.helpers")
 local C = require("scripts.flare-config")
 local DC = require("scripts.diode-config")
+local audit = require("scripts.frost-audit")
 local diode = require("scripts.diode")
 local flare = require("scripts.flare")
 local panel_solar = require("scripts.panel-solar")
+local script_freeze = require("scripts.script-freeze")
 
 local WCID = defines.wire_connector_id
 local HEATER = "cindra-electric-heater"
@@ -86,6 +88,22 @@ local COVERED = {
 -- The reduced sunward bands are real solar panels: same rule as the full band.
 for _, f in ipairs(panel_solar.BANDS) do
   COVERED[panel_solar.name_for_band(f)] = "reduced solar band: sun off -> zero output (below)"
+end
+-- ci-de55 FROZEN TWINS. The engine will not freeze an accumulator, a solar panel
+-- or an electric-energy-interface, so Cindra swaps each for a twin with zero flow
+-- and zero production while it is out in the cold. Every twin is a power
+-- prototype in its own right, and the swap MOVES stored joules between two
+-- entities -- the exact shape of the ci-76if bug -- so the class is covered here
+-- by the freeze-ledger case below, not merely declared safe.
+local twinned = {}
+for name in pairs(COVERED) do
+  if name:sub(1, 7) == "cindra-" and prototypes.entity[audit.frozen_name(name)] then
+    twinned[#twinned + 1] = name
+  end
+end
+for _, name in ipairs(twinned) do
+  COVERED[audit.frozen_name(name)] = "frozen twin of " .. name
+    .. ": holds what it held and moves nothing, across the freeze AND the thaw (below)"
 end
 
 -- Every Cindra-owned power prototype the game actually loaded. Ownership is by
@@ -274,6 +292,108 @@ describe("power economy - no entity mints energy (ci-m96z)", function()
         "a dissipator must never feed the grid it drains: capacitor got " .. cap.energy)
       done()
     end)
+  end)
+end)
+
+-- ===========================================================================
+-- The script freeze: a ledger across the freeze and the thaw (ci-de55)
+-- ===========================================================================
+
+describe("power economy - freezing moves no energy off the books (ci-de55)", function()
+  it("a whole grid's stored energy is unchanged by a freeze sweep AND by the thaw", function()
+    -- The ci-de55 ruling's second hard condition, in the form it demanded: "total
+    -- network energy before a freeze sweep equals total after". The freeze is
+    -- implemented by SWAPPING each building for a frozen twin -- destroying one
+    -- entity holding joules and creating another -- which is precisely the shape of
+    -- the ci-76if bug, where a device drew 10 MW forever and generated 10 MW from
+    -- nothing behind a green suite. So the assertion reads live engine energy on
+    -- both sides and requires the grid total to be EQUAL, not "close": a swap that
+    -- dropped a buffer, or handed one back doubled, shows up here immediately.
+    --
+    -- Nothing on this grid can produce (the sun is off) and nothing can consume
+    -- (the only load, the dissipator, freezes with everything else), so the total
+    -- is a closed quantity and any change at all is the script's doing.
+    local s = H.cindra_surface()
+    H.power_reset()
+    sun_off(s)
+    storage.cindra_freeze_autoplace = false
+
+    -- Fresh, never-heated ground: the origin work area is kept thawed by the
+    -- worldgen lava-heat line, where nothing would freeze at all.
+    local y = 600000
+    s.request_to_generate_chunks({ 0, y }, 3)
+    s.force_generate_chunk_requests()
+    local tiles = {}
+    for x = -30, 30 do
+      for ty = y - 30, y + 30 do tiles[#tiles + 1] = { name = "refined-concrete", position = { x, ty } } end
+    end
+    s.set_tiles(tiles)
+    H.grid(s, y, y + 18)
+
+    local cap = place(s, C.CAPACITOR, { -6, y })
+    local bat = place(s, C.BATTERY, { -6, y + 6 })
+    local diss = place(s, C.DISSIPATOR, { -6, y + 12 })
+    cap.energy = 0.5 * cap.electric_buffer_size
+    bat.energy = 0.5 * bat.electric_buffer_size
+    diss.energy = 0.25 * diss.electric_buffer_size
+
+    -- The grid's whole stored charge, read from the world rather than from the
+    -- numbers we just wrote: whatever the engine actually accepted is the baseline.
+    local NAMES = { C.CAPACITOR, C.BATTERY, C.DISSIPATOR }
+    local function stored()
+      local total, seen = 0, 0
+      for _, name in ipairs(NAMES) do
+        for _, e in pairs(s.find_entities_filtered({
+          name = { name, audit.frozen_name(name) },
+          area = { { -30, y - 30 }, { 30, y + 30 } },
+        })) do
+          total = total + e.energy
+          seen = seen + 1
+        end
+      end
+      return total, seen
+    end
+
+    local before, count_before = stored()
+    assert.are.equal(3, count_before, "the rig must be the three storage buildings")
+    assert.is_true(before > 0, "the rig must actually hold charge, or this measures nothing")
+
+    local froze = script_freeze.sweep(s)
+    assert.are.equal(3, froze.froze, "all three must freeze on never-heated ground")
+    local after, count_after = stored()
+    assert.are.equal(3, count_after, "freezing must not lose a building")
+    assert.are.equal(before, after,
+      "a freeze sweep must move NO energy off the books: the grid held " .. before
+      .. " J and holds " .. after .. " J after freezing")
+
+    -- ...and the thaw is the same ledger run backwards. A freeze that quietly
+    -- refunded (or confiscated) on the way out would pass the half above.
+    -- One hot pipe per building, TOUCHING it: a heat pipe's reach is a single tile
+    -- past its own footprint. Each 2x2 building at x = -6 occupies tiles -7 and
+    -- -6, so the pipe goes on tile -8 (its centre at -7.5).
+    for _, dy in ipairs({ 0, 6, 12 }) do
+      local p = s.create_entity({ name = "heat-pipe", position = { -7.5, y + dy + 0.5 }, force = "player" })
+      assert.is_not_nil(p, "the thaw rig must place its heat pipe")
+      p.temperature = 1000
+    end
+    local thawed = script_freeze.sweep(s)
+    assert.are.equal(3, thawed.thawed, "all three must thaw beside heat")
+    local back, count_back = stored()
+    assert.are.equal(3, count_back, "thawing must not lose a building")
+    assert.are.equal(before, back,
+      "thawing must hand back exactly what was frozen: started " .. before
+      .. " J, ended " .. back .. " J")
+
+    -- Tear the rig down. MANDATORY: sibling suites count power entities
+    -- SURFACE-WIDE, so storage buildings left lying here would break
+    -- tests/test_panel_overload's counts describing a bug that does not exist
+    -- (the same trap tests/test_frost.lua documents).
+    for _, e in pairs(s.find_entities_filtered({ area = { { -30, y - 30 }, { 30, y + 30 } } })) do
+      if e.valid and e.type ~= "character" and e.type ~= "resource"
+        and e.type ~= "simple-entity" and e.name ~= "cindra-lava-heat" then
+        e.destroy()
+      end
+    end
   end)
 end)
 
