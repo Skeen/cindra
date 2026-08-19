@@ -14,13 +14,17 @@
 -- proves the guards held and the mod set loaded clean. The assertions below pin
 -- the scenario and prove no APS registration leaked in.
 
+local H = require("tests.helpers")
+
 describe("cindra companion mods without any-planet-start", function()
   it("loads the companion mods with APS absent (proves clean headless load)", function()
-    assert.is_nil(script.active_mods["any-planet-start"],
+    assert.is_false(H.aps_loaded(),
       "this suite only applies when any-planet-start is NOT installed")
     assert.is_not_nil(script.active_mods["cindra-start"], "cindra-start must be active")
     -- cindra-dev-default is the one that calls APS.set_default_choice; prove ITS
     -- guard held too (not just cindra-start's), so the whole companion set is clean.
+    -- This suite is registered by the DOCUMENTED APS-absent invocation, which loads
+    -- both companion mods, so the requirement is the config's, not an accident.
     assert.is_not_nil(script.active_mods["cindra-dev-default"],
       "cindra-dev-default must also be active (its APS-absent skip path is exercised here)")
   end)

@@ -62,9 +62,9 @@ end
 
 describe("cindra APS start chain: end-to-end from-nothing bootstrap (no Vulcanus)", function()
   it("only applies to a Cindra start (sanity)", function()
-    assert.is_not_nil(script.active_mods["any-planet-start"], "APS must be active for this suite")
+    assert.is_true(H.aps_loaded(), "APS must be active for this suite")
     assert.is_not_nil(script.active_mods["cindra-start"], "cindra-start must be active")
-    assert.are.equal("cindra", settings.startup["aps-planet"].value,
+    assert.is_true(H.aps_cindra_start(),
       "this suite drives the Cindra-start bootstrap; the picker must be Cindra")
   end)
 

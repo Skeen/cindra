@@ -170,6 +170,22 @@ end
 
 H.DISCOVERY_TECH = "planet-discovery-cindra"
 
+-- Is any-planet-start loaded at all? (ci-e9sj) Loaded and CHOSEN are different
+-- worlds, and only the second one changes the game -- with APS present but its
+-- picker left on its own default ("none"), APS's data-final-fixes returns early,
+-- so nothing is stripped and cindra-start's runtime grants never fire. There are
+-- therefore THREE worlds, and control.lua registers one suite per world:
+--
+--   1. not aps_loaded()      -> APS absent            -> test_aps_absent
+--   2. aps_cindra_start()    -> Cindra is the start   -> the four start suites
+--   3. loaded, not chosen    -> Cindra merely offered -> test_aps_offered
+--
+-- Both predicates read startup settings / active mods only, so control.lua can
+-- call them at registration time.
+function H.aps_loaded()
+  return script.active_mods["any-planet-start"] ~= nil
+end
+
 -- True only when Cindra is the CHOSEN Any-Planet-Start start planet. `aps-planet`
 -- is APS's own startup setting, so its absence means APS is not loaded at all;
 -- with any other planet chosen the discovery tech survives untouched and the

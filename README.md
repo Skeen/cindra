@@ -96,12 +96,23 @@ the orientation-agnostic `test_orientation`. `npm test` runs both orientations.
 
 `any-planet-start` (APS) is an **optional** dependency (`? any-planet-start`), so
 the companion mods (`cindra-start` + `cindra-dev-default`) must load clean both
-with and without it. There are two suites, and control.lua registers exactly one
-based on whether APS is active:
+with and without it — and when APS *is* installed, the player still has to
+**choose** Cindra in its planet picker. Installed and chosen are different worlds
+(`ci-e9sj`: keying on the mod alone made 14 tests assert a Cindra start that was
+not happening), so there are **three** configs and control.lua registers exactly
+one suite per config, on
+`settings.startup["aps-planet"].value == "cindra"` — the same predicate
+`cindra-start` gates its own runtime grants on:
+
+| Config | Suite | What it proves |
+| --- | --- | --- |
+| no APS | `test_aps_absent` | the companion mods load clean and register nothing |
+| APS + Cindra chosen | `test_aps_start` + `_foundry` + `_kit` + `_bootstrap` | the start chain: registration, pre-research, kit, end-to-end bootstrap |
+| APS + another start | `test_aps_offered` | Cindra is offered but nothing fired: normal discovery gate, no free research, no free kit |
 
 `cindra-test [MOD ...] [-- CLI-ARG ...]`: bare words are extra mods to enable
 alongside the base DLC set, and anything after `--` goes to the CLI verbatim
-(flags, or a Lua filter pattern). So both suites run by seeding the companion
+(flags, or a Lua filter pattern). So each config runs by seeding the companion
 mods into the data dir and naming them on the `cindra-test` line. Run these from
 inside `nix develop`.
 
@@ -147,6 +158,28 @@ asserting the default tech tree unconditionally (`tests/helpers.lua`
 before that, three of them were red on clean main here, which made a target-side
 failure look like the branch's own. The actual in-game start (cargo-pod drop,
 playable opening) is a [`PLAYTEST.md`](PLAYTEST.md) item.
+
+**APS installed, another start chosen — `test_aps_offered`.** The way a player
+who is not specifically after a Cindra start installs this chain: APS plus
+`cindra-start`, picker left alone. APS's `aps-planet` then keeps its own default
+(`none`), its `data-final-fixes` returns early, and nothing about the game
+changes — Cindra keeps its Vulcanus discovery gate and `cindra-start`'s runtime
+grants stay off. Drop `cindra-dev-default` from the set (it is the mod that
+forces the picker to Cindra) and reuse the APS link above:
+
+```sh
+: "${APS_PATH:?set APS_PATH to a local any-planet-start checkout}"
+mkdir -p factorio-test-data-dir/mods
+ln -sfn "$(realpath "$APS_PATH")" factorio-test-data-dir/mods/any-planet-start
+ln -sfn "../../mods/cindra-start" factorio-test-data-dir/mods/cindra-start
+# fresh mod-settings so the picker regenerates APS's own default ("none")
+rm -f factorio-test-data-dir/mods/mod-settings.dat factorio-test-data-dir/mod-settings.dat
+
+cindra-test any-planet-start cindra-start
+```
+
+Unlike the chosen-start config, this one keeps Cindra's normal tech tree, so the
+whole default suite is valid here and the run must be fully green.
 
 ### PlanetsLib co-load
 

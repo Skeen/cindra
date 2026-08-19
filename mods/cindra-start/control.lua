@@ -204,15 +204,28 @@ local function try_give_kit(player)
   return false
 end
 
--- On a Cindra start, stock the wreck as soon as the player is created; if the
--- ship is not there yet, remember the player and let the poll below finish.
-script.on_event(defines.events.on_player_created, function(event)
-  if not is_cindra_start() then return end
-  local player = game.get_player(event.player_index)
+-- A player landing: on a Cindra start, stock the wreck as soon as the player is
+-- created; if the ship is not there yet, remember the player and let the poll
+-- below finish. On ANY OTHER start this is where the whole kit is refused -- the
+-- `is_cindra_start()` line below is the ONLY thing standing between a normal
+-- Nauvis game and a free foundry.
+--
+-- Factored out of the event handler so the gate is reachable from the test seam
+-- (ci-e9sj): the suite can drive a landing on both sides of the gate and watch
+-- what the world does, instead of taking the guard's word for it. The runtime
+-- path calls this exact function, so the tested path is the shipped one.
+local function on_player_landed(player_index)
+  if not is_cindra_start() then return false end
+  local player = game.get_player(player_index)
   storage.cindra_kit_deadline = storage.cindra_kit_deadline or (game.tick + KIT_SHIP_GRACE_TICKS)
   if try_give_kit(player) == false then
-    storage.cindra_kit_pending = event.player_index
+    storage.cindra_kit_pending = player_index
   end
+  return storage.cindra_kit_given == true
+end
+
+script.on_event(defines.events.on_player_created, function(event)
+  on_player_landed(event.player_index)
 end)
 
 -- The retry poll: cheap no-op once the kit is given (or on any non-Cindra game).
@@ -249,5 +262,18 @@ remote.add_interface("cindra-start", {
   -- five slots instead of hard-coding a second copy of the list.
   get_bootstrap_kit = function()
     return KIT
+  end,
+  -- Replay a player LANDING through the gated runtime path (ci-e9sj), from a
+  -- clean slate so the result never depends on whether the real
+  -- on_player_created already ran in this save. Unlike the two seams above --
+  -- which deliberately bypass the gate to pin the kit's CONTENTS -- this one
+  -- goes through `is_cindra_start()`, so the suite can watch the world on both
+  -- sides of it: a Cindra start ends up with the kit, any other start ends up
+  -- with nothing. Returns true when the kit was actually delivered.
+  simulate_player_landing = function(player_index)
+    storage.cindra_kit_given = nil
+    storage.cindra_kit_pending = nil
+    storage.cindra_kit_deadline = nil
+    return on_player_landed(player_index)
   end,
 })

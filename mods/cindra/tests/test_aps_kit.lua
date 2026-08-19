@@ -42,9 +42,9 @@ end
 -- alongside the other APS-start suites.
 describe("cindra APS start chain: bootstrap kit in the crashed ship", function()
   it("only applies to a Cindra start (sanity)", function()
-    assert.is_not_nil(script.active_mods["any-planet-start"], "APS must be active for this suite")
+    assert.is_true(H.aps_loaded(), "APS must be active for this suite")
     assert.is_not_nil(script.active_mods["cindra-start"], "cindra-start must be active")
-    assert.are.equal("cindra", settings.startup["aps-planet"].value,
+    assert.is_true(H.aps_cindra_start(),
       "this suite asserts the Cindra-start kit; the picker must be Cindra")
   end)
 
@@ -158,6 +158,25 @@ describe("cindra APS start chain: bootstrap kit in the crashed ship", function()
         "no kit stack may exceed 10 (" .. item.name .. " = " .. item.count .. "); keep it minimal")
     end
     assert.is_true(types <= 5, "the kit must fit the wreck's five slots (got " .. types .. " types)")
+    ship.destroy()
+  end)
+
+  it("delivers on LANDING, through the gate the runtime uses (ci-e9sj)", function()
+    -- The two seams above deliberately bypass cindra-start's `is_cindra_start()`
+    -- gate so they can pin the kit's CONTENTS. This one goes THROUGH it, replaying
+    -- the on_player_created path: on a Cindra start the wreck must come out
+    -- stocked. tests/test_aps_offered runs the same call in the world where APS is
+    -- installed but Cindra was not chosen and asserts the opposite, so the gate is
+    -- proven in both directions instead of assumed.
+    local s = H.cindra_surface()
+    local ship = place_crashed_ship(s, { 0, 0 })
+    local player = game.players[1]
+    assert.is_not_nil(player, "this assertion needs a player")
+
+    assert.is_true(remote.call("cindra-start", "simulate_player_landing", player.index),
+      "landing on a Cindra start must deliver the kit")
+    assert.is_true(ship_inventory(ship).get_item_count("foundry") >= 1,
+      "the wreck the player lands next to must hold the kit's foundry")
     ship.destroy()
   end)
 

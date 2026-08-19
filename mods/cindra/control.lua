@@ -213,23 +213,36 @@ if script.active_mods["factorio-test"] then
     "tests/test_balance_audit",
   }
   -- Companion-mod suites. any-planet-start is now an OPTIONAL dependency of
-  -- cindra-start, so cindra-start can be active WITH or WITHOUT APS. Pick the
-  -- suite that matches the loaded set:
-  --   * WITH APS  -> test_aps_start: asserts APS registration took effect
-  --     (add_choice/add_default/add_planet). That set rewrites Cindra's
-  --     discovery tech, so it is never enabled in the default `mods/cindra` run.
-  --   * WITHOUT APS -> test_aps_absent: asserts the companion mods load clean and
+  -- cindra-start, so cindra-start can be active WITH or WITHOUT APS -- and when
+  -- it IS installed, the player still has to CHOOSE Cindra in APS's picker.
+  -- Installed and chosen are different worlds (ci-e9sj: keying on the mod alone
+  -- made 14 tests assert a Cindra start that was not happening), so there are
+  -- THREE variants and exactly one registers:
+  --   * NO APS            -> test_aps_absent: the companion mods load clean and
   --     register NOTHING (the guarded APS calls were skipped, no error).
-  -- The default run enables neither companion mod, so neither suite registers.
+  --   * APS + Cindra CHOSEN -> the full start chain (registration took effect AND
+  --     the start-only guarantees: pre-research, kit, end-to-end bootstrap). That
+  --     set rewrites Cindra's discovery tech, so it is never in the default run.
+  --   * APS + ANOTHER start -> test_aps_offered: Cindra is on the menu but was not
+  --     picked, so APS changed nothing. Only the registration half is meaningful;
+  --     the start-only guarantees must specifically NOT have fired.
+  -- The default run enables neither companion mod, so none of them register.
+  --
+  -- The predicate is the SAME one cindra-start/control.lua gates its pre-research
+  -- on (helpers.aps_cindra_start -> settings.startup["aps-planet"].value), so the
+  -- suite selection can never disagree with the mod's own behaviour.
   if script.active_mods["cindra-start"] then
-    if script.active_mods["any-planet-start"] then
+    local H = require("tests.helpers")
+    if not H.aps_loaded() then
+      test_files[#test_files + 1] = "tests/test_aps_absent"
+    elseif H.aps_cindra_start() then
       test_files[#test_files + 1] = "tests/test_aps_start"
       -- ci-arw: the pre-researched foundry path is a Cindra-start guarantee, so
-      -- it is only meaningful (and only asserted) when the APS chain is loaded.
+      -- it is only meaningful (and only asserted) when Cindra is the chosen start.
       test_files[#test_files + 1] = "tests/test_aps_foundry"
       -- ci-8wu: the MINIMAL bootstrap kit a Cindra start lands with, stocked
       -- into the crash-site spaceship itself since ci-q6nh (no chest capsule);
-      -- likewise only meaningful under the APS chain.
+      -- likewise only meaningful when Cindra is the chosen start.
       test_files[#test_files + 1] = "tests/test_aps_kit"
       -- ci-7p6: the END-TO-END from-nothing bootstrap -- drives a start-on-Cindra
       -- run reaching a foundry + the lava->metal economy (and reproducing foundries)
@@ -237,7 +250,8 @@ if script.active_mods["factorio-test"] then
       -- stall; only meaningful under the APS kit + pre-research.
       test_files[#test_files + 1] = "tests/test_aps_bootstrap"
     else
-      test_files[#test_files + 1] = "tests/test_aps_absent"
+      -- ci-e9sj: APS loaded, Cindra offered, some other planet started.
+      test_files[#test_files + 1] = "tests/test_aps_offered"
     end
   end
   -- The two halves of the PlanetsLib story, split on whether the player actually

@@ -13,11 +13,13 @@
 -- The describe name shares the "cindra APS start chain" prefix so the documented
 -- filtered APS invocation (`-- "cindra APS start chain"`, see README) runs it
 -- alongside test_aps_start.
+local H = require("tests.helpers")
+
 describe("cindra APS start chain: foundry path pre-researched (no soft-lock)", function()
   it("only applies to a Cindra start (sanity)", function()
-    assert.is_not_nil(script.active_mods["any-planet-start"], "APS must be active for this suite")
+    assert.is_true(H.aps_loaded(), "APS must be active for this suite")
     assert.is_not_nil(script.active_mods["cindra-start"], "cindra-start must be active")
-    assert.are.equal("cindra", settings.startup["aps-planet"].value,
+    assert.is_true(H.aps_cindra_start(),
       "this suite asserts the Cindra-start pre-research; the picker must be Cindra")
   end)
 

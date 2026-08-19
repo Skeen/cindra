@@ -1,13 +1,18 @@
--- Proof: the two companion mods wire Cindra into Any Planet Start end-to-end.
--- This suite ONLY loads when the APS chain is present (see control.lua) — the
--- default `mods/cindra` test run does not enable any-planet-start, so it never
--- runs there. It is exercised by the dedicated APS invocation documented in
--- SETUP.md / README, which loads:
+-- Proof: the companion mods wire Cindra into Any Planet Start end-to-end.
+-- This suite ONLY loads when APS is present AND Cindra is the CHOSEN start (see
+-- control.lua) — the default `mods/cindra` test run does not enable
+-- any-planet-start, so it never runs there. It is exercised by the dedicated APS
+-- invocation documented in SETUP.md / README, which loads:
 --
 --   space-age quality elevated-rails recycler
 --   any-planet-start cindra-start cindra-dev-default
 --
 -- with the planet-picker defaulting to Cindra (cindra-dev-default).
+--
+-- ci-e9sj: the registration used to key on APS being INSTALLED, which is a
+-- different (and perfectly normal) world -- APS installed, Cindra offered, some
+-- other planet started. Everything below asserts the CHOSEN-start rewrite, so it
+-- belongs here; the offered-but-not-chosen world is tests/test_aps_offered.
 --
 -- The mere fact this test executes proves the full mod set LOADS CLEAN HEADLESS
 -- (a data-stage error would abort before any test runs). The assertions below
@@ -19,21 +24,45 @@
 --
 -- In-game start (cargo-pod drop, kit, playable opening) stays a PLAYTEST item.
 
+local H = require("tests.helpers")
+
 describe("cindra APS start chain", function()
-  it("loads the full companion mod set (proves clean headless load)", function()
-    assert.is_not_nil(script.active_mods["any-planet-start"], "any-planet-start must be active")
+  it("loads the companion mod set on a Cindra start (proves clean headless load)", function()
+    assert.is_true(H.aps_loaded(), "any-planet-start must be active")
     assert.is_not_nil(script.active_mods["cindra-start"], "cindra-start must be active")
-    assert.is_not_nil(script.active_mods["cindra-dev-default"], "cindra-dev-default must be active")
+    assert.is_true(H.aps_cindra_start(), "Cindra must be the chosen APS start for this suite")
   end)
 
-  it("registers Cindra as an APS choice AND defaults the picker to it", function()
-    -- The picker value resolving to "cindra" is a double proof:
-    --   * APS.add_choice("cindra") ran (else "cindra" is not an allowed value
-    --     and Factorio would reject it as the default -> load failure), and
-    --   * APS.set_default_choice("cindra") ran (cindra-dev-default), else the
-    --     picker would still default to APS's built-in "none".
-    assert.are.equal("cindra", settings.startup["aps-planet"].value,
-      "the APS planet-picker must default to cindra (add_choice + set_default_choice)")
+  it("registers Cindra as an APS choice (add_choice took effect)", function()
+    -- cindra-start's own contribution, and the only one it makes in EVERY
+    -- APS install: Cindra appears among the picker's allowed values. Asserted
+    -- from the setting PROTOTYPE, so it holds whether or not Cindra is the
+    -- value currently selected (tests/test_aps_offered asserts the same thing
+    -- in the not-chosen world).
+    local picker = prototypes.mod_setting["aps-planet"]
+    assert.is_not_nil(picker, "APS's aps-planet picker setting must exist")
+    local offered = {}
+    for _, v in pairs(picker.allowed_values or {}) do offered[v] = true end
+    assert.is_true(offered["cindra"], "cindra-start must add Cindra to the picker's choices")
+  end)
+
+  it("defaults the picker to Cindra when the dev default mod is loaded", function()
+    -- set_default_choice is cindra-dev-default's doing, NOT cindra-start's --
+    -- a plain APS + cindra-start install leaves the picker on APS's built-in
+    -- "none" and the player chooses. So only assert the default where the mod
+    -- that sets it is actually loaded; otherwise assert the picker still got
+    -- to Cindra some other way (the player picked it), which is this suite's
+    -- registration precondition.
+    if script.active_mods["cindra-dev-default"] then
+      -- The setting's DEFAULT, not its current value: the value could be a
+      -- leftover in mod-settings.dat, whereas the default is what
+      -- set_default_choice actually moved.
+      assert.are.equal("cindra", prototypes.mod_setting["aps-planet"].default_value,
+        "cindra-dev-default must default the APS planet-picker to cindra")
+    else
+      assert.is_true(H.aps_cindra_start(),
+        "without cindra-dev-default the picker is on Cindra only because it was chosen")
+    end
   end)
 
   it("keeps Cindra as a real start planet (APS.add_planet took effect)", function()

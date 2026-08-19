@@ -127,10 +127,13 @@ FACTORIO_DIR=/path/to/factorio-install cindra-test
 base DLC set (and passes anything after `--` to the CLI verbatim), so the
 `cindra-start` / `cindra-dev-default` suites run by seeding those mods into the
 data dir and naming them. See the "Companion mods" block in
-[`README.md`](README.md#companion-mods-any-planet-start-chain). Any Planet Start
-is an optional dependency and is not vendored; the with-APS suite needs a local
-checkout (from the mod portal) pointed at by `APS_PATH`, while the without-APS
-suite needs no external mod.
+[`README.md`](README.md#companion-mods-any-planet-start-chain), which lists all
+**three** configs: APS absent, APS with Cindra chosen, and APS installed with
+some other planet started (ci-e9sj — installing APS is not choosing Cindra, and
+each config gets its own suite). Any Planet Start is an optional dependency and
+is not vendored; the two with-APS configs need a local checkout (from the mod
+portal) pointed at by `APS_PATH`, while the without-APS one needs no external
+mod.
 
 ### Playtesting the start chain with `./play.sh`
 
