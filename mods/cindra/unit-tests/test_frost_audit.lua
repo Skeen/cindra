@@ -322,9 +322,18 @@ test("a genuinely immune entity still gets the heating_energy message", function
 end)
 
 test("problems() reports nothing for a clean prototype set", function()
+  -- "Clean" now includes the capacitor's FROZEN TWIN (ci-de55): an accumulator is
+  -- a type the engine refuses to freeze, so Cindra freezes it by script, and a
+  -- script-frozen building without a frost-wearing twin would freeze invisibly.
   local raw = {
     ["assembling-machine"] = { ["cindra-arc-furnace"] = machine("100kW") },
-    ["accumulator"] = { ["cindra-capacitor"] = {} },
+    ["accumulator"] = {
+      ["cindra-capacitor"] = {},
+      ["cindra-capacitor-frozen"] = { chargable_graphics = { picture = { layers = {
+        { filename = "__cindra__/graphics/entity/capacitor/capacitor.png" },
+        { filename = "__cindra__/graphics/entity/frost/capacitor-frost.png" },
+      } } } },
+    },
     ["item"] = { ["cindra-aluminium"] = {} },
     ["mod-data"] = { ["cindra-surface-conditions"] = {} },
   }
@@ -448,6 +457,171 @@ test("EVERY exemption carries a written reason", function()
     assert_eq("string", type(reason), t .. " must state why the engine refuses it")
     assert_true(#reason > 30, t .. "'s reason must be a real explanation, not a word")
   end
+end)
+
+-- ===========================================================================
+-- SCRIPT FREEZE policy (ci-de55)
+-- ===========================================================================
+-- The engine refusing to freeze a type is no longer the end of the story: a
+-- Cindra BUILDING of such a type is frozen by script instead. What must not be
+-- possible is a building falling between the two -- refused by the engine and
+-- unclaimed by us -- which is what these guard.
+
+-- A minimal script-frozen building plus the twin the data stage would build.
+local function twinned(name, proto_type, twin_type)
+  local raw = { [proto_type] = { [name] = { minable = { result = name } } } }
+  raw[twin_type or proto_type] = raw[twin_type or proto_type] or {}
+  raw[twin_type or proto_type][name .. "-frozen"] = {
+    picture = { layers = {
+      { filename = "__cindra__/graphics/entity/x/x.png" },
+      { filename = "__cindra__/graphics/entity/frost/rime-generic.png" },
+    } },
+  }
+  return raw
+end
+
+test("the two halves of UNFREEZABLE_TYPES are a PARTITION", function()
+  -- Every type the engine refuses is either one Cindra freezes itself or one it
+  -- has written down a reason not to -- and never both, which would be two
+  -- policies for the same type and no way to tell which one ran.
+  for t in pairs(audit.UNFREEZABLE_TYPES) do
+    local frozen = audit.SCRIPT_FROZEN_TYPES[t]
+    local exempt = audit.SCRIPT_FREEZE_EXEMPT_TYPES[t]
+    assert_true(frozen ~= nil or exempt ~= nil,
+      "'" .. t .. "' is refused by the engine and unclaimed by Cindra: sort it into"
+      .. " SCRIPT_FROZEN_TYPES or SCRIPT_FREEZE_EXEMPT_TYPES")
+    assert_false(frozen ~= nil and exempt ~= nil,
+      "'" .. t .. "' is both script-frozen and exempt")
+  end
+  -- ...and neither list may claim a type the engine actually freezes natively.
+  for t in pairs(audit.SCRIPT_FROZEN_TYPES) do
+    assert_true(audit.UNFREEZABLE_TYPES[t] ~= nil,
+      "'" .. t .. "' is script-frozen but the engine freezes it natively -- it should"
+      .. " carry a heating_energy instead")
+  end
+end)
+
+test("EVERY script-freeze exemption carries a written reason", function()
+  -- Same rule as FREEZE_EXEMPT: an exemption is a sentence someone had to write.
+  for t, reason in pairs(audit.SCRIPT_FREEZE_EXEMPT_TYPES) do
+    assert_eq("string", type(reason), t .. " must state why freezing it is meaningless")
+    assert_true(#reason > 30, t .. "'s reason must be a real explanation, not a word")
+  end
+  for name, reason in pairs(audit.SCRIPT_FREEZE_EXEMPT) do
+    assert_eq("string", type(reason), name .. " must state WHY it is exempt")
+    assert_true(#reason > 30, name .. "'s reason must be a real explanation, not a word")
+  end
+  for t, how in pairs(audit.SCRIPT_FROZEN_TYPES) do
+    assert_eq("string", type(how), t .. " must state HOW the runtime neutralises it")
+    assert_true(#how > 30, t .. "'s neutralisation must be described, not named")
+  end
+end)
+
+test("frozen-twin names round-trip, and a twin is never itself a candidate", function()
+  assert_eq("cindra-capacitor-frozen", audit.frozen_name("cindra-capacitor"))
+  assert_true(audit.is_frozen_name("cindra-capacitor-frozen"))
+  assert_false(audit.is_frozen_name("cindra-capacitor"))
+  assert_eq("cindra-capacitor", audit.thawed_name("cindra-capacitor-frozen"))
+  assert_eq(nil, audit.thawed_name("cindra-capacitor"))
+  -- The twin is the DESTINATION of a freeze, so it must never be picked up as
+  -- something that itself needs freezing (which would generate a twin of a twin).
+  assert_false(audit.must_script_freeze({ type = "accumulator", name = "cindra-capacitor-frozen" }))
+  assert_true(audit.must_script_freeze({ type = "accumulator", name = "cindra-capacitor" }))
+end)
+
+test("script_freeze_specs discovers the class LIVE, minus the named exemptions", function()
+  local raw = {
+    ["accumulator"] = { ["cindra-capacitor"] = {}, ["cindra-measurement-sink"] = {},
+      ["accumulator"] = {} },
+    ["solar-panel"] = { ["cindra-solar-band-b05"] = {} },
+    ["simple-entity"] = { ["cindra-rock"] = {} },  -- scenery: exempt by TYPE
+    ["furnace"] = { ["cindra-arc-furnace"] = {} }, -- freezes natively: not our business
+  }
+  local names = {}
+  for _, spec in ipairs(audit.script_freeze_specs(raw)) do names[spec.name] = true end
+  assert_true(names["cindra-capacitor"], "a Cindra accumulator is script-frozen")
+  assert_true(names["cindra-solar-band-b05"], "a Cindra solar band is script-frozen")
+  assert_false(names["cindra-measurement-sink"], "the test rig is exempt BY NAME")
+  assert_false(names["cindra-rock"], "scenery is exempt BY TYPE")
+  assert_false(names["cindra-arc-furnace"], "a natively freezable machine is not ours to script")
+  assert_false(names["accumulator"], "a vanilla prototype is never touched")
+end)
+
+test("a Cindra building refused by the engine and unclaimed by us STOPS THE LOAD", function()
+  -- The fail-closed half, and the whole point of ci-de55: before it, such a
+  -- building was silently immune from both directions at once.
+  local raw = { ["constant-combinator"] = { ["cindra-mystery-box"] = {} } }
+  -- constant-combinator IS claimed (exempt by type), so nothing is reported...
+  assert_eq(0, #audit.script_freeze_unhandled(raw))
+  -- ...but pretend it were not, by using a refused type with no ruling.
+  local saved = audit.SCRIPT_FREEZE_EXEMPT_TYPES["constant-combinator"]
+  audit.SCRIPT_FREEZE_EXEMPT_TYPES["constant-combinator"] = nil
+  local bad = audit.script_freeze_unhandled(raw)
+  audit.SCRIPT_FREEZE_EXEMPT_TYPES["constant-combinator"] = saved
+  assert_eq(1, #bad, "an unclaimed building must be reported")
+  assert_true(bad[1]:find("cindra-mystery-box", 1, true) ~= nil, "named, got: " .. tostring(bad[1]))
+end)
+
+test("a script-frozen building with NO twin, or a bare twin, stops the load", function()
+  -- The mayor's first condition on ci-de55: the freeze must not be silent. The
+  -- engine draws no frost for these types, so if the twin does not carry ice the
+  -- building just stops working with no explanation -- worse than the immunity.
+  local missing = { ["accumulator"] = { ["cindra-capacitor"] = {} } }
+  local bad = audit.frozen_twin_problems(missing)
+  assert_eq(1, #bad, "a missing twin must be reported")
+  assert_true(bad[1]:find("missing", 1, true) ~= nil, "and say so, got: " .. tostring(bad[1]))
+
+  local bare = { ["accumulator"] = {
+    ["cindra-capacitor"] = {},
+    ["cindra-capacitor-frozen"] = { chargable_graphics = { picture = { layers = {
+      { filename = "__cindra__/graphics/entity/capacitor/capacitor.png" },
+    } } } },
+  } }
+  local bad2 = audit.frozen_twin_problems(bare)
+  assert_eq(1, #bad2, "a twin wearing no frost must be reported")
+  assert_true(bad2[1]:find("no frost art", 1, true) ~= nil, "and say so, got: " .. tostring(bad2[1]))
+
+  assert_eq(0, #audit.frozen_twin_problems(twinned("cindra-capacitor", "accumulator")),
+    "a twin wearing a frost asset is clean")
+end)
+
+test("a twin may live in a DIFFERENT type bucket, and the audit follows it there", function()
+  -- A solar panel's twin cannot be a solar panel (the engine forbids one that
+  -- produces nothing), so it is registered as an electric-energy-interface. The
+  -- guard has to look where the twin actually is, or it would demand a twin that
+  -- already exists.
+  assert_eq("electric-energy-interface", audit.frozen_twin_type("solar-panel"))
+  assert_eq("accumulator", audit.frozen_twin_type("accumulator"))
+  local raw = twinned("cindra-solar-band-b05", "solar-panel", "electric-energy-interface")
+  assert_eq(0, #audit.frozen_twin_problems(raw),
+    "the twin is where FROZEN_TWIN_TYPE says it is, so nothing is missing")
+end)
+
+test("the script-freeze problems tell the reader WHAT TO DECIDE", function()
+  -- The ci-3ed3 lesson applied to the new audits: a load failure's whole value is
+  -- the sentence it prints, so the sentence is under test.
+  local saved = audit.SCRIPT_FREEZE_EXEMPT_TYPES["resource"]
+  audit.SCRIPT_FREEZE_EXEMPT_TYPES["resource"] = nil
+  local problems = audit.problems({ ["resource"] = { ["cindra-stone"] = {} } })
+  audit.SCRIPT_FREEZE_EXEMPT_TYPES["resource"] = saved
+
+  local found
+  for _, p in ipairs(problems) do
+    if p.kind == "script-freeze-unhandled" then found = p.message end
+  end
+  assert_true(found ~= nil, "an unclaimed building must produce a report")
+  assert_true(found:find("SCRIPT_FROZEN_TYPES", 1, true) ~= nil, "names the freeze list")
+  assert_true(found:find("SCRIPT_FREEZE_EXEMPT_TYPES", 1, true) ~= nil, "names the exempt list")
+  assert_true(found:find("ci-de55", 1, true) ~= nil, "cites the bead")
+
+  local twin_problems = audit.problems({ ["accumulator"] = { ["cindra-capacitor"] = {} } })
+  local twin_msg
+  for _, p in ipairs(twin_problems) do
+    if p.kind == "frozen-twin" then twin_msg = p.message end
+  end
+  assert_true(twin_msg ~= nil, "a missing twin must produce a report")
+  assert_true(twin_msg:find("gen%-frost%-layer") ~= nil,
+    "and point at the tool that creates the art: " .. tostring(twin_msg))
 end)
 
 print(("\n%d passed, %d failed"):format(passed, failed))

@@ -28,10 +28,15 @@
 --   * MUST-FREEZE entities are placed on never-heated ground and must end FROZEN,
 --     and placed beside a hot emitter and must stay THAWED (frost is not
 --     always-on).
---   * Entities excused because THE ENGINE REFUSES their type are asserted
---     `is_freezable == false`. That assertion IS what earns the exemption: if a
---     future Factorio starts freezing accumulators, this suite goes RED and the
---     exemption must be re-argued rather than quietly persisting.
+--   * Entities of a type THE ENGINE REFUSES are asserted `is_freezable == false`.
+--     That assertion IS what earns their place in that group: if a future Factorio
+--     starts freezing accumulators, this suite goes RED and the classification has
+--     to be re-argued rather than quietly persisting. Being refused by the engine
+--     is NO LONGER an exemption, though -- since ci-de55 the BUILDINGS among them
+--     (capacitor, molten-salt battery, solar bands, dissipator) are frozen by
+--     script instead, and tests/test_script_freeze.lua measures that they stop
+--     working for real. What is measured HERE is only the engine's own refusal,
+--     which is the premise the script freeze exists to answer.
 --   * The one entity excused BY DESIGN (the electric heater, the thaw source) is
 --     asserted to be freezable-in-principle yet never frozen -- proving the
 --     immunity is our deliberate choice and not an engine limit.
