@@ -29,7 +29,7 @@ local SKIP_PREFIXES = {
   "cindra-mass-driver",
 }
 
--- FOUR audits, one report, in scripts/frost-audit.lua's M.problems:
+-- SIX audits, one report, in scripts/frost-audit.lua's M.problems:
 --
 --  1. CLASSIFICATION (ci-3ed3) -- a Cindra prototype of a type the audit cannot
 --     classify as entity-or-not stops the load asking to be CLASSIFIED. First,
@@ -46,10 +46,21 @@ local SKIP_PREFIXES = {
 --     immune, I don't think anything should be." So every Cindra-added entity of a
 --     type the engine can freeze carries heating_energy > 0 (the engine's freeze
 --     switch) or is named in FREEZE_EXEMPT with a written reason.
---  3. DEAD HEAT DRAW -- the inverse and subtler bug: heating_energy on a type the
+--  3. SCRIPT-FREEZE COVERAGE (ci-de55) -- the engine REFUSES to freeze some
+--     prototype types at any price (measured), which for a while read as an
+--     exemption: the capacitor, the molten-salt battery, the solar bands and the
+--     dissipator all kept working in the deep dark. They are now frozen by script
+--     instead (scripts/script-freeze.lua), and this audit is what stops a NEW
+--     building of such a type from falling between the two -- refused by the
+--     engine and unclaimed by us, i.e. immune from both directions at once.
+--  4. FROZEN TWINS (ci-de55) -- and a script-frozen building must wear its ice.
+--     These types have no frozen_patch field for the engine to draw, so a scripted
+--     freeze is INVISIBLE unless the twin's own art carries it; a building that
+--     silently stops working is worse than the immunity being fixed.
+--  5. DEAD HEAT DRAW -- the inverse and subtler bug: heating_energy on a type the
 --     engine IGNORES freezes nothing while reading as protection to the next
 --     person who greps for it.
---  4. FROST ART (ci-u92y) -- a machine that DOES freeze must wear the sheen.
+--  6. FROST ART (ci-u92y) -- a machine that DOES freeze must wear the sheen.
 --
 -- The class each audit covers is discovered LIVE from data.raw, so a new entity
 -- cannot ship immune or bare by accident: someone has to make the omission

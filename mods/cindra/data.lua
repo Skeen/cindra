@@ -159,6 +159,15 @@ require("prototypes.power-diode")
 -- data stage, so this cannot be a factorio-test. Loads after resources.lua.
 require("prototypes.rock-models")
 
+-- ci-de55 FROZEN TWINS: the engine refuses to freeze an accumulator, a solar panel
+-- or an electric-energy-interface at any price (measured, ci-qha1), so Cindra
+-- freezes those buildings itself -- by swapping each for a twin prototype with zero
+-- flow, zero production and ice on its art (scripts/script-freeze.lua does the
+-- swapping). MUST load after every file that registers or edits one of them
+-- (storage, flare) since it deep-copies the finished prototype, and before the two
+-- audits below, which check that each twin exists and wears its frost.
+require("prototypes.frozen-twins")
+
 -- ci-ndm9: record which surface-condition backend edited the prototypes above --
 -- PlanetsLib's helpers when the library is loaded before us, our own otherwise
 -- (scripts/surface-conditions.lua). Loads after every file that edits a condition

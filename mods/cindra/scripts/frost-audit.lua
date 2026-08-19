@@ -1,17 +1,20 @@
 -- Pure freeze/frost auditor for Cindra's custom entities (ci-u92y, ci-qha1,
--- ci-3ed3).
+-- ci-3ed3, ci-de55).
 --
--- TWO invariants live here, one per half of the file:
+-- THREE invariants live here:
 --   1. FREEZE COVERAGE (ci-qha1, bottom half) -- no Cindra-added entity may be
 --      IMMUNE to the planet's freeze mechanic. The durable half: it decides
 --      whether a Cindra entity is allowed to keep working in the dark at all.
---   2. FROST COVERAGE (ci-u92y, this half) -- a Cindra machine that DOES freeze
---      must wear the frost sheen, so the ice is visible.
--- Both are enforced as a load-time guard (prototypes/frost-audit.lua) over the
--- class discovered LIVE from the registry, so a new entity cannot ship immune or
--- bare by accident.
+--   2. SCRIPT FREEZE (ci-de55, after it) -- the engine refuses to freeze some
+--      prototype types AT ALL, so for those Cindra freezes the BUILDINGS itself.
+--      Every refused type is sorted into "we freeze it" or "here is why not".
+--   3. FROST COVERAGE (ci-u92y, this half) -- anything that freezes, natively or
+--      by script, must wear the ice, so the freeze is visible.
+-- All three are enforced as a load-time guard (prototypes/frost-audit.lua) over
+-- the class discovered LIVE from the registry, so a new entity cannot ship immune
+-- or bare by accident.
 --
--- Between them sits the question BOTH depend on and neither can duck: is a given
+-- Between them sits the question they all depend on and none can duck: is a given
 -- data.raw bucket an ENTITY bucket at all? The data stage cannot ask the engine,
 -- so it is answered by two positive lists plus an explicit "unrecognised" state
 -- (M.classify, ci-3ed3). And because a load failure's whole value is the sentence
@@ -393,6 +396,14 @@ end
 -- `is_freezable = false` and never froze. The engine ACCEPTS the field at the
 -- data stage and then ignores it.
 --
+-- SINCE ci-de55 THIS IS NO LONGER A FREE PASS. The engine limit stands, but the
+-- HUMAN RULING ("nothing should be immune") does not bend to it: a Cindra
+-- BUILDING of one of these types is now frozen BY SCRIPT instead
+-- (scripts/script-freeze.lua). Every type below is therefore additionally sorted,
+-- one screen down, into SCRIPT_FROZEN_TYPES (we freeze it ourselves) or
+-- SCRIPT_FREEZE_EXEMPT_TYPES (with a written reason why freezing it is
+-- meaningless or incoherent) -- and a type in neither stops the load.
+--
 -- Cross-check, same conclusion: Space Age assigns heating_energy to 26 prototype
 -- types (assembling-machine, furnace, inserter, belts, pipe, pump, beacon, radar,
 -- roboport, storage-tank, rocket-silo, power-switch, turrets, valves, combinators,
@@ -404,13 +415,19 @@ end
 -- measured in ci-u92y): re-typing it to something freezable would destroy the
 -- writable output section the entity exists for (ci-6jz). The same is true of the
 -- rest -- an accumulator that is not an accumulator is not a battery bank.
--- Whether Cindra should SCRIPT its own freeze for these is a design question,
--- deliberately not decided here: see ci-de55.
+--
+-- THIS TABLE IS A MEASUREMENT, NOT A RULING, and that is why ci-de55 left it
+-- standing rather than deleting the entries it now script-freezes. It records
+-- what the ENGINE does, and that has not changed: removing `accumulator` from it
+-- would make the freeze audit below demand a heating_energy on the capacitor --
+-- a field the engine ignores -- which the dead-heating audit would then correctly
+-- report as fake protection. What ci-de55 changed is that being on this list no
+-- longer EXCUSES anything (see the split below).
 --
 -- Adding a type here requires the measurement, not an argument. tests/test_frost.lua
--- asserts `is_freezable == false` for every entity excused by this table, so if a
+-- asserts `is_freezable == false` for every entity of a type in this table, so if a
 -- future Factorio starts freezing accumulators the suite goes RED and the
--- exemption has to be re-earned.
+-- classification has to be re-earned.
 M.UNFREEZABLE_TYPES = {
   ["accumulator"] = "the engine never freezes an accumulator (measured with a"
     .. " 100kW draw set): cindra-capacitor + cindra-molten-salt-battery",
@@ -418,12 +435,13 @@ M.UNFREEZABLE_TYPES = {
     .. " cindra-solar-band-* output variants",
   ["electric-energy-interface"] = "the engine never freezes an"
     .. " electric-energy-interface (measured): cindra-dissipator, and the power"
-    .. " diode's hidden buffers -- which are also exemption (d), invisible helpers",
+    .. " diode's hidden buffers -- which are script-freeze exempt BY NAME, invisible helpers",
   ["electric-pole"] = "the engine never freezes a pole (measured): the power"
-    .. " diode's hidden taps -- also exemption (d), invisible helpers",
+    .. " diode's hidden taps -- script-freeze exempt by TYPE, inert conductors",
   ["heat-pipe"] = "the engine never freezes a heat pipe (measured). This is where"
-    .. " cindra-lava-heat lands, which is ALSO exemption (c): the ambient emitter"
-    .. " IS the thaw mechanism, so a frozen one would be incoherent",
+    .. " cindra-lava-heat lands: the ambient emitter IS the thaw mechanism, so a"
+    .. " frozen one would be incoherent -- script-freeze exempt by TYPE for exactly"
+    .. " that reason",
   ["constant-combinator"] = "the engine never freezes a constant combinator"
     .. " (measured in ci-u92y with a 20kW draw set) -- the env-scanner radio"
     .. " station's wall; re-typing it would destroy its writable output section",
@@ -433,6 +451,211 @@ M.UNFREEZABLE_TYPES = {
     .. " engine has no freeze for it and there is nothing to stop working",
   ["resource"] = "an ore patch is not a building: cindra-stone + cindra-ice",
 }
+
+-- ============================================================================
+-- SCRIPT FREEZE (ci-de55): the engine's refusal is not the last word
+-- ============================================================================
+--
+-- MAYOR'S RULING (2026-08-12, on the human's "nothing should be immune"): the
+-- buildings above are frozen BY SCRIPT. The engine will not do it, and pairing
+-- each with a hidden freezable companion was rejected on UPS grounds (a solar
+-- farm would double its entity count), so the runtime does it directly: a slow
+-- per-surface sweep swaps a building that sits outside every hot heat source's
+-- reach for a FROZEN TWIN prototype -- same buffer, zero flow, zero production,
+-- wearing frost -- and swaps it back when heat returns
+-- (scripts/script-freeze.lua, prototypes/frozen-twins.lua).
+--
+-- WHY A TWIN RATHER THAN A FLAG. Measured in-engine: `LuaEntity.frozen` and
+-- `LuaEntity.active` are both READ ONLY on these types, and `electric_buffer_size`
+-- is writable only on an electric-energy-interface. There is no runtime switch to
+-- flip, so the only way to make an accumulator stop moving joules -- or a solar
+-- panel stop making them -- is to make it a DIFFERENT PROTOTYPE for as long as it
+-- is frozen. That also gets the visual cue for free: the twin's own art carries
+-- the frost, exactly as a natively-frozen machine's `frozen_patch` does, instead
+-- of a per-entity render object the sweep would have to bookkeep.
+--
+-- The two lists below split UNFREEZABLE_TYPES in half, and the split is a
+-- PARTITION (checked in unit-tests/test_frost_audit.lua): every type the engine
+-- refuses is either one we freeze ourselves or one we have written down a reason
+-- not to. A type in neither stops the load -- the same fail-closed shape as
+-- classification, for the same reason: the alternative is a new building quietly
+-- inheriting immunity.
+
+-- Suffix of a frozen twin. A name carrying it IS the frozen form of the name
+-- without it, so the twins are excluded from the script-freeze class itself
+-- (they are the destination, not a candidate).
+M.FROZEN_SUFFIX = "-frozen"
+
+function M.frozen_name(name) return name .. M.FROZEN_SUFFIX end
+
+function M.is_frozen_name(name)
+  return #name > #M.FROZEN_SUFFIX and name:sub(-#M.FROZEN_SUFFIX) == M.FROZEN_SUFFIX
+end
+
+-- The live name a frozen twin thaws back to, or nil if `name` is not a twin.
+function M.thawed_name(name)
+  if not M.is_frozen_name(name) then return nil end
+  return name:sub(1, #name - #M.FROZEN_SUFFIX)
+end
+
+-- Types the runtime knows how to neutralise, and HOW. The neutralisation is what
+-- makes the freeze real rather than cosmetic, so it is stated here beside the
+-- type rather than buried in the twin builder: each is the engine-native way to
+-- take that type out of the power economy without destroying a joule.
+M.SCRIPT_FROZEN_TYPES = {
+  ["accumulator"] = "input_flow_limit + output_flow_limit driven to 0: the stored"
+    .. " charge is still there (the twin keeps the same buffer_capacity and the swap"
+    .. " copies `energy` across) but nothing can enter or leave it",
+  ["solar-panel"] = "the twin is an inert electric-energy-interface wearing the"
+    .. " panel's art -- see FROZEN_TWIN_TYPE for why it cannot stay a solar panel",
+  ["electric-energy-interface"] = "energy_usage + input_flow_limit driven to 0: a"
+    .. " frozen dissipator swallows nothing, so it stops being disposal capacity",
+}
+
+-- A twin is normally the SAME prototype type as the building it replaces -- the
+-- point is a building that looks and sits exactly where it did, only dead.
+-- ONE type cannot manage that, and the reason is an engine rule, not a choice:
+--
+--   Error while loading entity prototype "cindra-solar-band-b05-frozen"
+--   (solar-panel): production must be > 0.
+--
+-- A solar panel is REQUIRED to produce. Left at the smallest legal value it still
+-- leaks -- measured, three frozen bands delivered 3 kJ over 600 ticks at the flare
+-- plateau, because Cindra's solar multiplier scales even 1 W into something real --
+-- and "a frozen panel makes almost nothing" is the kind of small lie this mod has
+-- already been bitten by. So the frozen twin of a panel is not a panel: it is an
+-- inert electric-energy-interface, zero production, zero draw, zero buffer,
+-- wearing the panel's own art under ice. A panel stores nothing, so nothing is
+-- lost in the change (contrast an accumulator, whose twin MUST stay an accumulator
+-- to hold the charge).
+--
+-- Deliberately an electric-energy-interface rather than a decoration: it stays a
+-- type the engine refuses to freeze, so every policy table here keeps applying to
+-- the twin unchanged, and it stays a POWER prototype, so the mod-wide conservation
+-- coverage guard (tests/test_power_conservation.lua) still demands a case for it.
+M.FROZEN_TWIN_TYPE = {
+  ["solar-panel"] = "electric-energy-interface",
+}
+
+-- The prototype type a `proto_type` building's frozen twin is registered under.
+function M.frozen_twin_type(proto_type)
+  return M.FROZEN_TWIN_TYPE[proto_type] or proto_type
+end
+
+-- Types the engine refuses AND that we deliberately do not script-freeze either.
+-- Every entry is a reason freezing would be meaningless or incoherent, not a
+-- reason it is inconvenient.
+M.SCRIPT_FREEZE_EXEMPT_TYPES = {
+  ["heat-pipe"] = "cindra-lava-heat IS the thaw mechanism -- the ambient emitter"
+    .. " that decides what freezes. A frozen thaw source is a contradiction (and"
+    .. " would make the nightside permanently unrecoverable), the same reason the"
+    .. " electric heater is exempt from the native freeze",
+  ["electric-pole"] = "a pole is an inert conductor with no energy of its own; the"
+    .. " only Cindra ones are the power diode's INVISIBLE tap poles, which have no"
+    .. " behaviour to stop and no art to frost",
+  ["constant-combinator"] = "the env-scanner radio station belongs to a SIBLING MOD"
+    .. " (ci-6jz), and this guard deliberately polices only Cindra's own prototypes",
+  ["explosion"] = "a transient visual effect that reaps itself within a few ticks:"
+    .. " cindra-panel-overload-spark. There is no working state to stop",
+  ["simple-entity"] = "worldgen scenery (rocks/icebergs). It does nothing, so"
+    .. " freezing it stops nothing -- and the engine already draws it under snow",
+  ["resource"] = "an ore patch is not a building; a frozen ore patch is just ore",
+}
+
+-- Individual Cindra entities of a SCRIPT_FROZEN_TYPE that are nonetheless excused
+-- BY NAME. Short and adversarial, like FREEZE_EXEMPT: this is exactly where an
+-- accident would hide, so each entry says why the entity is not a building a
+-- player can see stop working.
+M.SCRIPT_FREEZE_EXEMPT = {
+  ["cindra-measurement-sink"] = "a test-only measuring accumulator, registered only"
+    .. " in factorio-test builds and never shipped -- it is the INSTRUMENT the"
+    .. " conservation suite reads the grid with, so freezing it would break the"
+    .. " measurement rather than the game",
+  ["cindra-power-diode-input"] = "an INVISIBLE hidden buffer inside the power"
+    .. " diode, not a placeable building. The diode DEVICE itself is a power-switch,"
+    .. " which the engine freezes natively -- freezing that is what stops the"
+    .. " transfer, so its guts need no separate treatment",
+  ["cindra-power-diode-output"] = "the other half of the same hidden pair; see"
+    .. " cindra-power-diode-input",
+}
+
+-- Is this Cindra entity spec one the runtime must script-freeze?
+function M.must_script_freeze(spec)
+  return M.SCRIPT_FROZEN_TYPES[spec.type] ~= nil
+    and not M.SCRIPT_FREEZE_EXEMPT[spec.name]
+    and not M.is_frozen_name(spec.name)
+end
+
+-- The class the script freeze governs: every Cindra entity of a type the engine
+-- refuses to freeze that is a real building. Discovered LIVE from `raw` (never a
+-- hand-kept list), so a new accumulator or solar variant is script-frozen -- and
+-- gets its twin -- without anyone remembering to add it.
+function M.script_freeze_specs(raw)
+  local specs = {}
+  for _, spec in ipairs(M.entity_specs(raw)) do
+    if M.must_script_freeze(spec) then specs[#specs + 1] = spec end
+  end
+  return specs
+end
+
+-- The fail-closed half: a Cindra entity of a type the ENGINE refuses that we
+-- neither script-freeze nor have excused. It would ship immune in both directions
+-- at once -- the engine will not freeze it and neither will we -- which is the
+-- precise hole ci-de55 exists to close.
+function M.script_freeze_unhandled(raw)
+  local bad = {}
+  for _, spec in ipairs(M.entity_specs(raw)) do
+    if M.UNFREEZABLE_TYPES[spec.type]
+      and not M.SCRIPT_FROZEN_TYPES[spec.type]
+      and not M.SCRIPT_FREEZE_EXEMPT_TYPES[spec.type] then
+      bad[#bad + 1] = string.format("%s (type '%s')", spec.name, spec.type)
+    end
+  end
+  return bad
+end
+
+-- A frozen twin must WEAR the freeze. The engine draws no frost for these types
+-- (there is no frozen_patch field on an accumulator / solar-panel /
+-- electric-energy-interface -- that is the whole reason they cannot freeze
+-- natively), so a script freeze is INVISIBLE unless the twin's own art carries
+-- the ice. A silent disable is worse than the immunity it fixes: it reads as a
+-- mod bug and teaches the player nothing.
+--
+-- The check is deliberately crude and structural -- does the twin's art reference
+-- a sprite from the frost asset folder -- because it has to hold for a type whose
+-- art field this module does not know the shape of. It cannot judge the picture;
+-- it can guarantee one was wired.
+M.FROST_ASSET_DIR = "/graphics/entity/frost/"
+
+local function references_frost(v, seen)
+  if type(v) ~= "table" then return false end
+  seen = seen or {}
+  if seen[v] then return false end
+  seen[v] = true
+  if type(v.filename) == "string" and v.filename:find(M.FROST_ASSET_DIR, 1, true) then
+    return true
+  end
+  for _, child in pairs(v) do
+    if references_frost(child, seen) then return true end
+  end
+  return false
+end
+M.references_frost = references_frost
+
+-- Every script-frozen entity whose twin is MISSING, or whose twin wears no frost.
+function M.frozen_twin_problems(raw)
+  local bad = {}
+  for _, spec in ipairs(M.script_freeze_specs(raw)) do
+    local bucket = raw[M.frozen_twin_type(spec.type)]
+    local twin = bucket and bucket[M.frozen_name(spec.name)]
+    if type(twin) ~= "table" then
+      bad[#bad + 1] = M.frozen_name(spec.name) .. " (missing)"
+    elseif not references_frost(twin) then
+      bad[#bad + 1] = M.frozen_name(spec.name) .. " (no frost art)"
+    end
+  end
+  return bad
+end
 
 -- Entities of a type the engine CAN freeze that are nonetheless DELIBERATELY
 -- immune. Every entry states its reason here, in code, and is the short list the
@@ -544,9 +767,11 @@ end
 -- unit-tests/test_frost_audit.lua.
 --
 -- Returns an ordered list of {kind=, message=}; empty means the load is clean.
--- CLASSIFICATION IS REPORTED FIRST because it decides whether the other three
--- audits even apply to a prototype -- reporting a freeze verdict on a type we
--- cannot classify is exactly the bug.
+-- CLASSIFICATION IS REPORTED FIRST because it decides whether the other audits
+-- even apply to a prototype -- reporting a freeze verdict on a type we cannot
+-- classify is exactly the bug. After it the order is by size of hole: an entity
+-- nothing will ever freeze, then one that will freeze invisibly, then a dead heat
+-- draw, then missing frost art.
 function M.problems(raw, skip_prefixes)
   local out = {}
   local function add(kind, message) out[#out + 1] = { kind = kind, message = message } end
@@ -579,6 +804,34 @@ function M.problems(raw, skip_prefixes)
       .. " prototype type, MEASURE that and add the type to UNFREEZABLE_TYPES."
       .. " Every name above is of a type listed in ENTITY_TYPES, so it IS an"
       .. " entity -- if that classification is wrong, fix it there. See ci-qha1.")
+  end
+
+  local unhandled = M.script_freeze_unhandled(raw)
+  if #unhandled > 0 then
+    add("script-freeze-unhandled", "cindra: entity/entities of a type the ENGINE"
+      .. " REFUSES to freeze that Cindra does not script-freeze either, so they are"
+      .. " immune from BOTH directions at once: " .. table.concat(unhandled, ", ")
+      .. " -- decide which it is in scripts/frost-audit.lua. If it is a BUILDING a"
+      .. " player watches work, add its type to SCRIPT_FROZEN_TYPES stating how the"
+      .. " runtime neutralises it (scripts/script-freeze.lua then freezes it and"
+      .. " prototypes/frozen-twins.lua builds its frozen twin). If freezing it would"
+      .. " be meaningless or incoherent (scenery, ore, a transient effect, the thaw"
+      .. " source itself), add the type to SCRIPT_FREEZE_EXEMPT_TYPES WITH A WRITTEN"
+      .. " REASON -- or, for a one-off like a hidden helper, name it in"
+      .. " SCRIPT_FREEZE_EXEMPT. See ci-de55.")
+  end
+
+  local twins = M.frozen_twin_problems(raw)
+  if #twins > 0 then
+    add("frozen-twin", "cindra: script-frozen building(s) whose FROZEN TWIN is"
+      .. " missing or wears no frost: " .. table.concat(twins, ", ")
+      .. " -- the engine draws no frost for these prototype types, so a scripted"
+      .. " freeze the player cannot SEE is worse than the immunity it fixes: the"
+      .. " building silently stops working and reads as a mod bug. Every twin is"
+      .. " generated by prototypes/frozen-twins.lua, which layers a frost patch from"
+      .. " " .. M.FROST_ASSET_DIR .. " over the body; if a new building needs its own"
+      .. " body-derived patch, add it to SPECS in scripts/gen-frost-layer.py and"
+      .. " re-run scripts/render-frost-layer.sh. See ci-de55.")
   end
 
   local dead = M.dead_heating(raw)
