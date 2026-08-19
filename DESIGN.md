@@ -220,17 +220,56 @@ the map-gen's own `out-of-map`:
       arrival — the nightside would be permanently unrecoverable. Vanilla reactors
       (incl. the heating tower) are exempt for the same reason. This one really is
       our choice: `reactor` IS a freezable type.
-    - **Exempt because THE ENGINE REFUSES the type** (measured ci-qha1: the field is
-      accepted at the data stage and then ignored) — `accumulator` (capacitor,
-      molten-salt battery), `solar-panel` (the sunward output bands),
+    - **THE ENGINE REFUSES some types** (measured ci-qha1: the field is accepted at
+      the data stage and then ignored) — `accumulator` (capacitor, molten-salt
+      battery), `solar-panel` (the sunward output bands),
       `electric-energy-interface` (dissipator + the diode's hidden buffers),
       `electric-pole` (the diode's hidden taps), `heat-pipe` (the ambient emitter,
       which *is* the thaw mechanism anyway), `constant-combinator` (the env-scanner
       radio station, ci-u92y), plus scenery/ore/effects (`simple-entity`,
       `resource`, `explosion`) which are not buildings. Space Age agrees: it assigns
       `heating_energy` to 26 types and to none of these, and vanilla Aquilo runs
-      accumulators and solar panels fine. **Whether Cindra should script its own
-      freeze for these is open: ci-de55.**
+      accumulators and solar panels fine.
+  - **🚨 THE ENGINE'S REFUSAL IS NOT AN EXEMPTION (ci-de55).** The ruling above does
+    not bend to an engine limit, so the BUILDINGS among those types — capacitor,
+    molten-salt battery, the five sunward solar bands, dissipator — are frozen **by
+    script** instead (`scripts/script-freeze.lua`). A frozen battery bank on the
+    nightside is the whole point of a freeze planet: losing your night buffer
+    exactly when the sun is gone is what pushes you to route heat.
+    - **How.** A slow per-surface sweep (313 ticks, Cindra only) swaps a building
+      that sits outside every hot heat source's reach for a **frozen twin**
+      prototype (`prototypes/frozen-twins.lua`) — same footprint, same buffer, zero
+      flow, zero production, wearing ice — and swaps it back when heat returns.
+      Measured: `LuaEntity.frozen` and `LuaEntity.active` are both READ ONLY on
+      these types, so there is no flag to flip; changing WHICH PROTOTYPE the
+      building is, is the only lever a script has. Rejected alternatives: a hidden
+      freezable companion per building (engine-driven, but doubles the entity count
+      of anything placed in bulk — fatal for a solar farm), and accepting the limit
+      (the immunity the human ruling rejected).
+    - **Energy is conserved exactly.** The swap copies `energy` across and the twin
+      keeps the base's buffer, so a frozen battery holds every joule it held and
+      simply cannot move them. Measured as a grid-total ledger across the freeze
+      AND the thaw (`tests/test_power_conservation.lua`), not asserted.
+    - **The player can see it.** These types have no `frozen_patch` for the engine
+      to draw, so the twin carries frost in its own art (`graphics/entity/frost/`,
+      body-derived where the art is ours, a scaled generic rime crust where it is
+      vanilla), wears the building's own name marked "(frozen)", and raises a
+      custom map alert on the freeze. A silent disable would be worse than the
+      immunity: it reads as a mod bug and teaches the player nothing.
+    - **It agrees with the engine.** A scripted freeze reimplements a rule the
+      engine owns for other types, so the boundary is proved by putting a
+      natively-freezable machine through identical geometry and requiring the two
+      verdicts to match, tile for tile, for both a radius-1 heat pipe and the
+      101-tile worldgen emitter (`tests/test_script_freeze.lua`). The geometry
+      itself is one pure rule in `scripts/freeze.lua`: a source thaws its own tiles
+      grown by `heating_radius`, and an entity is thawed iff its tiles overlap that.
+    - **Still not script-frozen, with reasons in code** (`SCRIPT_FREEZE_EXEMPT_TYPES`
+      / `SCRIPT_FREEZE_EXEMPT`): the ambient emitter (it IS the thaw source), the
+      diode's invisible tap poles and hidden buffers (the diode DEVICE is a
+      power-switch and freezes natively, which is what stops the transfer), the
+      env-scanner's combinator (a sibling mod's prototype), the overload spark (a
+      transient effect), scenery and ore. Every type the engine refuses is sorted
+      into exactly one of the two halves, and a type in neither **stops the load**.
     - **The prototype tree lies in both directions**, which is why the audit is
       measured: `is_freezable` reports TRUE for an entity whose `heating_energy` is 0
       (it never freezes), and a declared draw on one of the refused types above is a
@@ -418,7 +457,9 @@ track's files or a shared file.**
   `prototypes/resources.lua`, `prototypes/tiles.lua`, `prototypes/noise.lua`,
   `scripts/tile-damage.lua`, `scripts/freeze.lua` + `scripts/freeze-emitters.lua` +
   `prototypes/freeze-emitter.lua` (native freeze, ci-bvk — replaced the retired
-  `scripts/building-heat.lua`), `scripts/terrain.lua`, `scripts/resource-field.lua`,
+  `scripts/building-heat.lua`), `scripts/script-freeze.lua` +
+  `prototypes/frozen-twins.lua` (ci-de55: the freeze for the buildings the engine
+  refuses to freeze), `scripts/terrain.lua`, `scripts/resource-field.lua`,
   `scripts/driver.lua`, the planet map-gen + freeze flag in `prototypes/planet.lua`,
   and their tests. Reads (does not own) `scripts/ribbon.lua`.
 - **Mechanics/economy track (`ci-4xj`):** the recipe / building / tech / power
