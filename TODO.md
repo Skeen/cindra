@@ -333,12 +333,27 @@ merge queue.
   them, Size 0 removes the resource and leaves the other one untouched, and no
   setting pushes a field out of its band. Verified sensitive by pinning every
   `control:*` var to 1 in `banded_autoplace`: all five effect tests fail. It turned
-  up two bugs: `ci-l3k3` (ICE *Frequency* is inert above 0.5 -- ice asks for
-  40 spots/km2, past the engine's 21-candidate budget per region, so it is saturated
-  at the default already and ice runs at HALF its declared density), still open because
-  its fix shifts default-world balance; and `ci-bgpm` (at maxed sliders 16 stone tiles
-  landed on heat-damaging crust), FIXED below -- the suite's damaging-ground check runs
-  on the maxed-out world too now.
+  up two bugs, both now FIXED below: `ci-l3k3` (ICE *Frequency* inert above 0.5) and
+  `ci-bgpm` (at maxed sliders 16 stone tiles landed on heat-damaging crust) -- the
+  suite's damaging-ground check runs on the maxed-out world too now.
+- [x] **The ICE Frequency slider actually moves the ore.** `ci-l3k3` — DONE. The engine's
+  spot placer will not put more than `candidate_spot_count` spots in a 1024x1024 region
+  and its default is 21 (~20 spots/km2), so ice -- which declares 40 -- was truncated:
+  the nightside was generated at HALF its declared density, and every Frequency from 0.5
+  to the slider maximum produced a BIT-IDENTICAL world (measured in-engine, seed 24680,
+  8192 chunks: 3339 ice tiles at Frequency 1, 2, 4 and 6 alike). `banded_autoplace` now
+  derives each resource's budget from its own declared density (`spot_budget` =
+  spots/km2 x the maximum Frequency x the region area, floored at the engine's 21), so
+  the WHOLE slider range is live: 2003 / 3057 / 5665 / 12375 / 25292 / 37166 ice tiles at
+  Frequency 0.25 / 0.5 / 1 / 2 / 4 / 6. Stone is unchanged (2.5/km2 never reached the
+  budget, and the floor keeps its spec byte-identical). Worldgen cost of the 12x bigger
+  candidate pool measured over the same 8192 chunks: 5.85-6.12 s vs 5.82-6.59 s before,
+  i.e. no measurable cost. THE BALANCE SHIFT: default-slider nightside ice is ~1.7x what
+  it was, which is the density the `ci-wly` tuning comment always intended. Tests:
+  `tests/test_worldgen_resource_sliders.lua` -- the Ice Frequency 4 case (fails on main),
+  plus a class-wide guard that enumerates the resource sliders LIVE off the map-gen
+  screen and fails any whose Frequency 6 world is not much richer than its default, so a
+  new resource cannot ship saturated.
 - [ ] **Decals + icy-side snowfall.** `ci-mk5y` — re-gate decals to the new tiles; add
   snowfall on the cold side only. PARTIALLY DONE by `ci-tizx` for the COLD side: the
   ice/snow decals now start at the icy-ground edge (`terrain.damage_bounds().cold_from`)

@@ -14,7 +14,9 @@
 --     world, none added, none lost, and each one holds ~4x as much at Richness 4.
 --   SIZE -- FATTER patches. Same number of patches, each covering more ground and
 --     holding more ore.
---   FREQUENCY -- MORE patches, found by clustering the ore tiles.
+--   FREQUENCY -- MORE patches, found by clustering the ore tiles. Asserted for each
+--     resource individually AND, for EVERY Cindra resource slider enumerated live off
+--     the map-gen screen, across the slider's WHOLE upward range (ci-l3k3).
 --   OFF (Size 0) -- the resource is gone from the map entirely, and the OTHER
 --     resource is left bit-identical (one slider never moves the other ore).
 --   ANY setting -- the band geometry still holds: cranking every slider to 6 can
@@ -29,20 +31,22 @@
 -- window x in [-128, 132] spans both bands (stone (-120.5, 60], ice (60, 120.5)).
 -- Vertical orientation, like the rest of test_worldgen*.
 --
--- ONE KNOWN GAP, a bug this suite found and does not assert here, because the fix moves
--- the DEFAULT world (a balance call, not a test change):
---   ci-l3k3 -- raising ICE Frequency above 0.5 is a no-op in the engine: ice asks for
---     40 spots/km2, past the 21-candidate spot budget per 1024x1024 region, so it is
---     saturated at the default setting already. Ice Frequency is therefore asserted
---     DOWNWARD here, where it demonstrably works.
+-- BOTH of the bugs this suite found are now FIXED, and both fixes are asserted here.
 --
--- The suite's OTHER find, ci-bgpm (at maxed sliders 16 stone tiles landed on
--- heat-damaging crust, because FIELD_DAMAGE_MARGIN budgeted 9.5 tiles of tile bleed
--- against a real ~20), is FIXED: the two field resources now carry an autoplace
--- tile_restriction to the damage-free tiles, so the ground the ore lies on decides
--- instead of the coordinate, and the bands kept their full width. The ci-4iw check below
--- therefore runs on the maxed-out world too; tests/test_worldgen_field_ground.lua is that
--- invariant's own home (with the band-reach and per-prototype coverage guards).
+-- ci-l3k3 -- raising ICE Frequency above 0.5 was a no-op in the engine: ice asks for 40
+-- spots/km2, past the 21-candidate spot budget per 1024x1024 region, so the request was
+-- saturated at the default setting already and every setting from 0.5 up produced a
+-- bit-identical world. prototypes/resources.lua now sizes each resource's spot budget
+-- from its own declared density (spot_budget), so the whole upward half of the slider is
+-- live. Asserted per resource AND as a class-wide guard at the slider maximum.
+--
+-- ci-bgpm -- at maxed sliders 16 stone tiles landed on heat-damaging crust, because
+-- FIELD_DAMAGE_MARGIN budgeted 9.5 tiles of tile bleed against a real ~20. The two field
+-- resources now carry an autoplace tile_restriction to the damage-free tiles, so the
+-- ground the ore lies on decides instead of the coordinate, and the bands kept their full
+-- width. The ci-4iw check below therefore runs on the maxed-out world too;
+-- tests/test_worldgen_field_ground.lua is that invariant's own home (with the band-reach
+-- and per-prototype coverage guards).
 
 local field = require("scripts.resource-field")
 local terrain = require("scripts.terrain")
@@ -145,6 +149,21 @@ describe("cindra worldgen: the Stone/Ice map-gen sliders really move the ore (ci
 
   local STONE, ICE = field.STONE, field.ICE
 
+  -- Every Cindra resource slider the map-gen screen actually shows, read LIVE off the
+  -- prototypes rather than hand-listed, so a resource added later is covered by the
+  -- ci-l3k3 guard below the moment it ships (it cannot be forgotten). The mod names each
+  -- autoplace-control after the resource it places, so the control name IS the entity name.
+  local function resource_controls()
+    local names = {}
+    for name, ctrl in pairs(prototypes.autoplace_control) do
+      if ctrl.category == "resource" and name:sub(1, 7) == "cindra-" then
+        names[#names + 1] = name
+      end
+    end
+    table.sort(names)
+    return names
+  end
+
   before_each(function()
     if ready then return end
     local strip = { X1, X2, Y1, Y2 }
@@ -161,6 +180,12 @@ describe("cindra worldgen: the Stone/Ice map-gen sliders really move the ore (ci
     surfaces.rich_up = make("cindra-res-rich-up", {
       [STONE] = { richness = 4 }, [ICE] = { richness = 4 },
     }, strip)
+    -- Frequency ONLY, at the slider maximum: the top of the range every resource has
+    -- to still respond at (ci-l3k3). Size/Richness stay at 1 so nothing else can
+    -- explain the extra ore.
+    local maxed = {}
+    for _, n in ipairs(resource_controls()) do maxed[n] = { frequency = 6 } end
+    surfaces.freq_max = make("cindra-res-freq-max", maxed, strip)
     surfaces.stone_off = make("cindra-res-stone-off", { [STONE] = { size = 0 } }, strip)
     surfaces.ice_off = make("cindra-res-ice-off", { [ICE] = { size = 0 } }, strip)
     -- Every slider at maximum, generated across the WHOLE ribbon width for the
@@ -244,6 +269,52 @@ describe("cindra worldgen: the Stone/Ice map-gen sliders really move the ore (ci
     -- so the mean deposit stays in the same ballpark rather than scaling with the ore.
     assert.is_true(up.per_patch < base.per_patch * 2.5,
       "the individual patches are not what grew; " .. base.per_patch .. " -> " .. up.per_patch)
+  end)
+
+  -- The ci-l3k3 case: ice used to be INERT upward. Ice asks for 40 spots/km2 and the
+  -- engine's default spot budget is 21 candidates per 1024x1024 region, so the request
+  -- was already saturated at Frequency 1 and every setting from 0.5 up produced a
+  -- BIT-IDENTICAL world. prototypes/resources.lua now hands ice its own
+  -- candidate_spot_count, so the whole upward half of the slider is live again.
+  it("Ice Frequency 4 scatters MORE separate ice patches (ci-l3k3: was inert above 0.5)", function()
+    local base, up = measure(surfaces.base, ICE), measure(surfaces.freq_up, ICE)
+    assert.is_true(up.patches > base.patches,
+      "strictly more separate ice patches to find; " .. base.patches .. " -> " .. up.patches)
+    assert.is_true(up.patches >= base.patches * 2,
+      "at least twice as many separate ice patches; " .. base.patches .. " -> " .. up.patches)
+    assert.is_true(up.amount > base.amount * 2,
+      "with the ore to match; " .. base.amount .. " -> " .. up.amount)
+    -- Frequency scatters deposits, it does not swell them (that is Size).
+    assert.is_true(up.per_patch < base.per_patch * 2.5,
+      "the individual patches are not what grew; " .. base.per_patch .. " -> " .. up.per_patch)
+  end)
+
+  -- THE CLASS-WIDE GUARD (ci-l3k3) ------------------------------------------------
+  -- The ice bug was not "ice is mistuned", it was "the engine silently refuses to place
+  -- more spots than its per-region budget, and nothing said so". Any resource whose
+  -- declared spots-per-km2 outgrows that budget goes inert the same way, so the check
+  -- is written against the CLASS: every resource slider on the map-gen screen, at the
+  -- TOP of its range, must still be putting more ore in the ground than the default.
+  -- A new resource added with a saturated budget fails here without anyone remembering
+  -- to add a case.
+  it("every resource Frequency slider is still live at its MAXIMUM setting (ci-l3k3)", function()
+    local names = resource_controls()
+    assert.is_true(#names >= 2,
+      "found the resource sliders to check (stone + ice at least); got " .. #names)
+    for _, n in ipairs(names) do
+      assert.is_not_nil(prototypes.entity[n],
+        n .. ": the slider names the resource it places, so that resource must exist")
+      local base, up = measure(surfaces.base, n), measure(surfaces.freq_max, n)
+      assert.is_true(base.amount > 0, n .. ": the default world has ore to compare against")
+      -- Frequency 6 is six times the request of Frequency 1. Half of that is a floor
+      -- generous enough for placement noise and far above the "bit-identical" failure.
+      assert.is_true(up.amount > base.amount * 3,
+        n .. ": Frequency 6 puts much more ore in the ground than Frequency 1; "
+        .. base.amount .. " -> " .. up.amount
+        .. " (equal means the spot budget is saturated -- see spot_budget in prototypes/resources.lua)")
+      assert.is_true(up.patches > base.patches,
+        n .. ": and it arrives as MORE separate patches; " .. base.patches .. " -> " .. up.patches)
+    end
   end)
 
   it("Frequency 0.25 leaves FEWER patches of BOTH resources (a sparser world)", function()

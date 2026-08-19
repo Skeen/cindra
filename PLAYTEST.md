@@ -565,6 +565,19 @@ CURRENT `(tune)` values on `main`; the balance pass (ci-63d) will move them.
   the icy map_color (distinct from stone AND iron) and band-wide rock generation;
   the sprite/icon *appearance* is what this entry confirms.
 
+- [ ] **[LANDED] Nightside ice density FEELS right after the spot-budget fix (ci-l3k3).**
+  *Repro:* new game on Cindra at DEFAULT map-gen sliders; walk/drive the cold side of
+  the ribbon and look at the ice fields, then start a new game with Ice **Frequency**
+  at 4 and again at 6. *Look for:* at default, ice fields are a reliable but still
+  worth-travelling-for find on the nightside -- roughly 1.7x the ore the pre-fix world
+  had, which should read as "the cold side is worth a rail line", NOT as "ice is
+  everywhere and the nightside logistics puzzle is trivial". At Frequency 4 and 6 the
+  cold side should visibly fill with MORE separate patches (not fatter ones), and the
+  two settings should look clearly different from each other and from the default.
+  *Fallback:* `test_worldgen_resource_sliders.lua` proves the counts move and that the
+  whole slider range is live; only the BALANCE FEEL of the new default density and the
+  crowding at maximum Frequency need eyes on them.
+
 - [ ] **[LANDED] Rocks read as yellowish STONE (ci-jvc).** *Repro:*
   explore the ribbon on Cindra and look at the scattered hand-minable **rocks**.
   *Look for:* a warm, golden-tan **stone** rock (the vanilla `huge-rock` under a

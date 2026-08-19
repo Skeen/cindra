@@ -73,6 +73,33 @@ local CFG = nil
 resource_autoplace.initialize_patch_set("cindra-stone", true)
 resource_autoplace.initialize_patch_set("cindra-ice", true)
 
+-- How many spots the engine is ALLOWED to place per region (ci-l3k3).
+--
+-- The core spot-noise placer works one 1024x1024-tile region at a time and will
+-- never place more spots in a region than its `candidate_spot_count`, whose
+-- default is 21 (~20 spots/km2). A resource that asks for more than that gets
+-- SILENTLY TRUNCATED: its Frequency slider stops doing anything the moment the
+-- request crosses the budget, and the declared `base_spots_per_km2` is not what
+-- the world gets either. Ice hit both: it declares 40 spots/km2, so it was
+-- already saturated at Frequency 1 -- the nightside was placed at HALF its
+-- declared density, and every Frequency from 0.5 to the slider maximum produced a
+-- bit-identical world.
+--
+-- The request scales linearly with the Frequency slider, so the budget that keeps
+-- the WHOLE slider live is the request at its maximum setting. Every banded
+-- resource derives its budget from its own declared density here rather than
+-- carrying a hand-tuned number, so a future spots-per-km2 bump can never quietly
+-- reintroduce the truncation. Below the engine's own default the floor wins: a
+-- sparse resource (stone, 2.5/km2) must not be given a SMALLER budget than vanilla.
+local SPOT_REGION_SIZE = 1024        -- core `regular_patches` spot_noise region, in tiles
+local MAX_FREQUENCY_SLIDER = 6       -- the map-gen screen's highest Frequency
+local ENGINE_DEFAULT_SPOT_BUDGET = 21 -- core/lualib/resource-autoplace.lua's default
+local function spot_budget(spots_per_km2)
+  local region_km2 = (SPOT_REGION_SIZE / 1000) ^ 2
+  return math.max(ENGINE_DEFAULT_SPOT_BUDGET,
+    math.ceil(spots_per_km2 * MAX_FREQUENCY_SLIDER * region_km2))
+end
+
 -- Build a native spot-noise autoplace for `name`, CONSTRAINED to its ribbon band.
 -- `mask_expr` zeroes probability/richness outside the band; `rich_mult_expr` is
 -- the edge-pushing richness gradient (best nodes at the lethal margins). Both come
@@ -83,6 +110,9 @@ local function banded_autoplace(name, params, mask_expr, rich_mult_expr)
     order = params.order,
     base_density = params.base_density,
     base_spots_per_km2 = params.base_spots_per_km2,
+    -- Derived, never passed in (ci-l3k3): the declared density is the ONE number a
+    -- resource states, and the budget that makes it real follows from it.
+    candidate_spot_count = spot_budget(params.base_spots_per_km2),
     has_starting_area_placement = params.has_starting_area_placement,
     autoplace_control_name = name,
   })
@@ -173,6 +203,10 @@ local function cindra_ice_resource()
     -- the regular spots. The ci-wly redesign moved the band further out and wider, so a
     -- HIGHER spots-per-km2 (40) is needed to keep ice reliably present in the reachable
     -- cold zone on every seed instead of leaving the nightside barren. (tune)
+    --
+    -- 40/km2 is FAR past the engine's default 21-spot regional budget; banded_autoplace
+    -- sizes the budget from this number (spot_budget above), which is what makes the
+    -- density real and the Frequency slider live above 0.5 (ci-l3k3).
     banded_autoplace("cindra-ice",
       { order = "b", base_density = 8, base_spots_per_km2 = 40, has_starting_area_placement = true },
       field.ice_mask_expr(CFG), field.ice_richness_mult_expr(CFG)),
