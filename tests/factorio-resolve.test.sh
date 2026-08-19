@@ -170,9 +170,13 @@ fi
 RUNNER_REPO="$WS/hq/cindra/polecats/other/cindra"
 make_repo "$RUNNER_REPO"
 mkdir -p "$RUNNER_REPO/node_modules/.bin"
+# The summary line matters: a run that executes no tests is a FAILURE in the
+# runner (ci-fqep), so a silent stub would read as a dead run rather than a
+# successfully resolved engine.
 cat > "$RUNNER_REPO/node_modules/.bin/factorio-test" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$@" > "$TMP/cli-args.txt"
+echo 'Tests: 525 passed (525 total)'
 exit 0
 EOF
 chmod +x "$RUNNER_REPO/node_modules/.bin/factorio-test"

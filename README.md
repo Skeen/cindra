@@ -62,7 +62,10 @@ in Factorio 2.1 (`quality` / `space-age` depend on it). It resolves the Factorio
 binary from `FACTORIO_PATH` / `FACTORIO_DIR` / `./factorio` / a
 `factorio-patched` or `factorio` install in any parent directory, and exits
 non-zero if none resolves — an in-engine run is never silently skipped (see
-[`SETUP.md`](SETUP.md)). Plain-Lua unit tests run without Factorio:
+[`SETUP.md`](SETUP.md)). For the same reason a run that executes **zero** tests
+exits non-zero: a filter that stops matching otherwise prints
+`525 skipped, 0 passed` and exits 0, which reads as a gate that passed without
+running anything. Plain-Lua unit tests run without Factorio:
 
 ```sh
 npm run test:unit                    # all unit-tests/test_*.lua
@@ -96,9 +99,11 @@ the companion mods (`cindra-start` + `cindra-dev-default`) must load clean both
 with and without it. There are two suites, and control.lua registers exactly one
 based on whether APS is active:
 
-`cindra-test` forwards any extra args straight to the CLI (appended after the
-base DLC `--mods`), so both suites run by seeding the companion mods into the
-data dir and passing them to `cindra-test`. Run these from inside `nix develop`.
+`cindra-test [MOD ...] [-- CLI-ARG ...]`: bare words are extra mods to enable
+alongside the base DLC set, and anything after `--` goes to the CLI verbatim
+(flags, or a Lua filter pattern). So both suites run by seeding the companion
+mods into the data dir and naming them on the `cindra-test` line. Run these from
+inside `nix develop`.
 
 **Without APS — `test_aps_absent` (no external mod needed).** Proves the
 companion mods load clean and register nothing when APS is absent (the guarded

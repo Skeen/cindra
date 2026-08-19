@@ -41,9 +41,12 @@ chmod +x "$WS/factorio-patched/bin/x64/factorio"
 ln -sfn "$REPO/scripts" "$WS/repo/scripts"
 ln -sfn "$REPO/mods" "$WS/repo/mods"
 printf '{ "name": "factorio-test", "version": "3.1.1" }\n' > "$TMP/ftmod/info.json"
+# The summary line is not decoration: the runner FAILS a run that executed no
+# tests (ci-fqep), so a stub that prints nothing would look like a dead run.
 cat > "$WS/repo/node_modules/.bin/factorio-test" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$@" > "$TMP/cli-args.txt"
+echo 'Tests: 525 passed (525 total)'
 exit 0
 EOF
 chmod +x "$WS/repo/node_modules/.bin/factorio-test"

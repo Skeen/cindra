@@ -60,6 +60,12 @@ non-zero without seeding anything when no binary resolves, so an in-engine run
 that never happened can't be mistaken for a clean one. If you can't resolve an
 install, escalate or leave the work open — do not report an in-engine result.
 
+**A run that executes zero tests is a hard failure too.** The CLI happily exits 0
+reporting `525 skipped, 0 passed` when a filter matches nothing (a renamed
+describe block is enough), so `cindra-test` reads the summary back and fails a
+run in which nothing passed. Same rule as above: a run that did not happen must
+never read as a run that passed.
+
 To create a fresh install:
 
 1. Obtain the Linux Space Age tarball
@@ -117,9 +123,10 @@ FACTORIO_DIR=/path/to/factorio-install cindra-test
 
 ## Companion mods (Any-Planet-Start chain)
 
-`cindra-test` forwards extra args to the CLI, so the `cindra-start` /
-`cindra-dev-default` suites run by seeding those mods into the data dir and
-passing them along. See the "Companion mods" block in
+`cindra-test [MOD ...] [-- CLI-ARG ...]` enables the mods you name alongside the
+base DLC set (and passes anything after `--` to the CLI verbatim), so the
+`cindra-start` / `cindra-dev-default` suites run by seeding those mods into the
+data dir and naming them. See the "Companion mods" block in
 [`README.md`](README.md#companion-mods-any-planet-start-chain). Any Planet Start
 is an optional dependency and is not vendored; the with-APS suite needs a local
 checkout (from the mod portal) pointed at by `APS_PATH`, while the without-APS

@@ -7,8 +7,24 @@
 # so the runner logic lives in the repo where it can be read, diffed and TESTED
 # (tests/factorio-resolve.test.sh) instead of inside a nix string.
 #
-# Extra args are forwarded to the CLI (e.g. a suite filter, or the companion
-# mods: `cindra-test cindra-start cindra-dev-default`).
+# USAGE (ci-fqep):
+#
+#   cindra-test [EXTRA-MOD ...] [-- CLI-ARG ...]
+#
+# Bare words before `--` are EXTRA MODS to enable alongside the DLC set
+# (`cindra-test cindra-start cindra-dev-default`). Everything after `--` goes to
+# the CLI verbatim -- flags and/or Lua filter patterns
+# (`cindra-test any-planet-start cindra-start -- "cindra APS start chain"`).
+# An option-looking arg before `--` is REFUSED rather than reinterpreted: it
+# used to terminate the variadic `--mods` list, which silently demoted the mod
+# names that followed into FILTER patterns, so the run quietly dropped a mod and
+# still looked like the run that had it (observed: 525 tests -> 501, with APS
+# never enabled).
+#
+# A run that executes ZERO tests is a FAILURE here, whatever the CLI says: a
+# filter that stops matching (a renamed describe block) otherwise reports
+# "525 skipped, 0 passed" and exits 0, i.e. a gate that passed without running.
+# Same principle as the ci-j340 missing-engine gate below.
 #
 # CINDRA_ORIENTATION=horizontal runs the whole thing against the E-W ribbon
 # instead of the default N-S one (ci-vjc). The orientation is a STARTUP setting
@@ -18,6 +34,44 @@
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
+
+# ARGUMENT GRAMMAR (ci-fqep). Two channels, no overlap: extra MODS before `--`,
+# raw CLI args after it. Anything ambiguous is a hard usage error -- never a
+# silent reinterpretation, because both of the old reinterpretations (mod name
+# read as a filter, filter read as a mod name) produce a run that still exits 0
+# and still prints a summary that looks like the run you asked for.
+extra_mods=()
+cli_extra_args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --)
+      shift
+      cli_extra_args=("$@")
+      break
+      ;;
+    -*)
+      echo "error: '$1' is a factorio-test CLI option, but it appears before the mod names." >&2
+      echo "It would terminate the '--mods' list and silently demote the mods to test filters." >&2
+      echo "Put CLI options after a '--' separator: cindra-test [MOD ...] -- $*" >&2
+      exit 2
+      ;;
+    *)
+      # Mod names only. A filter pattern (spaces, Lua magic chars) landing here
+      # would be handed to the CLI as a mod to install, so refuse it and say
+      # where it belongs.
+      case "$1" in
+        *[!A-Za-z0-9_.=-]* | "")
+          echo "error: '$1' is not a mod name, and args before '--' are mod names." >&2
+          echo "Test filters and CLI options go after a '--' separator:" >&2
+          echo "  cindra-test [MOD ...] -- \"$1\"" >&2
+          exit 2
+          ;;
+      esac
+      extra_mods+=("$1")
+      shift
+      ;;
+  esac
+done
 
 ft_mod="${FACTORIO_TEST_MOD:-}"
 if [ -z "$ft_mod" ] || [ ! -f "$ft_mod/info.json" ]; then
@@ -89,8 +143,51 @@ if [ ! -x "$cli" ]; then
   exit 1
 fi
 
-exec "$cli" run \
-  --factorio-path "$factorio_path" \
-  --data-directory "$data_dir" \
-  --mod-path "$repo/mods/cindra" \
-  --mods space-age quality elevated-rails recycler ${orientation_mods[@]+"${orientation_mods[@]}"} "$@"
+# ARGV ORDER (ci-fqep). The variadic `--mods` list comes FIRST and is closed by
+# the next option, so it can never swallow a trailing filter pattern; the last
+# thing before the user's args is a single-value option (`--mod-path`), so a
+# bare word from `--` onwards reaches the CLI as the positional filter it is and
+# a flag reaches it as a flag. The old order (`--mods ... "$@"`) made both of
+# those depend on what the user happened to type first.
+cli_argv=(run
+  --mods space-age quality elevated-rails recycler
+    ${orientation_mods[@]+"${orientation_mods[@]}"}
+    ${extra_mods[@]+"${extra_mods[@]}"}
+  --factorio-path "$factorio_path"
+  --data-directory "$data_dir"
+  --mod-path "$repo/mods/cindra"
+  ${cli_extra_args[@]+"${cli_extra_args[@]}"})
+
+# ZERO-TEST GATE (ci-fqep). Tee stdout so the summary line can be read back
+# after the run streams normally. stderr is left alone.
+run_log="$(mktemp "${TMPDIR:-/tmp}/cindra-test-summary.XXXXXX")"
+trap 'rm -f "$run_log"' EXIT
+
+set +e
+"$cli" "${cli_argv[@]}" | tee "$run_log"
+status=${PIPESTATUS[0]}
+set -e
+
+[ "$status" -eq 0 ] || exit "$status"
+
+# `Tests: 3 failed, 12 skipped, 510 passed (525 total)`, colours stripped.
+esc=$(printf '\033')
+summary="$(sed "s/${esc}\[[0-9;]*[a-zA-Z]//g" "$run_log" | grep -E '^Tests: ' | tail -1 || true)"
+
+if [ -z "$summary" ]; then
+  echo "error: the CLI exited 0 but printed no test summary, so nothing proves the suite ran." >&2
+  echo "Treat this as a FAILED run, not a passing one." >&2
+  exit 1
+fi
+
+passed=0
+if [[ $summary =~ ([0-9]+)\ passed ]]; then
+  passed=${BASH_REMATCH[1]}
+fi
+
+if [ "$passed" -eq 0 ]; then
+  echo "error: the run executed ZERO tests ($summary)." >&2
+  echo "A filter that matches nothing skips every test and the CLI still exits 0," >&2
+  echo "which reads as a passing gate that never ran. Failing instead." >&2
+  exit 1
+fi

@@ -146,8 +146,16 @@ failing all of those, from a `factorio-patched/` or `factorio/` install in **any
 parent directory** — so a fresh worktree needs no setup and one shared install
 serves every clone (see SETUP.md). The "Could not download mod:
 recycler" line is a harmless warning — recycler loads from the Factorio
-install's bundled DLC data. Extra args are forwarded to the CLI (e.g.
-`cindra-test cindra-start cindra-dev-default` for the companion suite).
+install's bundled DLC data.
+
+The runner takes `cindra-test [MOD ...] [-- CLI-ARG ...]`: bare words are EXTRA
+MODS to enable (`cindra-test cindra-start cindra-dev-default` for the companion
+suite), and everything after `--` reaches the CLI verbatim — flags (`-- -g`) or
+a Lua filter pattern (`cindra-test any-planet-start cindra-start --
+"cindra APS start chain"`). An option-looking arg placed BEFORE the mod names is
+refused, not reinterpreted: it used to close the variadic `--mods` list and
+silently demote the mods behind it into filters, so a run that dropped APS
+entirely still looked like the run that had it (ci-fqep).
 
 The ribbon ORIENTATION is a startup setting read at the DATA stage (tile
 probability expressions, resource band masks), so one run = one orientation.
@@ -170,6 +178,11 @@ directories up. A missing engine is a HARD failure, not a skip: `cindra-test`
 exits non-zero and seeds nothing, so a suite that never ran can't read as green.
 If you genuinely cannot resolve an install, escalate or leave the bead open —
 never close it with the verification quietly skipped.
+
+**A green run with ZERO tests is the same lie**, and `cindra-test` now fails it:
+the CLI exits 0 on `525 skipped, 0 passed` when a filter matches nothing, so the
+runner reads its summary back and exits non-zero unless something actually
+passed (ci-fqep). Read the count, not just the exit code.
 
 Plain-Lua unit tests (pure logic) run without Factorio:
 
