@@ -132,6 +132,126 @@ function M.perp_rows(lo, hi)
   return rows
 end
 
+-- ===========================================================================
+-- HEAT COVERAGE (ci-de55): "would the engine thaw something standing here?"
+-- ===========================================================================
+--
+-- The native freeze needs no such question -- the engine answers it per entity.
+-- The SCRIPT freeze (scripts/script-freeze.lua) does, because the entity types it
+-- covers are exactly the ones the engine refuses to freeze, so it will not answer
+-- for them. This is the single source of truth for that answer, kept here beside
+-- the reach constants it is derived from rather than re-derived at the call site.
+--
+-- THE RULE, MEASURED IN-ENGINE (ci-de55, on the Cindra surface, against BOTH a
+-- 1x1 heat-pipe of radius 100 and a 3x3 reactor of radius 1 -- one huge and one
+-- tiny, so the shape is pinned rather than fitted):
+--
+--   A heat source heats the TILES its own footprint occupies, GROWN OUTWARD BY
+--   `heating_radius` tiles. An entity is thawed iff its own footprint tiles
+--   OVERLAP that region.
+--
+--   * emitter (footprint 1 tile, radius 100): a 3x3 machine at Chebyshev centre
+--     distance 101 thawed, 102 froze. Grown region spans 100 tiles each way from
+--     the emitter's tile; the machine's nearest tile is 100 away at distance 101
+--     (overlap) and 101 away at distance 102 (no overlap). Matches.
+--   * electric heater (footprint 3x3, radius 1): a 3x3 machine at centre distance
+--     3 thawed, 4 froze -- i.e. touching thaws, one tile of clear ground freezes.
+--     Grown region reaches 1 tile past the heater's 3x3; the machine's nearest
+--     tile lands inside it at 3 and outside at 4. Matches.
+--
+-- Everything is INTEGER TILE arithmetic, which is what makes the boundary exact:
+-- the two entities' bounding boxes touch precisely at the knife edge in world
+-- coordinates, and tile indices decide it without a float comparison. The claim
+-- that this reproduces the engine is not left as a comment -- tests/test_script_freeze
+-- puts a natively-freezable machine beside every script-frozen building along a
+-- line crossing the boundary and asserts they agree tile for tile.
+--
+-- The only prototype types that honour `heating_radius` (base changelog: "Added
+-- heating_radius to ReactorPrototype and HeatPipePrototype"). Enumerated live in
+-- ci-de55 against the loaded registry: exactly six prototypes carry a non-zero
+-- radius, and every one is a heat-pipe or a reactor.
+M.HEAT_SOURCE_TYPES = { "heat-pipe", "reactor" }
+
+-- Half-open integer TILE box {x0, y0, x1, y1} covering `box` (a bounding box in
+-- world coordinates, i.e. entity.selection_box). Pure.
+function M.tile_box(box)
+  local lt = box.left_top or box[1]
+  local rb = box.right_bottom or box[2]
+  return {
+    x0 = math.floor(lt.x or lt[1]), y0 = math.floor(lt.y or lt[2]),
+    x1 = math.ceil(rb.x or rb[1]), y1 = math.ceil(rb.y or rb[2]),
+  }
+end
+
+-- The tile region a source with `radius` keeps thawed: its own tiles grown by
+-- `radius` outward. Pure.
+function M.heated_region(tiles, radius)
+  return {
+    x0 = tiles.x0 - radius, y0 = tiles.y0 - radius,
+    x1 = tiles.x1 + radius, y1 = tiles.y1 + radius,
+  }
+end
+
+-- Do two half-open integer tile boxes share a tile? Pure.
+function M.tiles_overlap(a, b)
+  return a.x0 < b.x1 and b.x0 < a.x1 and a.y0 < b.y1 and b.y0 < a.y1
+end
+
+-- Bucket size (tiles) of the coverage index below. Chosen at the emitter's own
+-- scale: one cell is about one emitter reach, so a region lands in a handful of
+-- cells and a cell holds a handful of regions. It is a PERFORMANCE knob only --
+-- every cell size gives the same answers (unit-tested), so it can be retuned
+-- without re-earning the geometry.
+M.COVERAGE_CELL = 128
+
+local function cell_range(region, cell)
+  return math.floor(region.x0 / cell), math.floor((region.x1 - 1) / cell),
+    math.floor(region.y0 / cell), math.floor((region.y1 - 1) / cell)
+end
+
+-- Index a list of heated REGIONS (each a tile box) into a coarse spatial hash, so
+-- asking "is this building thawed?" costs a hash lookup plus a couple of box
+-- tests instead of a scan over every heat source on the surface.
+--
+-- WHY IT MATTERS. A played-in Cindra has hundreds of worldgen lava-heat emitters
+-- and can have thousands of solar panels; the naive nested loop is
+-- sources x buildings per sweep, which is exactly the "correct but tanks UPS on a
+-- large save" regression the ci-de55 ruling calls out. Pure, so the cost model is
+-- unit-testable off the game.
+function M.coverage_index(regions, cell)
+  cell = cell or M.COVERAGE_CELL
+  local buckets = {}
+  for _, r in ipairs(regions) do
+    local cx0, cx1, cy0, cy1 = cell_range(r, cell)
+    for cx = cx0, cx1 do
+      for cy = cy0, cy1 do
+        local key = cx .. ":" .. cy
+        local b = buckets[key]
+        if not b then b = {}; buckets[key] = b end
+        b[#b + 1] = r
+      end
+    end
+  end
+  return { cell = cell, buckets = buckets }
+end
+
+-- Is the tile box `tiles` inside any indexed heated region? Pure.
+function M.covered_by_index(index, tiles)
+  local cell = index.cell
+  local cx0, cx1, cy0, cy1 = cell_range(tiles, cell)
+  for cx = cx0, cx1 do
+    for cy = cy0, cy1 do
+      local b = index.buckets[cx .. ":" .. cy]
+      if b then
+        for _, r in ipairs(b) do
+          if M.tiles_overlap(tiles, r) then return true end
+        end
+      end
+    end
+  end
+  return false
+end
+
 -- The exact freeze ONSET (nightward edge of the warm band) for a set of perp rows:
 -- the cold edge of the nightward-most (first) row. The ice-side terrain gradient is
 -- aligned to this so "warmth ends = ice starts" reads as one clean line. Pure.

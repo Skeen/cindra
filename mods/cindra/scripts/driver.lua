@@ -18,9 +18,9 @@
 -- re-check), so no other planet is ever touched.
 --
 -- 🚨 on_nth_tick / on_init are REPLACE-not-add. Each periodic system uses a
--- DISTINCT N (snowfall 3, tile-damage 20, flare 23, panel-damage 29, freeze reheat 47);
--- native freeze onset itself is event-driven (on_chunk_generated), not a periodic tick.
--- The single on_init lives here (control.lua calls M.register once).
+-- DISTINCT N (snowfall 3, tile-damage 20, flare 23, panel-damage 29, freeze reheat 47,
+-- script freeze 313); native freeze onset itself is event-driven (on_chunk_generated),
+-- not a periodic tick. The single on_init lives here (control.lua calls M.register once).
 
 local tile_damage = require("scripts.tile-damage")
 local feedback = require("scripts.damage-feedback")
@@ -28,6 +28,7 @@ local snowfall = require("scripts.snowfall")
 local freeze_emitters = require("scripts.freeze-emitters")
 local terrain = require("scripts.terrain")
 local flare = require("scripts.flare")
+local script_freeze = require("scripts.script-freeze")
 local panels = require("scripts.panels")
 local sinks = require("scripts.sinks")
 local flare_config = require("scripts.flare-config")
@@ -131,8 +132,22 @@ local function on_freeze_reheat_tick()
   for_each_cindra(function(s) freeze_emitters.reheat(s) end)
 end
 
+-- Freeze the buildings the ENGINE refuses to freeze (ci-de55): the capacitor, the
+-- molten-salt battery, the sunward solar bands and the dissipator are all of
+-- prototype types that ignore heating_energy, so the planet's own freeze flag
+-- never reaches them. This sweep swaps any of them that sits outside every heat
+-- source's reach for its frozen twin, and back when heat returns. Deliberately the
+-- SLOWEST cadence in the mod (script_freeze.SWEEP_INTERVAL): the freeze is
+-- positional on a tidally-locked planet, so it only changes when someone builds or
+-- breaks a heat source.
+local function on_script_freeze_tick()
+  if not driver_enabled() then return end
+  script_freeze.sweep_all()
+end
+
 function M.register()
   script.on_nth_tick(tile_damage.DAMAGE_INTERVAL, on_tile_damage_tick)
+  script.on_nth_tick(script_freeze.SWEEP_INTERVAL, on_script_freeze_tick)
   script.on_nth_tick(flare_config.FLARE_INTERVAL, on_flare_tick)
   script.on_nth_tick(flare_config.PANEL_DAMAGE_INTERVAL, on_panel_damage_tick)
   script.on_nth_tick(freeze_emitters.REHEAT_INTERVAL, on_freeze_reheat_tick)
