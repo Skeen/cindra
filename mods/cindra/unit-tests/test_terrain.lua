@@ -161,6 +161,144 @@ test("the folds family is confined to the hot slope: never the middle, never the
   end
 end)
 
+-- === THE COSMETIC CROSS-REGION SCATTER (ci-frcw) ============================
+-- The scatter moves the value a point paints its TILE from, never the field the damage,
+-- the resources and the geometry read. These prove the one property that makes that safe:
+-- the drift can never carry a point across a damage threshold, in either direction.
+
+test("the scatter NEVER carries a point across a damage threshold (ci-frcw)", function()
+  -- Sweep the whole value range against the whole noise range (and past it, since a noise
+  -- sample may overshoot the nominal +/-1). Nothing anywhere may change damage class.
+  local worst_hot, worst_cold = 0, 1
+  for i = 0, 1000 do
+    local H = i / 1000
+    local _, base_kind = terrain.value_damage(H)
+    for j = -12, 12 do
+      local n = j / 10
+      local H2 = terrain.scatter_value(H, n)
+      if H2 ~= H then
+        -- Where the scatter is ACTIVE it also keeps each side's GUARD clear of that
+        -- side's threshold, so no tie-break can promote a damaging tile onto scattered
+        -- ground -- not the per-tile speckle, and not the ci-72bw branch penalty.
+        assert_true(H2 <= terrain.HOT_DMG - terrain.SCATTER_GUARD_HOT + 1e-12,
+          "scattered value stays a guard below the heat threshold (H=" .. H .. ", n=" .. n .. " -> " .. H2 .. ")")
+        assert_true(H2 >= terrain.COLD_DMG + terrain.SCATTER_GUARD_COLD - 1e-12,
+          "scattered value stays a guard above the cold threshold (H=" .. H .. ", n=" .. n .. " -> " .. H2 .. ")")
+        worst_hot = math.max(worst_hot, H2)
+        worst_cold = math.min(worst_cold, H2)
+      end
+      -- The damage class of the point is invariant under the scatter, and so is the
+      -- damage of the TILE it paints (which is what actually burns the player, ci-ma18).
+      local _, kind = terrain.value_damage(H2)
+      assert_eq(base_kind, kind, "the damage class is unchanged (H=" .. H .. ", n=" .. n .. ")")
+      if base_kind == nil then
+        local intensity, tkind = terrain.tile_damage(terrain.value_tile(H2))
+        assert_eq(0, intensity, "a scattered SAFE point paints harmless ground (H=" .. H .. ", n=" .. n .. ")")
+        assert_eq(nil, tkind, "and no damage kind (H=" .. H .. ", n=" .. n .. ")")
+      end
+    end
+  end
+  assert_true(worst_hot < terrain.HOT_DMG, "the hottest scattered value stays below the heat threshold")
+  assert_true(worst_cold > terrain.COLD_DMG, "the coldest scattered value stays above the cold threshold")
+end)
+
+test("the scatter is SHUT in the belts and the oceans: they generate exactly as before", function()
+  -- At or past either damage threshold -- the two belts, both oceans, and the guard strip
+  -- just inside each threshold -- the tile-selection value IS the field value, so every
+  -- contour there (and the ci-4iw resource keep-back that budgets for it) is untouched.
+  for _, H in ipairs({ 0.0, 0.05, 0.2, terrain.COLD_DMG, terrain.COLD_DMG + terrain.SCATTER_GUARD_COLD,
+                       terrain.HOT_DMG - terrain.SCATTER_GUARD_HOT, terrain.HOT_DMG, 0.76, 0.9, 1.0 }) do
+    for j = -12, 12 do
+      assert_eq(H, terrain.scatter_value(H, j / 10), "no scatter at H=" .. H .. " (n=" .. (j / 10) .. ")")
+    end
+  end
+  assert_near(0, terrain.scatter_window(terrain.HOT_DMG - terrain.SCATTER_GUARD_HOT), 1e-12, "window shut at the hot guard line")
+  assert_near(0, terrain.scatter_window(terrain.COLD_DMG + terrain.SCATTER_GUARD_COLD), 1e-12, "window shut at the cold guard line")
+  assert_eq(1, terrain.scatter_window(0.5), "window fully open at the neutral middle")
+end)
+
+-- The hot side's guard is WIDER than the cold one, and for a reason the art cannot see:
+-- the ci-72bw branch span is the one value segment where every hot-slope family member can
+-- be losing at once (cracks to the branch noise, folds to its positional gate), so a
+-- scattered value up in that span is defended only by the ash-dark BELOW it while glowing
+-- cracks-hot sits above. This is the arithmetic that keeps the lethal tile losing; it is
+-- what stops the scatter putting burning ground in the habitable band.
+test("the hot guard keeps the LETHAL crust losing even where both families are penalised", function()
+  local ceiling = terrain.SCATTER_HOT_CEILING
+  assert_eq(terrain.HOT_DMG - ceiling, terrain.SCATTER_GUARD_HOT, "the hot guard IS the distance to the ceiling")
+  assert_true(ceiling > terrain.BRANCH_SPAN.lo,
+    "the scatter still reaches INTO the branch span (a volcanic tile in the middle)")
+  assert_true(ceiling < terrain.BRANCH_SPAN.hi, "but never to the top of it")
+  -- At the very ceiling: the fallback ash tile out-scores the lethal crust by the margin.
+  local fallback = 1 - (ceiling - terrain.BRANCH_SPAN.lo)  -- ash-dark's band term there
+  local lethal = 1 - (terrain.HOT_DMG - ceiling)           -- cracks-hot's band term there
+  assert_true(fallback - lethal >= terrain.SCATTER_TIE_MARGIN - 1e-12,
+    "the safe fallback beats the lethal crust by the tie-break margin (" .. (fallback - lethal) .. ")")
+  assert_true(terrain.SCATTER_TIE_MARGIN > 2 * terrain.SPECKLE_H,
+    "and the margin itself clears the two-tile speckle budget")
+  -- The tile the ceiling paints is one of the safe volcanic slope tiles, never the crust.
+  local top = terrain.value_tile(ceiling)
+  assert_eq(0, (terrain.tile_damage(top)), "the hottest scatterable tile is harmless ground (" .. top .. ")")
+  assert_eq(0, (terrain.tile_damage(terrain.value_tile(terrain.HOT_DMG - terrain.SCATTER_GUARD_HOT))),
+    "and so is the tile exactly at the hot guard line")
+end)
+
+test("the scatter is OCCASIONAL: quiet noise leaves the band tile exactly alone", function()
+  -- Most of the planet keeps its own band tile: the displacement is zero until the noise
+  -- clears the threshold, which is what makes this read as patches, not a blurred ramp.
+  for j = -5, 5 do
+    local n = j * terrain.SCATTER_THRESHOLD / 5.5 -- everything strictly inside the threshold
+    assert_eq(0.5, terrain.scatter_value(0.5, n), "quiet noise (n=" .. n .. ") does not move the value")
+  end
+  assert_true(terrain.scatter_offset(1) > 0, "a peak-positive sample scatters hotward")
+  assert_true(terrain.scatter_offset(-1) < 0, "a peak-negative sample scatters coldward")
+  assert_near(terrain.SCATTER_AMPLITUDE, terrain.scatter_offset(1), 1e-12, "a peak sample asks for the full amplitude")
+  assert_near(-terrain.SCATTER_AMPLITUDE, terrain.scatter_offset(-1), 1e-12, "and symmetrically the other way")
+  -- An overshooting sample is CLAMPED, so the amplitude really is the worst case.
+  assert_near(terrain.SCATTER_AMPLITUDE, terrain.scatter_offset(4), 1e-12, "an overshooting sample is clamped")
+end)
+
+test("the scatter really reaches a NEIGHBOURING region's tile from the middle (ci-frcw)", function()
+  -- The point of the bead: a middle point can paint a tile from the hot or the cold side.
+  local mid = terrain.role_band("middle")
+  local native = terrain.zone_tiles("middle")
+  local reached = {}
+  for p = mid.lo, mid.hi do
+    local H = terrain.field(p)
+    for j = -10, 10 do
+      local tile = terrain.value_tile(terrain.scatter_value(H, j / 10))
+      if not native[tile] then reached[tile] = true end
+    end
+  end
+  local count = 0
+  for _ in pairs(reached) do count = count + 1 end
+  assert_true(count > 0, "the middle can paint tiles that are not its own")
+  assert_true(reached["cindra-volcanic-smooth-stone"] or reached["cindra-volcanic-cracks"],
+    "the middle can wear a patch of the cool volcanic slope (the hot side's own tile)")
+  assert_true(reached["cindra-dust-flat"] or reached["cindra-dust-crests"],
+    "the middle can wear a patch of the cold side's dust")
+  -- And every one of them is harmless, walkable, non-ocean ground.
+  for tile in pairs(reached) do
+    assert_eq(0, (terrain.tile_damage(tile)), tile .. " scattered into the middle is harmless")
+    assert_eq(true, terrain.is_walkable(tile), tile .. " scattered into the middle is walkable")
+    assert_true(tile ~= "cindra-lava-hot" and tile ~= "cindra-lava" and tile ~= "cindra-ice-smooth",
+      tile .. " must never scatter into the middle (ocean tile)")
+  end
+end)
+
+test("the scatter constants keep their own safety margins (ci-frcw)", function()
+  -- The amplitude may not outrun the window it fades over (else a point one falloff inside
+  -- the guard, where the window is fully open, could still cross a threshold)...
+  assert_true(terrain.SCATTER_AMPLITUDE <= terrain.SCATTER_FALLOFF,
+    "the scatter amplitude fits inside its window falloff")
+  -- ...and each guard must swallow the whole tie-break budget, or a losing damaging tile
+  -- could be promoted onto scattered ground anyway.
+  assert_true(terrain.SCATTER_GUARD_COLD >= terrain.SCATTER_TIE_MARGIN,
+    "the cold guard clears the tie-break margin")
+  assert_true(terrain.SCATTER_GUARD_HOT >= terrain.SCATTER_TIE_MARGIN,
+    "the hot guard clears the tie-break margin")
+end)
+
 test("the field is PINNED at the edges: lava extreme sunward, ice extreme nightward", function()
   local _, total = terrain.bands()
   local half = total / 2
@@ -578,6 +716,34 @@ test("a value-ramp tile's probability_expr is a value-band term over the ONE fie
   contains(cold, "- -130", "the shared field references the cold damage boundary")
   local ok = pcall(function() terrain.probability_expr("not-a-tile") end)
   assert_true(not ok, "an unknown tile errors")
+end)
+
+test("every ramp tile picks from the SCATTERED value; the field itself is untouched (ci-frcw)", function()
+  -- The map-gen must emit the same scatter the pure model proves safe, on EVERY tile that
+  -- is chosen by value -- a ramp member that missed it would paint its own band over a
+  -- neighbour's scattered patch and cut a seam back into the art.
+  local soil = {}
+  for _, r in ipairs(terrain.SOIL_RING_ORDER) do soil["cindra-" .. r.vanilla] = true end
+  local checked = 0
+  for _, name in ipairs(terrain.tile_names()) do
+    if not soil[name] then
+      local e = terrain.probability_expr(name)
+      checked = checked + 1
+      contains(e, "seed1 = 80", name .. " picks its tile from the scattered value")
+      contains(e, "input_scale = " .. string.format("%.6g", 1 / terrain.SCATTER_WAVELENGTH),
+        name .. "'s scatter noise is LOW frequency (wavelength " .. terrain.SCATTER_WAVELENGTH .. ")")
+      contains(e, "min(" .. string.format("%.6g", terrain.SCATTER_AMPLITUDE) .. ",",
+        name .. "'s scatter displacement is clamped to the amplitude")
+      contains(e, "min(" .. string.format("%.6g", terrain.HOT_DMG - terrain.SCATTER_GUARD_HOT) .. " - ",
+        name .. "'s scatter window shuts a guard short of the HEAT threshold")
+      contains(e, string.format("%.6g", terrain.COLD_DMG + terrain.SCATTER_GUARD_COLD) .. ")",
+        name .. "'s scatter window shuts a guard short of the COLD threshold")
+    end
+  end
+  assert_eq(#terrain.tile_names() - #terrain.SOIL_RING_ORDER, checked, "every value-ramp tile was checked")
+  -- The SOIL overlay is placed positionally, not by value, so it carries no scatter.
+  assert_true(terrain.probability_expr("cindra-volcanic-soil-dark"):find("seed1 = 80", 1, true) == nil,
+    "the soil overlay is positional and carries no value scatter")
 end)
 
 test("hot-slope family tiles carry the low-frequency BRANCH penalty (ci-72bw)", function()

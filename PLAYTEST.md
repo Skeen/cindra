@@ -493,6 +493,34 @@ you start so you know to look.
   *Covered:* `tests/test_worldgen.lua` (both generate, converge, stay on the
   slope, carry no damage).
 
+- [ ] **[LANDED] Cosmetic cross-region scatter — kill the 3-band look (ci-frcw).**
+  An occasional patch now paints a tile a band or two away from its own: cool
+  volcanic ground (`smooth-stone` / `cracks`) out in the ash middle, `dust` mixed
+  in among the ash, ash bleeding out onto the slopes. It moves only the value the
+  TILE is chosen from, never the field the damage and resources read, and is
+  windowed shut short of both damage thresholds.
+  *Do:* `./play.sh` onto Cindra, walk WEST and EAST from spawn across the middle,
+  then open the map view over the whole ribbon.
+  *See:* (1) the middle reads as **ash with patches of other ground in it**, not
+  as a uniform ash stripe — but still unmistakably as the ash middle, not as mush;
+  (2) the patches are **patches** (roughly 30-ish tiles across), not per-tile
+  salt-and-pepper speckle; (3) the hot/middle and middle/cold transitions no
+  longer read as a line at all — the tiles interleave across them; (4) NOTHING
+  glowing and no sea in the middle: no `cracks-hot` glow, no lava, no smooth/rough
+  ice — the scattered volcanic ground is the dull cool kind; (5) in the map view
+  the ribbon still reads as one hot→cold ramp, with no visible speckle noise on
+  the map colours; (6) the hot slope's folds/cracks families (ci-72bw, above)
+  still read as broad families, now with ash mixed into them, rather than being
+  drowned by the mixing.
+  *Expected, not a bug:* pale **snow** patches in the middle — the scattered
+  `dust-*` tiles carry Aquilo's `frozen_variant`, so on frozen ground the engine
+  swaps them to plain `snow-*`. Judge whether that reads as frosted dust or as a
+  mistake.
+  *Covered:* that it really scatters, that nothing damaging leaks into the safe
+  corridor, and that standing on a scattered patch does nothing are all
+  integration-tested (`tests/test_worldgen.lua`, `tests/test_heightmap.lua`); only
+  the *look* is the playtest.
+
 - [ ] **[UNSEEN] Litter sits on the slope and the crust, never on lava (ci-mk5y).**
   *Do:* walk west from spawn across the brown middle, onto the cracked/folded
   slope, and on to the lava shore.

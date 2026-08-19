@@ -26,15 +26,24 @@
 --     with no band boundary. A boundary wiggle + per-tile speckle make the contours
 --     organic; the oceans radiate inward as concentric value contours. The SAFE HOT SLOPE
 --     is the one place the ramp forks: two texture families (cracks / folds) cover that
---     one value segment and converge again on ash-dark (ci-72bw, M.FOLDS_RAMP).
+--     one value segment and converge again on ash-dark (ci-72bw, M.FOLDS_RAMP). On top of
+--     that, a low-frequency COSMETIC SCATTER (ci-frcw) lets an occasional patch paint a
+--     tile a band or two away from its own -- cracks out in the middle, dust among the ash
+--     -- so the planet reads organic rather than as three stacked bands. The scatter moves
+--     the TILE-SELECTION value only, and is windowed shut a guard short of either damage
+--     threshold, so it can never paint lethal ground on safe ground or vice versa
+--     (M.scatter_value).
 --   * DAMAGE (lethal ground): value >= HOT_DMG -> heat (scaling with how far above), value
 --     <= COLD_DMG -> cold, in between -> SAFE. Because the field is monotonic + clamped,
 --     the damage is confined to two contiguous EDGE BELTS with a guaranteed safe middle
---     band down the whole long axis; the two belts never touch. Damage keys off the FIELD
---     VALUE (i.e. the perpendicular position), NOT the tile-type -- a cosmetic hot-looking
---     tile scattered in the middle does ZERO damage, and there is no non-damaging tile
---     path to either ocean at any elevation. (This is the ci-oe83 fix: ci-4jl keyed damage
---     per-tile, so a high-elevation ridge of non-damaging tiles could reach the lava.)
+--     band down the whole long axis; the two belts never touch. What the runtime sweep
+--     actually reads is the TILE under an entity (ci-ma18 restored that after ci-oe83
+--     briefly keyed damage to the raw position, which made concrete-over-lava still burn);
+--     because the field is monotonic the damaging TILES are themselves two contiguous edge
+--     belts, so keying on the tile is corridor-safe -- see M.tile_damage for that argument.
+--     The consequence to remember when touching the art: a hot-looking tile anywhere REALLY
+--     BURNS, so the cosmetic scatter above is windowed precisely so it can never paint one
+--     outside the belts.
 --
 -- WIDTHS. Each zone width is a mod setting (settings.lua); the TOTAL is the SUM. Defaults
 -- sum to 800 with the hot side equal to the cold side, so the 120-wide MIDDLE straddles
@@ -746,6 +755,12 @@ end
 -- The set of value-ramp member tiles a zone's perpendicular band can be painted with: the
 -- ramp tiles whose value band overlaps the field's value range across that band (+ the
 -- soil overlay in the middle). Used by tests + art helpers that ask "what can paint here".
+--
+-- This is the zone's OWN tile set, i.e. the tiles the bare field names there. The cosmetic
+-- scatter (M.scatter_value, ci-frcw) can additionally drop an occasional patch of a
+-- NEIGHBOURING zone's tile inside the band; those are the tiles a caller must treat as
+-- possible-but-not-native. Deliberately not folded in here: this set is what the zone
+-- READS as, and a scattered tile is by construction as harmless as the one it displaced.
 function M.zone_tiles(role)
   local out = {}
   local band
@@ -843,6 +858,121 @@ function M.branch_gate_band(cfg)
 end
 
 -- ---------------------------------------------------------------------------
+-- THE COSMETIC CROSS-REGION SCATTER (ci-frcw).
+--
+-- The wiggle + speckle above break the CONTOURS, but every point still paints the tile
+-- its own field value names, so the planet reads as three stacked bands with wavy seams.
+-- This adds the missing organic note: a point may occasionally paint a tile from one or
+-- two bands away, so a patch of cool volcanic cracks turns up out in the safe middle and
+-- a patch of dust turns up among the ash.
+--
+-- It perturbs the value used for TILE SELECTION ONLY. The field itself (M.field) is
+-- untouched, so every positional read -- the damage belts, the resource bands, the decal
+-- gates, the zone geometry -- is bit-identical to before this existed.
+--
+-- 🚨 IT CAN NEVER PAINT LETHAL GROUND ON SAFE GROUND, AND NEVER SAFE GROUND IN A BELT.
+-- Damage is keyed to the TILE (ci-ma18, scripts/tile-damage.lua), so a scattered hot-
+-- looking tile in the middle would REALLY BURN, and a scattered safe-looking tile out in
+-- the heat belt would be a free stepping stone toward the lava. Two properties rule both
+-- out, and they are what the unit tests pin:
+--
+--   * WINDOWED. The displacement is scaled by how far the point's own field value sits
+--     inside the SAFE interval (HOT_DMG, COLD_DMG): full strength deep in the middle,
+--     fading to ZERO a GUARD short of either damage threshold. Because the amplitude
+--     never exceeds the FALLOFF the window fades over, the scattered value can never
+--     reach even its side's GUARD LINE, let alone the threshold past it -- and where the
+--     window is shut the value is exactly the field value, i.e. the belts, both oceans and
+--     every contour within a GUARD of a threshold generate precisely as they did before.
+--   * GUARDED past every tie-break. Where the scatter IS active the scattered value stays
+--     a GUARD clear of the threshold, wide enough that the damaging tile above it stays
+--     behind the best SAFE tile by more than any tie-break can make up. That is also why
+--     the ci-4iw resource keep-back margin (NOISE_AMPLITUDE + SPECKLE_AMPLITUDE) still
+--     holds unchanged: no new damage-tile bleed exists for it to budget for.
+--
+-- THE TWO GUARDS ARE NOT THE SAME WIDTH, and the hot one is not arbitrary. The engine
+-- paints the highest-probability tile, so "a damaging tile cannot win here" means "some
+-- SAFE tile out-scores it by more than the tie-break budget". On the cold side that is
+-- easy: the tile whose band holds the value always scores a clean 1. The HOT side has a
+-- hole -- the branch span (ci-72bw) is the one segment where BOTH families can be losing
+-- at once, the cracks family to the branch noise and the folds family to its positional
+-- gate. In the middle, where folds is gated out, a value up in that span is therefore
+-- defended only by ash-dark BELOW it, while glowing cracks-hot sits just above it: push
+-- the value far enough up the span and the lethal tile out-scores the ash and paints
+-- burning ground in the habitable band. (It really does: at an earlier symmetric guard
+-- this leaked heat tiles into the middle, caught by the ci-w87 glowing-rock guard and the
+-- ci-i4z safe-band-width slider guard.) So the hot ceiling is DERIVED as the value where
+-- the ash-dark fallback still beats cracks-hot by the tie-break margin -- roughly the
+-- midpoint of the branch span -- rather than picked.
+--
+-- OCCASIONAL, not a wash. The displacement is zero until the low-frequency scatter noise
+-- clears SCATTER_THRESHOLD, so most of the planet keeps its exact band tile and the
+-- scatter reads as patches rather than as a blurred gradient.
+-- ---------------------------------------------------------------------------
+M.SCATTER_AMPLITUDE = 0.09  -- H: the furthest a point's tile-selection value may drift
+M.SCATTER_FALLOFF = 0.11    -- H: window ramp width; MUST be >= SCATTER_AMPLITUDE
+M.SCATTER_THRESHOLD = 0.55  -- the |noise| a point must clear to scatter at all (0..1)
+M.SCATTER_WAVELENGTH = 34   -- tiles: broad patches, not per-tile salt-and-pepper
+
+-- The probability margin a damaging tile must stay BEHIND the best safe tile by. The
+-- per-tile speckle is the tie-break in play, and two tiles can speckle in opposite
+-- directions, so the budget is 2 * SPECKLE_H; three times the speckle carries that with
+-- headroom (the same 3x the decal gates use, scripts/decorative-field.lua).
+M.SCATTER_TIE_MARGIN = 3 * M.SPECKLE_H
+
+-- COLD guard: the value-holding tile scores 1 there, so clearing the tie-break is enough.
+M.SCATTER_GUARD_COLD = M.SCATTER_TIE_MARGIN
+
+-- HOT ceiling: the highest value the scatter may paint from. Solves
+--   (HOT_DMG - H) - (H - BRANCH_SPAN.lo) = TIE_MARGIN
+-- i.e. the value where ash-dark (the fallback below the branch span) still out-scores
+-- cracks-hot (the first lethal tile above it) by the margin, when every hot-slope family
+-- member is losing. Derived from the ramp + the branch span, so a retune of either moves
+-- it instead of silently invalidating it.
+M.SCATTER_HOT_CEILING = (M.HOT_DMG + M.BRANCH_SPAN.lo - M.SCATTER_TIE_MARGIN) / 2
+M.SCATTER_GUARD_HOT = M.HOT_DMG - M.SCATTER_HOT_CEILING
+
+-- The amplitude may never outrun the window it fades over: at a point one FALLOFF inside
+-- a guard the window is fully open, so an amplitude above it could still cross.
+if M.SCATTER_AMPLITUDE > M.SCATTER_FALLOFF then
+  error("terrain: the scatter amplitude must not exceed its window falloff")
+end
+-- Both guards must clear the tie-break budget, and the hot one must additionally keep the
+-- scattered value below the ceiling derived above.
+if M.SCATTER_GUARD_COLD < M.SCATTER_TIE_MARGIN or M.SCATTER_GUARD_HOT < M.SCATTER_TIE_MARGIN then
+  error("terrain: a scatter guard is narrower than the tie-break margin")
+end
+
+-- How much of the scatter is allowed at field value H: 0 at (and outside) each side's
+-- GUARD short of its damage threshold, ramping to 1 a FALLOFF further inside.
+function M.scatter_window(H)
+  local dist = M.HOT_DMG - H - M.SCATTER_GUARD_HOT
+  local cold = H - M.COLD_DMG - M.SCATTER_GUARD_COLD
+  if cold < dist then dist = cold end
+  local w = dist / M.SCATTER_FALLOFF
+  if w < 0 then return 0 elseif w > 1 then return 1 end
+  return w
+end
+
+-- The raw displacement a scatter-noise sample `n` (nominally -1..1) asks for: nothing at
+-- all until |n| clears SCATTER_THRESHOLD, then ramping to +/- SCATTER_AMPLITUDE. Clamped,
+-- so a noise sample past the nominal range cannot ask for more than the amplitude.
+function M.scatter_offset(n)
+  local k = M.SCATTER_AMPLITUDE / (1 - M.SCATTER_THRESHOLD)
+  local function leg(x)
+    local v = k * (x - M.SCATTER_THRESHOLD)
+    if v < 0 then return 0 elseif v > M.SCATTER_AMPLITUDE then return M.SCATTER_AMPLITUDE end
+    return v
+  end
+  return leg(n) - leg(-n)
+end
+
+-- The value a point PAINTS ITS TILE FROM: its field value plus the windowed scatter. The
+-- ONE place the cosmetic drift is defined; the noise expression below emits exactly this.
+function M.scatter_value(H, n)
+  return H + M.scatter_offset(n) * M.scatter_window(H)
+end
+
+-- ---------------------------------------------------------------------------
 -- Noise-expression emitters.
 -- ---------------------------------------------------------------------------
 local function num(v)
@@ -857,6 +987,7 @@ end
 local function wiggle_noise() return basis(7, M.NOISE_AMPLITUDE, M.NOISE_WAVELENGTH) end
 local function speckle_noise(tile_index) return basis(100 + tile_index, M.SPECKLE_H, M.SPECKLE_WAVELENGTH) end
 local function branch_noise() return basis(60, M.BRANCH_AMPLITUDE, M.BRANCH_WAVELENGTH) end
+local function scatter_noise() return basis(80, 1, M.SCATTER_WAVELENGTH) end
 
 local function relu(expr) return "max(0, " .. expr .. ")" end
 local function clamp01(expr) return "min(1, max(0, " .. expr .. "))" end
@@ -876,6 +1007,25 @@ local function field_expr(Pexpr, anchors)
     prev_slope = slope
   end
   return clamp01("(" .. expr .. ")")
+end
+
+-- The TILE-SELECTION value as a noise expression: the field value `Hf` plus the windowed
+-- cosmetic scatter (ci-frcw). This is M.scatter_value emitted for the map-gen, term for
+-- term -- the window, the threshold shaping and the amplitude clamp all come across, which
+-- is what makes the pure proof (the scatter can never cross a damage threshold) a proof
+-- about the generated world. ONLY the value-band terms read this; the field itself, and
+-- therefore every positional read of it, is untouched.
+local function scatter_expr(Hf)
+  local N = scatter_noise()
+  local A = num(M.SCATTER_AMPLITUDE)
+  local k = num(M.SCATTER_AMPLITUDE / (1 - M.SCATTER_THRESHOLD))
+  local t = num(M.SCATTER_THRESHOLD)
+  local function leg(n) return "min(" .. A .. ", " .. k .. " * " .. relu(n .. " - " .. t) .. ")" end
+  local offset = "(" .. leg(N) .. " - " .. leg("-(" .. N .. ")") .. ")"
+  local dist = "min(" .. num(M.HOT_DMG - M.SCATTER_GUARD_HOT) .. " - " .. Hf ..
+               ", " .. Hf .. " - " .. num(M.COLD_DMG + M.SCATTER_GUARD_COLD) .. ")"
+  local window = clamp01("(" .. dist .. ") / " .. num(M.SCATTER_FALLOFF))
+  return "(" .. Hf .. " + " .. offset .. " * " .. window .. ")"
 end
 
 -- One VALUE-BAND term for a ramp tile: peaks at 1 where the field value Hf is inside the
@@ -933,7 +1083,10 @@ function M.probability_expr(name, cfg)
   local term
   local vb = VALUE_BAND[name]
   if vb then
-    term = value_band_term(vb, Hf)
+    -- Tiles are picked from the SCATTERED value (ci-frcw), damage and geometry from the
+    -- bare field -- that split is the whole reason a cosmetic hot tile can sit in the
+    -- middle without the middle becoming hot.
+    term = value_band_term(vb, scatter_expr(Hf))
     -- Hot-slope family members additionally pay the branch penalty outside their regions.
     local branch = TILE_BRANCH[name]
     if branch then term = "(" .. term .. branch_term(branch, cfg) .. ")" end

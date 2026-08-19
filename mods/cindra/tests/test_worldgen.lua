@@ -197,21 +197,46 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
   end)
 
   -- 4. THREE REGIONS ---------------------------------------------------------------
-  it("assigns each region its own tile family (hot / middle / cold never cross)", function()
-    for _, y in ipairs({ -120, 0, 120 }) do
-      for x = -195, -72, 24 do
-        assert.is_true(HOT_FAMILY[tile(x, y)] == true,
-          "hot slope at (" .. x .. "," .. y .. ") should be a hot-family tile, got " .. tile(x, y))
-      end
-      for x = -52, 52, 26 do
-        assert.is_true(MIDDLE_FAMILY[tile(x, y)] == true,
-          "middle at (" .. x .. "," .. y .. ") should be a middle-family tile, got " .. tile(x, y))
-      end
-      for x = 72, 195, 24 do
-        assert.is_true(COLD_FAMILY[tile(x, y)] == true,
-          "cold slope at (" .. x .. "," .. y .. ") should be a cold-family tile, got " .. tile(x, y))
+  -- Each region still READS as its own family, but it is no longer a pure one. The
+  -- cosmetic scatter (ci-frcw) drops occasional patches of a neighbour's tile into it, on
+  -- purpose -- ci-oe83 sanctioned exactly that soft bleed ("tiles MAY bleed/blend
+  -- softly") to kill the three-stacked-bands look. So what is asserted is what a player
+  -- actually reads: the region is DOMINATED by its own family, and every tile that bled
+  -- in is COSMETIC ONLY -- harmless, walkable ground, never an ocean tile. The hard
+  -- guards live below (no damaging ground in the safe corridor) and in test_heightmap
+  -- (the belts stay unbypassable, the middle stays traversable).
+  local function census(family, x1, x2)
+    local own, bled, examples = 0, 0, {}
+    for _, y in ipairs({ -120, -60, 0, 60, 120 }) do
+      for x = x1, x2 do
+        local n = tile(x, y)
+        if family[n] then
+          own = own + 1
+        else
+          bled = bled + 1
+          examples[n] = (examples[n] or 0) + 1
+          -- THE hard half: a bled tile must be pure decoration.
+          local intensity = terrain.tile_damage(n)
+          assert.are.equal(0, intensity,
+            "a tile bled into a neighbouring region must be harmless; " .. n .. " at (" .. x .. "," .. y .. ")")
+          assert.is_true(terrain.is_walkable(n) == true,
+            "a tile bled into a neighbouring region must be walkable; " .. n .. " at (" .. x .. "," .. y .. ")")
+        end
       end
     end
+    return own / (own + bled), examples
+  end
+
+  it("keeps each region DOMINATED by its own tile family, bleeding only harmless ground", function()
+    local hot = census(HOT_FAMILY, -195, -72)
+    local middle = census(MIDDLE_FAMILY, -52, 52)
+    local cold = census(COLD_FAMILY, 72, 195)
+    log(string.format("ci-frcw own-family share: hot=%.3f middle=%.3f cold=%.3f", hot, middle, cold))
+    -- Measured well above these; the floor is set to catch a scatter that has grown from
+    -- flavour into a wash (which would read as one mushy planet, not three regions).
+    assert.is_true(hot > 0.85, "the hot slope still reads hot (own-family share " .. hot .. ")")
+    assert.is_true(middle > 0.85, "the middle still reads as the ash middle (own-family share " .. middle .. ")")
+    assert.is_true(cold > 0.85, "the cold slope still reads cold (own-family share " .. cold .. ")")
   end)
 
   -- 4a. THE HOT-SIDE FOLDS BRANCH (ci-72bw) ----------------------------------------
@@ -252,35 +277,71 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
   it("CONVERGES both families on ash-dark at the middle edge (ci-72bw)", function()
     -- Whichever family a region uses, its coldest member thins into ash-dark at the same
     -- value -- the two branches rejoin, so the middle never sees a family boundary.
-    local function rows_of(set, other)
-      local out = {}
-      for y = -150, 150, 5 do
-        local a, b = 0, 0
-        for x = -128, -74 do
+    --
+    -- A region is classified from the slope segment DIRECTLY OUTWARD of the measured band
+    -- (perp 76..88, well under half a branch wavelength away) rather than from the whole
+    -- slope: the branch noise turns over across the slope's own width, so a row that reads
+    -- folded out near the crust can be a cracked region by the time it reaches the
+    -- convergence, and grading the convergence by the far end measures that drift instead
+    -- of the branch. It also samples the full generated length rather than 300 tiles of
+    -- it, because the ci-frcw scatter paints in blobs and a short sample grades the blobs.
+    --
+    -- The band sits OUTWARD of the folds gate line (perp 64), so both families are equally
+    -- free to paint it: the main line MAY bleed inward past that line (the ci-frcw
+    -- scatter, the established look), the contained branch may not, and grading them where
+    -- only one is allowed would compare the containment rule, not the convergence.
+    local BAND_LO, BAND_HI = -74, -66
+    local function local_family(y)
+      local f, c = 0, 0
+      for x = -88, -76 do
+        local n = tile(x, y)
+        if FOLDS[n] then f = f + 1 elseif CRACKS[n] then c = c + 1 end
+      end
+      if f > c then return "folds" elseif c > f then return "cracks" end
+      return nil
+    end
+    local stat = {
+      folds = { ash = 0, total = 0, hist = {} },
+      cracks = { ash = 0, total = 0, hist = {} },
+    }
+    for y = -RY, RY, 3 do
+      local fam = local_family(y)
+      if fam then
+        for x = BAND_LO, BAND_HI do
           local n = tile(x, y)
-          if set[n] then a = a + 1 elseif other[n] then b = b + 1 end
-        end
-        if a > b * 2 then out[#out + 1] = y end
-      end
-      return out
-    end
-    local function ash_share(rows)
-      local ash, total = 0, 0
-      for _, y in ipairs(rows) do
-        for x = -70, -62 do -- the convergence band, just inward of the branch span
-          total = total + 1
-          if tile(x, y) == "cindra-volcanic-ash-dark" then ash = ash + 1 end
+          local st = stat[fam]
+          st.total = st.total + 1
+          st.hist[n] = (st.hist[n] or 0) + 1
+          if n == "cindra-volcanic-ash-dark" then st.ash = st.ash + 1 end
         end
       end
-      return total > 0 and (ash / total) or 0
     end
-    local folds_rows, cracks_rows = rows_of(FOLDS, CRACKS), rows_of(CRACKS, FOLDS)
-    assert.is_true(#folds_rows > 0 and #cracks_rows > 0, "sampled regions of both families")
-    local f_ash, c_ash = ash_share(folds_rows), ash_share(cracks_rows)
-    assert.is_true(f_ash > 0.75, "folded regions converge on ash-dark (" .. f_ash .. ")")
-    assert.is_true(c_ash > 0.75, "cracked regions converge on ash-dark (" .. c_ash .. ")")
+    assert.is_true(stat.folds.total > 500 and stat.cracks.total > 500,
+      "sampled a meaningful amount of both kinds of region (folds=" .. stat.folds.total ..
+      ", cracks=" .. stat.cracks.total .. ")")
+    local f_ash = stat.folds.ash / stat.folds.total
+    local c_ash = stat.cracks.ash / stat.cracks.total
+    log(string.format("ci-72bw convergence ash-dark share: folds=%.3f cracks=%.3f", f_ash, c_ash))
+    -- Whichever family the region is, ash-dark is the ground the band is MADE of: the most
+    -- common tile in it by a wide margin, and the majority of it.
+    for fam, st in pairs(stat) do
+      local top, top_n = nil, 0
+      for n, c in pairs(st.hist) do
+        if c > top_n then top, top_n = n, c end
+      end
+      assert.are.equal("cindra-volcanic-ash-dark", top,
+        fam .. " regions must converge on ash-dark; the band's most common tile is " .. tostring(top))
+    end
+    -- The absolute floor is lower than ci-72bw shipped it, and deliberately so: the ci-frcw
+    -- cosmetic scatter interleaves the slope's own ground into this band (and the ash back
+    -- out into the slope) precisely so the transition stops reading as a line. Measured at
+    -- ~0.52 / ~0.57; the floor catches a scatter that has grown until the convergence is
+    -- no longer recognisably ash.
+    assert.is_true(f_ash > 0.4, "folded regions converge on ash-dark (" .. f_ash .. ")")
+    assert.is_true(c_ash > 0.4, "cracked regions converge on ash-dark (" .. c_ash .. ")")
     -- And they converge EQUALLY WELL: the branch does not push its own family further in
-    -- (or stop it short) relative to the main line it branched from.
+    -- (or stop it short) relative to the main line it branched from. This is the assertion
+    -- ci-72bw exists for, and it keeps its original tightness.
     assert.is_true(math.abs(f_ash - c_ash) < 0.15,
       "both families reach ash-dark alike (folds=" .. f_ash .. ", cracks=" .. c_ash .. ")")
   end)
@@ -324,6 +385,90 @@ describe("cindra worldgen: a three-part two-heightmap ribbon planet (§4; ci-wly
     assert.is_true(ash >= 2, "the middle mixes at least two ash tiles, saw " .. ash)
     local soil = seen["cindra-volcanic-soil-dark"] or seen["cindra-volcanic-soil-light"] or seen["cindra-volcanic-ash-soil"]
     assert.is_true(soil == true, "the middle grows soil patches")
+  end)
+
+  -- 4b. THE COSMETIC CROSS-REGION SCATTER (ci-frcw) --------------------------------
+  -- The bead's own words: an organic, less-banded look, bought by letting a point
+  -- occasionally paint a tile a band or two from its own -- and bought SAFELY, because
+  -- the scatter moves only the value the TILE is picked from, never the field the damage
+  -- belts and the resource bands are read from.
+
+  it("scatters NEIGHBOUR-REGION tiles across the middle: cool volcanic AND dust (ci-frcw)", function()
+    -- Sampled in the middle's INTERIOR (|perp| <= 40), a long way inside the ordinary
+    -- boundary wiggle + speckle bleed, so nothing here can be a band edge blurring: the
+    -- only thing that can put a non-middle tile at these coordinates is the scatter.
+    -- (Before ci-frcw this area was pure ash + soil, so the count below was zero.)
+    local native = terrain.zone_tiles("middle")
+    local seen, total, bled = {}, 0, 0
+    for x = -40, 40 do
+      for y = -200, 200, 4 do
+        local n = tile(x, y)
+        total = total + 1
+        if not native[n] then bled = bled + 1; seen[n] = (seen[n] or 0) + 1 end
+      end
+    end
+    local names = {}
+    for n, c in pairs(seen) do names[#names + 1] = n .. "=" .. c end
+    table.sort(names)
+    log("ci-frcw middle scatter: " .. bled .. "/" .. total .. " -> " .. table.concat(names, " "))
+    assert.is_true(bled > 0, "the middle really wears tiles that are not its own")
+    -- Both directions: a patch of the hot side's cool volcanic ground AND a patch of the
+    -- cold side's dust turn up out in the habitable band.
+    assert.is_true((seen["cindra-volcanic-smooth-stone"] or 0) + (seen["cindra-volcanic-cracks"] or 0) > 0,
+      "the middle wears patches of the cool volcanic slope")
+    local dust = 0
+    for _, v in ipairs({ "dust-flat", "dust-crests", "dust-lumpy", "dust-patchy" }) do
+      dust = dust + (seen["cindra-" .. v] or 0)
+    end
+    assert.is_true(dust > 0, "the middle wears patches of the cold side's dust")
+    -- Flavour, not a wash: the ash middle is still overwhelmingly ash.
+    assert.is_true(bled / total < 0.25,
+      "the scatter stays occasional (" .. string.format("%.3f", bled / total) .. " of the middle)")
+    -- And every scattered tile is decoration: harmless, walkable, never an ocean tile.
+    for n in pairs(seen) do
+      assert.are.equal(0, (terrain.tile_damage(n)), n .. " scattered into the middle must be harmless")
+      assert.is_true(terrain.is_walkable(n) == true, n .. " scattered into the middle must be walkable")
+      assert.is_true(LAVA[n] ~= true and n ~= "cindra-ice-smooth",
+        n .. " must never scatter into the middle (it is an ocean tile)")
+    end
+  end)
+
+  it("leaks NO damaging ground anywhere the scatter can reach (ci-frcw)", function()
+    -- THE hard guard the scatter has to earn: not one tile that burns or freezes exists
+    -- in the corridor. Counted over the whole sampled band, every damaging tile named by
+    -- the value ramp -- not sampled points, so a single leaked hot crack fails. (An
+    -- unwindowed scatter really does leak them: it put glowing cracks-hot in the middle,
+    -- which is what the ci-w87 glowing-rock and ci-i4z safe-band guards caught.)
+    --
+    -- The box is proven to COVER the scatter: the scatter is windowed shut outside the
+    -- value range below, whose two contours are asserted to lie inside it. So this is not
+    -- "no leak at the places we looked" -- it is "no leak anywhere a leak was possible".
+    -- Further out, where the box ends, the ground is bit-identical to a world generated
+    -- without this bead (the window is shut there), so the ci-4iw resource keep-back and
+    -- its own guards still cover the rest.
+    -- The window's two contours, in world tiles (perp = -x on this orientation), rounded
+    -- OUTWARD so the box is a strict superset of the scatter-active band.
+    local scatter_hot = terrain.field_crossing(terrain.HOT_DMG - terrain.SCATTER_GUARD_HOT)
+    local scatter_cold = terrain.field_crossing(terrain.COLD_DMG + terrain.SCATTER_GUARD_COLD)
+    assert.is_true(scatter_hot > 0 and scatter_cold < 0,
+      "the scatter acts across the middle (perp " .. scatter_cold .. " .. " .. scatter_hot .. ")")
+    local box = { { -math.ceil(scatter_hot), -RY }, { -math.floor(scatter_cold), RY } }
+    log(string.format("ci-frcw scatter-active band: perp %.1f .. %.1f (x %d .. %d)",
+      scatter_cold, scatter_hot, box[1][1], box[2][1]))
+    for _, kind in ipairs({ "heat", "cold" }) do
+      for _, name in ipairs(terrain.tiles_by_damage(kind)) do
+        assert.are.equal(0, s.count_tiles_filtered({ name = name, area = box }),
+          "no " .. kind .. "-damaging ground (" .. name .. ") may exist in the safe corridor")
+      end
+    end
+    -- Not vacuous: those same tiles really do generate out in their own belts.
+    local belts = 0
+    for _, kind in ipairs({ "heat", "cold" }) do
+      for _, name in ipairs(terrain.tiles_by_damage(kind)) do
+        belts = belts + s.count_tiles_filtered({ name = name, area = { { -396, -RY }, { 396, RY } } })
+      end
+    end
+    assert.is_true(belts > 1000, "damaging ground really does exist on this map (" .. belts .. " tiles)")
   end)
 
   it("draws ORGANIC (wavy) region boundaries, never raw straight lines", function()
